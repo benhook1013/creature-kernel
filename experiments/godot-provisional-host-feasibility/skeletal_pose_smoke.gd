@@ -99,6 +99,14 @@ const RENDER_COLLISION_COHERENCE_BOUNDARY := "experiment_local_render_collision_
 const RENDER_COLLISION_COHERENCE_FRAME := "response_body_local_selected_capsule_side"
 const RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE := "semantic_deformation.drive.falloff_weights"
 const RENDER_COLLISION_COHERENCE_STATE_ORDER := ["neutral", "contact_onset", "peak", "recovery"]
+const RUNTIME_MEASUREMENT_SCHEMA := "creature-kernel.disposable-godot-runtime-measurement.v1"
+const RUNTIME_MEASUREMENT_BOUNDARY := "experiment_local_runtime_measurement_only"
+const RUNTIME_MEASUREMENT_MODES := ["cpu_deformation", "rigid_contact_only"]
+const RUNTIME_PHYSICS_SAMPLE_COUNT := 64
+const RUNTIME_TARGET_PHYSICS_HZ := 60
+const RUNTIME_TARGET_NOMINAL_PHYSICS_INTERVAL_USEC := 16667
+const RUNTIME_TARGET_P95_PHYSICS_INTERVAL_USEC := 20000
+const RUNTIME_TARGET_P95_CPU_DEFORMATION_UPDATE_USEC := 2000
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -321,6 +329,8 @@ func _parse_arguments() -> Dictionary:
 		"semantic_contact_command_identity_present": false,
 		"deformation_capture_dir": "",
 		"deformation_capture_present": false,
+		"runtime_measurement_mode": "",
+		"runtime_measurement_mode_present": false,
 		"ck_projection_json": "",
 		"ck_projection_identity_json": "",
 		"ck_projection_present": false,
@@ -329,7 +339,7 @@ func _parse_arguments() -> Dictionary:
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--semantic-contact-command-json" or argument == "--semantic-contact-command-identity-json" or argument == "--deformation-capture-dir" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--semantic-contact-command-json" or argument == "--semantic-contact-command-identity-json" or argument == "--deformation-capture-dir" or argument == "--runtime-measurement-mode" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -362,6 +372,12 @@ func _parse_arguments() -> Dictionary:
 			elif argument == "--deformation-capture-dir":
 				result.deformation_capture_dir = value
 				result.deformation_capture_present = true
+			elif argument == "--runtime-measurement-mode":
+				if result.runtime_measurement_mode_present:
+					_failure = "runtime measurement mode must be supplied at most once"
+					return {}
+				result.runtime_measurement_mode = value
+				result.runtime_measurement_mode_present = true
 			elif argument == "--ck-projection-json":
 				result.ck_projection_json = value
 				result.ck_projection_present = true
@@ -455,7 +471,28 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 		if options.deformation_capture_dir.is_empty() or not options.deformation_capture_dir.is_absolute_path():
 			_failure = "deformation capture directory must be a non-empty absolute path"
 			return false
+	if options.runtime_measurement_mode_present:
+		var runtime_mode: String = String(options.runtime_measurement_mode)
+		if not RUNTIME_MEASUREMENT_MODES.has(runtime_mode):
+			_failure = "runtime measurement mode is unsupported"
+			return false
+		if options.carrier_identity_json.is_empty() or options.carrier_avatar_records_json.is_empty() or not options.semantic_pose_command_present or not options.semantic_pose_command_identity_present or not options.semantic_pose_payload_present or not options.semantic_contact_command_present or not options.semantic_contact_command_identity_present or not options.ck_projection_present or not options.ck_projection_identity_present:
+			_failure = "runtime measurement mode requires the full validated semantic contact predecessor set"
+			return false
+		if runtime_mode == "cpu_deformation" and not options.deformation_capture_present:
+			_failure = "cpu deformation runtime measurement requires the existing deformation capture path"
+			return false
+		if runtime_mode == "rigid_contact_only" and options.deformation_capture_present:
+			_failure = "rigid-contact-only runtime measurement must omit the deformation capture path"
+			return false
 	return true
+
+
+func _deformation_enabled(options: Dictionary) -> bool:
+	if not bool(options.get("deformation_capture_present", false)):
+		return false
+	var runtime_mode := String(options.get("runtime_measurement_mode", ""))
+	return runtime_mode.is_empty() or runtime_mode == "cpu_deformation"
 
 
 func _validate_carrier_identity(value) -> bool:
@@ -2216,10 +2253,21 @@ func _contact_probe_failure(container: Node3D, message: String) -> Dictionary:
 
 func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dictionary:
 	var command: Dictionary = options.semantic_contact_command
+	var runtime_mode := String(options.get("runtime_measurement_mode", ""))
+	var deformation_enabled := _deformation_enabled(options)
+	var runtime_physics_timestamp_points_usec: Array[int] = []
+	var runtime_physics_frame_ids: Array[int] = []
+	var runtime_physics_interval_samples: Array[int] = []
+	var runtime_deformation_update_records: Array[Dictionary] = []
 	var physics_engine := String(ProjectSettings.get_setting("physics/3d/physics_engine", ""))
 	if physics_engine != "Jolt Physics":
 		_failure = "semantic contact probe requires the explicit disposable Jolt Physics backend"
 		return {}
+	if not runtime_mode.is_empty():
+		Engine.set_physics_ticks_per_second(RUNTIME_TARGET_PHYSICS_HZ)
+		if Engine.get_physics_ticks_per_second() != RUNTIME_TARGET_PHYSICS_HZ:
+			_failure = "runtime measurement could not set physics ticks per second to 60"
+			return {}
 	var participants: Array = command.participants
 	var actuator_mapping := _resolve_contact_proxy(profiles[int(participants[0].target_index)], participants[0].selector, "actuator", int(participants[0].target_index))
 	var response_mapping := _resolve_contact_proxy(profiles[int(participants[1].target_index)], participants[1].selector, "response", int(participants[1].target_index))
@@ -2292,7 +2340,7 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 	if response_shape.is_empty():
 		return _contact_probe_failure(contact_root, _failure)
 	var deformation_surface := {}
-	if options.deformation_capture_present:
+	if deformation_enabled:
 		deformation_surface = _create_deformation_surface(response_body, response_shape.collision, response_mapping)
 		if deformation_surface.is_empty():
 			return _contact_probe_failure(contact_root, _failure)
@@ -2331,6 +2379,11 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 	var tick := 0
 	var contact_response := {}
 	var contact_snapshots_by_tick: Dictionary = {}
+	if not runtime_mode.is_empty():
+		# These points delimit real-time physics-callback pacing/wall elapsed, not
+		# total frame time or process CPU time.
+		runtime_physics_timestamp_points_usec.append(Time.get_ticks_usec())
+		runtime_physics_frame_ids.append(Engine.get_physics_frames())
 	for phase_record in schedule:
 		var phase: String = phase_record.phase
 		var phase_ticks: int = int(phase_record.ticks)
@@ -2347,20 +2400,71 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 			else:
 				actuator_body.global_position = actuator_start
 			await physics_frame
+			if not runtime_mode.is_empty():
+				runtime_physics_timestamp_points_usec.append(Time.get_ticks_usec())
+				runtime_physics_frame_ids.append(Engine.get_physics_frames())
 			if not deformation_surface.is_empty() and phase == "contact" and _contact_tick_has_contact(response_body, tick):
 				var runtime_sample := _strongest_contact_sample_for_tick(response_body, tick)
 				if runtime_sample.is_empty():
 					return _contact_probe_failure(contact_root, "deformation mode could not read an actual contact-phase runtime sample after the physics frame")
-				if not _drive_deformation_from_contact_sample(deformation_surface, runtime_sample.sample, int(runtime_sample.contact_index), tick):
+				var deformation_update_start_usec: int = 0
+				if runtime_mode == "cpu_deformation":
+					# This bracket excludes the preceding physics wait and includes the
+					# complete evidence-producing contact operation.
+					deformation_update_start_usec = Time.get_ticks_usec()
+				var deformation_update_succeeded := _drive_deformation_from_contact_sample(deformation_surface, runtime_sample.sample, int(runtime_sample.contact_index), tick)
+				if not deformation_update_succeeded:
 					return _contact_probe_failure(contact_root, _failure)
 				var last_coherence_state: Dictionary = deformation_surface.get("last_coherence_state", {})
 				if last_coherence_state.is_empty():
 					return _contact_probe_failure(contact_root, "deformation mode did not retain the contact mesh/collision state read-back")
+				if runtime_mode == "cpu_deformation":
+					var contact_evidence_inclusive_wall_duration_usec := Time.get_ticks_usec() - deformation_update_start_usec
+					var cpu_deformation_core_duration_usec := int(deformation_surface.get("last_deformation_core_duration_usec", -1))
+					if contact_evidence_inclusive_wall_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement deformation update clock moved backwards")
+					if deformation_update_succeeded and cpu_deformation_core_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement deformation core duration is unavailable")
+					if deformation_update_succeeded and contact_evidence_inclusive_wall_duration_usec < cpu_deformation_core_duration_usec:
+						return _contact_probe_failure(contact_root, "runtime measurement deformation inclusive duration is less than deformation core duration")
+					runtime_deformation_update_records.append({
+						"sample_index": runtime_deformation_update_records.size(),
+						"operation": "contact_drive",
+						"phase": phase,
+						"logical_tick": tick,
+						"cpu_deformation_core_duration_usec": cpu_deformation_core_duration_usec,
+						"evidence_inclusive_wall_duration_usec": contact_evidence_inclusive_wall_duration_usec,
+					})
 			if not deformation_surface.is_empty() and phase == "release":
-				if not _recover_deformation_for_release(deformation_surface, float(phase_tick + 1) / float(phase_ticks)):
+				var release_update_start_usec: int = 0
+				if runtime_mode == "cpu_deformation":
+					release_update_start_usec = Time.get_ticks_usec()
+				var release_update_succeeded := _recover_deformation_for_release(deformation_surface, float(phase_tick + 1) / float(phase_ticks))
+				if runtime_mode == "cpu_deformation":
+					var release_evidence_inclusive_wall_duration_usec := Time.get_ticks_usec() - release_update_start_usec
+					var cpu_deformation_core_duration_usec := int(deformation_surface.get("last_deformation_core_duration_usec", -1))
+					if release_evidence_inclusive_wall_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement release update clock moved backwards")
+					if release_update_succeeded and cpu_deformation_core_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement release deformation core duration is unavailable")
+					if release_update_succeeded and release_evidence_inclusive_wall_duration_usec < cpu_deformation_core_duration_usec:
+						return _contact_probe_failure(contact_root, "runtime measurement release inclusive duration is less than deformation core duration")
+					runtime_deformation_update_records.append({
+						"sample_index": runtime_deformation_update_records.size(),
+						"operation": "release_recovery",
+						"phase": phase,
+						"logical_tick": tick,
+						"cpu_deformation_core_duration_usec": cpu_deformation_core_duration_usec,
+						"evidence_inclusive_wall_duration_usec": release_evidence_inclusive_wall_duration_usec,
+					})
+				if not release_update_succeeded:
 					return _contact_probe_failure(contact_root, _failure)
 			if not deformation_surface.is_empty() and phase == "exit":
-				if not _restore_deformation_baseline(deformation_surface):
+				var exit_update_start_usec: int = 0
+				if runtime_mode == "cpu_deformation":
+					exit_update_start_usec = Time.get_ticks_usec()
+				var exit_update_succeeded := _restore_deformation_baseline(deformation_surface)
+				if not exit_update_succeeded:
 					return _contact_probe_failure(contact_root, _failure)
 				if phase_tick == phase_ticks - 1:
 					var recovery_coherence_state := _capture_render_collision_coherence_state(deformation_surface, "recovery", tick, phase, _contact_tick_has_contact(response_body, tick), -1)
@@ -2369,6 +2473,23 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 					var recovery_coherence_states: Dictionary = deformation_surface.get("coherence_states", {})
 					recovery_coherence_states["recovery"] = recovery_coherence_state
 					deformation_surface["coherence_states"] = recovery_coherence_states
+				if runtime_mode == "cpu_deformation":
+					var exit_evidence_inclusive_wall_duration_usec := Time.get_ticks_usec() - exit_update_start_usec
+					var cpu_deformation_core_duration_usec := int(deformation_surface.get("last_deformation_core_duration_usec", -1))
+					if exit_evidence_inclusive_wall_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement exit update clock moved backwards")
+					if cpu_deformation_core_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement exit deformation core duration is unavailable")
+					if exit_evidence_inclusive_wall_duration_usec < cpu_deformation_core_duration_usec:
+						return _contact_probe_failure(contact_root, "runtime measurement exit inclusive duration is less than deformation core duration")
+					runtime_deformation_update_records.append({
+						"sample_index": runtime_deformation_update_records.size(),
+						"operation": "restore_baseline",
+						"phase": phase,
+						"logical_tick": tick,
+						"cpu_deformation_core_duration_usec": cpu_deformation_core_duration_usec,
+						"evidence_inclusive_wall_duration_usec": exit_evidence_inclusive_wall_duration_usec,
+					})
 			if phase == "contact" and _contact_tick_has_contact(response_body, tick):
 				var contact_snapshot := _contact_snapshot(response_body, "contact", tick)
 				if contact_snapshot.is_empty():
@@ -2407,7 +2528,7 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 	var exit_empty_seen := false
 	var final_exit_contact_count := -1
 	for tick_record in response_body.tick_evidence:
-		if not deformation_surface.is_empty() and String(tick_record.phase) == "approach" and int(tick_record.contact_count) > 0:
+		if (not deformation_surface.is_empty() or not runtime_mode.is_empty()) and String(tick_record.phase) == "approach" and int(tick_record.contact_count) > 0:
 			return _contact_probe_failure(contact_root, "semantic contact side-alignment approach contacted before the declared contact phase")
 		if String(tick_record.phase) == "contact" and int(tick_record.contact_count) > 0:
 			contact_seen = true
@@ -2423,6 +2544,23 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample was outside the contact phase")
 	if max_impulse <= CONTACT_MIN_IMPULSE:
 		return _contact_probe_failure(contact_root, "semantic contact phase has no solver impulse above the declared floor")
+	if not runtime_mode.is_empty():
+		if runtime_physics_timestamp_points_usec.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1 or runtime_physics_frame_ids.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1:
+			return _contact_probe_failure(contact_root, "runtime measurement did not record exactly 65 timestamp and physics-frame boundary points")
+		for interval_index in range(RUNTIME_PHYSICS_SAMPLE_COUNT):
+			var physics_interval_usec := runtime_physics_timestamp_points_usec[interval_index + 1] - runtime_physics_timestamp_points_usec[interval_index]
+			var physics_frame_delta := runtime_physics_frame_ids[interval_index + 1] - runtime_physics_frame_ids[interval_index]
+			if physics_interval_usec <= 0:
+				return _contact_probe_failure(contact_root, "runtime measurement physics interval is not positive")
+			if physics_frame_delta != 1:
+				return _contact_probe_failure(contact_root, "runtime measurement physics-frame IDs are not consecutive")
+			runtime_physics_interval_samples.append(physics_interval_usec)
+		if runtime_physics_interval_samples.size() != RUNTIME_PHYSICS_SAMPLE_COUNT:
+			return _contact_probe_failure(contact_root, "runtime measurement did not derive exactly 64 logical physics intervals")
+		if runtime_mode == "cpu_deformation" and runtime_deformation_update_records.is_empty():
+			return _contact_probe_failure(contact_root, "cpu deformation runtime measurement did not record a deformation update")
+		if runtime_mode == "rigid_contact_only" and not runtime_deformation_update_records.is_empty():
+			return _contact_probe_failure(contact_root, "rigid-contact-only runtime measurement recorded an unexpected deformation update")
 	if not deformation_surface.is_empty() and (int(deformation_surface.get("peak_sample_tick", -1)) != int(strongest_sample.get("tick", -1)) or int(deformation_surface.get("peak_sample_index", -1)) != int(strongest_sample.get("contact_index", -1))):
 		return _contact_probe_failure(contact_root, "deformation peak was not retained from the strongest positive contact sample")
 	if not deformation_surface.is_empty():
@@ -2521,6 +2659,10 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		"clean_contact": contact_seen,
 		"clean_exit": exit_empty_seen and final_exit_contact_count == 0,
 		"solver_response": max_impulse > CONTACT_MIN_IMPULSE and normal_velocity_delta > CONTACT_MIN_NORMAL_VELOCITY and normal_displacement > CONTACT_MIN_NORMAL_DISPLACEMENT,
+		"runtime_physics_timestamp_points_usec": runtime_physics_timestamp_points_usec,
+		"runtime_physics_frame_ids": runtime_physics_frame_ids,
+		"runtime_physics_interval_samples": runtime_physics_interval_samples,
+		"runtime_deformation_update_records": runtime_deformation_update_records,
 	}
 	contact_root.free()
 	if not deformation_surface.is_empty():
@@ -2857,6 +2999,7 @@ func _create_deformation_surface(response_body: Node3D, response_collision: Coll
 		"peak_sample_index": -1,
 		"peak_sample_response_transform": [],
 		"peak_impulse_magnitude_raw": 0.0,
+		"last_deformation_core_duration_usec": -1,
 		"coherence_states": {
 			"neutral": {},
 			"contact_onset": {},
@@ -2868,11 +3011,11 @@ func _create_deformation_surface(response_body: Node3D, response_collision: Coll
 	}
 
 
-func _set_deformation_mesh_arrays(surface: Dictionary, vertices: PackedVector3Array, provided_normals = null) -> bool:
+func _set_deformation_mesh_arrays(surface: Dictionary, vertices: PackedVector3Array, provided_normals = null, core_start_usec: int = -1) -> bool:
 	var mesh = surface.get("mesh", null)
 	var indices = surface.get("baseline_indices", PackedInt32Array())
 	var fallback = surface.get("baseline_normals", PackedVector3Array())
-	if not (mesh is ArrayMesh) or vertices.size() != DEFORMATION_VERTEX_COUNT or not (indices is PackedInt32Array) or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3 or not (fallback is PackedVector3Array) or fallback.size() != vertices.size():
+	if core_start_usec < 0 or not (mesh is ArrayMesh) or vertices.size() != DEFORMATION_VERTEX_COUNT or not (indices is PackedInt32Array) or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3 or not (fallback is PackedVector3Array) or fallback.size() != vertices.size():
 		_failure = "deformation ArrayMesh update arrays are incomplete"
 		return false
 	var normals: PackedVector3Array
@@ -2890,6 +3033,13 @@ func _set_deformation_mesh_arrays(surface: Dictionary, vertices: PackedVector3Ar
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_INDEX] = indices
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	# End the CPU deformation core immediately after normal preparation and the
+	# ArrayMesh mutation. Read-back and evidence validation below stay outside it.
+	var core_duration_usec := Time.get_ticks_usec() - core_start_usec
+	if core_duration_usec < 0:
+		_failure = "deformation core clock moved backwards"
+		return false
+	surface["last_deformation_core_duration_usec"] = core_duration_usec
 	if mesh.get_surface_count() != 1:
 		_failure = "deformation ArrayMesh update did not retain one surface"
 		return false
@@ -3015,6 +3165,8 @@ func _strongest_contact_sample_for_tick(response_body: ContactCaptureBody, tick:
 
 
 func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Dictionary, sample_index: int, tick: int) -> bool:
+	var core_start_usec := Time.get_ticks_usec()
+	surface["last_deformation_core_duration_usec"] = -1
 	if typeof(sample) != TYPE_DICTIONARY or sample_index < 0 or sample_index != int(sample.get("contact_index", -1)) or String(sample.get("phase", "")) != "contact" or int(sample.get("tick", -1)) != tick:
 		_failure = "deformation drive did not receive the selected post-physics contact sample"
 		return false
@@ -3108,7 +3260,7 @@ func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Diction
 		_failure = "deformation drive normalized falloff did not retain an exact unit peak"
 		return false
 	surface["falloff_weights"] = weights
-	if not _set_deformation_mesh_arrays(surface, deformed_vertices):
+	if not _set_deformation_mesh_arrays(surface, deformed_vertices, null, core_start_usec):
 		return false
 	var state := _capture_deformation_state(surface, "peak", tick, normalized_depth, deformed_vertices, affected_weight_count)
 	if state.is_empty():
@@ -3150,6 +3302,8 @@ func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Diction
 
 
 func _recover_deformation_for_release(surface: Dictionary, fraction: float) -> bool:
+	var core_start_usec := Time.get_ticks_usec()
+	surface["last_deformation_core_duration_usec"] = -1
 	if not is_finite(fraction) or fraction < 0.0 or fraction > 1.0:
 		_failure = "deformation release interpolation fraction is invalid"
 		return false
@@ -3165,7 +3319,7 @@ func _recover_deformation_for_release(surface: Dictionary, fraction: float) -> b
 	var interpolated := PackedVector3Array()
 	for vertex_index in range(baseline_vertices.size()):
 		interpolated.append(peak_vertices[vertex_index].lerp(baseline_vertices[vertex_index], fraction))
-	if not _set_deformation_mesh_arrays(surface, interpolated):
+	if not _set_deformation_mesh_arrays(surface, interpolated, null, core_start_usec):
 		return false
 	var release_tick := int(surface.get("last_tick", 0)) + 1
 	var expected_depth := float(surface.get("peak_normalized_depth_raw", 0.0)) * (1.0 - fraction)
@@ -3181,12 +3335,14 @@ func _recover_deformation_for_release(surface: Dictionary, fraction: float) -> b
 
 
 func _restore_deformation_baseline(surface: Dictionary) -> bool:
+	var core_start_usec := Time.get_ticks_usec()
+	surface["last_deformation_core_duration_usec"] = -1
 	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
 	var baseline_normals: PackedVector3Array = surface.get("baseline_normals", PackedVector3Array())
 	if baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT:
 		_failure = "deformation baseline recovery arrays are incomplete"
 		return false
-	if not _set_deformation_mesh_arrays(surface, baseline_vertices, baseline_normals):
+	if not _set_deformation_mesh_arrays(surface, baseline_vertices, baseline_normals, core_start_usec):
 		return false
 	var state := _capture_deformation_state(surface, "recovery", CONTACT_TOTAL_TICKS, 0.0, baseline_vertices, 0)
 	if state.is_empty() or float(state.get("_normalized_depth_raw", INF)) > DEFORMATION_RECOVERY_TOLERANCE or float(state.get("_max_residual_raw", INF)) > DEFORMATION_RECOVERY_TOLERANCE:
@@ -3824,7 +3980,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 	var pose_rule_count := -1
 	var pose_rules_validated := true
 	var contact_mode: bool = options.has("semantic_contact_command")
-	var deformation_mode: bool = contact_mode and bool(options.get("deformation_capture_present", false))
+	var deformation_mode: bool = contact_mode and _deformation_enabled(options)
 	for index in range(loaded_profiles.size()):
 		var profile: Dictionary = loaded_profiles[index]
 		candidate_hashes[profile.profile_id] = profile.candidate_profile_sha256
@@ -4026,7 +4182,204 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 				_failure = "render/collision coherence report evidence is missing"
 				return {}
 			report["semantic_render_collision_coherence"] = semantic_render_collision_coherence_value
+		if options.runtime_measurement_mode_present:
+			var runtime_measurement := _build_runtime_measurement(options, contact_probe)
+			if runtime_measurement.is_empty():
+				return {}
+			report["runtime_measurement"] = runtime_measurement
 	return report
+
+
+func _build_runtime_measurement(options: Dictionary, contact_probe: Dictionary) -> Dictionary:
+	var runtime_mode := String(options.get("runtime_measurement_mode", ""))
+	if not RUNTIME_MEASUREMENT_MODES.has(runtime_mode):
+		_failure = "runtime measurement report mode is unsupported"
+		return {}
+	var timestamp_points_value: Variant = contact_probe.get("runtime_physics_timestamp_points_usec", null)
+	var frame_ids_value: Variant = contact_probe.get("runtime_physics_frame_ids", null)
+	var interval_samples_value: Variant = contact_probe.get("runtime_physics_interval_samples", null)
+	var deformation_records_value: Variant = contact_probe.get("runtime_deformation_update_records", null)
+	if typeof(timestamp_points_value) != TYPE_ARRAY or typeof(frame_ids_value) != TYPE_ARRAY or typeof(interval_samples_value) != TYPE_ARRAY or typeof(deformation_records_value) != TYPE_ARRAY:
+		_failure = "runtime measurement raw samples are incomplete"
+		return {}
+	var timestamp_points: Array = timestamp_points_value
+	var frame_ids: Array = frame_ids_value
+	var interval_samples: Array = interval_samples_value
+	var deformation_records: Array = deformation_records_value
+	if timestamp_points.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1 or frame_ids.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1 or interval_samples.size() != RUNTIME_PHYSICS_SAMPLE_COUNT:
+		_failure = "runtime measurement raw sample counts do not match the selected mode"
+		return {}
+	if runtime_mode == "cpu_deformation" and deformation_records.is_empty():
+		_failure = "cpu deformation runtime measurement did not retain deformation update records"
+		return {}
+	if runtime_mode == "rigid_contact_only" and not deformation_records.is_empty():
+		_failure = "rigid-contact-only runtime measurement retained unexpected deformation update records"
+		return {}
+	if not _validate_runtime_measurement_samples(timestamp_points, "physics timestamp") or not _validate_runtime_measurement_samples(frame_ids, "physics frame ID") or not _validate_runtime_measurement_samples(interval_samples, "physics interval"):
+		return {}
+	var physics_timestamp_points: Array[Dictionary] = []
+	var first_engine_frame_id := int(frame_ids[0])
+	for point_index in range(RUNTIME_PHYSICS_SAMPLE_COUNT + 1):
+		var timestamp_usec := int(timestamp_points[point_index])
+		var engine_frame_id := int(frame_ids[point_index])
+		var logical_frame_id := engine_frame_id - first_engine_frame_id
+		if logical_frame_id != point_index:
+			_failure = "runtime measurement physics-frame IDs are not a consecutive logical sequence"
+			return {}
+		physics_timestamp_points.append({
+			"frame_id": logical_frame_id,
+			"timestamp_usec": timestamp_usec,
+		})
+	for interval_index in range(RUNTIME_PHYSICS_SAMPLE_COUNT):
+		var derived_interval_usec := int(timestamp_points[interval_index + 1]) - int(timestamp_points[interval_index])
+		if derived_interval_usec <= 0 or derived_interval_usec != int(interval_samples[interval_index]):
+			_failure = "runtime measurement physics timestamp intervals do not match the retained raw intervals"
+			return {}
+	var cpu_deformation_updates: Array[Dictionary] = []
+	if runtime_mode == "cpu_deformation":
+		for record_index in range(deformation_records.size()):
+			var record: Variant = deformation_records[record_index]
+			if typeof(record) != TYPE_DICTIONARY or not _exact_keys(record, ["sample_index", "operation", "phase", "logical_tick", "cpu_deformation_core_duration_usec", "evidence_inclusive_wall_duration_usec"]):
+				_failure = "runtime measurement deformation update record fields are invalid"
+				return {}
+			if int(record.sample_index) != record_index or typeof(record.operation) != TYPE_STRING or typeof(record.phase) != TYPE_STRING or typeof(record.logical_tick) == TYPE_BOOL or typeof(record.cpu_deformation_core_duration_usec) == TYPE_BOOL or typeof(record.evidence_inclusive_wall_duration_usec) == TYPE_BOOL:
+				_failure = "runtime measurement deformation update record identity is invalid"
+				return {}
+			if int(record.logical_tick) <= 0 or int(record.cpu_deformation_core_duration_usec) < 0 or int(record.evidence_inclusive_wall_duration_usec) < 0 or not is_finite(float(record.cpu_deformation_core_duration_usec)) or not is_finite(float(record.evidence_inclusive_wall_duration_usec)):
+				_failure = "runtime measurement deformation update record value is invalid"
+				return {}
+			if int(record.evidence_inclusive_wall_duration_usec) < int(record.cpu_deformation_core_duration_usec):
+				_failure = "runtime measurement deformation inclusive duration is less than deformation core duration"
+				return {}
+			cpu_deformation_updates.append(record)
+	var version_info: Dictionary = Engine.get_version_info()
+	var version_hash := String(version_info.get("hash", ""))
+	var godot_version := "%d.%d.%d.%s.%s.%s" % [int(version_info.get("major", -1)), int(version_info.get("minor", -1)), int(version_info.get("patch", -1)), String(version_info.get("status", "")), String(version_info.get("build", "")), version_hash.left(9)]
+	var engine_version_string := String(version_info.get("string", ""))
+	if godot_version != EXPECTED_GODOT_VERSION or engine_version_string.is_empty():
+		_failure = "runtime measurement Godot version identity is invalid"
+		return {}
+	var physics_engine := String(ProjectSettings.get_setting("physics/3d/physics_engine", ""))
+	var physics_ticks_per_second := int(Engine.get_physics_ticks_per_second())
+	if physics_engine.is_empty() or physics_ticks_per_second != RUNTIME_TARGET_PHYSICS_HZ:
+		_failure = "runtime measurement physics configuration is invalid"
+		return {}
+	var processor_count := int(OS.get_processor_count())
+	if processor_count <= 0:
+		_failure = "runtime measurement CPU processor count is invalid"
+		return {}
+	var os_name := OS.get_name()
+	var distribution_name := OS.get_distribution_name()
+	var os_version := OS.get_version()
+	var model_name := OS.get_model_name()
+	var architecture := Engine.get_architecture_name()
+	var processor_name := OS.get_processor_name()
+	var renderer_method := RenderingServer.get_current_rendering_method()
+	var renderer_driver_name := RenderingServer.get_current_rendering_driver_name()
+	var actual_display_server := DisplayServer.get_name()
+	var window_size := DisplayServer.window_get_size()
+	var adapter_name := RenderingServer.get_video_adapter_name()
+	var adapter_vendor := RenderingServer.get_video_adapter_vendor()
+	var adapter_api_version := RenderingServer.get_video_adapter_api_version()
+	var adapter_device_type := int(RenderingServer.get_video_adapter_type())
+	var adapter_driver_info: Array[String] = []
+	for driver_item in OS.get_video_adapter_driver_info():
+		var driver_info := String(driver_item)
+		if not driver_info.is_empty():
+			adapter_driver_info.append(driver_info)
+	if os_name.is_empty() or distribution_name.is_empty() or os_version.is_empty() or architecture.is_empty() or processor_name.is_empty() or renderer_method.is_empty() or renderer_driver_name.is_empty():
+		_failure = "runtime measurement environment identity is incomplete"
+		return {}
+	if actual_display_server != "X11":
+		_failure = "runtime measurement actual display server is not X11"
+		return {}
+	if adapter_name.is_empty() or adapter_vendor.is_empty() or adapter_api_version.is_empty():
+		_failure = "runtime measurement adapter identity is incomplete"
+		return {}
+	if window_size != Vector2i(512, 512):
+		_failure = "runtime measurement effective window size is not the requested 512x512"
+		return {}
+	var memory_snapshot := _runtime_memory_snapshot()
+	if memory_snapshot.is_empty():
+		return {}
+	return {
+		"schema": RUNTIME_MEASUREMENT_SCHEMA,
+		"boundary": RUNTIME_MEASUREMENT_BOUNDARY,
+		"mode": runtime_mode,
+		"godot": {
+			"version": godot_version,
+			"engine_version_string": engine_version_string,
+		},
+		"os": {
+			"name": os_name,
+			"distribution_name": distribution_name,
+			"version": os_version,
+			"model_name": model_name,
+			"architecture": architecture,
+		},
+		"cpu": {
+			"processor_name": processor_name,
+			"processor_count": processor_count,
+		},
+		"renderer": {
+			"method": renderer_method,
+			"driver_name": renderer_driver_name,
+			"requested_display_driver": "x11",
+			"actual_display_server": actual_display_server,
+			"window_size_pixels": [window_size.x, window_size.y],
+		},
+		"adapter": {
+			"name": adapter_name,
+			"vendor": adapter_vendor,
+			"api_version": adapter_api_version,
+			"device_type": adapter_device_type,
+			"driver_info": adapter_driver_info,
+		},
+		"physics": {
+			"engine": physics_engine,
+			"ticks_per_second": physics_ticks_per_second,
+			"max_steps_per_frame": Engine.get_max_physics_steps_per_frame(),
+		},
+		"memory": memory_snapshot,
+		"physics_timestamp_points": physics_timestamp_points,
+		"cpu_deformation_updates": {
+			"applicability": "applicable" if runtime_mode == "cpu_deformation" else "not_applicable",
+			"records": cpu_deformation_updates,
+		},
+	}
+
+
+func _validate_runtime_measurement_samples(samples: Array, label: String) -> bool:
+	for sample in samples:
+		if typeof(sample) == TYPE_BOOL or not is_finite(float(sample)) or float(sample) < 0.0:
+			_failure = "runtime measurement %s sample is non-finite or negative" % label
+			return false
+	return true
+
+
+func _runtime_memory_snapshot() -> Dictionary:
+	# This is a bounded Godot Performance allocator/render-memory snapshot only;
+	# it is not process RSS, process peak memory, or GPU memory accounting.
+	var static_bytes = _runtime_performance_monitor(Performance.MEMORY_STATIC, "static memory")
+	var static_max_bytes = _runtime_performance_monitor(Performance.MEMORY_STATIC_MAX, "static memory maximum")
+	if static_bytes == null or static_max_bytes == null:
+		return {}
+	return {
+		"scope": "godot_allocator_snapshot_not_process_rss_or_gpu_memory",
+		"units": "bytes",
+		"static_bytes": static_bytes,
+		"static_max_bytes": static_max_bytes,
+		"process_rss_bytes": null,
+		"gpu_memory_bytes": null,
+	}
+
+
+func _runtime_performance_monitor(monitor: int, label: String) -> Variant:
+	var value := float(Performance.get_monitor(monitor))
+	if not is_finite(value) or value < 0.0:
+		_failure = "runtime measurement %s monitor is non-finite or negative" % label
+		return null
+	return int(value)
 
 
 func _parse_ply(bytes: PackedByteArray, where: String) -> Dictionary:

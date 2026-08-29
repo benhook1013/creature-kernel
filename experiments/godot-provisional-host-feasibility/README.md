@@ -301,6 +301,62 @@ Contact mode requires the explicit Rust CLI and validated CK projection in
 addition to the carrier and semantic-pose command. It does not alter the
 experiment-local command, package, adapter, or engine-selection boundaries.
 
+Run the new opt-in paired runtime evaluation, which launches the same validated
+contact setup once with CPU deformation and once with rigid contact only:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --command /absolute/path/to/disposable-semantic-pose-command.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --ck-cli /absolute/path/to/target/debug/creature-kernel \
+      --contact-command /absolute/path/to/disposable-semantic-contact-command.json \
+      --report /absolute/path/to/runtime-evaluation-report.json \
+      --deformation-captures /absolute/path/to/not-yet-existing-runtime-evaluation-captures \
+      --runtime-evaluation
+
+This mode requires an attended X11 renderer and fixes both launches to
+`--resolution 512x512`, `--display-driver x11`, and
+`--rendering-method gl_compatibility`. The corrected final evidence is one
+bounded paired run in Godot 4.7.2 on Ubuntu 22.04.5 under WSL2, with a 12th Gen
+Intel Core i7-12700KF, Jolt Physics at 60 Hz, and
+`max_steps_per_frame` 8. The actual display was X11 at 512x512 using
+`gl_compatibility`/`opengl3`. The adapter reported D3D12 (NVIDIA GeForce RTX
+4070), vendor Microsoft, Mesa/OpenGL 4.2
+(`4.2 (Core Profile) Mesa 23.2.1-1ubuntu3.1~22.04.4`), and an empty optional
+`driver-info` list. The paired report binds launcher identity alongside
+project, script, executable, and validated input identities.
+
+The trial-local screens are a 60 Hz physics loop with a 20,000 us frame
+(physics-interval) screen and a 2,000 us CPU deformation-core screen;
+percentiles use nearest-rank p95. CPU deformation core (not mesh-only) covered
+39 samples at p95 `1075us`, maximum `1461us`, and zero above `2000us`.
+CPU-mode physics covered 64 samples at p95 `21489us`, maximum `25119us`, and
+eight above `20000us`. Rigid physics covered 64 samples at p95 `20062us`,
+maximum `23196us`, and four above `20000us`; rigid deformation is N/A.
+
+The CPU deformation core includes validation, transforms, falloff or
+interpolation, normal preparation, and `ArrayMesh` mutation. It excludes
+experiment-only readback, state, and coherence validation, which remain
+retained in the evidence-inclusive wall timing. Embedded per-mode semantic
+evidence now audits capabilities: CPU mode has semantic contact, physical
+response, deformation, and captures; rigid mode has semantic contact and
+physical response only. Rigid-contact-only is a separately exercised,
+lower-fidelity mode, not automatic failover; it preserves contact/physical
+response and omits deformation/captures, with no visual equivalence claimed.
+A successful report denotes valid execution; `within_screen` carries the
+screen outcome. The CPU core screen passed, while the frame screen did not.
+Two pre-correction runs exposed a mesh-only attribution error; their CPU values
+`653us` and `633us` are superseded and must not be treated as full deformation
+evidence. Godot allocator snapshots only were `107940927` current /
+`110380697` maximum bytes for CPU and `98272523` current / `105477587` maximum
+bytes for rigid; process RSS and GPU memory were not measured. This is one
+bounded run, not a broad benchmark, product/runtime budget, or permanent
+Godot/Jolt engine choice.
+
 Build a disposable CK/Rust-backed projection from the same carrier and gallery
 with the workspace CLI. The CLI path is mandatory and must be an absolute,
 native WSL/Linux path to an executable regular non-symlink file; wrappers,
@@ -414,7 +470,7 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The `test_skeletal_pose_smoke.py` focused result contains 62 tests
+regressions. The `test_skeletal_pose_smoke.py` focused result contains 67 tests
 with 16 expected display skips, covering both frozen profile pairs, complete
 `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
@@ -436,6 +492,7 @@ The 12-test disposable CK projection suite covers exact producer and transport
 identity, bounded subprocess output, fresh source/carrier/gallery/executable
 revalidation, deterministic publication, mutation rejection, and both frozen
 profile pairs against the native Rust CLI.
+The full Godot experiment suite currently contains 153 tests with 29 skips.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites

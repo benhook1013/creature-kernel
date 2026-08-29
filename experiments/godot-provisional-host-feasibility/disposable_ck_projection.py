@@ -627,6 +627,8 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
     instances = carrier_value.get("instances")
     if not isinstance(source_gallery, dict) or not isinstance(shared_pose, dict) or not isinstance(instances, list):
         raise ProjectionError("validated carrier is missing its identity projections")
+    if len(instances) != 2:
+        raise ProjectionError("validated carrier must contain exactly two instances")
     source_bytes_by_profile = {
         profile_id: _source_bytes(carrier_module, gallery, profile_id)
         for profile_id in profile_ids

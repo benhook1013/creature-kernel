@@ -120,6 +120,17 @@ def rust_inspection(profile_id: str) -> dict[str, object]:
     }
 
 
+def valid_cli_body() -> str:
+    inspections = {profile_id: rust_inspection(profile_id) for profile_id in PROFILE_IDS}
+    return (
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        f"inspections = {inspections!r}\n"
+        "print(json.dumps(inspections[Path(sys.argv[-1]).stem]))\n"
+    )
+
+
 class DisposableCKProjectionTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="ck-disposable-projection-test-")
@@ -168,7 +179,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
         }
         self.carrier_path = self.root / "carrier.json"
         carrier.write_carrier(self.carrier_path, self.carrier_value)
-        self.cli_path = self._write_executable("creature-kernel", "raise SystemExit(0)\n")
+        self.cli_path = self._write_executable("creature-kernel", valid_cli_body())
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -262,6 +273,19 @@ class DisposableCKProjectionTests(unittest.TestCase):
                 ]
             )
 
+    def test_short_instance_list_is_rejected_before_indexing(self) -> None:
+        short_carrier = deepcopy(self.carrier_value)
+        short_carrier["instances"] = short_carrier["instances"][:1]
+        short_carrier_path = self.root / "short-carrier.json"
+        carrier.write_carrier(short_carrier_path, short_carrier)
+        with (
+            patch.object(projection, "_load_carrier_module", return_value=carrier),
+            patch.object(carrier, "validate_carrier", side_effect=self.static_validator),
+            patch.object(projection, "_bounded_subprocess", side_effect=self.valid_runner),
+        ):
+            with self.assertRaisesRegex(projection.ProjectionError, "exactly two instances"):
+                projection.build_projection(self.gallery, short_carrier_path, cli_path=self.cli_path)
+
     def test_changed_executable_is_rejected_during_build_and_fresh_validation(self) -> None:
         calls = 0
 
@@ -277,15 +301,18 @@ class DisposableCKProjectionTests(unittest.TestCase):
         with self.assertRaises(projection.ProjectionError):
             self.build(runner=changing_runner)
 
-        self.cli_path = self._write_executable("creature-kernel", "raise SystemExit(0)\n")
-        value = self.build()
+        self.cli_path = self._write_executable("creature-kernel", valid_cli_body())
+        value = self.build(runner=projection._bounded_subprocess)
         output = self.root / "projection.json"
         with patch.object(projection, "_load_carrier_module", return_value=carrier):
             projection.write_projection(output, value)
         self.cli_path.write_bytes(self.cli_path.read_bytes() + b"# replacement\n")
         self.cli_path.chmod(0o700)
-        with self.assertRaises(projection.ProjectionError):
-            self.validate(output)
+        with self.assertRaisesRegex(
+            projection.ProjectionError,
+            "projection does not exactly match fresh carrier/gallery/Rust evidence",
+        ):
+            self.validate(output, runner=projection._bounded_subprocess)
 
     def test_bounded_subprocess_rejects_stdout_and_stderr_over_limits(self) -> None:
         stdout_writer = self._write_executable(
@@ -300,6 +327,21 @@ class DisposableCKProjectionTests(unittest.TestCase):
             projection._bounded_subprocess([str(stdout_writer)])
         with self.assertRaisesRegex(projection.ProjectionError, "stderr exceeds"):
             projection._bounded_subprocess([str(stderr_writer)])
+
+    def test_bounded_subprocess_timeout_kills_and_waits_for_child(self) -> None:
+        pid_path = self.root / "timeout-child.pid"
+        sleeper = self._write_executable(
+            "timeout-sleeper",
+            f"from pathlib import Path\nimport os\nimport time\nPath({str(pid_path)!r}).write_text(str(os.getpid()))\ntime.sleep(30)\n",
+        )
+        with patch.object(projection, "RUST_TIMEOUT_SECONDS", 0.5), self.assertRaisesRegex(
+            projection.ProjectionError, "timed out after 0.5 seconds"
+        ):
+            projection._bounded_subprocess([str(sleeper)])
+        self.assertTrue(pid_path.is_file())
+        child_pid = int(pid_path.read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(child_pid, 0)
 
     def test_subprocess_return_code_malformed_output_and_source_mutation_fail_closed(self) -> None:
         with self.assertRaisesRegex(projection.ProjectionError, "exited 7"):

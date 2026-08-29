@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 13 open observations
+Status: Operational inbox; 14 open observations
 
 Record only unexpected, evidenced operational friction that is recurring or
 likely to save future retries or work rounds. The main thread is the default
@@ -66,3 +66,7 @@ Copyable entry:
 - `2026-08-29 17:22 NZST`: Godot API dumps polluted the selected project path
   - Observation: A read-only API investigation found that `--dump-extension-api` wrote `extension_api.json` and `.godot/` into the selected project, while the headless documentation dump produced output and then aborted with a null-singleton error; `/dev/stdin` was also rejected as a script resource.
   - Expected pattern: Run Godot API introspection only in a fresh native-Linux temporary project, expect a temporary script file rather than standard input, and treat a documentation-dump artifact as incomplete when the command exits nonzero.
+
+- `2026-08-29 17:36 NZST`: CodeRabbit CLI review lost its subscription before a rate-limited retry
+  - Observation: A committed-diff CLI review reached the reviewing phase, then failed with `WebSocket subscription completed unexpectedly`; one immediate retry returned the three-review rate limit without yielding findings. It is unknown whether the dropped review consumed the final allowance.
+  - Expected pattern: After a late CodeRabbit CLI subscription failure, inspect saved findings and usage before retrying; do not assume a recoverable transport label means the review allowance was preserved.

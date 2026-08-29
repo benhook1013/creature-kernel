@@ -173,11 +173,11 @@ def _validate_source_pose(value: Any) -> None:
         raise CommandError("semantic pose command source-pose version is invalid")
 
 
-def _selector(kind: str, role: Any, anchors: list[str]) -> str:
-    return f"{kind}|{'' if role is None else role}|{','.join(anchors)}"
+def _selector(kind: str, role: Any, anchors: list[str]) -> tuple[str, Any, tuple[str, ...]]:
+    return kind, role, tuple(anchors)
 
 
-def _validate_rule(value: Any, index: int, selectors: set[str]) -> None:
+def _validate_rule(value: Any, index: int, selectors: set[tuple[str, Any, tuple[str, ...]]]) -> None:
     where = f"semantic pose command rule {index}"
     if not isinstance(value, dict) or set(value) != set(RULE_KEYS):
         raise CommandError(f"{where} has unexpected or missing fields")
@@ -255,14 +255,14 @@ def _validate_shape(value: Any) -> dict[str, Any]:
         raise CommandError("semantic pose command schema or boundary is invalid")
     if type(value["command_id"]) is not str or value["command_id"] != COMMAND_ID:
         raise CommandError("semantic pose command identity is invalid")
-    if type(value["command_version"]) is not int or value["command_version"] is not COMMAND_VERSION:
+    if type(value["command_version"]) is not int or value["command_version"] != COMMAND_VERSION:
         raise CommandError("semantic pose command version is invalid")
     _validate_source_pose(value["source_pose"])
     _validate_targets(value["targets"])
     rules = value["rules"]
     if not isinstance(rules, list) or len(rules) != RULE_COUNT:
         raise CommandError("semantic pose command must contain exactly 18 semantic rules")
-    selectors: set[str] = set()
+    selectors: set[tuple[str, Any, tuple[str, ...]]] = set()
     for index, rule in enumerate(rules):
         _validate_rule(rule, index, selectors)
     if len(selectors) != RULE_COUNT:
@@ -313,7 +313,7 @@ def _load_pose_source(gallery: Path, expected: dict[str, Any]) -> dict[str, Any]
     if not isinstance(source_rules, list) or len(source_rules) != RULE_COUNT:
         raise CommandError("shared pose source must contain exactly 18 rules")
     normalized: list[dict[str, Any]] = []
-    selectors: set[str] = set()
+    selectors: set[tuple[str, Any, tuple[str, ...]]] = set()
     for index, source_rule in enumerate(source_rules):
         if not isinstance(source_rule, dict) or set(source_rule) != {
             "kind",

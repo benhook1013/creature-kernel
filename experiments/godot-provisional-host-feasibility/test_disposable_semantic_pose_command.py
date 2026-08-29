@@ -93,6 +93,19 @@ class DisposableSemanticPoseCommandTests(unittest.TestCase):
         for forbidden in ("godot", "bone_index", "animation_clip", "node_name"):
             self.assertNotIn(forbidden, serialized)
 
+    def test_selector_keys_are_structural_when_fields_contain_delimiters(self) -> None:
+        value = _fixture()
+        value["rules"][0].update({"kind": "joint|semantic", "role": "wrist", "anchors": ["right"]})
+        value["rules"][1].update({"kind": "joint", "role": "semantic|wrist", "anchors": ["right"]})
+        self.assertIs(command._validate_shape(value), value)
+
+    def test_command_version_uses_value_equality_for_strict_ints(self) -> None:
+        value = _fixture()
+        with patch.object(command, "COMMAND_VERSION", 1000):
+            value["command_version"] = int("1000")
+            self.assertIsNot(value["command_version"], command.COMMAND_VERSION)
+            self.assertIs(command._validate_shape(value), value)
+
     def test_canonical_bytes_and_load_are_deterministic_for_both_frozen_pairs(self) -> None:
         for profile_ids in (DEFAULTS, ALTERNATE):
             with self.subTest(profile_ids=profile_ids):

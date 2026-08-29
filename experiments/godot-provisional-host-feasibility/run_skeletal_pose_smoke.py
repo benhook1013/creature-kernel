@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import ctypes
+from copy import deepcopy
 import errno
 import hashlib
 import importlib.util
@@ -357,6 +358,108 @@ RENDER_COLLISION_COHERENCE_DRIFT_KEYS = {
     "maximum_geometry_drift",
 }
 
+# Runtime evaluation is an experiment-local paired measurement, not a product
+# performance contract. Godot emits the raw record below; Python adds the
+# runner release and owns target declarations, percentile calculation, and the
+# final paired publication.
+RUNTIME_MEASUREMENT_SCHEMA = "creature-kernel.disposable-godot-runtime-measurement.v1"
+RUNTIME_MEASUREMENT_BOUNDARY = "experiment_local_runtime_measurement_only"
+RUNTIME_MEASUREMENT_MODES = ("cpu_deformation", "rigid_contact_only")
+RUNTIME_MEASUREMENT_PHYSICS_SAMPLE_COUNT = 64
+RUNTIME_MEASUREMENT_TARGETS = {
+    "physics_hz": 60,
+    "nominal_physics_interval_usec": 16667,
+    "p95_physics_interval_screen_usec": 20000,
+    "p95_cpu_deformation_update_screen_usec": 2000,
+}
+RUNTIME_MEASUREMENT_KEYS = {
+    "schema",
+    "boundary",
+    "mode",
+    "godot",
+    "os",
+    "cpu",
+    "renderer",
+    "adapter",
+    "physics",
+    "memory",
+    "physics_timestamp_points",
+    "cpu_deformation_updates",
+}
+RUNTIME_MEASUREMENT_FINAL_KEYS = RUNTIME_MEASUREMENT_KEYS | {"runner_os_uname_release"}
+RUNTIME_MEASUREMENT_GODOT_KEYS = {"version", "engine_version_string"}
+RUNTIME_MEASUREMENT_OS_KEYS = {"name", "distribution_name", "version", "model_name", "architecture"}
+RUNTIME_MEASUREMENT_CPU_KEYS = {"processor_name", "processor_count"}
+RUNTIME_MEASUREMENT_RENDERER_KEYS = {
+    "method",
+    "driver_name",
+    "requested_display_driver",
+    "actual_display_server",
+    "window_size_pixels",
+}
+RUNTIME_MEASUREMENT_ADAPTER_KEYS = {"name", "vendor", "api_version", "device_type", "driver_info"}
+RUNTIME_MEASUREMENT_PHYSICS_KEYS = {"engine", "ticks_per_second", "max_steps_per_frame"}
+RUNTIME_MEASUREMENT_MEMORY_KEYS = {
+    "scope",
+    "units",
+    "static_bytes",
+    "static_max_bytes",
+    "process_rss_bytes",
+    "gpu_memory_bytes",
+}
+RUNTIME_MEASUREMENT_PHYSICS_POINT_KEYS = {"frame_id", "timestamp_usec"}
+RUNTIME_MEASUREMENT_DEFORMATION_KEYS = {"applicability", "records"}
+RUNTIME_MEASUREMENT_DEFORMATION_RECORD_KEYS = {
+    "sample_index",
+    "operation",
+    "phase",
+    "logical_tick",
+    "cpu_deformation_core_duration_usec",
+    "evidence_inclusive_wall_duration_usec",
+}
+RUNTIME_DEFORMATION_APPLICABLE = "applicable"
+RUNTIME_DEFORMATION_NOT_APPLICABLE = "not_applicable"
+RUNTIME_DEFORMATION_UPDATE_STAGES = (
+    ("contact_drive", "contact"),
+    ("release_recovery", "release"),
+    ("restore_baseline", "exit"),
+)
+RUNTIME_EVALUATION_KEYS = {"cpu_deformation", "rigid_contact_only", "capability_comparison", "paired_identities"}
+RUNTIME_EVALUATION_MODE_KEYS = {
+    "raw_measurement",
+    "summary",
+    "semantic_contact",
+    "semantic_deformation",
+    "semantic_render_collision_coherence",
+}
+RUNTIME_EVALUATION_SUMMARY_KEYS = {"targets", "physics_interval", "cpu_deformation_update"}
+RUNTIME_EVALUATION_TIMING_SUMMARY_KEYS = {
+    "sample_count",
+    "p95_rank",
+    "p95_usec",
+    "maximum_usec",
+    "above_screen_count",
+    "screen_usec",
+    "within_screen",
+}
+RUNTIME_EVALUATION_CAPABILITY_KEYS = {"semantic_contact", "physical_response", "deformation", "captures"}
+RUNTIME_EVALUATION_COMPARISON_KEYS = {
+    "cpu_deformation",
+    "rigid_contact_only",
+    "visual_equivalence",
+}
+RUNTIME_EVALUATION_PAIRED_IDENTITY_KEYS = {
+    "validated_gallery",
+    "validated_carrier",
+    "semantic_pose_command",
+    "validated_ck_projection",
+    "semantic_contact_command",
+    "project",
+    "script",
+    "launcher",
+    "executable",
+}
+
 
 def _safe_avatar_root_name(index: int, instance_id: str) -> str:
     """Return the deterministic Godot root name used by the carrier probe."""
@@ -639,6 +742,609 @@ def _validate_finite_report_json(value: Any, where: str = "Godot report") -> Non
             _validate_finite_report_json(item, f"{where}.{key}")
         return
     raise SmokeError(f"{where} contains a non-JSON value")
+
+
+def _require_exact_fields(value: Any, expected: set[str], where: str) -> None:
+    if not isinstance(value, dict) or set(value) != expected:
+        raise SmokeError(f"{where} has unexpected or missing fields")
+
+
+def _validate_runtime_measurement_mode(mode: Any) -> str:
+    if mode not in RUNTIME_MEASUREMENT_MODES:
+        raise SmokeError(
+            "runtime measurement mode must be exactly one of: "
+            + ", ".join(RUNTIME_MEASUREMENT_MODES)
+        )
+    return str(mode)
+
+
+def _validate_runtime_string(value: Any, where: str, *, allow_empty: bool = False) -> None:
+    if not isinstance(value, str) or (not allow_empty and not value):
+        qualifier = " or empty" if allow_empty else ""
+        raise SmokeError(f"{where} must be a string{qualifier}")
+
+
+def _validate_runtime_nonnegative(value: Any, where: str, *, integer: bool = False) -> None:
+    if integer:
+        if type(value) is not int:
+            raise SmokeError(f"{where} must be a nonnegative integer")
+    elif not _finite_number(value):
+        raise SmokeError(f"{where} must be a finite nonnegative number")
+    numeric = int(value) if integer else float(value)
+    if numeric < 0:
+        raise SmokeError(f"{where} must be a finite nonnegative number")
+
+
+def _runtime_contact_update_ticks(contact_report: dict[str, Any]) -> list[int]:
+    evidence = contact_report.get("semantic_contact")
+    if not isinstance(evidence, dict):
+        raise SmokeError("runtime measurement requires semantic contact evidence")
+    tick_evidence = evidence.get("contact_tick_evidence")
+    if not isinstance(tick_evidence, list):
+        raise SmokeError("runtime measurement cannot derive deformation update ticks")
+    ticks: list[int] = []
+    for record in tick_evidence:
+        if not isinstance(record, dict):
+            raise SmokeError("runtime measurement contact tick evidence is malformed")
+        if record.get("phase") == "contact" and type(record.get("contact_count")) is int and record["contact_count"] > 0:
+            if type(record.get("tick")) is not int:
+                raise SmokeError("runtime measurement contact tick evidence has an invalid tick")
+            ticks.append(record["tick"])
+    if not ticks:
+        raise SmokeError("runtime measurement requires at least one contact-driven deformation update tick")
+    return ticks
+
+
+def _validate_runtime_measurement(
+    value: Any,
+    expected_mode: str,
+    contact_report: dict[str, Any],
+    *,
+    include_runner_release: bool = False,
+) -> None:
+    expected_mode = _validate_runtime_measurement_mode(expected_mode)
+    expected_keys = RUNTIME_MEASUREMENT_FINAL_KEYS if include_runner_release else RUNTIME_MEASUREMENT_KEYS
+    _require_exact_fields(value, expected_keys, "Godot runtime_measurement")
+    if value["schema"] != RUNTIME_MEASUREMENT_SCHEMA or value["boundary"] != RUNTIME_MEASUREMENT_BOUNDARY:
+        raise SmokeError("Godot runtime_measurement schema or boundary is invalid")
+    if value["mode"] != expected_mode:
+        raise SmokeError("Godot runtime_measurement mode does not match the requested launch mode")
+
+    for key, expected in (
+        ("godot", RUNTIME_MEASUREMENT_GODOT_KEYS),
+        ("os", RUNTIME_MEASUREMENT_OS_KEYS),
+        ("cpu", RUNTIME_MEASUREMENT_CPU_KEYS),
+        ("renderer", RUNTIME_MEASUREMENT_RENDERER_KEYS),
+        ("adapter", RUNTIME_MEASUREMENT_ADAPTER_KEYS),
+        ("physics", RUNTIME_MEASUREMENT_PHYSICS_KEYS),
+        ("memory", RUNTIME_MEASUREMENT_MEMORY_KEYS),
+    ):
+        _require_exact_fields(value.get(key), expected, f"Godot runtime_measurement.{key}")
+
+    _validate_runtime_string(value["godot"]["version"], "Godot runtime_measurement.godot.version")
+    _validate_runtime_string(
+        value["godot"]["engine_version_string"],
+        "Godot runtime_measurement.godot.engine_version_string",
+    )
+    if value["godot"]["version"] != EXPECTED_GODOT_VERSION:
+        raise SmokeError("Godot runtime_measurement Godot version is not exact")
+    if value["godot"]["engine_version_string"] != EXPECTED_GODOT_ENGINE_VERSION_STRING:
+        raise SmokeError("Godot runtime_measurement engine version string is not exact")
+    for key in ("name", "distribution_name", "version", "architecture"):
+        _validate_runtime_string(value["os"][key], f"Godot runtime_measurement.os.{key}")
+    _validate_runtime_string(value["os"]["model_name"], "Godot runtime_measurement.os.model_name", allow_empty=True)
+    _validate_runtime_string(value["cpu"]["processor_name"], "Godot runtime_measurement.cpu.processor_name")
+    _validate_runtime_nonnegative(
+        value["cpu"]["processor_count"],
+        "Godot runtime_measurement.cpu.processor_count",
+        integer=True,
+    )
+    if value["cpu"]["processor_count"] == 0:
+        raise SmokeError("Godot runtime_measurement.cpu.processor_count must be positive")
+    _validate_runtime_string(value["renderer"]["method"], "Godot runtime_measurement.renderer.method")
+    if value["renderer"]["method"] != "gl_compatibility":
+        raise SmokeError("Godot runtime_measurement renderer method is not the launched renderer")
+    _validate_runtime_string(value["renderer"]["driver_name"], "Godot runtime_measurement.renderer.driver_name")
+    if value["renderer"]["requested_display_driver"] != "x11":
+        raise SmokeError("Godot runtime_measurement requested display driver is not x11")
+    if value["renderer"]["actual_display_server"] != "X11":
+        raise SmokeError("Godot runtime_measurement actual display server is not X11")
+    if value["renderer"]["window_size_pixels"] != [512, 512]:
+        raise SmokeError("Godot runtime_measurement effective window size is not 512x512")
+    for key in ("name", "vendor", "api_version"):
+        _validate_runtime_string(value["adapter"][key], f"Godot runtime_measurement.adapter.{key}")
+    _validate_runtime_nonnegative(value["adapter"]["device_type"], "Godot runtime_measurement.adapter.device_type", integer=True)
+    if not isinstance(value["adapter"]["driver_info"], list) or any(
+        not isinstance(item, str) for item in value["adapter"]["driver_info"]
+    ):
+        raise SmokeError("Godot runtime_measurement.adapter.driver_info must be an array of strings")
+    _validate_runtime_string(value["physics"]["engine"], "Godot runtime_measurement.physics.engine")
+    if value["physics"]["engine"] != "Jolt Physics":
+        raise SmokeError("Godot runtime_measurement physics engine is not the required Jolt Physics backend")
+    _validate_runtime_nonnegative(
+        value["physics"]["ticks_per_second"],
+        "Godot runtime_measurement.physics.ticks_per_second",
+        integer=True,
+    )
+    if value["physics"]["ticks_per_second"] != RUNTIME_MEASUREMENT_TARGETS["physics_hz"]:
+        raise SmokeError("Godot runtime_measurement physics tick rate does not match the trial target")
+    _validate_runtime_nonnegative(
+        value["physics"]["max_steps_per_frame"],
+        "Godot runtime_measurement.physics.max_steps_per_frame",
+        integer=True,
+    )
+    if value["physics"]["max_steps_per_frame"] <= 0:
+        raise SmokeError("Godot runtime_measurement.physics.max_steps_per_frame must be positive")
+    if (
+        value["memory"]["scope"] != "godot_allocator_snapshot_not_process_rss_or_gpu_memory"
+        or value["memory"]["units"] != "bytes"
+        or value["memory"]["process_rss_bytes"] is not None
+        or value["memory"]["gpu_memory_bytes"] is not None
+    ):
+        raise SmokeError("Godot runtime_measurement memory scope is invalid or overclaims unavailable measurements")
+    for key in ("static_bytes", "static_max_bytes"):
+        _validate_runtime_nonnegative(value["memory"][key], f"Godot runtime_measurement.memory.{key}")
+
+    timestamp_points = value["physics_timestamp_points"]
+    if not isinstance(timestamp_points, list) or len(timestamp_points) != RUNTIME_MEASUREMENT_PHYSICS_SAMPLE_COUNT + 1:
+        raise SmokeError("Godot runtime_measurement must contain exactly 65 physics timestamp/frame-id points")
+    timestamps: list[int] = []
+    for expected_frame_id, point in enumerate(timestamp_points):
+        _require_exact_fields(point, RUNTIME_MEASUREMENT_PHYSICS_POINT_KEYS, "Godot runtime physics timestamp point")
+        if type(point["frame_id"]) is not int or point["frame_id"] != expected_frame_id:
+            raise SmokeError("Godot runtime physics timestamp frame IDs are missing, reordered, or duplicated")
+        _validate_runtime_nonnegative(point["timestamp_usec"], "Godot runtime physics timestamp", integer=True)
+        timestamps.append(point["timestamp_usec"])
+    interval_values = [right - left for left, right in zip(timestamps, timestamps[1:])]
+    if len(interval_values) != RUNTIME_MEASUREMENT_PHYSICS_SAMPLE_COUNT or any(value <= 0 for value in interval_values):
+        raise SmokeError("Godot runtime physics timestamps must define exactly 64 positive consecutive intervals")
+
+    deformation_updates = value["cpu_deformation_updates"]
+    _require_exact_fields(deformation_updates, RUNTIME_MEASUREMENT_DEFORMATION_KEYS, "Godot runtime deformation updates")
+    applicability = deformation_updates["applicability"]
+    if applicability not in (RUNTIME_DEFORMATION_APPLICABLE, RUNTIME_DEFORMATION_NOT_APPLICABLE):
+        raise SmokeError("Godot runtime deformation update applicability is invalid")
+    update_samples = deformation_updates["records"]
+    if not isinstance(update_samples, list):
+        raise SmokeError("Godot runtime deformation update records are not an array")
+    contact_update_ticks = _runtime_contact_update_ticks(contact_report)
+    if expected_mode == "rigid_contact_only":
+        if applicability != RUNTIME_DEFORMATION_NOT_APPLICABLE or update_samples:
+            raise SmokeError("rigid_contact_only runtime measurement must explicitly declare deformation not_applicable")
+    elif applicability != RUNTIME_DEFORMATION_APPLICABLE:
+        raise SmokeError("cpu_deformation runtime measurement must declare deformation applicable")
+    expected_update_stages = [
+        ("contact_drive", "contact", tick) for tick in contact_update_ticks
+    ]
+    release_start = CONTACT_PHASE_TICKS[0] + CONTACT_PHASE_TICKS[1] + 1
+    release_end = release_start + CONTACT_PHASE_TICKS[2]
+    restore_start = release_end
+    restore_end = restore_start + CONTACT_PHASE_TICKS[3]
+    expected_update_stages.extend(
+        ("release_recovery", "release", tick) for tick in range(release_start, release_end)
+    )
+    expected_update_stages.extend(
+        ("restore_baseline", "exit", tick) for tick in range(restore_start, restore_end)
+    )
+    if expected_mode == "cpu_deformation" and len(update_samples) != len(expected_update_stages):
+        raise SmokeError(
+            "cpu_deformation runtime measurement does not contain one duration for every contact, release, and restore update"
+        )
+    for expected_index, (sample, (expected_operation, expected_phase, expected_tick)) in enumerate(
+        zip(update_samples, expected_update_stages)
+    ):
+        _require_exact_fields(
+            sample,
+            RUNTIME_MEASUREMENT_DEFORMATION_RECORD_KEYS,
+            "Godot runtime deformation update sample",
+        )
+        if type(sample["sample_index"]) is not int or sample["sample_index"] != expected_index:
+            raise SmokeError("Godot runtime deformation update samples are missing, reordered, or duplicated")
+        if sample["operation"] != expected_operation or sample["phase"] != expected_phase:
+            raise SmokeError("Godot runtime deformation update operation or phase is not the exact applicable update")
+        if type(sample["logical_tick"]) is not int or sample["logical_tick"] != expected_tick:
+            raise SmokeError("Godot runtime deformation update sample tick is not the exact applicable update tick")
+        _validate_runtime_nonnegative(
+            sample["cpu_deformation_core_duration_usec"],
+            "Godot runtime deformation CPU deformation-core duration",
+            integer=True,
+        )
+        _validate_runtime_nonnegative(
+            sample["evidence_inclusive_wall_duration_usec"],
+            "Godot runtime deformation evidence-inclusive wall duration",
+            integer=True,
+        )
+        if sample["evidence_inclusive_wall_duration_usec"] < sample["cpu_deformation_core_duration_usec"]:
+            raise SmokeError(
+                "Godot runtime deformation evidence-inclusive wall duration cannot be less than the CPU deformation-core duration"
+            )
+
+    if include_runner_release:
+        _validate_runtime_string(value["runner_os_uname_release"], "Python runner os.uname().release")
+
+
+def _nearest_rank_p95(values: list[int]) -> int:
+    if not values:
+        raise SmokeError("cannot calculate p95 for an empty runtime measurement sample set")
+    rank = max(1, math.ceil(0.95 * len(values)))
+    return sorted(values)[rank - 1]
+
+
+def _runtime_measurement_with_runner_release(value: dict[str, Any]) -> dict[str, Any]:
+    measurement = deepcopy(value)
+    try:
+        release = os.uname().release
+    except AttributeError as exc:
+        raise SmokeError("Python runner cannot observe os.uname().release") from exc
+    if not isinstance(release, str) or not release:
+        raise SmokeError("Python runner os.uname().release is empty or invalid")
+    measurement["runner_os_uname_release"] = release
+    return measurement
+
+
+def _runtime_file_identity(path: Path, label: str) -> dict[str, str]:
+    if path.is_symlink() or not path.is_file():
+        raise SmokeError(f"runtime evaluation {label} identity source is unavailable: {path}")
+    digest = hashlib.sha256()
+    byte_count = 0
+    try:
+        with path.open("rb") as source:
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+                byte_count += len(chunk)
+    except OSError as exc:
+        raise SmokeError(f"runtime evaluation {label} identity source cannot be read: {type(exc).__name__}: {exc}") from exc
+    return {"sha256": digest.hexdigest(), "byte_count_decimal": str(byte_count)}
+
+
+def _runtime_launch_identity() -> dict[str, dict[str, str]]:
+    try:
+        pinned_binary = neutral_smoke._resolve_pinned_binary()
+    except SmokeError:
+        raise
+    except Exception as exc:
+        raise SmokeError(f"runtime evaluation pinned executable identity could not be resolved: {exc}") from exc
+    return {
+        "project": _runtime_file_identity(neutral_smoke.PROJECT_FILE, "project"),
+        "script": _runtime_file_identity(GODOT_SCRIPT, "script"),
+        "launcher": _runtime_file_identity(neutral_smoke.LAUNCHER, "launcher"),
+        "executable": _runtime_file_identity(pinned_binary, "executable"),
+    }
+
+
+def _runtime_paired_identities(
+    cpu_report: dict[str, Any],
+    rigid_report: dict[str, Any],
+    launch_identity: dict[str, dict[str, str]],
+) -> dict[str, Any]:
+    report_identity_keys = (
+        "validated_gallery",
+        "validated_carrier",
+        "semantic_pose_command_identity",
+        "validated_ck_projection",
+    )
+    for key in report_identity_keys:
+        cpu_identity = cpu_report.get(key)
+        rigid_identity = rigid_report.get(key)
+        if not isinstance(cpu_identity, dict) or not isinstance(rigid_identity, dict):
+            raise SmokeError(f"runtime evaluation paired reports are missing stable {key} identity")
+        _validate_finite_report_json(cpu_identity, f"runtime evaluation {key} identity")
+        _validate_finite_report_json(rigid_identity, f"runtime evaluation {key} identity")
+        if cpu_identity != rigid_identity:
+            raise SmokeError(f"runtime evaluation paired reports disagree on stable {key} identity")
+    cpu_contact = cpu_report.get("semantic_contact")
+    rigid_contact = rigid_report.get("semantic_contact")
+    if not isinstance(cpu_contact, dict) or not isinstance(rigid_contact, dict):
+        raise SmokeError("runtime evaluation paired reports are missing stable semantic contact identity")
+    cpu_contact_identity = cpu_contact.get("command_identity")
+    rigid_contact_identity = rigid_contact.get("command_identity")
+    if not isinstance(cpu_contact_identity, dict) or not isinstance(rigid_contact_identity, dict):
+        raise SmokeError("runtime evaluation paired reports are missing semantic contact command identity")
+    _validate_finite_report_json(cpu_contact_identity, "runtime evaluation semantic contact identity")
+    _validate_finite_report_json(rigid_contact_identity, "runtime evaluation semantic contact identity")
+    if cpu_contact_identity != rigid_contact_identity:
+        raise SmokeError("runtime evaluation paired reports disagree on stable semantic contact identity")
+    _require_exact_fields(
+        launch_identity,
+        {"project", "script", "launcher", "executable"},
+        "runtime evaluation launch identity",
+    )
+    for key in ("project", "script", "launcher", "executable"):
+        _require_exact_fields(launch_identity[key], {"sha256", "byte_count_decimal"}, f"runtime evaluation {key} identity")
+        _validate_runtime_string(launch_identity[key]["sha256"], f"runtime evaluation {key} SHA-256")
+        if len(launch_identity[key]["sha256"]) != 64:
+            raise SmokeError(f"runtime evaluation {key} SHA-256 identity is invalid")
+        _validate_runtime_string(launch_identity[key]["byte_count_decimal"], f"runtime evaluation {key} byte count")
+        if not launch_identity[key]["byte_count_decimal"].isdigit() or int(launch_identity[key]["byte_count_decimal"]) <= 0:
+            raise SmokeError(f"runtime evaluation {key} byte count identity is invalid")
+    return {
+        "validated_gallery": deepcopy(cpu_report["validated_gallery"]),
+        "validated_carrier": deepcopy(cpu_report["validated_carrier"]),
+        "semantic_pose_command": deepcopy(cpu_report["semantic_pose_command_identity"]),
+        "validated_ck_projection": deepcopy(cpu_report["validated_ck_projection"]),
+        "semantic_contact_command": deepcopy(cpu_contact_identity),
+        **deepcopy(launch_identity),
+    }
+
+
+def _runtime_measurement_summary(measurement: dict[str, Any]) -> dict[str, Any]:
+    timestamps = [point["timestamp_usec"] for point in measurement["physics_timestamp_points"]]
+    interval_values = [right - left for left, right in zip(timestamps, timestamps[1:])]
+    update_values = [
+        sample["cpu_deformation_core_duration_usec"]
+        for sample in measurement["cpu_deformation_updates"]["records"]
+    ]
+    interval_p95 = _nearest_rank_p95(interval_values)
+    update_p95 = _nearest_rank_p95(update_values) if update_values else None
+    return {
+        "targets": deepcopy(RUNTIME_MEASUREMENT_TARGETS),
+        "physics_interval": {
+            "sample_count": len(interval_values),
+            "p95_rank": math.ceil(0.95 * len(interval_values)),
+            "p95_usec": interval_p95,
+            "maximum_usec": max(interval_values),
+            "above_screen_count": sum(
+                value > RUNTIME_MEASUREMENT_TARGETS["p95_physics_interval_screen_usec"]
+                for value in interval_values
+            ),
+            "screen_usec": RUNTIME_MEASUREMENT_TARGETS["p95_physics_interval_screen_usec"],
+            "within_screen": interval_p95 <= RUNTIME_MEASUREMENT_TARGETS["p95_physics_interval_screen_usec"],
+        },
+        "cpu_deformation_update": {
+            "sample_count": len(update_values),
+            "p95_rank": math.ceil(0.95 * len(update_values)) if update_values else None,
+            "p95_usec": update_p95,
+            "maximum_usec": max(update_values) if update_values else None,
+            "above_screen_count": (
+                sum(value > RUNTIME_MEASUREMENT_TARGETS["p95_cpu_deformation_update_screen_usec"] for value in update_values)
+                if update_values
+                else None
+            ),
+            "screen_usec": RUNTIME_MEASUREMENT_TARGETS["p95_cpu_deformation_update_screen_usec"],
+            "within_screen": (
+                update_p95 <= RUNTIME_MEASUREMENT_TARGETS["p95_cpu_deformation_update_screen_usec"]
+                if update_p95 is not None
+                else None
+            ),
+        },
+    }
+
+
+def _validate_runtime_summary(summary: Any, measurement: dict[str, Any]) -> None:
+    _require_exact_fields(summary, RUNTIME_EVALUATION_SUMMARY_KEYS, "runtime evaluation summary")
+    if summary["targets"] != RUNTIME_MEASUREMENT_TARGETS:
+        raise SmokeError("runtime evaluation target declarations are invalid")
+    timestamps = [point["timestamp_usec"] for point in measurement["physics_timestamp_points"]]
+    interval_values = [right - left for left, right in zip(timestamps, timestamps[1:])]
+    update_values = [
+        sample["cpu_deformation_core_duration_usec"]
+        for sample in measurement["cpu_deformation_updates"]["records"]
+    ]
+    for key, values in (("physics_interval", interval_values), ("cpu_deformation_update", update_values)):
+        _require_exact_fields(summary[key], RUNTIME_EVALUATION_TIMING_SUMMARY_KEYS, f"runtime evaluation {key} summary")
+        expected_p95 = _nearest_rank_p95(values) if values else None
+        expected = {
+            "sample_count": len(values),
+            "p95_rank": math.ceil(0.95 * len(values)) if values else None,
+            "p95_usec": expected_p95,
+            "maximum_usec": max(values) if values else None,
+            "above_screen_count": (
+                sum(
+                    value
+                    > (
+                        RUNTIME_MEASUREMENT_TARGETS["p95_physics_interval_screen_usec"]
+                        if key == "physics_interval"
+                        else RUNTIME_MEASUREMENT_TARGETS["p95_cpu_deformation_update_screen_usec"]
+                    )
+                    for value in values
+                )
+                if values
+                else None
+            ),
+            "screen_usec": (
+                RUNTIME_MEASUREMENT_TARGETS["p95_physics_interval_screen_usec"]
+                if key == "physics_interval"
+                else RUNTIME_MEASUREMENT_TARGETS["p95_cpu_deformation_update_screen_usec"]
+            ),
+            "within_screen": (
+                expected_p95 <= (
+                    RUNTIME_MEASUREMENT_TARGETS["p95_physics_interval_screen_usec"]
+                    if key == "physics_interval"
+                    else RUNTIME_MEASUREMENT_TARGETS["p95_cpu_deformation_update_screen_usec"]
+                )
+                if expected_p95 is not None
+                else None
+            ),
+        }
+        if summary[key] != expected:
+            raise SmokeError(f"runtime evaluation {key} summary is not independently derived from raw samples")
+
+
+def _runtime_child_evidence(report: dict[str, Any], mode: str) -> dict[str, Any]:
+    if not isinstance(report, dict):
+        raise SmokeError(f"runtime evaluation {mode} child report is not an object")
+    semantic_contact = report.get("semantic_contact")
+    if not isinstance(semantic_contact, dict):
+        raise SmokeError(f"runtime evaluation {mode} child semantic contact evidence is missing")
+    if mode == "cpu_deformation":
+        for key in ("semantic_deformation", "semantic_render_collision_coherence"):
+            if not isinstance(report.get(key), dict):
+                raise SmokeError(f"runtime evaluation {mode} child {key} evidence is missing")
+    elif any(key in report for key in ("semantic_deformation", "semantic_render_collision_coherence")):
+        raise SmokeError(f"runtime evaluation {mode} child contains unexpected deformation evidence")
+    return {
+        "semantic_contact": deepcopy(semantic_contact),
+        "semantic_deformation": deepcopy(report.get("semantic_deformation")) if mode == "cpu_deformation" else None,
+        "semantic_render_collision_coherence": (
+            deepcopy(report.get("semantic_render_collision_coherence")) if mode == "cpu_deformation" else None
+        ),
+    }
+
+
+def _runtime_evidence_capabilities(evidence: dict[str, Any]) -> dict[str, bool]:
+    semantic_contact = evidence["semantic_contact"]
+    semantic_deformation = evidence["semantic_deformation"]
+    return {
+        "semantic_contact": isinstance(semantic_contact, dict),
+        "physical_response": (
+            isinstance(semantic_contact, dict)
+            and isinstance(semantic_contact.get("response"), dict)
+            and isinstance(semantic_contact.get("solver_impulses"), list)
+        ),
+        "deformation": isinstance(semantic_deformation, dict),
+        "captures": (
+            isinstance(semantic_deformation, dict)
+            and isinstance(semantic_deformation.get("captures"), list)
+        ),
+    }
+
+
+def _validate_runtime_evaluation(
+    value: Any,
+    cpu_report: dict[str, Any],
+    rigid_report: dict[str, Any],
+    expected_paired_identities: dict[str, Any] | None = None,
+    *,
+    semantic_contact_command: dict[str, Any] | None = None,
+    contact_command_identity: dict[str, Any] | None = None,
+) -> None:
+    _require_exact_fields(value, RUNTIME_EVALUATION_KEYS, "runtime_evaluation")
+    measurements: dict[str, dict[str, Any]] = {}
+    child_reports = {
+        "cpu_deformation": cpu_report,
+        "rigid_contact_only": rigid_report,
+    }
+    child_evidence: dict[str, dict[str, Any]] = {}
+    for mode in RUNTIME_MEASUREMENT_MODES:
+        _require_exact_fields(value[mode], RUNTIME_EVALUATION_MODE_KEYS, f"runtime_evaluation.{mode}")
+        raw = value[mode]["raw_measurement"]
+        _validate_runtime_measurement(raw, mode, child_reports[mode], include_runner_release=True)
+        _validate_runtime_summary(value[mode]["summary"], raw)
+        expected_evidence = _runtime_child_evidence(child_reports[mode], mode)
+        actual_evidence = {
+            key: value[mode][key]
+            for key in (
+                "semantic_contact",
+                "semantic_deformation",
+                "semantic_render_collision_coherence",
+            )
+        }
+        if actual_evidence != expected_evidence:
+            raise SmokeError(
+                f"runtime evaluation {mode} semantic evidence does not match its independently validated child report"
+            )
+        if semantic_contact_command is not None or contact_command_identity is not None:
+            if semantic_contact_command is None or contact_command_identity is None:
+                raise SmokeError("runtime evaluation semantic contact validation requires command and identity")
+            evidence_report = dict(child_reports[mode])
+            evidence_report.update(actual_evidence)
+            strongest_sample = _validate_contact_report(
+                evidence_report,
+                semantic_contact_command,
+                contact_command_identity,
+            )
+            if mode == "cpu_deformation":
+                _validate_deformation_report(evidence_report, strongest_sample)
+                _validate_render_collision_coherence(evidence_report, strongest_sample)
+        child_evidence[mode] = actual_evidence
+        measurements[mode] = raw
+    shared_keys = ("schema", "boundary", "godot", "os", "cpu", "renderer", "adapter", "physics", "runner_os_uname_release")
+    for key in shared_keys:
+        if measurements["cpu_deformation"][key] != measurements["rigid_contact_only"][key]:
+            raise SmokeError(f"runtime evaluation paired measurements disagree on shared {key} metadata")
+    comparison = value["capability_comparison"]
+    _require_exact_fields(comparison, RUNTIME_EVALUATION_COMPARISON_KEYS, "runtime evaluation capability comparison")
+    for mode in RUNTIME_MEASUREMENT_MODES:
+        _require_exact_fields(comparison[mode], RUNTIME_EVALUATION_CAPABILITY_KEYS, f"runtime evaluation {mode} capabilities")
+        if any(type(comparison[mode][key]) is not bool for key in RUNTIME_EVALUATION_CAPABILITY_KEYS):
+            raise SmokeError(f"runtime evaluation {mode} capabilities are not exact booleans")
+        if comparison[mode] != _runtime_evidence_capabilities(child_evidence[mode]):
+            raise SmokeError(f"runtime evaluation {mode} capabilities are not derived from evidence")
+    if comparison["visual_equivalence"] != "not_claimed":
+        raise SmokeError("runtime evaluation capability comparison is invalid")
+    paired_identities = value["paired_identities"]
+    _require_exact_fields(paired_identities, RUNTIME_EVALUATION_PAIRED_IDENTITY_KEYS, "runtime evaluation paired identities")
+    for key in (
+        "validated_gallery",
+        "validated_carrier",
+        "semantic_pose_command",
+        "validated_ck_projection",
+        "semantic_contact_command",
+    ):
+        if not isinstance(paired_identities[key], dict):
+            raise SmokeError(f"runtime evaluation paired {key} identity is missing")
+        _validate_finite_report_json(paired_identities[key], f"runtime evaluation paired {key} identity")
+    for key in ("project", "script", "launcher", "executable"):
+        _require_exact_fields(
+            paired_identities[key],
+            {"sha256", "byte_count_decimal"},
+            f"runtime evaluation paired {key} identity",
+        )
+        _validate_runtime_string(paired_identities[key]["sha256"], f"runtime evaluation paired {key} SHA-256")
+        if len(paired_identities[key]["sha256"]) != 64:
+            raise SmokeError(f"runtime evaluation paired {key} SHA-256 identity is invalid")
+        _validate_runtime_string(
+            paired_identities[key]["byte_count_decimal"],
+            f"runtime evaluation paired {key} byte count",
+        )
+        if not paired_identities[key]["byte_count_decimal"].isdigit() or int(paired_identities[key]["byte_count_decimal"]) <= 0:
+            raise SmokeError(f"runtime evaluation paired {key} byte count identity is invalid")
+    if expected_paired_identities is not None and paired_identities != expected_paired_identities:
+        raise SmokeError("runtime evaluation paired identities do not match the independently validated child reports")
+
+
+def _build_runtime_evaluation(
+    cpu_report: dict[str, Any],
+    rigid_report: dict[str, Any],
+    paired_identities: dict[str, Any],
+    semantic_contact_command: dict[str, Any],
+    contact_command_identity: dict[str, Any],
+) -> dict[str, Any]:
+    cpu_measurement = _runtime_measurement_with_runner_release(cpu_report["runtime_measurement"])
+    rigid_measurement = _runtime_measurement_with_runner_release(rigid_report["runtime_measurement"])
+    _validate_runtime_measurement(
+        cpu_measurement,
+        "cpu_deformation",
+        cpu_report,
+        include_runner_release=True,
+    )
+    _validate_runtime_measurement(
+        rigid_measurement,
+        "rigid_contact_only",
+        rigid_report,
+        include_runner_release=True,
+    )
+    runtime_evaluation = {
+        "cpu_deformation": {
+            "raw_measurement": cpu_measurement,
+            "summary": _runtime_measurement_summary(cpu_measurement),
+            **_runtime_child_evidence(cpu_report, "cpu_deformation"),
+        },
+        "rigid_contact_only": {
+            "raw_measurement": rigid_measurement,
+            "summary": _runtime_measurement_summary(rigid_measurement),
+            **_runtime_child_evidence(rigid_report, "rigid_contact_only"),
+        },
+        "capability_comparison": {
+            "cpu_deformation": _runtime_evidence_capabilities(
+                _runtime_child_evidence(cpu_report, "cpu_deformation")
+            ),
+            "rigid_contact_only": _runtime_evidence_capabilities(
+                _runtime_child_evidence(rigid_report, "rigid_contact_only")
+            ),
+            "visual_equivalence": "not_claimed",
+        },
+        "paired_identities": deepcopy(paired_identities),
+    }
+    _validate_runtime_evaluation(
+        runtime_evaluation,
+        cpu_report,
+        rigid_report,
+        paired_identities,
+        semantic_contact_command=semantic_contact_command,
+        contact_command_identity=contact_command_identity,
+    )
+    return runtime_evaluation
 
 
 def _expected_gallery_identity(payload: dict[str, Any]) -> dict[str, Any]:
@@ -2715,6 +3421,7 @@ def _validate_report(
     semantic_contact_command: dict[str, Any] | None = None,
     contact_command_identity: dict[str, Any] | None = None,
     deformation_capture_bytes: dict[str, bytes] | None = None,
+    runtime_measurement_mode: str | None = None,
 ) -> None:
     if not isinstance(report, dict):
         raise SmokeError("Godot skeletal-pose report is not a JSON object")
@@ -2730,6 +3437,18 @@ def _validate_report(
     if report.get("schema") != REPORT_SCHEMA or report.get("status") != "success":
         raise SmokeError("Godot skeletal-pose report schema or status is invalid")
     deformation_mode = deformation_capture_bytes is not None
+    if runtime_measurement_mode is not None:
+        runtime_measurement_mode = _validate_runtime_measurement_mode(runtime_measurement_mode)
+        if semantic_contact_command is None:
+            raise SmokeError("runtime measurement requires the full semantic-contact predecessor set")
+        if runtime_measurement_mode == "cpu_deformation" and not deformation_mode:
+            raise SmokeError("cpu_deformation runtime measurement requires deformation captures")
+        if runtime_measurement_mode == "rigid_contact_only" and deformation_mode:
+            raise SmokeError("rigid_contact_only runtime measurement cannot include deformation captures")
+    elif "runtime_measurement" in report:
+        raise SmokeError("Godot report contains runtime_measurement without a requested runtime measurement mode")
+    if "runtime_evaluation" in report:
+        raise SmokeError("Godot report contains unexpected runtime_evaluation publication")
     if deformation_mode and semantic_contact_command is None:
         raise SmokeError("semantic deformation requires the full semantic-contact predecessor set")
     expected_report_boundary = (
@@ -2829,6 +3548,12 @@ def _validate_report(
             or RENDER_COLLISION_COHERENCE_ALIAS_KEYS.intersection(report)
         ):
             raise SmokeError("contact-only Godot report contains unexpected semantic deformation or render/collision evidence")
+        if runtime_measurement_mode is not None:
+            _validate_runtime_measurement(
+                report.get("runtime_measurement"),
+                runtime_measurement_mode,
+                report,
+            )
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
         "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
@@ -2967,8 +3692,17 @@ def _launch_godot(
     *,
     deformation_capture: bool = False,
     deformation_capture_sink: Any | None = None,
+    runtime_measurement_mode: str | None = None,
 ) -> tuple[str, str, int, dict[str, Any] | None]:
     """Launch with a real renderer; headless mode exposes dummy rendering RIDs."""
+    if runtime_measurement_mode is not None:
+        runtime_measurement_mode = _validate_runtime_measurement_mode(runtime_measurement_mode)
+        if semantic_contact_command is None:
+            raise SmokeError("runtime measurement mode requires semantic contact")
+        if runtime_measurement_mode == "cpu_deformation" and not deformation_capture:
+            raise SmokeError("cpu_deformation runtime measurement requires deformation capture mode")
+        if runtime_measurement_mode == "rigid_contact_only" and deformation_capture:
+            raise SmokeError("rigid_contact_only runtime measurement cannot use deformation capture mode")
     if os.environ.get(VISIBLE_GODOT_OPT_IN) != "1":
         raise SmokeError(
             f"visible X11 Godot launch is disabled; set {VISIBLE_GODOT_OPT_IN}=1 "
@@ -3015,7 +3749,7 @@ def _launch_godot(
             "x11",
             "--rendering-method",
             "gl_compatibility",
-            *(("--resolution", "512x512") if deformation_capture else ()),
+            *(("--resolution", "512x512") if deformation_capture or runtime_measurement_mode is not None else ()),
             "--audio-driver",
             "Dummy",
             "--path",
@@ -3121,6 +3855,8 @@ def _launch_godot(
             raise SmokeError("semantic contact command identity was supplied without a command")
         if deformation_capture:
             launch_command.extend(["--deformation-capture-dir", str(raw_deformation_capture_path)])
+        if runtime_measurement_mode is not None:
+            launch_command.extend(["--runtime-measurement-mode", runtime_measurement_mode])
         environment = os.environ.copy()
         environment.update({key: str(value) for key, value in isolated_paths.items()})
         environment["CK_GODOT_4_7_2_BINARY"] = str(pinned_binary)
@@ -3162,9 +3898,25 @@ def run_skeletal_pose_smoke(
     projection_cli_path: Path | None = None,
     contact_command_path: Path | None = None,
     deformation_captures_path: Path | None = None,
+    runtime_evaluation: bool = False,
 ) -> dict[str, Any]:
     report_path = neutral_smoke._validate_report_destination(report_path)
     gallery = Path(gallery)
+    if type(runtime_evaluation) is not bool:
+        raise SmokeError("runtime_evaluation must be an exact boolean")
+    if runtime_evaluation and (
+        carrier_path is None
+        or command_path is None
+        or projection_path is None
+        or projection_cli_path is None
+        or contact_command_path is None
+        or deformation_captures_path is None
+    ):
+        raise SmokeError(
+            "runtime evaluation requires the full deformation-capture/contact predecessor set: "
+            "carrier, CK projection, explicit Rust CLI, semantic pose command, semantic contact command, "
+            "and deformation captures"
+        )
     if deformation_captures_path is not None:
         deformation_captures_path = _validate_deformation_capture_destination(Path(deformation_captures_path))
         if (
@@ -3251,7 +4003,103 @@ def run_skeletal_pose_smoke(
                 command_identity,
                 Path(contact_command_path),
             )
-    if contact_command is not None:
+    if runtime_evaluation:
+        if contact_command is None or staged_deformation_captures is None:
+            raise SmokeError("runtime evaluation requires validated semantic contact and deformation captures")
+        launch_arguments = [
+            gallery,
+            selected,
+            payload,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+            semantic_payload,
+            projection,
+            projection_identity_value,
+            contact_command,
+            contact_command_identity,
+            Path(projection_cli_path),
+        ]
+        launch_identity = _runtime_launch_identity()
+        cpu_stdout, cpu_stderr, cpu_returncode, cpu_report = _launch_godot(
+            *launch_arguments,
+            deformation_capture=True,
+            deformation_capture_sink=staged_deformation_captures.update,
+            runtime_measurement_mode="cpu_deformation",
+        )
+        if cpu_returncode != 0:
+            raise SmokeError(
+                "Godot cpu_deformation runtime-evaluation launch returned exit code "
+                f"{cpu_returncode}; stdout={cpu_stdout!r}; stderr={cpu_stderr!r}"
+            )
+        if cpu_report is None:
+            raise SmokeError("Godot cpu_deformation runtime-evaluation launch returned no report")
+        if _runtime_launch_identity() != launch_identity:
+            raise SmokeError(
+                "runtime evaluation project, script, launcher, or executable identity changed between paired launches"
+            )
+        rigid_stdout, rigid_stderr, rigid_returncode, rigid_report = _launch_godot(
+            *launch_arguments,
+            runtime_measurement_mode="rigid_contact_only",
+        )
+        if rigid_returncode != 0:
+            raise SmokeError(
+                "Godot rigid_contact_only runtime-evaluation launch returned exit code "
+                f"{rigid_returncode}; stdout={rigid_stdout!r}; stderr={rigid_stderr!r}"
+            )
+        if rigid_report is None:
+            raise SmokeError("Godot rigid_contact_only runtime-evaluation launch returned no report")
+        if _runtime_launch_identity() != launch_identity:
+            raise SmokeError(
+                "runtime evaluation project, script, launcher, or executable identity changed during paired launches"
+            )
+        _validate_report(
+            cpu_report,
+            payload,
+            selected,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+            projection,
+            projection_identity_value,
+            contact_command,
+            contact_command_identity,
+            staged_deformation_captures,
+            runtime_measurement_mode="cpu_deformation",
+        )
+        _validate_report(
+            rigid_report,
+            payload,
+            selected,
+            carrier_identity,
+            carrier_avatar_records,
+            command,
+            command_identity,
+            projection,
+            projection_identity_value,
+            contact_command,
+            contact_command_identity,
+            runtime_measurement_mode="rigid_contact_only",
+        )
+        cpu_report["runtime_measurement"] = _runtime_measurement_with_runner_release(
+            cpu_report["runtime_measurement"]
+        )
+        rigid_report["runtime_measurement"] = _runtime_measurement_with_runner_release(
+            rigid_report["runtime_measurement"]
+        )
+        paired_identities = _runtime_paired_identities(cpu_report, rigid_report, launch_identity)
+        runtime_evaluation_value = _build_runtime_evaluation(
+            cpu_report,
+            rigid_report,
+            paired_identities,
+            contact_command,
+            contact_command_identity,
+        )
+        cpu_report["runtime_evaluation"] = runtime_evaluation_value
+        stdout, stderr, returncode, report = cpu_stdout, cpu_stderr, cpu_returncode, cpu_report
+    elif contact_command is not None:
         launch_arguments = [
             gallery,
             selected,
@@ -3322,7 +4170,11 @@ def run_skeletal_pose_smoke(
         raise SmokeError(f"Godot launcher returned exit code {returncode}; stdout={stdout!r}; stderr={stderr!r}")
     if report is None:
         raise SmokeError("Godot returned success without a skeletal-pose report")
-    if contact_command is not None:
+    if runtime_evaluation:
+        # Both reports were validated above, and the paired object was built
+        # from their independently checked raw measurements.
+        pass
+    elif contact_command is not None:
         validation_arguments = [
             report,
             payload,
@@ -3468,6 +4320,14 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional absolute, not-yet-existing output directory for the three deformation captures; requires full semantic contact mode",
     )
+    parser.add_argument(
+        "--runtime-evaluation",
+        action="store_true",
+        help=(
+            "run matched cpu_deformation and rigid_contact_only measurements and publish one paired report "
+            "only after both succeed; requires the full deformation-capture/contact predecessor set"
+        ),
+    )
     return parser
 
 
@@ -3485,6 +4345,7 @@ def main(argv: list[str] | None = None) -> int:
             args.projection_cli_path,
             args.contact_command_path,
             args.deformation_captures_path,
+            args.runtime_evaluation,
         )
     except SmokeError as exc:
         print(f"skeletal pose smoke failed: {exc}", file=sys.stderr)

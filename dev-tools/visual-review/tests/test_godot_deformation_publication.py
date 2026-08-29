@@ -30,10 +30,10 @@ class GodotDeformationPublicationTests(unittest.TestCase):
     def setUp(self) -> None:
         # The inherited publisher uses renameat2(RENAME_NOREPLACE), which is
         # not implemented by the Windows-mounted temporary directory exposed
-        # through this environment. Keep the fixture on the ext4 worktree.
+        # through this environment. Keep the fixture inside this worktree.
         self.temp = tempfile.TemporaryDirectory(
             prefix="godot-deformation-publication-",
-            dir=HERE.parent.parent.parent,
+            dir=HERE,
         )
         self.directory = Path(self.temp.name)
         self.reviews = self.directory / "reviews"
@@ -259,7 +259,10 @@ class GodotDeformationPublicationTests(unittest.TestCase):
         data = bytearray(peak.read_bytes())
         data[16:20] = struct.pack(">I", publisher.CAPTURE_WIDTH - 1)
         peak.write_bytes(data)
-        with self.assertRaises(publisher.GodotDeformationPublishError):
+        with self.assertRaisesRegex(
+            publisher.GodotDeformationPublishError,
+            r"Godot deformation capture peak\.png dimensions are 1535x512, expected 1536x512",
+        ):
             publisher.publish_godot_deformation(self.reviews, self.report, self.captures, review_id="bad-dimensions")
         self.assertFalse((self.reviews / "bad-dimensions").exists())
 

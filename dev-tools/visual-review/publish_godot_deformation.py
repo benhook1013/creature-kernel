@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 # This file is also used as a directly executed script.  Make sibling imports
 # deliberate for both that path and importlib-based tests.
@@ -278,13 +278,15 @@ def _decode_and_validate_capture_content(captures: dict[str, bytes]) -> None:
         raise GodotDeformationPublishError("Godot deformation reference and recovered pixels are not exactly equal")
 
     peak = decoded[CAPTURE_NAMES[1]]
-    changed_pixels = 0
-    total_abs_channel_delta = 0
-    for offset in range(0, len(reference), 4):
-        channel_deltas = [abs(peak[offset + channel] - reference[offset + channel]) for channel in range(4)]
-        if any(channel_deltas):
-            changed_pixels += 1
-        total_abs_channel_delta += sum(channel_deltas)
+    difference_bytes = ImageChops.difference(
+        Image.frombytes("RGBA", (CAPTURE_WIDTH, CAPTURE_HEIGHT), peak),
+        Image.frombytes("RGBA", (CAPTURE_WIDTH, CAPTURE_HEIGHT), reference),
+    ).tobytes()
+    changed_pixels = sum(
+        any(difference_bytes[offset : offset + 4])
+        for offset in range(0, len(difference_bytes), 4)
+    )
+    total_abs_channel_delta = sum(difference_bytes)
     total_pixels = CAPTURE_WIDTH * CAPTURE_HEIGHT
     difference_fraction = changed_pixels / total_pixels
     if (

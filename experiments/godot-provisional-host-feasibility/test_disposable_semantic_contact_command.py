@@ -71,16 +71,20 @@ class DependencyFixture:
         self.profile_ids = ("compact", "tall")
         self.instance_ids = ("avatar-left", "avatar-right")
         self.pose_value = {"pose": "validated-pose"}
+        self.pose_bytes = self._canonical(self.pose_value)
         self.pose_identity = {
-            "sha256": "c" * 64,
-            "byte_count_decimal": "37",
+            "sha256": hashlib.sha256(self.pose_bytes).hexdigest(),
+            "byte_count_decimal": str(len(self.pose_bytes)),
             "schema": contact.POSE_SCHEMA,
             "boundary": contact.POSE_BOUNDARY,
             "command_id": contact.POSE_COMMAND_ID,
             "command_version": contact.POSE_COMMAND_VERSION,
         }
         self.carrier_path.write_bytes(carrier._canonical_json(self.carrier_value))
-        self.pose_path.write_bytes(self._canonical(self.pose_value))
+        self.pose_path.write_bytes(self.pose_bytes)
+        self.pose_load_paths = []
+        self.pose_validate_calls = []
+        self.pose_identity_inputs = []
 
         def read_regular_file(path: Path, maximum: int, label: str, size_error: str | None = None) -> bytes:
             return carrier._read_regular_file(path, maximum, label, size_error=size_error)
@@ -100,11 +104,28 @@ class DependencyFixture:
             _finite_json=carrier._finite_json,
             write_carrier=carrier.write_carrier,
         )
+
+        def load_pose_command(path: Path) -> dict:
+            self.pose_load_paths.append(Path(path))
+            return deepcopy(self.pose_value)
+
+        def validate_pose_command(value: object, gallery: Path, carrier_path: Path) -> object:
+            self.pose_validate_calls.append((deepcopy(value), Path(gallery), Path(carrier_path)))
+            return value
+
+        def pose_command_identity(value: dict) -> dict:
+            self.pose_identity_inputs.append(deepcopy(value))
+            canonical = self._canonical(value)
+            identity = deepcopy(self.pose_identity)
+            identity["sha256"] = hashlib.sha256(canonical).hexdigest()
+            identity["byte_count_decimal"] = str(len(canonical))
+            return identity
+
         self.pose_module = SimpleNamespace(
             MAX_COMMAND_BYTES=256 * 1024,
-            load_command=lambda path: deepcopy(self.pose_value),
-            validate_command=lambda value, gallery, carrier_path: value,
-            command_identity=lambda value: deepcopy(self.pose_identity),
+            load_command=load_pose_command,
+            validate_command=validate_pose_command,
+            command_identity=pose_command_identity,
             _canonical_json=self._canonical,
         )
 
@@ -268,11 +289,11 @@ class DisposableSemanticContactCommandTests(unittest.TestCase):
         carrier_patch, pose_patch = self.deps.patches()
         with carrier_patch, pose_patch:
             contact.write_contact_command(output, value)
-            self.assertEqual(output.read_bytes(), contact._canonical_json(value))
+            expected_bytes = contact._canonical_json(value)
+            self.assertEqual(output.read_bytes(), expected_bytes)
             with self.assertRaises(contact.ContactCommandError):
                 contact.write_contact_command(output, value)
-            sentinel = output.read_bytes()
-            self.assertEqual(output.read_bytes(), sentinel)
+            self.assertEqual(output.read_bytes(), expected_bytes)
             target = self.root / "target.json"
             target.write_bytes(b"target\n")
             link = self.root / "link.json"
@@ -309,6 +330,13 @@ class DisposableSemanticContactCommandTests(unittest.TestCase):
                 "--pose-command", str(self.deps.pose_path),
                 "--command", str(output),
             ]), 0)
+        self.assertTrue(self.deps.pose_load_paths)
+        self.assertTrue(all(path == self.deps.pose_path for path in self.deps.pose_load_paths))
+        expected_validation = (self.deps.pose_value, self.deps.gallery, self.deps.carrier_path)
+        self.assertTrue(self.deps.pose_validate_calls)
+        self.assertTrue(all(call == expected_validation for call in self.deps.pose_validate_calls))
+        self.assertTrue(self.deps.pose_identity_inputs)
+        self.assertTrue(all(value == self.deps.pose_value for value in self.deps.pose_identity_inputs))
         self.assertEqual(contact.load_contact_command(output), self.build())
 
     def test_real_frozen_gallery_builds_and_freshly_validates_both_profile_pairs(self) -> None:

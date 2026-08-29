@@ -57,9 +57,10 @@ is an `AnimatableBody3D` moved through bounded approach/contact/release/exit
 phases; the response is initialized once as a `RigidBody3D` with mass 1,
 gravity 0, locked rotation, sleep disabled, and one shape, after which the probe
 drives only the actuator. Its report validates the exact logical tick trace,
-runtime contact samples and attribution, a nonzero solver impulse,
-snapshot-derived normal velocity/displacement, and clean exit. This remains
-experiment-only and makes
+runtime contact samples and attribution, and a nonzero Jolt-estimated contact
+impulse. That estimate is reliable only for this isolated two-body collision;
+the report also validates snapshot-derived normal velocity/displacement and
+clean exit. This remains experiment-only and makes
 no package/adapter/Readiness 3/deformation/performance/checkpoint claim.
 The disposable CK/Rust-backed projection over the same two ordered avatars is
 also implemented. It requires an explicit absolute native executable, binds
@@ -68,16 +69,52 @@ artifact identities, records bounded successful `inspect-structure` evidence,
 and is freshly rebuilt before launch and again before report publication. Its
 embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
-Predecessor focused evidence includes 9 contact-command tests, 12 projection
-tests, and 48 no-display tests with 14 expected display skips; the current
-`test_skeletal_pose_smoke.py` focused result is 62 tests with 16 expected display
-skips. The final focused
-real contact integration passed in 182.453s. The earlier four predecessor focused
-real-renderer cases (deterministic command rerun, alternate carrier order,
-alternate requested order, and semantic injection) passed in 165.467s. The
-combined projection-plus-semantic-pose path passed on the real renderer in
-89.848s, and the final predecessor full Xvfb suite passed all 41 tests without
-skips in 429.833s.
+The focused projection suite passed 14 tests with 1 expected skip, and the
+focused `test_skeletal_pose_smoke.py` suite passed 67 tests with 16 expected
+display skips; the full Godot experiment suite contains 153 tests with 29
+skips. The corrected final evidence is one bounded paired runtime run using
+one exact 512x512 X11 `gl_compatibility` trial environment with official
+Godot 4.7.2 on Ubuntu
+22.04.5 LTS under WSL; `runner_os_uname_release` records the runner kernel as
+`6.18.33.2-microsoft-standard-WSL2`. The machine was a 12th Gen Intel(R)
+Core(TM) i7-12700KF with 12 processors, using D3D12 (NVIDIA GeForce RTX
+4070), vendor Microsoft, through Mesa/OpenGL 4.2 (`4.2 (Core Profile) Mesa
+23.2.1-1ubuntu3.1~22.04.4`), with an empty optional `driver-info` list. The
+actual display was X11 at 512x512 with `gl_compatibility`/`opengl3`. The
+paired report binds launcher identity alongside project, script, executable,
+and validated input identities. Jolt Physics ran at 60 Hz with
+`max_steps_per_frame` 8. The frame/physics p95 `<=20000us` and CPU
+deformation-core p95 `<=2000us` thresholds were trial-local screens only, not
+product budgets.
+
+CPU deformation core (not mesh-only) covered 39 samples with p95 `1075us`,
+maximum `1461us`, and zero above `2000us`. CPU-mode physics covered 64 samples
+with p95 `21489us`, maximum `25119us`, and eight above `20000us`. Rigid physics
+covered 64 samples with p95 `20062us`, maximum `23196us`, and four above
+`20000us`; rigid deformation is N/A. The CPU deformation core includes
+validation, transforms, falloff or interpolation, normal preparation, and
+`ArrayMesh` mutation. It excludes experiment-only readback, state, and
+coherence validation, which remain retained in the evidence-inclusive wall
+timing. Embedded per-mode semantic evidence now audits capabilities: CPU mode
+has semantic contact, physical response, deformation, and captures; rigid mode
+has semantic contact and physical response only. Rigid-contact-only is a
+separately exercised lower-fidelity mode, not automatic failover; it preserves
+contact/physical response and omits deformation/captures, with no visual
+equivalence claimed. A successful report denotes valid execution; each
+`within_screen` field carries its screen outcome. The CPU core screen passed;
+the frame screen did not. Two pre-correction runs exposed a mesh-only
+attribution error; their CPU values `653us` and `633us` are superseded and must
+not be treated as full deformation evidence. Godot allocator snapshots only
+were `107940927` current / `110380697` maximum bytes for CPU and `98272523`
+current / `105477587` maximum bytes for rigid; process RSS and GPU memory were
+not measured.
+
+This is one bounded run, not a broad benchmark, product/runtime budget, or
+permanent Godot/Jolt engine choice. The direct timing/fallback slice is
+complete. The bounded Godot feasibility checkpoint remains the governing human
+checkpoint. The next direct prerequisite already recorded in this runway is
+preparation of the direct Rust and engine-neutral package prerequisites; no
+new direction is introduced here.
 
 The current deformation slice adds a deterministic smooth open forearm sleeve
 to the response body, drives a localized spatial falloff from the retained
@@ -115,10 +152,7 @@ transform/height/radius and recomputes vertex clearances and metrics. This
 remains narrow experiment-local evidence: it is not live contact rendering,
 deformed collision, realistic tissue, production topology, performance,
 package/adapter/R3 evidence, permanent Godot/Jolt selection, or the overall
-human checkpoint. The next direct slice is the recorded declared
-hardware/frame/timing evidence, CPU deformation baseline, and useful fallback
-trial.
-The bounded Godot feasibility checkpoint remains the governing human checkpoint.
+human checkpoint.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";
 the side-view x-ray overlay wording was clarified without changing geometry or
