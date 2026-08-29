@@ -5,13 +5,16 @@
 //! bounded debug envelope, not a runtime-input or package serialization.
 
 use creature_kernel_core::body_document::{Diagnostic, ResourceProfile, Status};
+use creature_kernel_core::body_graph::OwnerRoleKey;
 use creature_kernel_core::frame::{self, SignedAxis};
 use creature_kernel_core::provisional_json::{Map, Value, json};
 use creature_kernel_core::provisional_runtime_input::{
     ProvisionalRuntimeAvatarInput, ProvisionalRuntimeInputError, handoff_provisional_runtime_input,
 };
+use creature_kernel_core::semantic_address::AddressKey;
 use creature_kernel_core::source_preparation::{
-    PreparedSingleSource, SourcePreparationError, prepare_single_source,
+    PositionComponent, PreparedSingleSource, SourceNumericCause, SourceNumericLocation,
+    SourcePreparationError, SourceTransformComponent, prepare_single_source,
 };
 use creature_kernel_core::structural_validation::StructuralDiagnostic;
 use std::collections::BTreeSet;
@@ -54,18 +57,32 @@ where
     };
 
     let mut instances = Vec::with_capacity(specs.len());
-    for spec in specs {
+    let pair_count = specs.len();
+    for (index, spec) in specs.into_iter().enumerate() {
+        let all_pairs_processed = index + 1 == pair_count;
         let source = match crate::structural_inspection::read_input(&spec.source) {
             Ok(source) => source,
-            Err(error) => return result(input_error(&spec.instance_id, error.to_string())),
+            Err(error) => {
+                return result(input_error(
+                    &spec.instance_id,
+                    error.to_string(),
+                    all_pairs_processed,
+                ));
+            }
         };
         let prepared = match prepare_single_source(&source, ResourceProfile::ORDINARY) {
             Ok(prepared) => prepared,
-            Err(error) => return result(preparation_failure(&spec.instance_id, error)),
+            Err(error) => {
+                return result(preparation_failure(
+                    &spec.instance_id,
+                    error,
+                    all_pairs_processed,
+                ));
+            }
         };
         match ProvisionalRuntimeAvatarInput::new(spec.instance_id, prepared) {
             Ok(instance) => instances.push(instance),
-            Err(error) => return result(handoff_failure(error)),
+            Err(error) => return result(handoff_failure(error, all_pairs_processed)),
         }
     }
 
@@ -172,15 +189,23 @@ fn parse_specs(arguments: &[String]) -> Result<Vec<InstanceSourceSpec>, String> 
 /// Inspect already-acquired source bytes in the supplied order.
 #[cfg(test)]
 fn inspect_sources(sources: Vec<(String, Vec<u8>)>) -> CliResult {
+    let pair_count = sources.len();
     let mut instances = Vec::with_capacity(sources.len());
-    for (instance_id, source) in sources {
+    for (index, (instance_id, source)) in sources.into_iter().enumerate() {
+        let all_pairs_processed = index + 1 == pair_count;
         let prepared = match prepare_single_source(&source, ResourceProfile::ORDINARY) {
             Ok(prepared) => prepared,
-            Err(error) => return result(preparation_failure(&instance_id, error)),
+            Err(error) => {
+                return result(preparation_failure(
+                    &instance_id,
+                    error,
+                    all_pairs_processed,
+                ));
+            }
         };
         match ProvisionalRuntimeAvatarInput::new(instance_id, prepared) {
             Ok(instance) => instances.push(instance),
-            Err(error) => return result(handoff_failure(error)),
+            Err(error) => return result(handoff_failure(error, all_pairs_processed)),
         }
     }
     finish_handoff(instances)
@@ -189,7 +214,7 @@ fn inspect_sources(sources: Vec<(String, Vec<u8>)>) -> CliResult {
 fn finish_handoff(instances: Vec<ProvisionalRuntimeAvatarInput>) -> CliResult {
     match handoff_provisional_runtime_input(instances) {
         Ok(handoff) => success(handoff.instances()),
-        Err(error) => result(handoff_failure(error)),
+        Err(error) => result(handoff_failure(error, true)),
     }
 }
 
@@ -269,8 +294,21 @@ fn basis_projection(basis: frame::SourceBasis) -> Value {
     })
 }
 
-fn preparation_failure(instance_id: &str, error: SourcePreparationError) -> Value {
-    let (status, processing_complete, diagnostics_complete, diagnostics, primary) = match error {
+fn preparation_failure(
+    instance_id: &str,
+    error: SourcePreparationError,
+    all_pairs_processed: bool,
+) -> Value {
+    let (
+        stage,
+        status,
+        processing_complete,
+        diagnostics_complete,
+        effective_diagnostic_profile_id,
+        effective_resource_profile_id,
+        diagnostics,
+        primary,
+    ) = match error {
         SourcePreparationError::Admission(admission) => {
             let missing_document = admission.status == Status::Success;
             let status = if missing_document {
@@ -281,7 +319,7 @@ fn preparation_failure(instance_id: &str, error: SourcePreparationError) -> Valu
             let missing_document_diagnostic = || {
                 cli_diagnostic(
                     "ck.cli.missing-admitted-document",
-                    "source admission did not provide a usable document",
+                    "admission reported success without a document",
                 )
             };
             let diagnostics = if missing_document {
@@ -302,9 +340,12 @@ fn preparation_failure(instance_id: &str, error: SourcePreparationError) -> Valu
                     .map(admission_diagnostic)
             };
             (
+                "admission",
                 status,
-                admission.processing_complete,
-                admission.diagnostics_complete,
+                admission.processing_complete && all_pairs_processed,
+                admission.diagnostics_complete && all_pairs_processed,
+                Some(admission.effective_diagnostic_profile_id),
+                Some(admission.effective_resource_profile_id),
                 diagnostics,
                 primary,
             )
@@ -321,27 +362,39 @@ fn preparation_failure(instance_id: &str, error: SourcePreparationError) -> Valu
                     "source preparation failed without a diagnostic",
                 )
             });
-            ("invalid-source", true, true, diagnostics, Some(primary))
+            (
+                "source-preparation",
+                "invalid-source",
+                all_pairs_processed,
+                all_pairs_processed,
+                None,
+                None,
+                diagnostics,
+                Some(primary),
+            )
         }
         SourcePreparationError::Basis(error) => {
-            let diagnostic = cli_diagnostic("ck.cli.source-preparation.basis", error.to_string());
+            let diagnostic = basis_diagnostic(error);
             (
+                "source-preparation",
                 "invalid-source",
-                true,
-                true,
+                all_pairs_processed,
+                all_pairs_processed,
+                None,
+                None,
                 vec![diagnostic.clone()],
                 Some(diagnostic),
             )
         }
         SourcePreparationError::Numeric { location, cause } => {
-            let diagnostic = cli_diagnostic(
-                "ck.cli.source-preparation.numeric",
-                format!("numeric preparation failed at {location:?}: {cause:?}"),
-            );
+            let diagnostic = numeric_diagnostic(&location, cause);
             (
+                "source-preparation",
                 "invalid-source",
-                true,
-                true,
+                all_pairs_processed,
+                all_pairs_processed,
+                None,
+                None,
                 vec![diagnostic.clone()],
                 Some(diagnostic),
             )
@@ -352,16 +405,19 @@ fn preparation_failure(instance_id: &str, error: SourcePreparationError) -> Valu
                 format!("{collection} structural invariant failed: {error}"),
             );
             (
+                "source-preparation",
                 "internal-failure",
-                true,
-                true,
+                all_pairs_processed,
+                all_pairs_processed,
+                None,
+                None,
                 vec![diagnostic.clone()],
                 Some(diagnostic),
             )
         }
     };
 
-    let mut output = base_output("source-preparation");
+    let mut output = base_output(stage);
     output.insert("status".to_owned(), Value::String(status.to_owned()));
     output.insert(
         "processing_complete".to_owned(),
@@ -371,6 +427,18 @@ fn preparation_failure(instance_id: &str, error: SourcePreparationError) -> Valu
         "diagnostics_complete".to_owned(),
         Value::Bool(diagnostics_complete),
     );
+    if let Some(profile_id) = effective_diagnostic_profile_id {
+        output.insert(
+            "effective_diagnostic_profile_id".to_owned(),
+            Value::String(profile_id.to_owned()),
+        );
+    }
+    if let Some(profile_id) = effective_resource_profile_id {
+        output.insert(
+            "effective_resource_profile_id".to_owned(),
+            Value::String(profile_id.to_owned()),
+        );
+    }
     output.insert(
         "instance_id".to_owned(),
         Value::String(instance_id.to_owned()),
@@ -382,12 +450,15 @@ fn preparation_failure(instance_id: &str, error: SourcePreparationError) -> Valu
     Value::Object(output)
 }
 
-fn handoff_failure(error: ProvisionalRuntimeInputError) -> Value {
+fn handoff_failure(error: ProvisionalRuntimeInputError, all_pairs_processed: bool) -> Value {
     let diagnostic = cli_diagnostic("ck.cli.runtime-input", error.to_string());
     let mut output = base_output("runtime-input");
     output.insert("status".to_owned(), Value::String("usage-error".to_owned()));
     output.insert("processing_complete".to_owned(), Value::Bool(false));
-    output.insert("diagnostics_complete".to_owned(), Value::Bool(true));
+    output.insert(
+        "diagnostics_complete".to_owned(),
+        Value::Bool(all_pairs_processed),
+    );
     output.insert("diagnostics".to_owned(), json!([diagnostic.clone()]));
     output.insert("primary_diagnostic".to_owned(), diagnostic);
     Value::Object(output)
@@ -404,7 +475,7 @@ fn usage_error(message: impl Into<String>) -> Value {
     Value::Object(output)
 }
 
-fn input_error(instance_id: &str, message: String) -> Value {
+fn input_error(instance_id: &str, message: String, all_pairs_processed: bool) -> Value {
     let diagnostic = cli_diagnostic("ck.cli.input-read", message);
     let mut output = base_output("input");
     output.insert(
@@ -412,7 +483,10 @@ fn input_error(instance_id: &str, message: String) -> Value {
         Value::String("input-failure".to_owned()),
     );
     output.insert("processing_complete".to_owned(), Value::Bool(false));
-    output.insert("diagnostics_complete".to_owned(), Value::Bool(true));
+    output.insert(
+        "diagnostics_complete".to_owned(),
+        Value::Bool(all_pairs_processed),
+    );
     output.insert(
         "instance_id".to_owned(),
         Value::String(instance_id.to_owned()),
@@ -448,6 +522,128 @@ fn structural_diagnostic(diagnostic: &StructuralDiagnostic) -> Value {
         "role": diagnostic.role,
         "detail": diagnostic.detail,
     })
+}
+
+fn basis_diagnostic(error: frame::BasisError) -> Value {
+    json!({
+        "category": "basis",
+        "code": "ck.frame.basis-collinear",
+        "message": error.to_string(),
+        "instance_path": "/basis/up,/basis/forward",
+        "cause": "collinear-axes",
+    })
+}
+
+fn numeric_diagnostic(location: &SourceNumericLocation, cause: SourceNumericCause) -> Value {
+    let (cause_kind, cause_message, details) = match cause {
+        SourceNumericCause::MaterializedTokenTooLong {
+            actual_bytes,
+            limit_bytes,
+        } => (
+            "materialized-token-too-long",
+            format!(
+                "materialized number token is {actual_bytes} bytes; limit is {limit_bytes} bytes"
+            ),
+            json!({"actual_bytes": actual_bytes, "limit_bytes": limit_bytes}),
+        ),
+        SourceNumericCause::DecimalConversion(error) => (
+            "decimal-conversion",
+            error.to_string(),
+            json!({"error": format!("{error:?}")}),
+        ),
+    };
+    json!({
+        "category": "numeric",
+        "code": "ck.frame.numeric-preparation",
+        "message": format!("numeric preparation failed: {cause_message}"),
+        "location": numeric_location(location),
+        "cause": {"kind": cause_kind, "message": cause_message, "details": details},
+    })
+}
+
+fn numeric_location(location: &SourceNumericLocation) -> Value {
+    match location {
+        SourceNumericLocation::PartPlacement { address, component } => {
+            transform_location("parts", address, "placement", *component)
+        }
+        SourceNumericLocation::JointProximal { address, component } => {
+            transform_location("joints", address, "proximal_frame", *component)
+        }
+        SourceNumericLocation::JointDistal { address, component } => {
+            transform_location("joints", address, "distal_frame", *component)
+        }
+        SourceNumericLocation::SocketInterface { address, component } => {
+            transform_location("sockets", address, "interface_frame", *component)
+        }
+        SourceNumericLocation::AttachmentOffset { address, component } => {
+            transform_location("attachments", address, "offset", *component)
+        }
+        SourceNumericLocation::LandmarkPosition {
+            owner_role,
+            component,
+        } => json!({
+            "group": "landmarks",
+            "owner_role": owner_role_value(owner_role),
+            "field": "position",
+            "component": position_component_name(*component),
+        }),
+        SourceNumericLocation::DimensionValue { owner_role } => json!({
+            "group": "dimensions",
+            "owner_role": owner_role_value(owner_role),
+            "field": "value",
+            "component": "scalar",
+        }),
+        SourceNumericLocation::NamedFrame {
+            owner_role,
+            component,
+        } => json!({
+            "group": "frames",
+            "owner_role": owner_role_value(owner_role),
+            "field": "transform",
+            "component": transform_component_name(*component),
+        }),
+    }
+}
+
+fn transform_location(
+    group: &str,
+    address: &AddressKey,
+    field: &str,
+    component: SourceTransformComponent,
+) -> Value {
+    json!({
+        "group": group,
+        "address": crate::structural_inspection::address_key_value(address),
+        "field": field,
+        "component": transform_component_name(component),
+    })
+}
+
+fn owner_role_value(owner_role: &OwnerRoleKey) -> Value {
+    json!({
+        "owner": crate::structural_inspection::address_key_value(owner_role.owner()),
+        "role": owner_role.role(),
+    })
+}
+
+fn transform_component_name(component: SourceTransformComponent) -> &'static str {
+    match component {
+        SourceTransformComponent::TranslationX => "translation.x",
+        SourceTransformComponent::TranslationY => "translation.y",
+        SourceTransformComponent::TranslationZ => "translation.z",
+        SourceTransformComponent::RotationX => "rotation.x",
+        SourceTransformComponent::RotationY => "rotation.y",
+        SourceTransformComponent::RotationZ => "rotation.z",
+        SourceTransformComponent::RotationW => "rotation.w",
+    }
+}
+
+fn position_component_name(component: PositionComponent) -> &'static str {
+    match component {
+        PositionComponent::X => "x",
+        PositionComponent::Y => "y",
+        PositionComponent::Z => "z",
+    }
 }
 
 fn result(value: Value) -> CliResult {
@@ -515,6 +711,7 @@ mod tests {
     use super::*;
     use creature_kernel_core::body_document::AdmissionResult;
     use creature_kernel_core::provisional_json;
+    use creature_kernel_core::provisional_json as serde_json;
 
     fn biped() -> Vec<u8> {
         include_bytes!("../../../examples/body-documents/stylized-digitigrade-biped.json").to_vec()
@@ -731,10 +928,46 @@ mod tests {
         assert_eq!(result.exit_code, 1);
         let value = value(&result);
         assert_eq!(value["status"], "invalid-source");
-        assert_eq!(value["stage"], "source-preparation");
+        assert_eq!(value["stage"], "admission");
         assert_eq!(value["instance_id"], "bad-instance");
+        assert_eq!(value["processing_complete"], true);
+        assert_eq!(value["diagnostics_complete"], true);
         assert!(value.get("instances").is_none());
         assert_eq!(value["primary_diagnostic"], value["diagnostics"][0]);
+    }
+
+    #[test]
+    fn valid_invalid_missing_order_does_not_claim_unprocessed_pairs_complete() {
+        let manifest_path = |relative: &str| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(relative)
+                .to_string_lossy()
+                .into_owned()
+        };
+        let result = run_cli([
+            OPERATION.to_owned(),
+            "--instance".to_owned(),
+            "valid-instance".to_owned(),
+            "--source".to_owned(),
+            manifest_path("examples/body-documents/stylized-digitigrade-biped.json"),
+            "--instance".to_owned(),
+            "invalid-instance".to_owned(),
+            "--source".to_owned(),
+            manifest_path("fixtures/body-documents/readiness-2/minimal-valid-envelope.json"),
+            "--instance".to_owned(),
+            "missing-instance".to_owned(),
+            "--source".to_owned(),
+            "/definitely/not/a/runtime-input-body.json".to_owned(),
+        ]);
+        assert_eq!(result.exit_code, 1);
+        let value = value(&result);
+        assert_eq!(value["status"], "invalid-source");
+        assert_eq!(value["stage"], "source-preparation");
+        assert_eq!(value["instance_id"], "invalid-instance");
+        assert_eq!(value["processing_complete"], false);
+        assert_eq!(value["diagnostics_complete"], false);
+        assert!(value.get("instances").is_none());
     }
 
     #[test]
@@ -784,14 +1017,68 @@ mod tests {
         let value = preparation_failure(
             "truncated-instance",
             SourcePreparationError::Admission(Box::new(admission)),
+            true,
         );
+        assert_eq!(value["stage"], "admission");
         assert_eq!(value["status"], "invalid-source");
         assert_eq!(value["processing_complete"], true);
         assert_eq!(value["diagnostics_complete"], false);
+        assert_eq!(
+            value["effective_diagnostic_profile_id"],
+            creature_kernel_core::body_document::DIAGNOSTIC_PROFILE_ID
+        );
+        assert_eq!(
+            value["effective_resource_profile_id"],
+            creature_kernel_core::body_document::ORDINARY_RESOURCE_PROFILE_ID
+        );
         assert_eq!(value["diagnostics"].as_array().unwrap().len(), 1);
         assert_eq!(value["diagnostics"][0]["code"], "ck.test.retained");
         assert_eq!(value["primary_diagnostic"]["code"], "ck.test.primary");
         assert_ne!(value["primary_diagnostic"], value["diagnostics"][0]);
+    }
+
+    #[test]
+    fn basis_and_numeric_failures_preserve_structured_identity() {
+        let mut basis: serde_json::Value = serde_json::from_slice(&biped()).unwrap();
+        basis["basis"]["forward"] = serde_json::Value::String("-y".to_owned());
+        let basis = inspect_sources(vec![(
+            "basis-instance".to_owned(),
+            serde_json::to_vec(&basis).unwrap(),
+        )]);
+        let basis = value(&basis);
+        assert_eq!(basis["status"], "invalid-source");
+        assert_eq!(basis["diagnostics"][0]["category"], "basis");
+        assert_eq!(basis["diagnostics"][0]["code"], "ck.frame.basis-collinear");
+        assert_eq!(
+            basis["diagnostics"][0]["instance_path"],
+            "/basis/up,/basis/forward"
+        );
+        assert_eq!(basis["diagnostics"][0]["cause"], "collinear-axes");
+
+        let mut numeric: serde_json::Value = serde_json::from_slice(&biped()).unwrap();
+        numeric["body"]["parts"][0]["placement"]["translation"][0] =
+            serde_json::from_str("1.7976931348623159e308").unwrap();
+        let numeric = inspect_sources(vec![(
+            "numeric-instance".to_owned(),
+            serde_json::to_vec(&numeric).unwrap(),
+        )]);
+        let numeric = value(&numeric);
+        let diagnostic = &numeric["diagnostics"][0];
+        assert_eq!(numeric["status"], "invalid-source");
+        assert_eq!(diagnostic["category"], "numeric");
+        assert_eq!(diagnostic["code"], "ck.frame.numeric-preparation");
+        assert_eq!(diagnostic["location"]["group"], "parts");
+        assert_eq!(diagnostic["location"]["field"], "placement");
+        assert_eq!(diagnostic["location"]["component"], "translation.x");
+        assert_eq!(diagnostic["cause"]["kind"], "decimal-conversion");
+        assert_eq!(
+            diagnostic["cause"]["message"],
+            "JSON number overflowed or converted to a non-finite value"
+        );
+        assert_eq!(
+            diagnostic["cause"]["details"]["error"],
+            "NonFiniteOrOverflow"
+        );
     }
 
     #[test]
@@ -840,5 +1127,7 @@ mod tests {
         let value = value(&result);
         assert_eq!(value["status"], "input-failure");
         assert_eq!(value["instance_id"], "missing-instance");
+        assert_eq!(value["processing_complete"], false);
+        assert_eq!(value["diagnostics_complete"], true);
     }
 }
