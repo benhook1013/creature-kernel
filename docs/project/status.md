@@ -75,14 +75,14 @@ The provisional disposable CK/Rust-backed projection over the same two ordered
 avatars is also implemented. It requires an explicit absolute native
 executable, binds
 that executable's digest/size and the exact source, carrier, gallery, pose and
-artifact identities, records bounded successful `inspect-structure` evidence,
+artifact identities, records bounded successful `inspect-runtime-input` evidence,
 and is freshly rebuilt before launch and again before report publication. Its
 embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
-The focused projection suite passed 19 tests with 1 expected skip, and the
-focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
-display skips; the main consolidated Godot experiment suite contains 187
-tests with 30 expected skips. The corrected final evidence is one bounded
+The focused projection suite passed 20 tests with 1 expected skip, and the
+focused `test_skeletal_pose_smoke.py` suite passed 86 tests with 18 expected
+display skips; the main consolidated Godot experiment suite contains 202
+tests with 31 expected skips. The corrected final evidence is one bounded
 paired runtime run using
 one exact 512x512 X11 `gl_compatibility` trial environment with official
 Godot 4.7.2 on Ubuntu
@@ -129,7 +129,7 @@ new direction is introduced here.
 
 PR #120 completed the direct Rust prerequisite with a provisional CLI-local
 ordered prepared-source handoff and `inspect-runtime-input` debug command. The
-current worktree migrates the experiment projection to schema v2 and replaces
+experiment projection now uses schema v2 and replaces
 two `inspect-structure` calls with one exact ordered two-avatar
 `inspect-runtime-input` call. Python and Godot validate compact per-avatar
 source, prepared-basis, prepared-count, and structural-count evidence while
@@ -140,7 +140,7 @@ This remains experiment-local prepared-source/projection evidence—not a stable
 wire contract, runtime package, package loader, resolver snapshot, profile,
 adapter, or Readiness 3 activation.
 
-The current uncommitted package slice adds a disposable directory payload for
+The package slice adds a disposable directory payload for
 the same two ordered avatars: exactly two source documents, plus seven
 load-time files per avatar (`metrics.json`, `neutral.ply`, `posed.ply`,
 `skeleton.json`, `weights.json`, `proxies-neutral.json`, and
@@ -155,13 +155,19 @@ In package mode, Godot receives the package root and manifest plus the existing
 validated carrier, projection, injected semantic-pose, and optional
 semantic-contact inputs, but no gallery path. It constructs both avatars from
 package bytes and emits `validated_ck_package` evidence for Python to
-cross-validate. Non-package gallery-backed paths remain preserved. The real
-pinned visible-Godot package integration test exists, but is pending an
-attended opt-in run. The named human Godot feasibility checkpoint is not yet
-reached. The main consolidated suite is 197 tests with 31 expected skips. This
-remains experiment-local evidence: no stable package, wire,
-adapter, Readiness 3, or engine choice is established, and no general
-dependency closure, runtime-package activation, or host contract is claimed.
+cross-validate. Non-package gallery-backed paths remain preserved. On
+2026-08-30, the one real package-backed producer-to-Godot integration test
+passed under private Xvfb in 226.084 seconds initially and again in 232.186
+seconds after review fixes (single-run observations, not benchmarks or
+performance claims). It built from the existing
+generated gallery, staged and revalidated a private package, made the original
+gallery unavailable during the actual Godot subprocess, and still preserved
+the tested pose/contact/deformation/coherence path. This proves bounded
+disposable package consumer isolation only. It remains experiment-local,
+reaches no named human visual checkpoint, and establishes no stable package,
+wire, adapter, Readiness 3, or engine choice, and no general dependency
+closure. The full consolidated no-display rerun also passed: 202 tests with 31
+expected skips.
 
 Proposed/provisional deformation and render/collision coherence evidence only:
 The current deformation slice adds a deterministic smooth open forearm sleeve

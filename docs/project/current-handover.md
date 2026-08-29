@@ -76,14 +76,14 @@ the canonical owner of the active runway, and the required reading order in
   claim. A provisional disposable CK/Rust-backed projection over
   the same two ordered avatars is now implemented. It requires an explicit
   absolute native executable, binds producer/source/carrier/gallery/pose/
-  artifact identities, records bounded successful `inspect-structure`
+  artifact identities, records bounded successful `inspect-runtime-input`
   evidence, and is freshly rebuilt before launch and report publication. Its
   identity is transport-only; this remains experiment evidence, not a durable
   package schema, R3 activation, adapter, or host lock-in. The focused
-  projection suite passed 19 tests with 1 expected skip, and the
-  focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
-  display skips; the main consolidated Godot experiment suite contains 187
-  tests with 30 expected skips. The corrected final evidence is one bounded
+  projection suite passed 20 tests with 1 expected skip, and the
+  focused `test_skeletal_pose_smoke.py` suite passed 86 tests with 18 expected
+  display skips; the main consolidated Godot experiment suite contains 202
+  tests with 31 expected skips. The corrected final evidence is one bounded
   paired runtime run using
   one exact 512x512 X11 `gl_compatibility` trial environment with official
   Godot 4.7.2 on Ubuntu
@@ -174,7 +174,7 @@ the canonical owner of the active runway, and the required reading order in
   experiment-local evidence, not a stable wire contract, runtime package,
   package loader, resolver snapshot, profile, adapter, or Readiness 3
   activation.
-- The current uncommitted package slice adds a disposable directory payload:
+- The package slice adds a disposable directory payload:
   exactly two source documents and seven load-time files per avatar
   (`metrics.json`, `neutral.ply`, `posed.ply`, `skeleton.json`, `weights.json`,
   `proxies-neutral.json`, and `proxies-posed.json`). Its fixture sources require
@@ -186,11 +186,18 @@ the canonical owner of the active runway, and the required reading order in
   the existing carrier, projection, injected pose, and optional contact inputs,
   but no gallery path; Godot constructs both avatars from package bytes and
   emits `validated_ck_package` evidence. Non-package paths remain preserved.
-  The real pinned visible-Godot package integration test exists but is pending
-  an attended opt-in run. The named human Godot feasibility checkpoint is not
-  yet reached. The main consolidated suite is 197 tests with 31 expected skips.
-  This is experiment-local evidence only: no stable package,
-  wire, adapter, Readiness 3, or engine choice is established.
+  On 2026-08-30, the one real package-backed producer-to-Godot integration
+  test passed under private Xvfb in 226.084 seconds initially and again in
+  232.186 seconds after review fixes (single-run observations, not benchmarks
+  or performance claims). It built from the
+  existing generated gallery, staged and revalidated a private package, made
+  the original gallery unavailable during the actual Godot subprocess, and
+  still preserved the tested pose/contact/deformation/coherence path. This
+  proves bounded disposable package consumer isolation only. It remains
+  experiment-local, reaches no named human visual checkpoint, and establishes
+  no stable package, wire, adapter, Readiness 3, or engine choice, and no
+  general dependency closure. The full consolidated no-display rerun also
+  passed: 202 tests with 31 expected skips.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition

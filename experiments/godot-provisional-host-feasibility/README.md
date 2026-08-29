@@ -409,7 +409,7 @@ compatibility promise, Readiness 3 activation, or engine selection.
 
 ## Disposable CK directory payload
 
-The current uncommitted package slice adds a disposable directory payload for
+The package slice adds a disposable directory payload for
 the same two ordered avatars. Its manifest is
 `creature-kernel.disposable-ck-directory-payload.v1` with an
 `experiment_local_directory_payload_evidence_only` boundary. The exact tree
@@ -472,8 +472,17 @@ optional semantic-contact inputs; it does not send a gallery path to Godot.
 Godot reads both avatars from package bytes, constructs their runtime objects,
 and emits `validated_ck_package` evidence that Python validates against the
 package and fresh predecessor lineage. Non-package paths remain gallery-backed
-and unchanged. The real pinned visible-Godot package integration test exists,
-but remains pending an attended opt-in run.
+and unchanged. On 2026-08-30, the one real package-backed producer-to-Godot
+integration test passed under private Xvfb in 226.084 seconds initially and
+again in 232.186 seconds after review fixes (single-run observations, not
+benchmarks or performance claims). It built from
+the existing generated gallery, staged and revalidated a private package, made
+the original gallery unavailable during the actual Godot subprocess, and
+still preserved the tested pose/contact/deformation/coherence path. This
+proves bounded disposable package consumer isolation only. It remains
+experiment-local, reaches no named human visual checkpoint, and establishes
+no stable package, wire, adapter, Readiness 3, or engine choice, and no
+general dependency closure.
 
 This is no stable package or wire format, adapter contract, Readiness 3 result,
 or engine choice. It also makes no general dependency-closure claim and does
@@ -542,8 +551,8 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The `test_skeletal_pose_smoke.py` focused result contains 68 tests
-with 16 expected display skips, covering both frozen profile pairs, complete
+regressions. The `test_skeletal_pose_smoke.py` focused result contains 86 tests
+with 18 expected display skips, covering both frozen profile pairs, complete
 `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
@@ -561,15 +570,23 @@ fresh predecessor lineage, canonical publication, strict field validation,
 tampering and mutation rejection, and command identity. Focused real contact
 integration passed in 182.453s; the focused no-display file has 16 expected display
 skips when its attended renderer path is unavailable.
-The 19-test disposable CK projection suite covers exact producer and transport
+The 20-test disposable CK projection suite covers exact producer and transport
 identity, private CLI/source snapshot binding, bounded subprocess output, fresh
 source/carrier/gallery/executable revalidation, deterministic publication,
 mutation rejection, and both frozen
 profile pairs against the native Rust CLI.
-The main consolidated Godot experiment suite contains 197 tests with 31
-expected skips. The real pinned visible-Godot package integration test exists,
-but remains pending an attended opt-in run. The named human Godot feasibility
-checkpoint is not yet reached.
+The full consolidated no-display Godot experiment suite passed 202 tests with
+31 expected skips. The 2026-08-30 package-backed producer-to-Godot integration
+test passed under private Xvfb in 226.084 seconds initially and again in
+232.186 seconds after review fixes (single-run observations, not benchmarks or
+performance claims) after building from the
+existing generated gallery, staging and revalidating a private package, and
+making the original gallery unavailable during the actual Godot subprocess;
+the tested pose/contact/deformation/coherence path remained preserved. This
+proves bounded disposable package consumer isolation only. It remains
+experiment-local, reaches no named human visual checkpoint, and establishes
+no stable package, wire, adapter, Readiness 3, or engine choice, and no
+general dependency closure.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites

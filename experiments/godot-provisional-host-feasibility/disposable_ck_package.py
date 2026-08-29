@@ -663,12 +663,40 @@ def _open_directory_descriptor(path: Path, label: str) -> int:
         raise PackageError(f"could not open {label} without following symlinks: {path}") from exc
 
 
-def _directory_identity(path: Path, label: str) -> tuple[int, int]:
-    parent_fd = _open_directory_descriptor(path.parent, f"{label} parent")
+def _open_directory_at(parent_fd: int, name: str, path: Path, label: str) -> int:
     directory_fd: int | None = None
     try:
         carrier_module = _load_projection_module()._load_carrier_module()  # type: ignore[attr-defined]
-        directory_fd = os.open(path.name, _directory_open_flags(carrier_module), dir_fd=parent_fd)
+        directory_fd = os.open(name, _directory_open_flags(carrier_module), dir_fd=parent_fd)
+        info = os.fstat(directory_fd)
+        if not stat.S_ISDIR(info.st_mode):
+            raise PackageError(f"{label} must be a regular non-symlink directory: {path}")
+        return directory_fd
+    except PackageError:
+        if directory_fd is not None:
+            try:
+                os.close(directory_fd)
+            except OSError:
+                pass
+        raise
+    except (OSError, NotImplementedError, TypeError) as exc:
+        if directory_fd is not None:
+            try:
+                os.close(directory_fd)
+            except OSError:
+                pass
+        raise PackageError(f"could not open {label}: {path}") from exc
+
+
+def _directory_identity(path: Path, label: str, *, parent_fd: int | None = None) -> tuple[int, int]:
+    path = Path(path)
+    absolute = path if path.is_absolute() else Path(os.path.abspath(path))
+    owns_parent_fd = parent_fd is None
+    if owns_parent_fd:
+        parent_fd = _open_directory_descriptor(absolute.parent, f"{label} parent")
+    directory_fd: int | None = None
+    try:
+        directory_fd = _open_directory_at(parent_fd, absolute.name, absolute, label)
         info = os.fstat(directory_fd)
         if not stat.S_ISDIR(info.st_mode):
             raise PackageError(f"{label} must be a regular non-symlink directory: {path}")
@@ -681,62 +709,108 @@ def _directory_identity(path: Path, label: str) -> tuple[int, int]:
                 os.close(directory_fd)
             except OSError:
                 pass
-        try:
-            os.close(parent_fd)
-        except OSError:
-            pass
+        if owns_parent_fd:
+            try:
+                os.close(parent_fd)
+            except OSError:
+                pass
 
 
 def _create_destination(path: Path) -> tuple[Path, tuple[int, int]]:
     path = _package_root(path, must_exist=False)
     _regular_directory(path.parent, "package output parent")
+    parent_fd: int | None = None
     identity: tuple[int, int] | None = None
     try:
-        path.mkdir(mode=0o700)
-    except FileExistsError as exc:
-        raise PackageError(f"package destination already exists: {path}") from exc
-    except OSError as exc:
-        raise PackageError(f"could not create package destination: {path}") from exc
-    try:
-        # Capture the created directory identity through a no-follow descriptor
-        # before the diagnostic lstat.  If lstat is interrupted after mkdir,
-        # cleanup can still be attempted against this bounded identity.
-        identity = _directory_identity(path, "new package destination")
-        info = path.lstat()
-        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-            raise PackageError(f"new package destination must be a regular non-symlink directory: {path}")
-        if (info.st_dev, info.st_ino) != identity:
-            raise PackageError(f"new package destination changed while being inspected: {path}")
-        return path, identity
-    except Exception as exc:
-        if identity is not None:
-            _cleanup_created_destination(path, identity)
-        if isinstance(exc, PackageError):
-            raise
-        raise PackageError(f"could not inspect new package destination: {path}") from exc
+        parent_fd = _open_directory_descriptor(path.parent, "package output parent")
+        try:
+            os.mkdir(path.name, mode=0o700, dir_fd=parent_fd)
+        except FileExistsError as exc:
+            raise PackageError(f"package destination already exists: {path}") from exc
+        except (OSError, NotImplementedError, TypeError) as exc:
+            raise PackageError(f"could not create package destination: {path}") from exc
+
+        try:
+            # Capture the created directory identity through the already
+            # anchored parent descriptor before the diagnostic lstat.  If
+            # lstat is interrupted after mkdir, cleanup can still be attempted
+            # against this bounded identity.
+            identity = _directory_identity(path, "new package destination", parent_fd=parent_fd)
+            info = path.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+                raise PackageError(f"new package destination must be a regular non-symlink directory: {path}")
+            if (info.st_dev, info.st_ino) != identity:
+                raise PackageError(f"new package destination changed while being inspected: {path}")
+            return path, identity
+        except Exception as exc:
+            if identity is not None:
+                _cleanup_created_destination(path, identity)
+            if isinstance(exc, PackageError):
+                raise
+            raise PackageError(f"could not inspect new package destination: {path}") from exc
+    finally:
+        if parent_fd is not None:
+            try:
+                os.close(parent_fd)
+            except OSError:
+                pass
 
 
 def _make_layout(root: Path) -> None:
-    for relative in (AVATARS_DIRECTORY, f"{AVATARS_DIRECTORY}/0", f"{AVATARS_DIRECTORY}/1"):
-        path = root / relative
+    root = Path(root)
+    absolute = root if root.is_absolute() else Path(os.path.abspath(root))
+    root_fd = _open_directory_descriptor(absolute, "package root")
+    avatars_fd: int | None = None
+    try:
         try:
-            path.mkdir(mode=0o700)
+            os.mkdir(AVATARS_DIRECTORY, mode=0o700, dir_fd=root_fd)
         except FileExistsError as exc:
-            raise PackageError(f"package layout path already exists: {relative}") from exc
-        except OSError as exc:
-            raise PackageError(f"could not create package layout path: {relative}") from exc
-        _regular_directory(path, f"package layout directory {relative}")
+            raise PackageError(f"package layout path already exists: {AVATARS_DIRECTORY}") from exc
+        except (OSError, NotImplementedError, TypeError) as exc:
+            raise PackageError(f"could not create package layout path: {AVATARS_DIRECTORY}") from exc
+
+        avatars_fd = _open_directory_at(
+            root_fd,
+            AVATARS_DIRECTORY,
+            absolute / AVATARS_DIRECTORY,
+            f"package layout directory {AVATARS_DIRECTORY}",
+        )
+        for index in range(2):
+            relative = f"{AVATARS_DIRECTORY}/{index}"
+            name = str(index)
+            try:
+                os.mkdir(name, mode=0o700, dir_fd=avatars_fd)
+            except FileExistsError as exc:
+                raise PackageError(f"package layout path already exists: {relative}") from exc
+            except (OSError, NotImplementedError, TypeError) as exc:
+                raise PackageError(f"could not create package layout path: {relative}") from exc
+    finally:
+        if avatars_fd is not None:
+            try:
+                os.close(avatars_fd)
+            except OSError:
+                pass
+        try:
+            os.close(root_fd)
+        except OSError:
+            pass
 
 
 def _write_new_file(path: Path, data: bytes, label: str) -> None:
-    _reject_symlink_components(path, label)
-    _regular_directory(path.parent, f"{label} parent")
+    path = Path(path)
+    absolute = path if path.is_absolute() else Path(os.path.abspath(path))
+    parent_fd = _open_directory_descriptor(absolute.parent, f"{label} parent")
     fd: int | None = None
     try:
         fd = os.open(
-            path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+            absolute.name,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
             0o600,
+            dir_fd=parent_fd,
         )
         view = memoryview(data)
         while view:
@@ -758,6 +832,10 @@ def _write_new_file(path: Path, data: bytes, label: str) -> None:
                 os.close(fd)
             except OSError:
                 pass
+        try:
+            os.close(parent_fd)
+        except OSError:
+            pass
 
 
 def _verify_copied_files(root: Path, files: dict[str, bytes], *, include_manifest: bool) -> None:

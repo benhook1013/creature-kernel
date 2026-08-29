@@ -678,6 +678,22 @@ def _package_file_bytes(package_module: Any, package_root: Path, relative: str, 
         raise SmokeError(f"{label} could not be read from the validated CK package: {type(exc).__name__}: {exc}") from exc
 
 
+def _gallery_metrics_bytes(package_module: Any, gallery: Path, profile_id: str) -> bytes:
+    label = f"gallery {profile_id} metrics"
+    try:
+        return _load_carrier_module()._read_regular_file(  # type: ignore[attr-defined]
+            Path(gallery) / profile_id / package_module.METRICS_FILE,
+            package_module.MAX_FILE_BYTES,
+            label,
+        )
+    except SmokeError:
+        raise
+    except Exception as exc:
+        raise SmokeError(
+            f"{label} could not be read during CK package validation: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
 def _stage_validated_ck_package(
     package_path: Path,
     package_manifest: dict[str, Any],
@@ -797,11 +813,7 @@ def _validated_ck_package_input(
             raise SmokeError(f"CK package {profile_id} metrics are not valid JSON: {exc}") from exc
         if metrics_value != projection_avatar.get("metrics"):
             raise SmokeError(f"CK package avatar {index} metrics disagree with the projection")
-        expected_metrics_bytes = _load_carrier_module()._read_regular_file(  # type: ignore[attr-defined]
-            Path(gallery) / profile_id / package_module.METRICS_FILE,
-            package_module.MAX_FILE_BYTES,
-            f"gallery {profile_id} metrics",
-        )
+        expected_metrics_bytes = _gallery_metrics_bytes(package_module, gallery, profile_id)
         if package_metrics_bytes != expected_metrics_bytes:
             raise SmokeError(f"CK package avatar {index} metrics file differs from the freshly validated gallery")
 
@@ -4481,14 +4493,14 @@ def run_skeletal_pose_smoke(
             kwargs["validated_ck_package"] = validated_ck_package
         _validate_report(*args, **kwargs)
 
+    package_launch_options = (
+        {"package_path": Path(package_path), "package_manifest": package_manifest}
+        if package_path is not None
+        else {}
+    )
     if runtime_evaluation:
         if contact_command is None or staged_deformation_captures is None:
             raise SmokeError("runtime evaluation requires validated semantic contact and deformation captures")
-        package_launch_options = (
-            {"package_path": Path(package_path), "package_manifest": package_manifest}
-            if package_path is not None
-            else {}
-        )
         launch_arguments = [
             gallery,
             selected,
@@ -4585,11 +4597,6 @@ def run_skeletal_pose_smoke(
         cpu_report["runtime_evaluation"] = runtime_evaluation_value
         stdout, stderr, returncode, report = cpu_stdout, cpu_stderr, cpu_returncode, cpu_report
     elif contact_command is not None:
-        package_launch_options = (
-            {"package_path": Path(package_path), "package_manifest": package_manifest}
-            if package_path is not None
-            else {}
-        )
         launch_arguments = [
             gallery,
             selected,
@@ -4619,11 +4626,6 @@ def run_skeletal_pose_smoke(
             **launch_options,
         )
     elif projection is None and command is None:
-        package_launch_options = (
-            {"package_path": Path(package_path), "package_manifest": package_manifest}
-            if package_path is not None
-            else {}
-        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
@@ -4633,11 +4635,6 @@ def run_skeletal_pose_smoke(
             **package_launch_options,
         )
     elif projection is None:
-        package_launch_options = (
-            {"package_path": Path(package_path), "package_manifest": package_manifest}
-            if package_path is not None
-            else {}
-        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
@@ -4650,11 +4647,6 @@ def run_skeletal_pose_smoke(
             **package_launch_options,
         )
     elif command is None:
-        package_launch_options = (
-            {"package_path": Path(package_path), "package_manifest": package_manifest}
-            if package_path is not None
-            else {}
-        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,
@@ -4666,11 +4658,6 @@ def run_skeletal_pose_smoke(
             **package_launch_options,
         )
     else:
-        package_launch_options = (
-            {"package_path": Path(package_path), "package_manifest": package_manifest}
-            if package_path is not None
-            else {}
-        )
         stdout, stderr, returncode, report = _launch_godot(
             gallery,
             selected,

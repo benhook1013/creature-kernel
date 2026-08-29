@@ -1155,6 +1155,7 @@ func _validate_ck_package_directory_entries(path: String, expected: Dictionary, 
 		_failure = "%s cannot be opened" % label
 		return false
 	var actual := {}
+	directory.include_hidden = true
 	directory.list_dir_begin()
 	var entry := directory.get_next()
 	while not entry.is_empty():

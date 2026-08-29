@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 HERE = Path(__file__).resolve()
@@ -565,6 +565,20 @@ class DisposableCKProjectionTests(unittest.TestCase):
         with self.assertRaisesRegex(projection.ProjectionError, "stderr exceeds"):
             projection._bounded_subprocess([str(stderr_writer)])
 
+    def test_stop_process_only_kills_group_while_direct_child_is_live(self) -> None:
+        exited = Mock(pid=101)
+        exited.poll.return_value = 0
+        live = Mock(pid=202)
+        live.poll.return_value = None
+
+        with patch.object(projection.os, "killpg") as killpg:
+            projection._stop_process(exited)
+            projection._stop_process(live)
+
+        killpg.assert_called_once_with(live.pid, projection.signal.SIGKILL)
+        exited.wait.assert_called_once_with(timeout=5)
+        live.wait.assert_called_once_with(timeout=5)
+
     def test_bounded_subprocess_timeout_kills_and_waits_for_child(self) -> None:
         pid_path = self.root / "timeout-descendant.pid"
         descendant_body = (
@@ -579,8 +593,9 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "import os\n"
             "import subprocess\n"
             "import sys\n"
+            "import time\n"
             f"subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
-            "os._exit(0)\n",
+            "time.sleep(30)\n",
         )
         with patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0), self.assertRaisesRegex(
             projection.ProjectionError, "timed out after 2.0 seconds"

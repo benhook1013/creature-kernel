@@ -517,9 +517,9 @@ class DisposableCKPackageTests(unittest.TestCase):
         original_identity = package._directory_identity
         original_lstat = Path.lstat
 
-        def capture_identity(path: Path, label: str) -> tuple[int, int]:
+        def capture_identity(path: Path, label: str, *, parent_fd: int | None = None) -> tuple[int, int]:
             nonlocal captured
-            identity = original_identity(path, label)
+            identity = original_identity(path, label, parent_fd=parent_fd)
             captured = True
             return identity
 
@@ -537,6 +537,105 @@ class DisposableCKPackageTests(unittest.TestCase):
         self.assertTrue(captured)
         self.assertTrue(lstat_failed)
         self.assertFalse(output.exists())
+
+    def test_create_destination_anchors_output_parent_before_mkdir(self) -> None:
+        output_parent = self.root / "output-parent"
+        output_parent.mkdir()
+        owned_parent = self.root / "owned-output-parent"
+        foreign = self.root / "foreign-output-parent"
+        foreign.mkdir()
+        sentinel = foreign / "must-survive"
+        sentinel.write_bytes(b"external data")
+        output = output_parent / "payload"
+        swapped = False
+        original_open = package._open_directory_descriptor
+
+        def open_then_replace(path: Path, label: str) -> int:
+            nonlocal swapped
+            descriptor = original_open(path, label)
+            if path == output_parent and not swapped:
+                output_parent.rename(owned_parent)
+                output_parent.symlink_to(foreign, target_is_directory=True)
+                swapped = True
+            return descriptor
+
+        with patch.object(package, "_open_directory_descriptor", side_effect=open_then_replace), self.assertRaises(
+            package.PackageError
+        ):
+            package._create_destination(output)
+
+        self.assertTrue(swapped)
+        self.assertTrue(output_parent.is_symlink())
+        self.assertEqual(sentinel.read_bytes(), b"external data")
+        self.assertFalse(foreign.joinpath("payload").exists())
+        self.assertTrue(owned_parent.joinpath("payload").is_dir())
+
+    def test_make_layout_anchors_root_before_layout_mkdir(self) -> None:
+        root = self.root / "layout-root"
+        root.mkdir()
+        owned_root = self.root / "owned-layout-root"
+        foreign = self.root / "foreign-layout-root"
+        foreign.mkdir()
+        sentinel = foreign / "must-survive"
+        sentinel.write_bytes(b"external data")
+        swapped = False
+        original_open = package._open_directory_descriptor
+
+        def open_then_replace(path: Path, label: str) -> int:
+            nonlocal swapped
+            descriptor = original_open(path, label)
+            if path == root and not swapped:
+                root.rename(owned_root)
+                root.symlink_to(foreign, target_is_directory=True)
+                swapped = True
+            return descriptor
+
+        with patch.object(package, "_open_directory_descriptor", side_effect=open_then_replace):
+            package._make_layout(root)
+
+        self.assertTrue(swapped)
+        self.assertTrue(root.is_symlink())
+        self.assertEqual(sentinel.read_bytes(), b"external data")
+        self.assertFalse(foreign.joinpath(package.AVATARS_DIRECTORY).exists())
+        self.assertTrue(owned_root.joinpath("avatars/0").is_dir())
+        self.assertTrue(owned_root.joinpath("avatars/1").is_dir())
+
+    def test_build_does_not_write_or_cleanup_through_replaced_avatar_parent(self) -> None:
+        output = self.root / "raced-payload"
+        avatar_parent = output / "avatars/0"
+        owned_avatar_parent = self.root / "owned-avatar-0"
+        foreign = self.root / "foreign-avatar-0"
+        foreign.mkdir()
+        sentinel = foreign / "must-survive"
+        sentinel.write_bytes(b"external data")
+        swapped = False
+        original_open = package._open_directory_descriptor
+
+        def open_then_replace(path: Path, label: str) -> int:
+            nonlocal swapped
+            descriptor = original_open(path, label)
+            if path == avatar_parent and not swapped:
+                avatar_parent.rename(owned_avatar_parent)
+                avatar_parent.symlink_to(foreign, target_is_directory=True)
+                swapped = True
+            return descriptor
+
+        with patch.object(package, "_load_projection_module", return_value=projection), self._validated(), patch.object(
+            package, "_open_directory_descriptor", side_effect=open_then_replace
+        ), self.assertRaises(package.PackageError):
+            package.build_package(
+                self.gallery,
+                self.carrier_path,
+                self.projection_path,
+                output,
+                cli_path=self.cli_path,
+            )
+
+        self.assertTrue(swapped)
+        self.assertTrue(avatar_parent.is_symlink())
+        self.assertEqual(sentinel.read_bytes(), b"external data")
+        self.assertFalse(foreign.joinpath("metrics.json").exists())
+        self.assertTrue(owned_avatar_parent.is_dir())
 
     def test_cleanup_abandons_replaced_destination_symlink(self) -> None:
         output = self.root / "replaced-payload"

@@ -601,10 +601,11 @@ def _validated_cli_producer(
 
 def _stop_process(process: subprocess.Popen[bytes]) -> None:
     """Kill only this invocation's POSIX process group, then reap its leader."""
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    if process.poll() is None:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired as exc:  # pragma: no cover - defensive after SIGKILL

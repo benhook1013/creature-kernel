@@ -2621,6 +2621,31 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 projection_identity,
             )
 
+    def test_package_gallery_metrics_read_failure_becomes_smoke_error(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, projection_identity, _carrier_value, _records, _profile_ids = _projection_fixture(payload)
+        manifest, package_module = _package_manifest_fixture(projection_value, projection_identity)
+
+        def fail_read(_path: Path, _maximum: int, label: str) -> bytes:
+            raise carrier.CarrierError(f"read denied for {label}")
+
+        package_carrier_module = SimpleNamespace(_read_regular_file=fail_read)
+        with (
+            patch.object(smoke, "_load_package_module", return_value=package_module),
+            patch.object(smoke, "_load_carrier_module", return_value=package_carrier_module),
+            patch.object(smoke, "_package_file_bytes", return_value=b"metrics\n"),
+        ):
+            with self.assertRaisesRegex(
+                smoke.SmokeError,
+                r"gallery compact_broad_short_limb_large_head metrics could not be read during CK package validation: CarrierError: read denied",
+            ):
+                smoke._validated_ck_package_input(
+                    self.root / "package",
+                    self.root,
+                    projection_value,
+                    projection_identity,
+                )
+
     def test_package_report_record_is_exact_and_must_match(self) -> None:
         payload, report = _skeletal_validation_fixture()
         projection_value, projection_identity, _carrier_value, _records, _profile_ids = _projection_fixture(payload)
@@ -3958,6 +3983,8 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
             self.skipTest("debug Creature Kernel CLI unavailable for the real package path")
         if not smoke.PACKAGE_MODULE_PATH.is_file():
             self.skipTest("disposable CK package module unavailable")
+        if not smoke.CONTACT_COMMAND_MODULE_PATH.is_file():
+            self.skipTest("disposable semantic contact command module unavailable")
         contact = load_module(
             "disposable_semantic_contact_command_for_package_tests",
             smoke.CONTACT_COMMAND_MODULE_PATH,
