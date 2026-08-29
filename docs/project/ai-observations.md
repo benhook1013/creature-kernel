@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 14 open observations
+Status: Operational inbox; 15 open observations
 
 Record only unexpected, evidenced operational friction that is recurring or
 likely to save future retries or work rounds. The main thread is the default
@@ -70,3 +70,7 @@ Copyable entry:
 - `2026-08-29 17:36 NZST`: CodeRabbit CLI review lost its subscription before a rate-limited retry
   - Observation: A committed-diff CLI review reached the reviewing phase, then failed with `WebSocket subscription completed unexpectedly`; one immediate retry returned the three-review rate limit without yielding findings. It is unknown whether the dropped review consumed the final allowance.
   - Expected pattern: After a late CodeRabbit CLI subscription failure, inspect saved findings and usage before retrying; do not assume a recoverable transport label means the review allowance was preserved.
+
+- `2026-08-29 21:38 NZST`: Lost Xvfb test session left a busy process alive
+  - Observation: A focused Godot test lost its orchestration session while its `xvfb-run` and Python processes continued at full CPU for more than eight minutes, so a replacement run would have duplicated the expensive stage.
+  - Expected pattern: When a long-running session disappears, inspect live processes and the exact output target before retrying; terminate only the verified orphan process, then publish any retry to a fresh temporary path.

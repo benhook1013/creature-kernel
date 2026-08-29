@@ -1093,7 +1093,7 @@ def main(argv: list[str] | None = None) -> int:
             print(_canonical_json(projection).decode("utf-8"), end="")
     except ProjectionError as exc:
         print(f"projection-error: {exc}", file=sys.stderr)
-        return 1
+        return 2
     return 0
 
 

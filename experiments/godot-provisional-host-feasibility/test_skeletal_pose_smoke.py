@@ -254,6 +254,7 @@ def _contact_report_fixture(command: dict, identity: dict) -> dict:
             "normal": [1.0, 0.0, 0.0],
             "snapshots": {
                 "initial": snapshot("initial", 0, 0.0, [0.0, 0.0, 0.0]),
+                "onset": snapshot("onset", 25, 0.05, [0.1, 0.0, 0.0]),
                 "contact": snapshot("contact", 25, 0.05, [0.1, 0.0, 0.0]),
                 "final": snapshot("final", smoke.CONTACT_TOTAL_TICKS, 0.1, [0.05, 0.0, 0.0]),
             },
@@ -728,6 +729,12 @@ def _move_coherence_vertex_radially(report: dict, state_name: str, vertex_index:
     direction = [component / radial_length for component in radial]
     state["vertices"][vertex_index] = [coordinate + direction[axis] * distance for axis, coordinate in enumerate(vertex)]
     _recompute_coherence_metrics(report, state_name)
+
+
+def _tamper_onset_vertex_and_metrics(report: dict) -> None:
+    onset = _coherence_state(report, "contact_onset")
+    onset["vertices"][1][0] += 0.01
+    _recompute_coherence_metrics(report, "contact_onset")
 
 
 def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tuple[dict, dict, dict, list[dict], tuple[str, str]]:
@@ -1575,6 +1582,10 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         command, identity = _contact_command_fixture()
         evidence = _contact_report_fixture(command, identity)
         smoke._validate_contact_report({"semantic_contact": evidence}, command, identity)
+        self.assertEqual(
+            set(evidence["response"]["snapshots"]),
+            {"initial", "onset", "contact", "final"},
+        )
 
         def clear_contact_counts(value: dict) -> None:
             for record in value["contact_tick_evidence"]:
@@ -1605,6 +1616,8 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             "snapshot label mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("label", "initial"),
             "snapshot tick mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("tick", 24),
             "snapshot differs from strongest contact tick": lambda value: value["response"]["snapshots"]["contact"].__setitem__("tick", 26),
+            "missing onset snapshot": lambda value: value["response"]["snapshots"].pop("onset"),
+            "unexpected snapshot alias": lambda value: value["response"]["snapshots"].__setitem__("onset_response", deepcopy(value["response"]["snapshots"]["onset"])),
             "nonzero initial velocity": lambda value: value["response"]["snapshots"]["initial"].__setitem__("linear_velocity", [0.1, 0.0, 0.0]),
             "locked rotation violated": lambda value: value["response"]["snapshots"]["contact"].__setitem__("angular_velocity", [0.0, 0.1, 0.0]),
             "strongest sample normal mismatch": lambda value: value["response"].__setitem__("normal", [0.0, 1.0, 0.0]),
@@ -1642,6 +1655,18 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 with self.assertRaises(smoke.SmokeError):
                     smoke._validate_contact_report(report, command, identity)
 
+    def test_contact_report_rejects_rotated_response_snapshot_basis(self) -> None:
+        command, identity = _contact_command_fixture()
+        evidence = _contact_report_fixture(command, identity)
+        for label in ("initial", "onset", "contact", "final"):
+            with self.subTest(snapshot=label):
+                mutated = deepcopy(evidence)
+                transform = mutated["response"]["snapshots"][label]["transform"]
+                for index, value in ((0, 0.0), (1, 1.0), (4, -1.0), (5, 0.0)):
+                    transform[index] = value
+                with self.assertRaisesRegex(smoke.SmokeError, "required identity basis"):
+                    smoke._validate_contact_report({"semantic_contact": mutated}, command, identity)
+
     def test_deformation_report_requires_exact_scope_schema_and_independent_vertex_evidence(self) -> None:
         payload, report, command, identity, captures = _deformation_report_fixture()
         smoke._validate_report(
@@ -1665,6 +1690,11 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             "unit falloff peak removed": lambda value: _scale_reported_deformation_falloff(value, 0.8),
             "recovered vertex tampered": lambda value: value["semantic_deformation"]["states"]["recovered"]["vertices"][1].__setitem__(1, 0.1),
             "outside falloff metric tampered": lambda value: value["semantic_deformation"]["states"]["peak"].__setitem__("outside_falloff_max_residual", 0.1),
+            "onset transform detached": lambda value: (
+                value["semantic_contact"]["response"]["snapshots"]["onset"]["transform"].__setitem__(3, 0.06),
+                value["semantic_contact"]["response"]["snapshots"]["onset"]["position"].__setitem__(0, 0.06),
+            ),
+            "onset vertex and recomputed metrics": _tamper_onset_vertex_and_metrics,
             "peak tick detached": lambda value: value["semantic_deformation"]["drive"].__setitem__("peak_tick", 26),
             "runtime contact point detached": lambda value: value["semantic_deformation"]["drive"].__setitem__("runtime_contact_point", [0.26, 0.0, 0.0]),
             "body-local contact point detached": lambda value: value["semantic_deformation"]["drive"].__setitem__("local_contact_point", [0.21, 0.0, 0.0]),
@@ -1750,6 +1780,97 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             deformation_capture_bytes=captures,
         )
 
+    def test_render_collision_coherence_accepts_later_stronger_peak_than_onset(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        contact = report["semantic_contact"]
+        impulse_record = contact["solver_impulses"][0]
+        later_sample = deepcopy(impulse_record["contact_samples"][0])
+        later_sample["tick"] = 26
+        later_sample["impulse"] = [0.5, 0.0, 0.0]
+        later_sample["point"] = [0.25, 0.125, 0.0]
+        impulse_record["contact_samples"].append(later_sample)
+        impulse_record["impulse_magnitude"] = 0.5
+
+        contact_snapshot = contact["response"]["snapshots"]["contact"]
+        contact_snapshot["tick"] = 26
+        contact_snapshot["transform"][3] = 0.06
+        contact_snapshot["position"][0] = 0.06
+
+        deformation = report["semantic_deformation"]
+        drive = deformation["drive"]
+        drive["peak_tick"] = 26
+        drive["contact_sample_tick"] = 26
+        drive["sample_response_transform"][3] = 0.06
+        drive["runtime_contact_point"] = [0.25, 0.125, 0.0]
+        drive["local_contact_point"] = [0.19, 0.125, 0.0]
+        drive["local_deformation_center"] = [0.25, 0.125, 0.0]
+        reference_vertices = deformation["states"]["reference"]["vertices"]
+        falloff_radius = 0.25 * smoke.DEFORMATION_FALLOFF_RADIUS_RATIO
+        raw_weights = [
+            max(
+                0.0,
+                1.0
+                - math.sqrt(
+                    sum(
+                        (coordinate - center_coordinate) ** 2
+                        for coordinate, center_coordinate in zip(vertex, drive["local_deformation_center"])
+                    )
+                )
+                / falloff_radius,
+            )
+            ** 2
+            for vertex in reference_vertices
+        ]
+        weight_max = max(raw_weights)
+        drive["falloff_weights"] = [weight / weight_max for weight in raw_weights]
+        absolute_depth = drive["absolute_peak_depth"]
+        inward = drive["local_inward_direction"]
+        later_peak = [
+            [coordinate + inward[axis] * absolute_depth * weight for axis, coordinate in enumerate(vertex)]
+            for vertex, weight in zip(reference_vertices, drive["falloff_weights"])
+        ]
+        deformation["states"]["peak"]["vertices"] = later_peak
+        deformation["states"]["peak"]["max_residual"] = absolute_depth * max(drive["falloff_weights"])
+        deformation["states"]["peak"]["affected_vertex_count"] = sum(
+            weight > 0.0 for weight in drive["falloff_weights"]
+        )
+        deformation["states"]["peak"]["tick"] = 26
+
+        onset = _coherence_state(report, "contact_onset")
+        peak = _coherence_state(report, "peak")
+        onset["response_body_to_world"] = list(onset["response_body_to_world"])
+        peak["response_body_to_world"] = list(peak["response_body_to_world"])
+        onset["response_body_to_world"][3] = 0.05
+        peak["tick"] = 26
+        peak["response_body_to_world"][3] = 0.06
+        peak["vertices"] = deepcopy(later_peak)
+        _recompute_coherence_metrics(report, "contact_onset")
+        _recompute_coherence_metrics(report, "peak")
+
+        self.assertEqual(
+            (onset["tick"], onset["contact_sample_index"]),
+            (25, 0),
+        )
+        self.assertEqual(
+            (peak["tick"], peak["contact_sample_index"]),
+            (26, 0),
+        )
+        self.assertNotEqual(onset["response_body_to_world"], peak["response_body_to_world"])
+        self.assertNotEqual(onset["vertices"], peak["vertices"])
+
+        strongest = smoke._validate_contact_report(report, command, identity)
+        self.assertEqual((strongest["tick"], strongest["contact_index"]), (26, 0))
+        smoke._validate_deformation_report(report, strongest)
+        smoke._validate_render_collision_coherence(report, strongest)
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
     def test_render_collision_onset_selects_strongest_sample_in_first_contact_tick(self) -> None:
         contact_evidence = {
             "contact_tick_evidence": [
@@ -1770,6 +1891,63 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         selected = smoke._render_first_positive_contact_sample(contact_evidence)
 
         self.assertEqual((selected["tick"], selected["contact_index"]), (25, 1))
+
+    def test_render_collision_skips_nonpositive_first_contact_tick_and_retains_later_onset_and_peak(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        contact = report["semantic_contact"]
+        impulse_record = contact["solver_impulses"][0]
+        first_sample = impulse_record["contact_samples"][0]
+        first_sample["impulse"] = [0.0, 0.0, 0.0]
+        contact["contact_tick_evidence"][25]["contact_count"] = 1
+        later_sample = deepcopy(first_sample)
+        later_sample["tick"] = 26
+        later_sample["impulse"] = [0.5, 0.0, 0.0]
+        impulse_record["contact_samples"].append(later_sample)
+        impulse_record["impulse_magnitude"] = 0.5
+
+        for label in ("onset", "contact"):
+            contact["response"]["snapshots"][label]["tick"] = 26
+        deformation = report["semantic_deformation"]
+        deformation["drive"]["peak_tick"] = 26
+        deformation["drive"]["contact_sample_tick"] = 26
+        deformation["states"]["peak"]["tick"] = 26
+        for state_name in ("contact_onset", "peak"):
+            _coherence_state(report, state_name)["tick"] = 26
+
+        selected = smoke._render_first_positive_contact_sample(contact)
+        self.assertEqual((selected["tick"], selected["contact_index"]), (26, 0))
+        strongest = smoke._validate_contact_report(report, command, identity)
+        self.assertEqual((strongest["tick"], strongest["contact_index"]), (26, 0))
+        self.assertEqual(contact["response"]["snapshots"]["onset"]["tick"], 26)
+        self.assertEqual(deformation["states"]["peak"]["tick"], 26)
+        self.assertEqual(_coherence_state(report, "contact_onset")["tick"], 26)
+        self.assertEqual(_coherence_state(report, "peak")["tick"], 26)
+        smoke._validate_deformation_report(report, strongest)
+        smoke._validate_render_collision_coherence(report, strongest)
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
+    def test_render_collision_selection_fails_closed_when_all_contact_samples_are_nonpositive(self) -> None:
+        command, identity = _contact_command_fixture()
+        contact_evidence = _contact_report_fixture(command, identity)
+        impulse_record = contact_evidence["solver_impulses"][0]
+        first_sample = impulse_record["contact_samples"][0]
+        first_sample["impulse"] = [0.0, 0.0, 0.0]
+        later_sample = deepcopy(first_sample)
+        later_sample["tick"] = 26
+        impulse_record["contact_samples"].append(later_sample)
+        impulse_record["impulse_magnitude"] = 0.0
+
+        with self.assertRaisesRegex(smoke.SmokeError, "no positive contact sample"):
+            smoke._render_first_positive_contact_sample(contact_evidence)
+        with self.assertRaisesRegex(smoke.SmokeError, "do not prove one selected-shape pair"):
+            smoke._validate_contact_report({"semantic_contact": contact_evidence}, command, identity)
 
     def test_render_collision_coherence_rejects_table_driven_tampering(self) -> None:
         payload, report, command, identity, captures = _deformation_report_fixture()
@@ -3176,7 +3354,7 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(
             set(report["semantic_contact"]["response"]["snapshots"]),
-            {"initial", "contact", "final"},
+            {"initial", "onset", "contact", "final"},
         )
 
     def test_real_semantic_contact_deforms_and_recovers_smooth_forearm_surface(self) -> None:

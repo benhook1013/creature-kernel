@@ -1631,6 +1631,9 @@ def _contact_snapshot_position(value: Any, where: str) -> list[float]:
     homogeneous_row = [float(item) for item in value[12:16]]
     if homogeneous_row != [0.0, 0.0, 0.0, 1.0]:
         raise SmokeError(f"{where} is not a homogeneous runtime transform")
+    basis = [float(value[index]) for index in (0, 1, 2, 4, 5, 6, 8, 9, 10)]
+    if basis != [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]:
+        raise SmokeError(f"{where} does not have the required identity basis")
     return [float(value[3]), float(value[7]), float(value[11])]
 
 
@@ -2029,15 +2032,26 @@ def _validate_contact_response(
         raise SmokeError("semantic contact normal does not match the strongest runtime sample")
 
     snapshots = response["snapshots"]
-    if not isinstance(snapshots, dict) or set(snapshots) != {"initial", "contact", "final"}:
+    if not isinstance(snapshots, dict) or set(snapshots) != {"initial", "onset", "contact", "final"}:
         raise SmokeError("semantic contact response snapshots are incomplete or aliased")
     initial = _validate_contact_snapshot(snapshots["initial"], "initial", "semantic contact response initial")
+    onset = _validate_contact_snapshot(snapshots["onset"], "onset", "semantic contact response onset")
     contact = _validate_contact_snapshot(snapshots["contact"], "contact", "semantic contact response contact")
     final = _validate_contact_snapshot(snapshots["final"], "final", "semantic contact response final")
 
     initial_trace = trace_by_tick.get(initial["tick"])
     if initial["tick"] != 0 or initial_trace is None or initial_trace["phase"] != "setup" or initial_trace["contact_count"] != 0:
         raise SmokeError("semantic contact initial snapshot does not match setup tick evidence")
+    first_positive_sample = _render_first_positive_contact_sample(evidence)
+    onset_trace = trace_by_tick.get(onset["tick"])
+    if (
+        onset["tick"] <= 0
+        or onset["tick"] != first_positive_sample["tick"]
+        or onset_trace is None
+        or onset_trace["phase"] != "contact"
+        or onset_trace["contact_count"] <= 0
+    ):
+        raise SmokeError("semantic contact onset snapshot does not match the first validated positive contact tick")
     contact_trace = trace_by_tick.get(contact["tick"])
     if (
         contact_trace is None
@@ -2058,7 +2072,7 @@ def _validate_contact_response(
 
     if math.sqrt(sum(value * value for value in initial["linear_velocity"])) > TOLERANCE:
         raise SmokeError("semantic contact response did not begin at rest")
-    for label, snapshot in (("initial", initial), ("contact", contact), ("final", final)):
+    for label, snapshot in (("initial", initial), ("onset", onset), ("contact", contact), ("final", final)):
         if math.sqrt(sum(value * value for value in snapshot["angular_velocity"])) > TOLERANCE:
             raise SmokeError(f"semantic contact response {label} snapshot violates locked rotation")
 
@@ -2323,6 +2337,15 @@ def _render_matrix_point(matrix: list[float], point: list[float]) -> list[float]
     ]
 
 
+def _render_matrix_inverse_point(matrix: list[float], point: list[float]) -> list[float]:
+    relative = [point[index] - matrix[index * 4 + 3] for index in range(3)]
+    return [
+        matrix[0] * relative[0] + matrix[4] * relative[1] + matrix[8] * relative[2],
+        matrix[1] * relative[0] + matrix[5] * relative[1] + matrix[9] * relative[2],
+        matrix[2] * relative[0] + matrix[6] * relative[1] + matrix[10] * relative[2],
+    ]
+
+
 def _render_identity_matrix() -> list[float]:
     return [
         1.0,
@@ -2458,6 +2481,77 @@ def _render_collision_metrics(
         "maximum_inward_penetration": max((max(-value, 0.0) for value in clearances), default=0.0),
         "outside_falloff_max_penetration": max((max(-value, 0.0) for value in outside_clearances), default=0.0),
     }
+
+
+def _reconstruct_contact_deformation(
+    sample: dict[str, Any],
+    response_transform: list[float],
+    radius: float,
+    length: float,
+    capsule_basis: tuple[list[float], list[float], list[float]],
+    reference_vertices: list[list[float]],
+    where: str,
+) -> tuple[list[float], list[float], list[float], list[float], list[list[float]]]:
+    runtime_contact_point = _contact_vector(sample.get("point"), f"{where} runtime contact point")
+    normal = _contact_vector(sample.get("normal"), f"{where} contact normal")
+    normal_length = math.sqrt(sum(value * value for value in normal))
+    if not math.isfinite(normal_length) or normal_length <= 1.0e-12:
+        raise SmokeError(f"{where} contact normal is zero or nonfinite")
+    normalized_normal = [value / normal_length for value in normal]
+    local_contact_point = _render_matrix_inverse_point(response_transform, runtime_contact_point)
+    surface_contact_point = [
+        sum(component * axis_component for component, axis_component in zip(local_contact_point, axis))
+        for axis in capsule_basis
+    ]
+    radial_contact = [surface_contact_point[0], 0.0, surface_contact_point[2]]
+    radial_length = math.sqrt(sum(value * value for value in radial_contact))
+    if not math.isfinite(radial_length) or radial_length <= 1.0e-9:
+        raise SmokeError(f"{where} contact geometry cannot define a radial outward direction")
+    radial_outward = [radial_contact[0] / radial_length, 0.0, radial_contact[2] / radial_length]
+    projected_center_local = [
+        radial_outward[0] * radius,
+        min(max(surface_contact_point[1], -0.5 * length), 0.5 * length),
+        radial_outward[2] * radius,
+    ]
+    deformation_center = [
+        sum(capsule_basis[axis][component] * projected_center_local[axis] for axis in range(3))
+        for component in range(3)
+    ]
+    toward_sleeve_center = [-value for value in deformation_center]
+    center_length = math.sqrt(sum(value * value for value in toward_sleeve_center))
+    if not math.isfinite(center_length) or center_length <= 1.0e-12:
+        raise SmokeError(f"{where} projected sleeve center cannot define an inward direction")
+    alignment = abs(sum(left * right for left, right in zip(normalized_normal, toward_sleeve_center))) / center_length
+    if not math.isfinite(alignment) or alignment < DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT:
+        raise SmokeError(f"{where} contact normal does not define the fixed inward direction")
+    inward = normalized_normal if sum(left * right for left, right in zip(normalized_normal, toward_sleeve_center)) > 0.0 else [-value for value in normalized_normal]
+
+    falloff_radius = radius * DEFORMATION_FALLOFF_RADIUS_RATIO
+    if not math.isfinite(falloff_radius) or falloff_radius <= 0.0:
+        raise SmokeError(f"{where} compact falloff radius is invalid")
+    raw_weights = []
+    for reference_vertex in reference_vertices:
+        distance = math.sqrt(
+            sum((float(coordinate) - float(center_coordinate)) ** 2 for coordinate, center_coordinate in zip(reference_vertex, deformation_center))
+        )
+        raw_weights.append(max(0.0, 1.0 - distance / falloff_radius) ** 2 if distance < falloff_radius else 0.0)
+    weight_max = max(raw_weights, default=0.0)
+    if not math.isfinite(weight_max) or weight_max <= 0.0:
+        raise SmokeError(f"{where} compact falloff has no positive vertex weight")
+    weights = [value / weight_max for value in raw_weights]
+    if (
+        not any(value > 0.0 for value in weights)
+        or not any(value == 0.0 for value in weights)
+        or abs(max(weights) - 1.0) > TOLERANCE
+        or sum(value > 0.0 for value in weights) / len(weights) > DEFORMATION_MAX_AFFECTED_FRACTION
+    ):
+        raise SmokeError(f"{where} compact falloff is not localized with a unit peak")
+    absolute_depth = radius * DEFORMATION_NORMALIZED_PEAK_DEPTH
+    vertices = [
+        [float(coordinate) + inward[axis] * absolute_depth * weight for axis, coordinate in enumerate(reference_vertex)]
+        for reference_vertex, weight in zip(reference_vertices, weights)
+    ]
+    return local_contact_point, deformation_center, inward, weights, vertices
 
 
 def _read_deformation_capture_bytes(capture_directory: Path) -> dict[str, bytes]:
@@ -2865,6 +2959,58 @@ def _validate_deformation_report(
                 "Godot semantic deformation reference geometry is not the selected capsule-derived "
                 f"16x32 open-cylinder baseline at vertex {index}: observed={actual_vertex} expected={expected_vertex}"
             )
+
+    response_snapshots = contact_evidence.get("response", {}).get("snapshots")
+    if not isinstance(response_snapshots, dict) or set(response_snapshots) != {"initial", "onset", "contact", "final"}:
+        raise SmokeError("Godot semantic deformation response snapshots are incomplete or aliased")
+    onset_snapshot = _validate_contact_snapshot(
+        response_snapshots["onset"], "onset", "semantic deformation response onset"
+    )
+    first_positive_sample = _render_first_positive_contact_sample(contact_evidence)
+    if onset_snapshot["tick"] != first_positive_sample["tick"]:
+        raise SmokeError("Godot semantic deformation onset snapshot is not tied to the first positive contact sample")
+    onset_transform = _validate_render_matrix(
+        response_snapshots["onset"]["transform"], "semantic deformation onset response transform"
+    )
+    coherence = report.get("semantic_render_collision_coherence")
+    coherence_states = coherence.get("states") if isinstance(coherence, dict) else None
+    onset_coherence = next(
+        (
+            state
+            for state in coherence_states
+            if isinstance(state, dict) and state.get("state") == "contact_onset"
+        ),
+        None,
+    ) if isinstance(coherence_states, list) else None
+    if not isinstance(onset_coherence, dict):
+        raise SmokeError("Godot semantic deformation onset coherence state is missing")
+    onset_coherence_transform = _validate_render_matrix(
+        onset_coherence.get("response_body_to_world"),
+        "semantic deformation onset coherence response transform",
+    )
+    _render_matrix_close(
+        onset_coherence_transform,
+        onset_transform,
+        "semantic deformation onset coherence response_body_to_world",
+    )
+    _local_onset_contact, _onset_center, _onset_inward, _onset_weights, expected_onset_vertices = _reconstruct_contact_deformation(
+        first_positive_sample,
+        onset_transform,
+        surface_radius,
+        surface_length,
+        capsule_basis,
+        expected_reference,
+        "semantic deformation onset",
+    )
+    onset_vertices = onset_coherence.get("vertices")
+    if not isinstance(onset_vertices, list) or len(onset_vertices) != DEFORMATION_VERTEX_COUNT:
+        raise SmokeError("Godot semantic deformation onset coherence vertices are incomplete")
+    for index, (actual_vertex, expected_vertex) in enumerate(zip(onset_vertices, expected_onset_vertices)):
+        actual = _contact_vector(actual_vertex, f"semantic deformation onset coherence vertex {index}")
+        if any(abs(left - right) > TOLERANCE for left, right in zip(actual, expected_vertex)):
+            raise SmokeError(
+                f"Godot semantic deformation onset vertex {index} is not reconstructed from the first positive contact sample"
+            )
     if (
         state_values["reference"]["tick"] != 0
         or abs(float(state_values["reference"]["normalized_depth"])) > TOLERANCE
@@ -3204,10 +3350,6 @@ def _validate_render_collision_coherence(
         != (state_values["contact_onset"]["tick"], state_values["contact_onset"]["contact_sample_index"])
     ):
         raise SmokeError("Godot semantic render/collision onset is not the first validated positive contact sample")
-    onset_sample = (
-        state_values["contact_onset"]["tick"],
-        state_values["contact_onset"]["contact_sample_index"],
-    )
     peak_tick = drive.get("peak_tick")
     peak_sample_index = drive.get("contact_sample_index")
     if (
@@ -3219,17 +3361,17 @@ def _validate_render_collision_coherence(
         != (strongest_contact_sample.get("tick"), strongest_contact_sample.get("contact_index"))
     ):
         raise SmokeError("Godot semantic render/collision peak is not tied to the strongest deformation contact sample")
-    peak_sample = (peak_tick, peak_sample_index)
-    if onset_sample != peak_sample:
-        raise SmokeError("Godot semantic render/collision onset and peak must share an identical tick/sample")
     if state_values["neutral"]["tick"] != 0 or state_values["recovery"]["tick"] != DEFORMATION_RECOVERY_TICK:
         raise SmokeError("Godot semantic render/collision neutral or recovery tick is invalid")
 
     snapshots = contact_evidence.get("response", {}).get("snapshots", {})
-    if not isinstance(snapshots, dict) or not all(label in snapshots for label in ("initial", "contact", "final")):
+    if not isinstance(snapshots, dict) or set(snapshots) != {"initial", "onset", "contact", "final"}:
         raise SmokeError("Godot semantic render/collision response snapshots are missing")
     initial_transform = _validate_render_matrix(
         snapshots["initial"].get("transform"), "semantic render/collision initial response transform"
+    )
+    onset_transform = _validate_render_matrix(
+        snapshots["onset"].get("transform"), "semantic render/collision onset response transform"
     )
     contact_transform = _validate_render_matrix(
         snapshots["contact"].get("transform"), "semantic render/collision contact response transform"
@@ -3244,14 +3386,12 @@ def _validate_render_collision_coherence(
         state_geometry["neutral"][4], initial_transform, "semantic render/collision neutral response_body_to_world"
     )
     _render_matrix_close(
+        state_geometry["contact_onset"][4], onset_transform, "semantic render/collision onset response_body_to_world"
+    )
+    _render_matrix_close(
         state_geometry["peak"][4], peak_transform, "semantic render/collision peak response_body_to_world"
     )
     _render_matrix_close(peak_transform, contact_transform, "semantic render/collision peak contact snapshot transform")
-    _render_matrix_close(
-        state_geometry["contact_onset"][4], peak_transform, "semantic render/collision onset response_body_to_world"
-    )
-    if state_values["contact_onset"]["vertices"] != state_values["peak"]["vertices"]:
-        raise SmokeError("Godot semantic render/collision onset and peak vertices are not cross-linked")
     _render_matrix_close(
         state_geometry["recovery"][4], final_transform, "semantic render/collision recovery response_body_to_world"
     )
@@ -3536,8 +3676,8 @@ def _validate_report(
             raise SmokeError("semantic contact command identity expectation is missing")
         strongest_contact_sample = _validate_contact_report(report, semantic_contact_command, contact_command_identity)
         if deformation_mode:
-            _validate_deformation_report(report, strongest_contact_sample)
             _validate_render_collision_coherence(report, strongest_contact_sample)
+            _validate_deformation_report(report, strongest_contact_sample)
             if not isinstance(deformation_capture_bytes, dict):
                 raise SmokeError("semantic deformation staged captures are missing")
             _validate_deformation_captures(report["semantic_deformation"], deformation_capture_bytes)

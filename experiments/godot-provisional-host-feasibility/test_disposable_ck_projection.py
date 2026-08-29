@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from copy import deepcopy
 import hashlib
 import importlib.util
@@ -428,6 +428,34 @@ class DisposableCKProjectionTests(unittest.TestCase):
                     str(self.root / "out.json"),
                 ]
             )
+
+    def test_main_projection_error_returns_bounded_exit_without_output(self) -> None:
+        output = self.root / "projection.json"
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            result = projection.main(
+                [
+                    "build",
+                    "--gallery",
+                    str(self.gallery),
+                    "--carrier",
+                    str(self.carrier_path),
+                    "--output",
+                    str(output),
+                    "--cli",
+                    str(self.root / "missing-cli"),
+                ]
+            )
+
+        self.assertEqual(result, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertRegex(
+            stderr.getvalue(),
+            r"\Aprojection-error: Rust CLI path is not a regular non-symlink file: "
+            r"CarrierError: Rust CLI path is unavailable: .*/missing-cli\n\Z",
+        )
+        self.assertFalse(output.exists())
 
     def test_short_instance_list_is_rejected_before_indexing(self) -> None:
         short_carrier = deepcopy(self.carrier_value)

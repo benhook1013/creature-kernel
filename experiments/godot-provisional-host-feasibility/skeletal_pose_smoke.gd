@@ -2389,6 +2389,7 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		{"phase": "exit", "ticks": CONTACT_EXIT_TICKS, "start_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + CONTACT_EXIT_TICKS},
 	]
 	var tick := 0
+	var onset_response := {}
 	var contact_response := {}
 	var contact_snapshots_by_tick: Dictionary = {}
 	if not runtime_mode.is_empty():
@@ -2415,10 +2416,11 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 			if not runtime_mode.is_empty():
 				runtime_physics_timestamp_points_usec.append(Time.get_ticks_usec())
 				runtime_physics_frame_ids.append(Engine.get_physics_frames())
-			if not deformation_surface.is_empty() and phase == "contact" and _contact_tick_has_contact(response_body, tick):
-				var runtime_sample := _strongest_contact_sample_for_tick(response_body, tick)
-				if runtime_sample.is_empty():
-					return _contact_probe_failure(contact_root, "deformation mode could not read an actual contact-phase runtime sample after the physics frame")
+			var validated_contact_sample: Dictionary = {}
+			if phase == "contact" and _contact_tick_has_contact(response_body, tick):
+				validated_contact_sample = _strongest_contact_sample_for_tick(response_body, tick)
+			if not deformation_surface.is_empty() and not validated_contact_sample.is_empty():
+				var runtime_sample: Dictionary = validated_contact_sample
 				var deformation_update_start_usec: int = 0
 				if runtime_mode == "cpu_deformation":
 					# This bracket excludes the preceding physics wait and includes the
@@ -2502,13 +2504,14 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 						"cpu_deformation_core_duration_usec": cpu_deformation_core_duration_usec,
 						"evidence_inclusive_wall_duration_usec": exit_evidence_inclusive_wall_duration_usec,
 					})
-			if phase == "contact" and _contact_tick_has_contact(response_body, tick):
+			if phase == "contact" and not validated_contact_sample.is_empty():
 				var contact_snapshot := _contact_snapshot(response_body, "contact", tick)
 				if contact_snapshot.is_empty():
 					return _contact_probe_failure(contact_root, _failure)
 				contact_snapshots_by_tick[tick] = contact_snapshot
-				if contact_response.is_empty():
-					contact_response = contact_snapshot
+				if onset_response.is_empty():
+					onset_response = contact_snapshot.duplicate(true)
+					onset_response["label"] = "onset"
 	var final_response := _contact_snapshot(response_body, "final", tick)
 	if final_response.is_empty():
 		return _contact_probe_failure(contact_root, _failure)
@@ -2548,7 +2551,7 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 			final_exit_contact_count = int(tick_record.contact_count)
 			if final_exit_contact_count == 0:
 				exit_empty_seen = true
-	if not contact_seen or contact_response.is_empty() or response_body.contact_samples.is_empty():
+	if not contact_seen or onset_response.is_empty() or response_body.contact_samples.is_empty():
 		return _contact_probe_failure(contact_root, "semantic contact probe did not establish a clean contact phase")
 	if not exit_empty_seen or final_exit_contact_count != 0:
 		return _contact_probe_failure(contact_root, "semantic contact probe did not establish a clean exit phase")
@@ -2580,10 +2583,9 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
 			if typeof(collected_coherence_states.get(state_name, null)) != TYPE_DICTIONARY or (collected_coherence_states[state_name] as Dictionary).is_empty():
 				return _contact_probe_failure(contact_root, "render/collision coherence did not retain all required deformation states")
-		var onset_state: Dictionary = collected_coherence_states["contact_onset"]
 		var peak_coherence_state: Dictionary = collected_coherence_states["peak"]
-		if int(onset_state.get("tick", -1)) != int(peak_coherence_state.get("tick", -1)) or int(onset_state.get("contact_sample_index", -1)) != int(peak_coherence_state.get("contact_sample_index", -1)) or int(peak_coherence_state.get("tick", -1)) != int(strongest_sample.get("tick", -1)) or int(peak_coherence_state.get("contact_sample_index", -1)) != int(strongest_sample.get("contact_index", -1)):
-			return _contact_probe_failure(contact_root, "render/collision coherence onset or peak linkage is not retained from runtime contact")
+		if int(peak_coherence_state.get("tick", -1)) != int(strongest_sample.get("tick", -1)) or int(peak_coherence_state.get("contact_sample_index", -1)) != int(strongest_sample.get("contact_index", -1)):
+			return _contact_probe_failure(contact_root, "render/collision coherence peak linkage is not retained from runtime contact")
 	var strongest_tick := int(strongest_sample.tick)
 	if not contact_snapshots_by_tick.has(strongest_tick):
 		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample has no same-tick response snapshot")
@@ -2660,6 +2662,7 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		"contact_tick_evidence": response_body.tick_evidence,
 		"contact_samples": response_body.contact_samples,
 		"initial_response": initial_response,
+		"onset_response": onset_response,
 		"contact_response": contact_response,
 		"final_response": final_response,
 		"response_displacement": _vector_json(displacement),
@@ -2840,6 +2843,53 @@ func _capture_render_collision_coherence_state(surface: Dictionary, state_name: 
 	}
 
 
+func _validate_retained_onset_coherence(surface: Dictionary) -> bool:
+	var retained_transform_value: Variant = surface.get("onset_coherence_response_body_to_world", null)
+	var retained_vertices_value: Variant = surface.get("onset_coherence_vertices", null)
+	if retained_transform_value == null or retained_vertices_value == null:
+		_failure = "render/collision coherence retained onset state is incomplete"
+		return false
+	var coherence_states_value: Variant = surface.get("coherence_states", null)
+	if not (coherence_states_value is Dictionary):
+		_failure = "render/collision coherence retained onset state has no state collection"
+		return false
+	var onset_value: Variant = (coherence_states_value as Dictionary).get("contact_onset", null)
+	if typeof(retained_transform_value) == TYPE_ARRAY and retained_transform_value.is_empty() and retained_vertices_value is PackedVector3Array and (retained_vertices_value as PackedVector3Array).is_empty():
+		if onset_value is Dictionary and (onset_value as Dictionary).is_empty():
+			return true
+		_failure = "render/collision coherence retained onset state is missing"
+		return false
+	if typeof(retained_transform_value) != TYPE_ARRAY or not (retained_vertices_value is PackedVector3Array):
+		_failure = "render/collision coherence retained onset state is incomplete"
+		return false
+	var retained_transform := _matrix(retained_transform_value, "retained onset coherence response transform")
+	var retained_vertices: PackedVector3Array = retained_vertices_value
+	if retained_transform.is_empty() or retained_vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "render/collision coherence retained onset state is invalid"
+		return false
+	if not (onset_value is Dictionary):
+		_failure = "render/collision coherence retained onset state is missing"
+		return false
+	var onset_state: Dictionary = onset_value
+	var onset_transform := _matrix(onset_state.get("response_body_to_world", []), "retained onset coherence read-back transform")
+	if onset_transform.is_empty():
+		return false
+	for matrix_index in range(16):
+		if abs(float(onset_transform[matrix_index]) - float(retained_transform[matrix_index])) > TOLERANCE:
+			_failure = "render/collision coherence onset response transform diverged before report construction"
+			return false
+	var onset_vertices_value: Variant = onset_state.get("vertices", null)
+	if typeof(onset_vertices_value) != TYPE_ARRAY or onset_vertices_value.size() != retained_vertices.size():
+		_failure = "render/collision coherence retained onset vertices are incomplete"
+		return false
+	for vertex_index in range(retained_vertices.size()):
+		var onset_vertex: Variant = _vector3(onset_vertices_value[vertex_index], "retained onset coherence vertex %d" % vertex_index)
+		if onset_vertex == null or (onset_vertex as Vector3).distance_to(retained_vertices[vertex_index]) > TOLERANCE:
+			_failure = "render/collision coherence onset vertices diverged before report construction"
+			return false
+	return true
+
+
 func _coherence_outside_falloff_penetration(state_record: Dictionary, falloff_weights: Array, state_name: String) -> Variant:
 	var vertices_value: Variant = state_record.get("vertices", null)
 	var capsule_value: Variant = state_record.get("capsule", null)
@@ -3011,6 +3061,8 @@ func _create_deformation_surface(response_body: Node3D, response_collision: Coll
 		"peak_sample_index": -1,
 		"peak_sample_response_transform": [],
 		"peak_impulse_magnitude_raw": 0.0,
+		"onset_coherence_response_body_to_world": [],
+		"onset_coherence_vertices": PackedVector3Array(),
 		"last_deformation_core_duration_usec": -1,
 		"coherence_states": {
 			"neutral": {},
@@ -3179,6 +3231,8 @@ func _strongest_contact_sample_for_tick(response_body: ContactCaptureBody, tick:
 func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Dictionary, sample_index: int, tick: int) -> bool:
 	var core_start_usec := Time.get_ticks_usec()
 	surface["last_deformation_core_duration_usec"] = -1
+	if not _validate_retained_onset_coherence(surface):
+		return false
 	if typeof(sample) != TYPE_DICTIONARY or sample_index < 0 or sample_index != int(sample.get("contact_index", -1)) or String(sample.get("phase", "")) != "contact" or int(sample.get("tick", -1)) != tick:
 		_failure = "deformation drive did not receive the selected post-physics contact sample"
 		return false
@@ -3287,9 +3341,18 @@ func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Diction
 	var coherence_states: Dictionary = surface.get("coherence_states", {})
 	var contact_onset_state: Dictionary = coherence_states.get("contact_onset", {})
 	if contact_onset_state.is_empty():
-		var retained_onset_state: Dictionary = coherence_state.duplicate(true)
-		retained_onset_state["state"] = "contact_onset"
-		coherence_states["contact_onset"] = retained_onset_state
+		var onset_coherence_state := _capture_render_collision_coherence_state(surface, "contact_onset", tick, "contact", true, sample_index)
+		if onset_coherence_state.is_empty():
+			return false
+		coherence_states["contact_onset"] = onset_coherence_state
+		var onset_vertices: PackedVector3Array = state.get("_vertices_array", PackedVector3Array())
+		if onset_vertices.size() != DEFORMATION_VERTEX_COUNT:
+			_failure = "render/collision coherence onset vertex retention is incomplete"
+			return false
+		surface["onset_coherence_response_body_to_world"] = onset_coherence_state["response_body_to_world"].duplicate()
+		surface["onset_coherence_vertices"] = onset_vertices.duplicate()
+	if not _validate_retained_onset_coherence(surface):
+		return false
 	surface["last_coherence_state"] = coherence_state
 	surface["last_tick"] = tick
 	surface["last_state"] = state
@@ -3743,6 +3806,8 @@ func _finish_render_collision_coherence(surface: Dictionary, response_mapping: D
 	if not _exact_keys(coherence_states, RENDER_COLLISION_COHERENCE_STATE_ORDER):
 		_failure = "render/collision coherence state collection does not contain the exact state order"
 		return {}
+	if not _validate_retained_onset_coherence(surface):
+		return {}
 	var peak_falloff_weights_value: Variant = surface.get("peak_falloff_weights", null)
 	if typeof(peak_falloff_weights_value) != TYPE_ARRAY or peak_falloff_weights_value.size() != DEFORMATION_VERTEX_COUNT:
 		_failure = "render/collision coherence has no complete retained peak falloff"
@@ -3854,7 +3919,7 @@ func _finish_render_collision_coherence(surface: Dictionary, response_mapping: D
 			peak_state = coherence_state_record
 		else:
 			recovery_state = coherence_state_record
-	if int(neutral_state.tick) != 0 or neutral_state.contact or int(neutral_state.contact_sample_index) != -1 or int(onset_state.tick) != int(peak_state.tick) or int(onset_state.contact_sample_index) != int(peak_state.contact_sample_index) or not onset_state.contact or not peak_state.contact or int(recovery_state.tick) != CONTACT_TOTAL_TICKS or recovery_state.contact or int(recovery_state.contact_sample_index) != -1:
+	if int(neutral_state.tick) != 0 or neutral_state.contact or int(neutral_state.contact_sample_index) != -1 or not onset_state.contact or not peak_state.contact or int(recovery_state.tick) != CONTACT_TOTAL_TICKS or recovery_state.contact or int(recovery_state.contact_sample_index) != -1:
 		_failure = "render/collision coherence state ordering or contact presence is invalid"
 		return {}
 	if int(peak_state.tick) != int(surface.get("peak_sample_tick", -1)) or int(peak_state.contact_sample_index) != int(surface.get("peak_sample_index", -1)):
@@ -4153,6 +4218,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			"contact_samples": public_contact_samples,
 		}]
 		var initial_response: Dictionary = contact_probe.initial_response
+		var onset_response: Dictionary = contact_probe.onset_response
 		var contact_response: Dictionary = contact_probe.contact_response
 		var final_response: Dictionary = contact_probe.final_response
 		report["semantic_contact"] = {
@@ -4175,6 +4241,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 				"normal": contact_probe.contact_normal,
 				"snapshots": {
 					"initial": initial_response,
+					"onset": onset_response,
 					"contact": contact_response,
 					"final": final_response,
 				},
