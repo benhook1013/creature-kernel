@@ -401,7 +401,8 @@ The skeletal runner accepts the projection only with its paired explicit
 same fresh projection validation before launch and again before publishing a
 success report; supplying either argument without the other fails closed.
 
-This projection is transport and evidence bookkeeping for this experiment only
+This provisional projection is transport and evidence bookkeeping
+for this experiment only
 (`creature-kernel.disposable-ck-rust-projection.v1`, boundary
 `experiment_local_ck_projection_evidence_only`). It does not generate geometry
 or define a durable CK package, artifact/build identity, adapter, host contract,
@@ -470,17 +471,18 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The `test_skeletal_pose_smoke.py` focused result contains 67 tests
+regressions. The `test_skeletal_pose_smoke.py` focused result contains 68 tests
 with 16 expected display skips, covering both frozen profile pairs, complete
 `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
 carrier identity, command-mode semantic injection/read-back, no pose-file
 fallback after injection, repository/cache cleanliness, and bounded semantic
-contact command consumption and report validation. The seven-test
+contact command consumption and report validation. The 12-test
 semantic command suite covers
 deterministic canonical bytes for both frozen profile pairs, strict field,
-rotation, and frame validation, lineage mismatch, and safe publication. The neutral and posed
+rotation, quaternion precision, and frame validation, lineage mismatch, and
+safe publication. The neutral and posed
 suites run their real Godot paths when the completed-gallery fixture and exact
 pinned binary are available.
 The nine-test semantic contact command suite covers fixed participant mapping,
@@ -488,11 +490,12 @@ fresh predecessor lineage, canonical publication, strict field validation,
 tampering and mutation rejection, and command identity. Focused real contact
 integration passed in 182.453s; the focused no-display file has 16 expected display
 skips when its attended renderer path is unavailable.
-The 12-test disposable CK projection suite covers exact producer and transport
-identity, bounded subprocess output, fresh source/carrier/gallery/executable
-revalidation, deterministic publication, mutation rejection, and both frozen
+The 17-test disposable CK projection suite covers exact producer and transport
+identity, private CLI/source snapshot binding, bounded subprocess output, fresh
+source/carrier/gallery/executable revalidation, deterministic publication,
+mutation rejection, and both frozen
 profile pairs against the native Rust CLI.
-The full Godot experiment suite currently contains 153 tests with 29 skips.
+The full Godot experiment suite currently contains 160 tests with 29 skips.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites

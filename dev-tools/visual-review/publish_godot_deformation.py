@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import hashlib
 from io import BytesIO
 import json
@@ -13,7 +12,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageStat
 
 # This file is also used as a directly executed script.  Make sibling imports
 # deliberate for both that path and importlib-based tests.
@@ -237,6 +236,7 @@ def _read_captures(capture_directory: Path) -> dict[str, bytes]:
 def _decode_and_validate_capture_content(captures: dict[str, bytes]) -> None:
     """Decode all captures independently and validate their rendered pixels."""
     decoded: dict[str, bytes] = {}
+    total_pixels = CAPTURE_WIDTH * CAPTURE_HEIGHT
     for file_name in CAPTURE_NAMES:
         data = captures[file_name]
         try:
@@ -254,8 +254,14 @@ def _decode_and_validate_capture_content(captures: dict[str, bytes]) -> None:
                         f"Godot deformation capture {file_name} is blank or uniformly rendered"
                     )
                 pixels = rgba.tobytes()
-                frequencies = Counter(pixels[offset : offset + 4] for offset in range(0, len(pixels), 4))
-                non_dominant_pixels = CAPTURE_WIDTH * CAPTURE_HEIGHT - max(frequencies.values(), default=0)
+                frequencies = rgba.getcolors(total_pixels)
+                if frequencies is None:
+                    raise GodotDeformationPublishError(
+                        f"Godot deformation capture {file_name} has too many distinct RGBA colors"
+                    )
+                non_dominant_pixels = total_pixels - max(
+                    (count for count, _ in frequencies), default=0
+                )
                 if (
                     len(frequencies) < CAPTURE_MIN_UNIQUE_RGBA_PIXELS
                     or non_dominant_pixels < CAPTURE_MIN_NON_DOMINANT_PIXELS
@@ -278,16 +284,21 @@ def _decode_and_validate_capture_content(captures: dict[str, bytes]) -> None:
         raise GodotDeformationPublishError("Godot deformation reference and recovered pixels are not exactly equal")
 
     peak = decoded[CAPTURE_NAMES[1]]
-    difference_bytes = ImageChops.difference(
+    difference = ImageChops.difference(
         Image.frombytes("RGBA", (CAPTURE_WIDTH, CAPTURE_HEIGHT), peak),
         Image.frombytes("RGBA", (CAPTURE_WIDTH, CAPTURE_HEIGHT), reference),
-    ).tobytes()
-    changed_pixels = sum(
-        any(difference_bytes[offset : offset + 4])
-        for offset in range(0, len(difference_bytes), 4)
     )
-    total_abs_channel_delta = sum(difference_bytes)
-    total_pixels = CAPTURE_WIDTH * CAPTURE_HEIGHT
+    difference_frequencies = difference.getcolors(total_pixels)
+    if difference_frequencies is None:
+        raise GodotDeformationPublishError("Godot deformation capture difference has too many distinct RGBA colors")
+    unchanged_pixels = next(
+        (count for count, colour in difference_frequencies if colour == (0, 0, 0, 0)),
+        0,
+    )
+    changed_pixels = total_pixels - unchanged_pixels
+    # Pillow exposes ImageStat sums as floats, but the bounded 8-bit channel
+    # total is exactly integral at this image size.
+    total_abs_channel_delta = int(sum(ImageStat.Stat(difference).sum))
     difference_fraction = changed_pixels / total_pixels
     if (
         changed_pixels < CAPTURE_MIN_CHANGED_PIXELS

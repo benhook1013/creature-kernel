@@ -3381,8 +3381,8 @@ def _validate_deformation_captures(
 
     reference = decoded_captures["reference.png"]
     recovered = decoded_captures["recovered.png"]
-    recovery_difference = _decoded_capture_difference(reference, recovered)
     if reference != recovered:
+        recovery_difference = _decoded_capture_difference(reference, recovered)
         raise SmokeError(
             "deformation recovered capture does not exactly equal the decoded reference pixels: "
             f"observed_changed_pixels={recovery_difference['changed_pixels']} "

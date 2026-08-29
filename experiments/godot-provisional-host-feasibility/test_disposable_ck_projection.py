@@ -247,6 +247,113 @@ class DisposableCKProjectionTests(unittest.TestCase):
         body = {key: value[key] for key in projection.PROJECTION_BODY_KEYS}
         self.assertEqual(identity, projection._transport_identity(body))
 
+    def test_cli_identity_uses_bounded_streaming_without_retaining_executable_bytes(self) -> None:
+        large_cli = self.root / "large-cli"
+        large_cli.write_bytes(b"x" * (projection.CLI_HASH_CHUNK_BYTES * 2 + 1))
+        large_cli.chmod(0o700)
+        read_sizes = []
+        original_read = projection.os.read
+
+        def read(fd, size):
+            read_sizes.append(size)
+            return original_read(fd, size)
+
+        with (
+            patch.object(projection, "_read_regular_file", side_effect=AssertionError("full executable read")),
+            patch.object(projection.os, "read", side_effect=read),
+        ):
+            with tempfile.TemporaryDirectory(prefix="ck-projection-cli-snapshot-") as staging:
+                path, identity = projection._validated_cli_producer(
+                    carrier,
+                    large_cli,
+                    staging_directory=Path(staging),
+                )
+                self.assertNotEqual(path, large_cli)
+                self.assertEqual(path.read_bytes(), large_cli.read_bytes())
+                self.assertTrue(os.access(path, os.X_OK))
+                self.assertFalse(os.access(path, os.W_OK))
+
+        self.assertEqual(identity["sha256"], hashlib.sha256(large_cli.read_bytes()).hexdigest())
+        self.assertEqual(identity["bytes"], large_cli.stat().st_size)
+        self.assertTrue(read_sizes)
+        self.assertLessEqual(max(read_sizes), projection.CLI_HASH_CHUNK_BYTES)
+
+    def test_cli_identity_stream_preserves_size_bound(self) -> None:
+        bounded_cli = self.root / "bounded-cli"
+        bounded_cli.write_bytes(b"x" * 9)
+        bounded_cli.chmod(0o700)
+        with patch.object(projection, "MAX_CLI_BYTES", 8), self.assertRaisesRegex(
+            projection.ProjectionError, "Rust CLI path exceeds the bounded size of 8 bytes"
+        ):
+            projection._validated_cli_producer(carrier, bounded_cli)
+
+    def test_private_snapshots_bind_cli_and_source_during_path_replacement(self) -> None:
+        inspections = {profile_id: rust_inspection(profile_id) for profile_id in PROFILE_IDS}
+        original_source_paths = {
+            profile_id: self.gallery / projection.SOURCE_DIR / f"{profile_id}.json"
+            for profile_id in PROFILE_IDS
+        }
+        expected_sources = {profile_id: path.read_bytes() for profile_id, path in original_source_paths.items()}
+        original_cli_path = self.root / "attacking-cli"
+        replacement_cli_path = self.root / "replacement-cli"
+        replacement_source_path = self.root / "replacement-source.json"
+        marker_path = self.root / "inspection-count"
+        staged_paths = self.root / "staged-paths"
+        original_source = original_source_paths[PROFILE_IDS[0]]
+        cli_body = (
+            "import json\n"
+            "import os\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"inspections = {inspections!r}\n"
+            f"expected_sources = {expected_sources!r}\n"
+            f"original_cli = Path({str(original_cli_path)!r})\n"
+            f"original_source = Path({str(original_source)!r})\n"
+            f"replacement_cli = Path({str(replacement_cli_path)!r})\n"
+            f"replacement_source = Path({str(replacement_source_path)!r})\n"
+            f"marker = Path({str(marker_path)!r})\n"
+            f"staged_paths = Path({str(staged_paths)!r})\n"
+            "if Path(sys.argv[0]).resolve() == original_cli.resolve():\n"
+            "    raise SystemExit('original CLI path was executed')\n"
+            "source_path = Path(sys.argv[-1])\n"
+            "if source_path.resolve() == original_source.resolve():\n"
+            "    raise SystemExit('original source path was inspected')\n"
+            "profile_id = source_path.stem\n"
+            "if source_path.read_bytes() != expected_sources[profile_id]:\n"
+            "    raise SystemExit('private source snapshot bytes changed')\n"
+            "staged_paths.write_text(f'{sys.argv[0]}\\n{source_path}\\n', encoding='utf-8')\n"
+            "count = int(marker.read_text(encoding='utf-8')) if marker.exists() else 0\n"
+            "if count == 0:\n"
+            "    replacement_source.write_text('{\"source\":{\"dependencies\":[],\"document\":\"attacker\",\"namespace\":\"fixture\"}}\\n', encoding='utf-8')\n"
+            "    os.replace(replacement_source, original_source)\n"
+            "    replacement_cli.write_text('#!/bin/sh\\nexit 97\\n', encoding='utf-8')\n"
+            "    replacement_cli.chmod(0o700)\n"
+            "    os.replace(replacement_cli, original_cli)\n"
+            "marker.write_text(str(count + 1), encoding='utf-8')\n"
+            "print(json.dumps(inspections[profile_id]))\n"
+        )
+        self.cli_path = self._write_executable(original_cli_path.name, cli_body)
+
+        with (
+            patch.object(projection, "_load_carrier_module", return_value=carrier),
+            patch.object(carrier, "validate_carrier", side_effect=self.static_validator),
+            self.assertRaisesRegex(
+                projection.ProjectionError,
+                f"source {PROFILE_IDS[0]} changed before post-inspection validation completed",
+            ),
+        ):
+            projection.build_projection(self.gallery, self.carrier_path, cli_path=self.cli_path)
+
+        self.assertEqual(marker_path.read_text(encoding="utf-8"), "2")
+        self.assertEqual(
+            original_source.read_bytes(),
+            b'{"source":{"dependencies":[],"document":"attacker","namespace":"fixture"}}\n',
+        )
+        self.assertEqual(self.cli_path.read_text(encoding="utf-8"), "#!/bin/sh\nexit 97\n")
+        staged_cli, staged_source = staged_paths.read_text(encoding="utf-8").splitlines()
+        self.assertFalse(Path(staged_cli).exists())
+        self.assertFalse(Path(staged_source).exists())
+
     def test_explicit_absolute_regular_non_symlink_executable_is_required(self) -> None:
         with self.assertRaises(projection.ProjectionError):
             projection.build_projection(self.gallery, self.carrier_path)

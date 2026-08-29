@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from contextlib import contextmanager
 import hashlib
 import importlib.util
 from io import BytesIO
@@ -57,6 +58,27 @@ def load_module(name: str, path: Path):
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+@contextmanager
+def _temporary_directory_with_repository_cleanliness_guard(
+    test_case: unittest.TestCase, *, prefix: str
+):
+    before_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
+    before_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
+    before_status = subprocess.run(
+        ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
+    ).stdout
+    with tempfile.TemporaryDirectory(prefix=prefix) as temporary:
+        yield Path(temporary)
+    after_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
+    after_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
+    after_status = subprocess.run(
+        ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
+    ).stdout
+    test_case.assertEqual(before_godot_dirs, after_godot_dirs)
+    test_case.assertEqual(before_python_cache_dirs, after_python_cache_dirs)
+    test_case.assertEqual(before_status, after_status)
 
 
 smoke = load_module("skeletal_pose_smoke_under_test", EXPERIMENT / "run_skeletal_pose_smoke.py")
@@ -2534,6 +2556,18 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         ):
             self.assertIn(expression, source)
 
+    def test_capture_metadata_uses_capture_specific_canonical_byte_validator(self) -> None:
+        source = (EXPERIMENT / "skeletal_pose_smoke.gd").read_text(encoding="utf-8")
+        capture_validator = source[source.index("func _is_canonical_capture_byte_count"):source.index("func _selector")]
+        capture_finalization = source[source.index("func _finish_deformation_capture"):source.index("func _finish_render_collision_coherence")]
+        carrier_validator = source[source.index("func _validate_carrier_identity"):source.index("func _is_safe_instance_id")]
+
+        self.assertIn("const DEFORMATION_CAPTURE_MAX_BYTES := 8 * 1024 * 1024", source)
+        self.assertIn("byte_count <= DEFORMATION_CAPTURE_MAX_BYTES", capture_validator)
+        self.assertIn("not _is_canonical_capture_byte_count(capture.get(\"byte_count_decimal\", \"\"))", capture_finalization)
+        self.assertNotIn("_is_canonical_carrier_byte_count(capture.get(\"byte_count_decimal\", \"\"))", capture_finalization)
+        self.assertIn("not _is_canonical_carrier_byte_count(value.byte_count_decimal)", carrier_validator)
+
     def test_report_validator_accepts_complete_binding_evidence(self) -> None:
         payload, report = _skeletal_validation_fixture()
         self.assertIn("coordinate_rule", report)
@@ -3282,13 +3316,9 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
                 )
 
     def test_command_mode_rerun_is_deterministic_and_keeps_repository_clean(self) -> None:
-        before_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
-        before_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
-        before_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-command-repeat-") as temporary:
-            root = Path(temporary)
+        with _temporary_directory_with_repository_cleanliness_guard(
+            self, prefix="ck-godot-semantic-pose-command-repeat-"
+        ) as root:
             carrier_path = root / "carrier.json"
             command_path = root / "command.json"
             carrier.write_carrier(
@@ -3302,12 +3332,6 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
             second = smoke.run_skeletal_pose_smoke(GALLERY, None, second_path, carrier_path, command_path)
             self.assertEqual(first, second)
             self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
-        after_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        self.assertEqual(before_status, after_status)
-        self.assertEqual(before_godot_dirs, {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()})
-        self.assertEqual(before_python_cache_dirs, {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()})
 
     def test_real_alternate_carrier_pair_binds_in_carrier_order(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-alternate-carrier-") as temporary:
@@ -3378,36 +3402,20 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
                         smoke._launch_godot(gallery, DEFAULTS, payload)
 
     def test_real_rerun_is_deterministic_and_does_not_pollute_repository_or_cache(self) -> None:
-        before_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
-        before_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
-        before_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-deterministic-") as temporary:
-            root = Path(temporary)
+        with _temporary_directory_with_repository_cleanliness_guard(
+            self, prefix="ck-godot-skeletal-pose-deterministic-"
+        ) as root:
             first_path = root / "first.json"
             second_path = root / "second.json"
             first = smoke.run_skeletal_pose_smoke(GALLERY, DEFAULTS, first_path)
             second = smoke.run_skeletal_pose_smoke(GALLERY, DEFAULTS, second_path)
             self.assertEqual(first, second)
             self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
-        after_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
-        after_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
-        after_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        self.assertEqual(before_godot_dirs, after_godot_dirs)
-        self.assertEqual(before_python_cache_dirs, after_python_cache_dirs)
-        self.assertEqual(before_status, after_status)
 
     def test_real_carrier_rerun_is_deterministic_and_does_not_pollute_repository_or_cache(self) -> None:
-        before_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
-        before_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
-        before_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-carrier-deterministic-") as temporary:
-            root = Path(temporary)
+        with _temporary_directory_with_repository_cleanliness_guard(
+            self, prefix="ck-godot-skeletal-pose-carrier-deterministic-"
+        ) as root:
             carrier_path = root / "carrier.json"
             carrier.write_carrier(
                 carrier_path,
@@ -3419,14 +3427,6 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
             second = smoke.run_skeletal_pose_smoke(GALLERY, None, second_path, carrier_path)
             self.assertEqual(first, second)
             self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
-        after_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
-        after_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
-        after_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        self.assertEqual(before_godot_dirs, after_godot_dirs)
-        self.assertEqual(before_python_cache_dirs, after_python_cache_dirs)
-        self.assertEqual(before_status, after_status)
 
 
 if __name__ == "__main__":

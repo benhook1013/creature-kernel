@@ -29,6 +29,7 @@ MAX_COMMAND_BYTES = 256 * 1024
 MAX_IDENTIFIER_BYTES = 256
 MAX_ANCHORS_PER_SELECTOR = 8
 POSE_QUATERNION_TOLERANCE = 1.0e-7
+POSE_QUATERNION_DECIMAL_PLACES = 15
 UNIT_TOLERANCE = 2.0e-14
 HASH_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -305,6 +306,8 @@ def _load_pose_source(gallery: Path, expected: dict[str, Any]) -> dict[str, Any]
         or set(convention) != {"vectors", "bind_transform", "skin_transform", "rotation_storage", "quaternion_decimal_places"}
         or convention["vectors"] != "column"
         or convention["rotation_storage"] != "xyzw"
+        or type(convention["quaternion_decimal_places"]) is not int
+        or convention["quaternion_decimal_places"] != POSE_QUATERNION_DECIMAL_PLACES
     ):
         raise CommandError("shared pose source transform convention is invalid")
     if value["solver"] != {"ik": False, "contact": False}:

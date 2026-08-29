@@ -16,8 +16,10 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import selectors
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
 
@@ -31,6 +33,7 @@ POSE_FILE = "structural_embodiment_shared_pose.json"
 SOURCE_DIR = "sources"
 SOURCE_MAX_BYTES = 16 * 1024 * 1024
 MAX_CLI_BYTES = 128 * 1024 * 1024
+CLI_HASH_CHUNK_BYTES = 1024 * 1024
 MAX_PROJECTION_BYTES = 4 * 1024 * 1024
 MAX_RUST_STDOUT_BYTES = 2 * 1024 * 1024
 MAX_RUST_STDERR_BYTES = 64 * 1024
@@ -418,7 +421,118 @@ def _validate_rust_evidence(value: Any, label: str = "rust_inspection") -> dict[
     return evidence
 
 
-def _validated_cli_producer(carrier_module: Any, cli_path: Path | None) -> tuple[Path, bytes, dict[str, Any]]:
+def _stream_hash_regular_file(
+    carrier_module: Any,
+    path: Path,
+    maximum: int,
+    label: str,
+    *,
+    snapshot_path: Path | None = None,
+) -> tuple[str, int]:
+    """Hash one anchored regular file, optionally copying it without buffering it."""
+    try:
+        expected_info = carrier_module._regular_file(path, label)
+        directory_fd = carrier_module._open_directory_descriptor(path.parent, f"{label} parent directory")
+    except Exception as exc:
+        raise ProjectionError(f"{label} is not a regular non-symlink file: {type(exc).__name__}: {exc}") from exc
+
+    file_fd: int | None = None
+    snapshot_fd: int | None = None
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        try:
+            file_fd = os.open(path.name, carrier_module._read_open_flags(), dir_fd=directory_fd)
+        except (OSError, NotImplementedError, TypeError) as exc:
+            raise ProjectionError(f"could not open {label}: {path}") from exc
+        try:
+            try:
+                actual_info = os.fstat(file_fd)
+            except OSError as exc:
+                raise ProjectionError(f"could not inspect {label} descriptor: {path}") from exc
+            if not stat.S_ISREG(actual_info.st_mode):
+                raise ProjectionError(f"{label} must be a regular non-symlink file: {path}")
+            if (actual_info.st_dev, actual_info.st_ino) != (expected_info.st_dev, expected_info.st_ino):
+                raise ProjectionError(f"{label} changed while it was being opened: {path}")
+            if actual_info.st_size > maximum:
+                raise ProjectionError(f"{label} exceeds the bounded size of {maximum} bytes")
+            if snapshot_path is not None:
+                try:
+                    snapshot_fd = os.open(
+                        snapshot_path,
+                        os.O_WRONLY
+                        | os.O_CREAT
+                        | os.O_EXCL
+                        | getattr(os, "O_NOFOLLOW", 0)
+                        | getattr(os, "O_CLOEXEC", 0),
+                        0o700,
+                    )
+                except (OSError, NotImplementedError, TypeError) as exc:
+                    raise ProjectionError(f"could not create private {label} snapshot: {snapshot_path}") from exc
+            while True:
+                chunk = os.read(file_fd, min(CLI_HASH_CHUNK_BYTES, maximum - total + 1))
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > maximum:
+                    raise ProjectionError(f"{label} exceeds the bounded size of {maximum} bytes")
+                digest.update(chunk)
+                if snapshot_fd is not None:
+                    view = memoryview(chunk)
+                    while view:
+                        written = os.write(snapshot_fd, view)
+                        if written <= 0:
+                            raise ProjectionError(f"private {label} snapshot write made no progress")
+                        view = view[written:]
+            if snapshot_fd is not None:
+                os.fchmod(snapshot_fd, 0o500)
+            try:
+                final_info = os.fstat(file_fd)
+            except OSError as exc:
+                raise ProjectionError(f"could not recheck {label} descriptor: {path}") from exc
+            if (final_info.st_dev, final_info.st_ino) != (expected_info.st_dev, expected_info.st_ino) or final_info.st_size != total:
+                raise ProjectionError(f"{label} changed while it was being hashed: {path}")
+            if snapshot_fd is not None:
+                try:
+                    os.fsync(snapshot_fd)
+                    snapshot_info = os.fstat(snapshot_fd)
+                except OSError as exc:
+                    raise ProjectionError(f"could not recheck private {label} snapshot: {snapshot_path}") from exc
+                if not stat.S_ISREG(snapshot_info.st_mode) or snapshot_info.st_size != total:
+                    raise ProjectionError(f"private {label} snapshot is incomplete: {snapshot_path}")
+        finally:
+            try:
+                os.close(file_fd)
+            finally:
+                file_fd = None
+    except ProjectionError:
+        raise
+    except OSError as exc:
+        raise ProjectionError(f"{label} could not be hashed safely: {type(exc).__name__}: {exc}") from exc
+    finally:
+        if file_fd is not None:
+            try:
+                os.close(file_fd)
+            except OSError:
+                pass
+        if snapshot_fd is not None:
+            try:
+                os.close(snapshot_fd)
+            except OSError:
+                pass
+        try:
+            os.close(directory_fd)
+        except OSError:
+            pass
+    return digest.hexdigest(), total
+
+
+def _validated_cli_producer(
+    carrier_module: Any,
+    cli_path: Path | None,
+    *,
+    staging_directory: Path | None = None,
+) -> tuple[Path, dict[str, Any]]:
     if cli_path is None:
         raise ProjectionError("an explicit absolute Rust CLI path is required")
     cli_path = _absolute_path(cli_path, "Rust CLI path")
@@ -428,14 +542,21 @@ def _validated_cli_producer(carrier_module: Any, cli_path: Path | None) -> tuple
         raise ProjectionError(f"Rust CLI path is not a regular non-symlink file: {type(exc).__name__}: {exc}") from exc
     if info.st_mode & 0o111 == 0 or not os.access(cli_path, os.X_OK):
         raise ProjectionError(f"Rust CLI path is not executable: {cli_path}")
-    data = _read_regular_file(carrier_module, cli_path, MAX_CLI_BYTES, "Rust CLI path")
+    snapshot_path = None if staging_directory is None else staging_directory / cli_path.name
+    sha256, byte_count = _stream_hash_regular_file(
+        carrier_module,
+        cli_path,
+        MAX_CLI_BYTES,
+        "Rust CLI path",
+        snapshot_path=snapshot_path,
+    )
     identity = {
-        "sha256": hashlib.sha256(data).hexdigest(),
-        "bytes": len(data),
+        "sha256": sha256,
+        "bytes": byte_count,
         "operation": RUST_OPERATION,
         "format": RUST_FORMAT,
     }
-    return cli_path, data, identity
+    return snapshot_path or cli_path, identity
 
 
 def _stop_process(process: subprocess.Popen[bytes]) -> None:
@@ -576,6 +697,48 @@ def _source_bytes(carrier_module: Any, gallery: Path, profile_id: str) -> bytes:
     )
 
 
+def _write_private_snapshot(path: Path, data: bytes, label: str) -> None:
+    """Write already validated bytes into a private, exclusive snapshot."""
+    snapshot_fd: int | None = None
+    try:
+        try:
+            snapshot_fd = os.open(
+                path,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+                0o600,
+            )
+        except (OSError, NotImplementedError, TypeError) as exc:
+            raise ProjectionError(f"could not create private {label} snapshot: {path}") from exc
+        view = memoryview(data)
+        while view:
+            written = os.write(snapshot_fd, view)
+            if written <= 0:
+                raise ProjectionError(f"private {label} snapshot write made no progress")
+            view = view[written:]
+        os.fchmod(snapshot_fd, 0o400)
+        os.fsync(snapshot_fd)
+        try:
+            snapshot_info = os.fstat(snapshot_fd)
+        except OSError as exc:
+            raise ProjectionError(f"could not recheck private {label} snapshot: {path}") from exc
+        if not stat.S_ISREG(snapshot_info.st_mode) or snapshot_info.st_size != len(data):
+            raise ProjectionError(f"private {label} snapshot is incomplete: {path}")
+    except ProjectionError:
+        raise
+    except OSError as exc:
+        raise ProjectionError(f"private {label} snapshot could not be written: {path}") from exc
+    finally:
+        if snapshot_fd is not None:
+            try:
+                os.close(snapshot_fd)
+            except OSError:
+                pass
+
+
 def _validated_carrier_state(carrier_module: Any, gallery: Path, carrier_path: Path, label: str) -> dict[str, Any]:
     try:
         carrier_value = carrier_module.load_carrier(carrier_path)
@@ -610,81 +773,100 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
     gallery = _absolute_path(gallery, "gallery path")
     carrier_path = _absolute_path(carrier_path, "carrier path")
     carrier_module = _load_carrier_module()
-    cli_path, producer_bytes, producer_identity = _validated_cli_producer(carrier_module, cli_path)
-    initial_state = _validated_carrier_state(carrier_module, gallery, carrier_path, "initial")
-    carrier_value = initial_state["carrier_value"]
-    carrier_bytes = initial_state["carrier_bytes"]
-    payload = initial_state["payload"]
-    profile_ids = initial_state["profile_ids"]
-    instance_ids = initial_state["instance_ids"]
-    profiles = payload.get("profiles")
-    if not isinstance(profiles, list) or len(profiles) != 2:
-        raise ProjectionError("carrier validator did not return exactly two profiles")
-    if tuple(profile.get("profile_id") for profile in profiles if isinstance(profile, dict)) != tuple(profile_ids):
-        raise ProjectionError("carrier validator profile ordering is inconsistent")
-    source_gallery = carrier_value.get("source_gallery")
-    shared_pose = carrier_value.get("shared_pose")
-    instances = carrier_value.get("instances")
-    if not isinstance(source_gallery, dict) or not isinstance(shared_pose, dict) or not isinstance(instances, list):
-        raise ProjectionError("validated carrier is missing its identity projections")
-    if len(instances) != 2:
-        raise ProjectionError("validated carrier must contain exactly two instances")
-    source_bytes_by_profile = {
-        profile_id: _source_bytes(carrier_module, gallery, profile_id)
-        for profile_id in profile_ids
-    }
-    avatars = []
-    for index, (profile, instance_id, profile_id) in enumerate(zip(profiles, instance_ids, profile_ids)):
-        if not isinstance(profile, dict) or not isinstance(instances[index], dict):
-            raise ProjectionError(f"validated carrier profile {index} is not an object")
-        source_bytes = source_bytes_by_profile[profile_id]
-        inspection = _run_inspection(cli_path, gallery / SOURCE_DIR / f"{profile_id}.json")
-        if source_bytes != _source_bytes(carrier_module, gallery, profile_id):
-            raise ProjectionError(f"source {profile_id} changed during Rust inspection")
-        source = _source_record(source_bytes, profile_id, inspection)
-        artifacts = _validate_artifacts(profile.get("artifacts"), profile_id, carrier_module, f"profile {profile_id}.artifacts")
-        avatars.append(
-            {
-                "instance_id": instance_id,
-                "profile_id": profile_id,
-                "label": _string(profile.get("label"), f"profile {profile_id}.label"),
-                "candidate_profile_sha256": _hash(profile.get("candidate_profile_sha256"), f"profile {profile_id}.candidate_profile_sha256"),
-                "source": source,
-                "rust_inspection": inspection,
-                "artifacts": artifacts,
-                "metrics": profile.get("metrics"),
-            }
+    original_cli_path = None if cli_path is None else _absolute_path(cli_path, "Rust CLI path")
+    try:
+        staging = tempfile.TemporaryDirectory(prefix="ck-disposable-projection-")
+    except OSError as exc:
+        raise ProjectionError(f"could not create private projection staging directory: {type(exc).__name__}: {exc}") from exc
+    with staging as temporary:
+        staging_directory = Path(temporary)
+        staged_cli_path, producer_identity = _validated_cli_producer(
+            carrier_module,
+            original_cli_path,
+            staging_directory=staging_directory,
         )
-    final_state = _validated_carrier_state(carrier_module, gallery, carrier_path, "post-inspection")
-    _require_unchanged_state(initial_state, final_state)
-    for profile_id, source_bytes in source_bytes_by_profile.items():
-        if source_bytes != _source_bytes(carrier_module, gallery, profile_id):
-            raise ProjectionError(f"source {profile_id} changed before post-inspection validation completed")
-    _, final_producer_bytes, final_producer_identity = _validated_cli_producer(carrier_module, cli_path)
-    if producer_bytes != final_producer_bytes or not _exact_equal(producer_identity, final_producer_identity):
-        raise ProjectionError("Rust CLI executable changed during projection construction")
-    projection_body = {
-        "schema": SCHEMA,
-        "boundary": BOUNDARY,
-        "producer_identity": producer_identity,
-        "carrier_identity": {
-            "schema": carrier_value.get("schema"),
-            "boundary": carrier_value.get("boundary"),
-            "sha256": hashlib.sha256(carrier_bytes).hexdigest(),
-            "bytes": len(carrier_bytes),
-            "instance_ids": list(instance_ids),
-        },
-        "gallery_identity": {
-            "projection_contract": source_gallery.get("projection_contract"),
-            "manifest_sha256": source_gallery.get("manifest_sha256"),
-            "manifest_bytes": source_gallery.get("manifest_bytes"),
-            "boundary": source_gallery.get("boundary"),
-            "profile_ids": list(profile_ids),
-        },
-        "shared_pose": dict(shared_pose),
-        "avatars": avatars,
-    }
-    return identify_projection(projection_body, carrier_module=carrier_module)
+        initial_state = _validated_carrier_state(carrier_module, gallery, carrier_path, "initial")
+        carrier_value = initial_state["carrier_value"]
+        carrier_bytes = initial_state["carrier_bytes"]
+        payload = initial_state["payload"]
+        profile_ids = initial_state["profile_ids"]
+        instance_ids = initial_state["instance_ids"]
+        profiles = payload.get("profiles")
+        if not isinstance(profiles, list) or len(profiles) != 2:
+            raise ProjectionError("carrier validator did not return exactly two profiles")
+        if tuple(profile.get("profile_id") for profile in profiles if isinstance(profile, dict)) != tuple(profile_ids):
+            raise ProjectionError("carrier validator profile ordering is inconsistent")
+        source_gallery = carrier_value.get("source_gallery")
+        shared_pose = carrier_value.get("shared_pose")
+        instances = carrier_value.get("instances")
+        if not isinstance(source_gallery, dict) or not isinstance(shared_pose, dict) or not isinstance(instances, list):
+            raise ProjectionError("validated carrier is missing its identity projections")
+        if len(instances) != 2:
+            raise ProjectionError("validated carrier must contain exactly two instances")
+        source_bytes_by_profile = {
+            profile_id: _source_bytes(carrier_module, gallery, profile_id)
+            for profile_id in profile_ids
+        }
+        source_snapshot_directory = staging_directory / SOURCE_DIR
+        try:
+            source_snapshot_directory.mkdir(mode=0o700)
+        except OSError as exc:
+            raise ProjectionError(f"could not create private source staging directory: {source_snapshot_directory}") from exc
+        source_snapshot_paths = {}
+        for profile_id, source_bytes in source_bytes_by_profile.items():
+            source_snapshot_path = source_snapshot_directory / f"{profile_id}.json"
+            _write_private_snapshot(source_snapshot_path, source_bytes, f"source {profile_id}")
+            source_snapshot_paths[profile_id] = source_snapshot_path
+        avatars = []
+        for index, (profile, instance_id, profile_id) in enumerate(zip(profiles, instance_ids, profile_ids)):
+            if not isinstance(profile, dict) or not isinstance(instances[index], dict):
+                raise ProjectionError(f"validated carrier profile {index} is not an object")
+            source_bytes = source_bytes_by_profile[profile_id]
+            inspection = _run_inspection(staged_cli_path, source_snapshot_paths[profile_id])
+            source = _source_record(source_bytes, profile_id, inspection)
+            artifacts = _validate_artifacts(profile.get("artifacts"), profile_id, carrier_module, f"profile {profile_id}.artifacts")
+            avatars.append(
+                {
+                    "instance_id": instance_id,
+                    "profile_id": profile_id,
+                    "label": _string(profile.get("label"), f"profile {profile_id}.label"),
+                    "candidate_profile_sha256": _hash(profile.get("candidate_profile_sha256"), f"profile {profile_id}.candidate_profile_sha256"),
+                    "source": source,
+                    "rust_inspection": inspection,
+                    "artifacts": artifacts,
+                    "metrics": profile.get("metrics"),
+                }
+            )
+        final_state = _validated_carrier_state(carrier_module, gallery, carrier_path, "post-inspection")
+        _require_unchanged_state(initial_state, final_state)
+        for profile_id, source_bytes in source_bytes_by_profile.items():
+            if source_bytes != _source_bytes(carrier_module, gallery, profile_id):
+                raise ProjectionError(f"source {profile_id} changed before post-inspection validation completed")
+        _, final_producer_identity = _validated_cli_producer(carrier_module, original_cli_path)
+        if not _exact_equal(producer_identity, final_producer_identity):
+            raise ProjectionError("Rust CLI executable changed during projection construction")
+        projection_body = {
+            "schema": SCHEMA,
+            "boundary": BOUNDARY,
+            "producer_identity": producer_identity,
+            "carrier_identity": {
+                "schema": carrier_value.get("schema"),
+                "boundary": carrier_value.get("boundary"),
+                "sha256": hashlib.sha256(carrier_bytes).hexdigest(),
+                "bytes": len(carrier_bytes),
+                "instance_ids": list(instance_ids),
+            },
+            "gallery_identity": {
+                "projection_contract": source_gallery.get("projection_contract"),
+                "manifest_sha256": source_gallery.get("manifest_sha256"),
+                "manifest_bytes": source_gallery.get("manifest_bytes"),
+                "boundary": source_gallery.get("boundary"),
+                "profile_ids": list(profile_ids),
+            },
+            "shared_pose": dict(shared_pose),
+            "avatars": avatars,
+        }
+        return identify_projection(projection_body, carrier_module=carrier_module)
 
 
 def _validate_projection_body(value: Any, carrier_module: Any | None = None) -> dict[str, Any]:

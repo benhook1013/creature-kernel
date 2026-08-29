@@ -93,6 +93,7 @@ const DEFORMATION_OUTSIDE_FALLOFF_TOLERANCE := 1.0e-6
 const DEFORMATION_CAPTURE_WIDTH := 1536
 const DEFORMATION_CAPTURE_HEIGHT := 512
 const DEFORMATION_VIEW_SIZE := 512
+const DEFORMATION_CAPTURE_MAX_BYTES := 8 * 1024 * 1024
 const DEFORMATION_CAPTURE_NAMES := ["reference.png", "peak.png", "recovered.png"]
 const RENDER_COLLISION_COHERENCE_SCHEMA := "creature-kernel.disposable-godot-render-collision-coherence.v1"
 const RENDER_COLLISION_COHERENCE_BOUNDARY := "experiment_local_render_collision_coherence"
@@ -1197,6 +1198,17 @@ func _is_canonical_command_byte_count(value) -> bool:
 			return false
 	var byte_count: int = value.to_int()
 	return byte_count > 0 and byte_count <= 262144 and str(byte_count) == value
+
+
+func _is_canonical_capture_byte_count(value) -> bool:
+	if typeof(value) != TYPE_STRING or value.is_empty() or value.length() > 7 or value.begins_with("0"):
+		return false
+	for index in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if code < 48 or code > 57:
+			return false
+	var byte_count: int = value.to_int()
+	return byte_count > 0 and byte_count <= DEFORMATION_CAPTURE_MAX_BYTES and str(byte_count) == value
 
 
 func _selector(kind: String, role, anchors) -> String:
@@ -3676,7 +3688,7 @@ func _finish_deformation_capture(surface: Dictionary, response_mapping: Dictiona
 		var capture: Dictionary = await _render_deformation_capture(surface, states[capture_index], capture_labels[capture_index], capture_dir, String(DEFORMATION_CAPTURE_NAMES[capture_index]), capture_index)
 		if capture.is_empty():
 			return {}
-		if not _exact_keys(capture, ["label", "file_name", "width", "height", "sha256", "byte_count_decimal"]) or capture.get("label", "") != capture_labels[capture_index] or capture.get("file_name", "") != String(DEFORMATION_CAPTURE_NAMES[capture_index]) or int(capture.get("width", -1)) != DEFORMATION_CAPTURE_WIDTH or int(capture.get("height", -1)) != DEFORMATION_CAPTURE_HEIGHT or not _is_sha256(String(capture.get("sha256", ""))) or not _is_canonical_carrier_byte_count(capture.get("byte_count_decimal", "")):
+		if not _exact_keys(capture, ["label", "file_name", "width", "height", "sha256", "byte_count_decimal"]) or capture.get("label", "") != capture_labels[capture_index] or capture.get("file_name", "") != String(DEFORMATION_CAPTURE_NAMES[capture_index]) or int(capture.get("width", -1)) != DEFORMATION_CAPTURE_WIDTH or int(capture.get("height", -1)) != DEFORMATION_CAPTURE_HEIGHT or not _is_sha256(String(capture.get("sha256", ""))) or not _is_canonical_capture_byte_count(capture.get("byte_count_decimal", "")):
 			_failure = "%s deformation capture metadata is invalid" % capture_labels[capture_index]
 			return {}
 		captures.append(capture)

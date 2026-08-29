@@ -71,16 +71,16 @@ the canonical owner of the active runway, and the required reading order in
   also validates snapshot-derived normal velocity/displacement and clean exit.
   This remains experiment-only and
   makes no package/adapter/Readiness 3/deformation/performance/checkpoint
-  claim. A disposable CK/Rust-backed projection over
+  claim. A provisional disposable CK/Rust-backed projection over
   the same two ordered avatars is now implemented. It requires an explicit
   absolute native executable, binds producer/source/carrier/gallery/pose/
   artifact identities, records bounded successful `inspect-structure`
   evidence, and is freshly rebuilt before launch and report publication. Its
   identity is transport-only; this remains experiment evidence, not a durable
   package schema, R3 activation, adapter, or host lock-in. The focused
-  projection suite passed 14 tests with 1 expected skip, and the
-  focused `test_skeletal_pose_smoke.py` suite passed 67 tests with 16 expected
-  display skips; the full Godot experiment suite contains 153 tests with 29
+  projection suite passed 17 tests with 1 expected skip, and the
+  focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
+  display skips; the full Godot experiment suite contains 160 tests with 29
   skips. The corrected final evidence is one bounded paired runtime run using
   one exact 512x512 X11 `gl_compatibility` trial environment with official
   Godot 4.7.2 on Ubuntu

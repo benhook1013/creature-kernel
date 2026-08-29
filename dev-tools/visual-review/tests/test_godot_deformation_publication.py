@@ -211,7 +211,10 @@ class GodotDeformationPublicationTests(unittest.TestCase):
             "peak.png",
             self._png((80, 90, 100), peak_colour=(220, 40, 30), peak_box=(0, 0, 1, 1)),
         )
-        with self.assertRaisesRegex(publisher.GodotDeformationPublishError, "below the meaningful minimum"):
+        with self.assertRaisesRegex(
+            publisher.GodotDeformationPublishError,
+            "Godot deformation peak-vs-reference pixel difference is below the meaningful minimum",
+        ):
             publisher.publish_godot_deformation(self.reviews, self.report, self.captures, review_id="trivial-difference")
         self.assertFalse((self.reviews / "trivial-difference").exists())
 

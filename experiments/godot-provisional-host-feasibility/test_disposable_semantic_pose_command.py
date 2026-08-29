@@ -20,6 +20,8 @@ DEFAULTS = ("compact_broad_short_limb_large_head", "tall_narrow_long_legged")
 ALTERNATE = ("slender_long_limb", "stocky_broad_chested")
 SOURCE_POSE = Path(__file__).resolve().parents[1] / "current-form-surface-preview" / "structural_embodiment_shared_pose.json"
 
+sys.dont_write_bytecode = True
+
 
 def load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -40,7 +42,8 @@ command = load_module("disposable_semantic_pose_command_under_test", EXPERIMENT 
 
 
 def _fixture(profile_ids: tuple[str, str] = DEFAULTS) -> dict:
-    source = json.loads(SOURCE_POSE.read_text(encoding="utf-8"))
+    source_bytes = SOURCE_POSE.read_bytes()
+    source = json.loads(source_bytes.decode("utf-8"))
     return {
         "schema": command.SCHEMA,
         "boundary": command.BOUNDARY,
@@ -49,7 +52,7 @@ def _fixture(profile_ids: tuple[str, str] = DEFAULTS) -> dict:
         "source_pose": {
             "format": source["format"],
             "pose_id": source["pose_id"],
-            "sha256": hashlib.sha256(SOURCE_POSE.read_bytes()).hexdigest(),
+            "sha256": hashlib.sha256(source_bytes).hexdigest(),
             "version": source["version"],
         },
         "targets": [
@@ -98,6 +101,51 @@ class DisposableSemanticPoseCommandTests(unittest.TestCase):
         value["rules"][0].update({"kind": "joint|semantic", "role": "wrist", "anchors": ["right"]})
         value["rules"][1].update({"kind": "joint", "role": "semantic|wrist", "anchors": ["right"]})
         self.assertIs(command._validate_shape(value), value)
+
+    def test_source_pose_requires_the_exact_loader_quaternion_precision_convention(self) -> None:
+        source_bytes = SOURCE_POSE.read_bytes()
+        source = json.loads(source_bytes.decode("utf-8"))
+        expected = {
+            "format": source["format"],
+            "pose_id": source["pose_id"],
+            "sha256": hashlib.sha256(source_bytes).hexdigest(),
+        }
+        for precision in (14, 15.0, True):
+            with self.subTest(precision=precision):
+                source["convention"]["quaternion_decimal_places"] = precision
+                mutated_bytes = (json.dumps(source, indent=2) + "\n").encode("utf-8")
+                (self.root / command.POSE_FILE).write_bytes(mutated_bytes)
+                mutated_expected = dict(expected, sha256=hashlib.sha256(mutated_bytes).hexdigest())
+                with self.assertRaisesRegex(command.CommandError, "transform convention"):
+                    command._load_pose_source(self.root, mutated_expected)
+
+    def test_source_pose_accepts_the_exact_quaternion_precision_convention(self) -> None:
+        source_bytes = SOURCE_POSE.read_bytes()
+        source = json.loads(source_bytes.decode("utf-8"))
+        (self.root / command.POSE_FILE).write_bytes(source_bytes)
+        expected = {
+            "format": source["format"],
+            "pose_id": source["pose_id"],
+            "sha256": hashlib.sha256(source_bytes).hexdigest(),
+        }
+        loaded = command._load_pose_source(self.root, expected)
+        self.assertEqual(loaded["sha256"], expected["sha256"])
+        self.assertEqual(source["convention"]["quaternion_decimal_places"], command.POSE_QUATERNION_DECIMAL_PLACES)
+
+    def test_source_pose_precision_is_checked_before_fixed_unit_tolerance(self) -> None:
+        source_bytes = SOURCE_POSE.read_bytes()
+        source = json.loads(source_bytes.decode("utf-8"))
+        source["convention"]["quaternion_decimal_places"] = 14
+        source["rules"][0]["rotation_xyzw"] = [0.0, 0.0, 0.0, 0.0]
+        mutated_bytes = (json.dumps(source, indent=2) + "\n").encode("utf-8")
+        (self.root / command.POSE_FILE).write_bytes(mutated_bytes)
+        expected = {
+            "format": source["format"],
+            "pose_id": source["pose_id"],
+            "sha256": hashlib.sha256(mutated_bytes).hexdigest(),
+        }
+        with self.assertRaisesRegex(command.CommandError, "transform convention"):
+            command._load_pose_source(self.root, expected)
 
     def test_command_version_uses_value_equality_for_strict_ints(self) -> None:
         value = _fixture()
