@@ -292,6 +292,38 @@ def _capture_evidence_for_bytes(report: dict, captures: dict[str, bytes]) -> dic
     return evidence
 
 
+def _reference_render_collision_metrics(
+    vertices: list[list[float]],
+    endpoint_a: list[float],
+    endpoint_b: list[float],
+    radius: float,
+    falloff_weights: list[float],
+) -> dict[str, float]:
+    """Independently calculate capsule side clearances for report fixtures."""
+    axis = [right - left for left, right in zip(endpoint_a, endpoint_b)]
+    axis_length = math.sqrt(sum(component * component for component in axis))
+    axis_unit = [component / axis_length for component in axis]
+    clearances = []
+    outside_clearances = []
+    for index, vertex in enumerate(vertices):
+        offset = [coordinate - origin for coordinate, origin in zip(vertex, endpoint_a)]
+        axial_distance = min(axis_length, max(0.0, sum(left * right for left, right in zip(offset, axis_unit))))
+        closest = [origin + axial_distance * component for origin, component in zip(endpoint_a, axis_unit)]
+        radial_distance = math.sqrt(
+            sum((coordinate - closest_coordinate) ** 2 for coordinate, closest_coordinate in zip(vertex, closest))
+        )
+        clearance = radial_distance - radius
+        clearances.append(clearance)
+        if index < len(falloff_weights) and float(falloff_weights[index]) == 0.0:
+            outside_clearances.append(clearance)
+    return {
+        "maximum_absolute_side_clearance": max((abs(value) for value in clearances), default=0.0),
+        "maximum_outward_clearance": max((max(value, 0.0) for value in clearances), default=0.0),
+        "maximum_inward_penetration": max((max(-value, 0.0) for value in clearances), default=0.0),
+        "outside_falloff_max_penetration": max((max(-value, 0.0) for value in outside_clearances), default=0.0),
+    }
+
+
 def _deformation_report_fixture() -> tuple[dict, dict, dict, dict, dict[str, bytes]]:
     payload, report = _skeletal_validation_fixture()
     command, identity = _contact_command_fixture()
@@ -426,6 +458,101 @@ def _deformation_report_fixture() -> tuple[dict, dict, dict, dict, dict[str, byt
             },
         }
     )
+    identity_matrix = [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    ]
+    peak_transform = [
+        1.0, 0.0, 0.0, 0.05,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    ]
+    endpoint_a = [0.0, -0.5, 0.0]
+    endpoint_b = [0.0, 0.5, 0.0]
+
+    def coherence_state(
+        state: str,
+        tick: int,
+        phase: str,
+        contact: bool,
+        sample_index: int,
+        response_transform: list[float],
+        vertices: list[list[float]],
+    ) -> dict:
+        return {
+            "state": state,
+            "tick": tick,
+            "phase": phase,
+            "contact": contact,
+            "contact_sample_index": sample_index,
+            "response_body_to_world": response_transform,
+            "capsule_to_body": list(identity_matrix),
+            "sleeve_to_body": list(identity_matrix),
+            "capsule": {
+                "endpoint_a": list(endpoint_a),
+                "endpoint_b": list(endpoint_b),
+                "radius": 0.25,
+                "height": 1.5,
+            },
+            "vertices": deepcopy(vertices),
+            "metrics": _reference_render_collision_metrics(
+                vertices,
+                endpoint_a,
+                endpoint_b,
+                0.25,
+                weights,
+            ),
+        }
+
+    report["semantic_render_collision_coherence"] = {
+        "schema": smoke.RENDER_COLLISION_COHERENCE_SCHEMA,
+        "boundary": smoke.RENDER_COLLISION_COHERENCE_BOUNDARY,
+        "frame": smoke.RENDER_COLLISION_COHERENCE_FRAME,
+        "collision_mode": smoke.RENDER_COLLISION_COHERENCE_COLLISION_MODE,
+        "selected_capsule": {
+            "target_index": 1,
+            "source_bone_id": smoke.CONTACT_BONE_IDS[1],
+            "source_shape_index": smoke.CONTACT_SHAPE_INDICES[1],
+            "runtime_shape_index": smoke.CONTACT_RUNTIME_SHAPE_INDICES[1],
+            "source_lineage": "semantic_contact.participants[1].posed_proxy",
+            "source_geometry_binding": "radius-and-central-segment-length-only",
+        },
+        "falloff_source": smoke.RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE,
+        "vertex_count": smoke.RENDER_COLLISION_COHERENCE_VERTEX_COUNT,
+        "state_order": list(smoke.RENDER_COLLISION_COHERENCE_STATE_ORDER),
+        "states": [
+            coherence_state("neutral", 0, "setup", False, -1, identity_matrix, reference),
+            coherence_state("contact_onset", 25, "contact", True, 0, peak_transform, peak),
+            coherence_state("peak", 25, "contact", True, 0, peak_transform, peak),
+            coherence_state(
+                "recovery",
+                smoke.CONTACT_TOTAL_TICKS,
+                "exit",
+                False,
+                -1,
+                [
+                    1.0, 0.0, 0.0, 0.1,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0,
+                ],
+                reference,
+            ),
+        ],
+        "collision_geometry_drift": {
+            "reference_state": "neutral",
+            "max_endpoint_a_drift": 0.0,
+            "max_endpoint_b_drift": 0.0,
+            "max_radius_drift": 0.0,
+            "maximum_geometry_drift": 0.0,
+        },
+    }
+    strongest_contact_sample = smoke._validate_contact_report(report, command, identity)
+    smoke._validate_deformation_report(report, strongest_contact_sample)
+    smoke._validate_render_collision_coherence(report, strongest_contact_sample)
     return payload, report, command, identity, captures
 
 
@@ -449,6 +576,44 @@ def _remove_first_positive_falloff_weight(report: dict) -> None:
     weights = report["semantic_deformation"]["drive"]["falloff_weights"]
     index = next(index for index, weight in enumerate(weights) if float(weight) > 0.0)
     weights[index] = 0.0
+
+
+def _coherence_state(report: dict, state_name: str) -> dict:
+    for state in report["semantic_render_collision_coherence"]["states"]:
+        if state.get("state") == state_name:
+            return state
+    raise AssertionError(f"missing coherence state {state_name}")
+
+
+def _recompute_coherence_metrics(report: dict, state_name: str) -> None:
+    coherence = report["semantic_render_collision_coherence"]
+    state = _coherence_state(report, state_name)
+    capsule = state["capsule"]
+    state["metrics"] = _reference_render_collision_metrics(
+        state["vertices"],
+        capsule["endpoint_a"],
+        capsule["endpoint_b"],
+        capsule["radius"],
+        report["semantic_deformation"]["drive"]["falloff_weights"],
+    )
+
+
+def _move_coherence_vertex_radially(report: dict, state_name: str, vertex_index: int, distance: float) -> None:
+    state = _coherence_state(report, state_name)
+    capsule = state["capsule"]
+    endpoint_a = capsule["endpoint_a"]
+    endpoint_b = capsule["endpoint_b"]
+    segment = [right - left for left, right in zip(endpoint_a, endpoint_b)]
+    segment_length_squared = sum(component * component for component in segment)
+    vertex = state["vertices"][vertex_index]
+    offset = [coordinate - origin for coordinate, origin in zip(vertex, endpoint_a)]
+    fraction = min(1.0, max(0.0, sum(left * right for left, right in zip(offset, segment)) / segment_length_squared))
+    closest = [origin + fraction * component for origin, component in zip(endpoint_a, segment)]
+    radial = [coordinate - origin for coordinate, origin in zip(vertex, closest)]
+    radial_length = math.sqrt(sum(component * component for component in radial))
+    direction = [component / radial_length for component in radial]
+    state["vertices"][vertex_index] = [coordinate + direction[axis] * distance for axis, coordinate in enumerate(vertex)]
+    _recompute_coherence_metrics(report, state_name)
 
 
 def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tuple[dict, dict, dict, list[dict], tuple[str, str]]:
@@ -1027,6 +1192,184 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             contact_command_identity=identity,
             deformation_capture_bytes=captures,
         )
+
+    def test_render_collision_coherence_fixture_has_exact_independent_record(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        coherence = report["semantic_render_collision_coherence"]
+        self.assertEqual(set(coherence), smoke.RENDER_COLLISION_COHERENCE_KEYS)
+        self.assertEqual(coherence["schema"], smoke.RENDER_COLLISION_COHERENCE_SCHEMA)
+        self.assertEqual(coherence["boundary"], smoke.RENDER_COLLISION_COHERENCE_BOUNDARY)
+        self.assertEqual(coherence["frame"], smoke.RENDER_COLLISION_COHERENCE_FRAME)
+        self.assertEqual(coherence["collision_mode"], smoke.RENDER_COLLISION_COHERENCE_COLLISION_MODE)
+        self.assertEqual(coherence["state_order"], list(smoke.RENDER_COLLISION_COHERENCE_STATE_ORDER))
+        self.assertIsInstance(coherence["states"], list)
+        self.assertEqual(
+            [state["state"] for state in coherence["states"]],
+            list(smoke.RENDER_COLLISION_COHERENCE_STATE_ORDER),
+        )
+        self.assertEqual(
+            coherence["selected_capsule"]["source_lineage"],
+            "semantic_contact.participants[1].posed_proxy",
+        )
+        self.assertEqual(
+            coherence["selected_capsule"]["source_geometry_binding"],
+            "radius-and-central-segment-length-only",
+        )
+        self.assertEqual(
+            set(_coherence_state(report, "peak")["metrics"]),
+            smoke.RENDER_COLLISION_COHERENCE_METRIC_KEYS,
+        )
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
+    def test_render_collision_onset_selects_strongest_sample_in_first_contact_tick(self) -> None:
+        contact_evidence = {
+            "contact_tick_evidence": [
+                {"tick": 25, "phase": "contact", "contact_count": 2},
+                {"tick": 26, "phase": "contact", "contact_count": 1},
+            ],
+            "solver_impulses": [
+                {
+                    "contact_samples": [
+                        {"tick": 25, "phase": "contact", "contact_index": 0, "impulse": [0.1, 0.0, 0.0]},
+                        {"tick": 25, "phase": "contact", "contact_index": 1, "impulse": [0.2, 0.0, 0.0]},
+                        {"tick": 26, "phase": "contact", "contact_index": 0, "impulse": [1.0, 0.0, 0.0]},
+                    ]
+                }
+            ],
+        }
+
+        selected = smoke._render_first_positive_contact_sample(contact_evidence)
+
+        self.assertEqual((selected["tick"], selected["contact_index"]), (25, 1))
+
+    def test_render_collision_coherence_rejects_table_driven_tampering(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+
+        def outward_movement(value: dict) -> None:
+            weights = value["semantic_deformation"]["drive"]["falloff_weights"]
+            index = next(index for index, weight in enumerate(weights) if float(weight) > 0.0)
+            _move_coherence_vertex_radially(value, "peak", index, 0.01)
+
+        def zero_weight_penetration(value: dict) -> None:
+            weights = value["semantic_deformation"]["drive"]["falloff_weights"]
+            index = next(index for index, weight in enumerate(weights) if float(weight) == 0.0)
+            _move_coherence_vertex_radially(value, "peak", index, -0.01)
+
+        def cross_link_mismatch(value: dict) -> None:
+            _coherence_state(value, "neutral")["vertices"][0][0] += 0.01
+            _recompute_coherence_metrics(value, "neutral")
+
+        mutations = {
+            "schema": lambda value: value["semantic_render_collision_coherence"].__setitem__("schema", "wrong"),
+            "boundary": lambda value: value["semantic_render_collision_coherence"].__setitem__("boundary", "wrong"),
+            "field set": lambda value: value["semantic_render_collision_coherence"].__setitem__("unexpected", True),
+            "state field set": lambda value: _coherence_state(value, "peak").pop("metrics"),
+            "state order": lambda value: value["semantic_render_collision_coherence"].__setitem__("state_order", ["peak", "neutral", "contact_onset", "recovery"]),
+            "ticks": lambda value: _coherence_state(value, "peak").__setitem__("tick", 26),
+            "distinct onset sample": lambda value: _coherence_state(value, "contact_onset").__setitem__("contact_sample_index", 1),
+            "lineage": lambda value: value["semantic_render_collision_coherence"]["selected_capsule"].__setitem__("source_bone_id", "wrong"),
+            "transform": lambda value: _coherence_state(value, "peak")["capsule_to_body"].__setitem__(0, 2.0),
+            "sleeve transform semantics": lambda value: _coherence_state(value, "peak")["sleeve_to_body"].__setitem__(3, 0.1),
+            "vertex count": lambda value: value["semantic_render_collision_coherence"].__setitem__("vertex_count", 543),
+            "nonfinite": lambda value: _coherence_state(value, "peak")["vertices"][0].__setitem__(0, float("nan")),
+            "degenerate capsule": lambda value: _coherence_state(value, "peak")["capsule"].__setitem__("endpoint_b", _coherence_state(value, "peak")["capsule"]["endpoint_a"]),
+            "drift": lambda value: value["semantic_render_collision_coherence"]["collision_geometry_drift"].__setitem__("max_radius_drift", 0.1),
+            "outward movement": outward_movement,
+            "zero-weight penetration": zero_weight_penetration,
+            "cross-link mismatch": cross_link_mismatch,
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                mutated = deepcopy(report)
+                mutate(mutated)
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                        deformation_capture_bytes=captures,
+                    )
+
+        for metric_name in smoke.RENDER_COLLISION_COHERENCE_METRIC_KEYS:
+            with self.subTest(metric=metric_name):
+                mutated = deepcopy(report)
+                _coherence_state(mutated, "peak")["metrics"][metric_name] += 0.01
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                        deformation_capture_bytes=captures,
+                    )
+
+    def test_render_collision_coherence_is_deformation_only_and_aliases_fail_closed(self) -> None:
+        payload, deformation_report, command, identity, captures = _deformation_report_fixture()
+        canonical = "semantic_render_collision_coherence"
+        aliases = (canonical, *sorted(smoke.RENDER_COLLISION_COHERENCE_ALIAS_KEYS))
+
+        no_contact_payload, no_contact_report = _skeletal_validation_fixture()
+        for field_name in aliases:
+            with self.subTest(mode="no-contact", field=field_name):
+                report = deepcopy(no_contact_report)
+                report[field_name] = {}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(report, no_contact_payload, DEFAULTS)
+
+        contact_report = deepcopy(deformation_report)
+        contact_report.pop("semantic_deformation")
+        contact_report.pop(canonical)
+        contact_report["boundary"] = smoke.CONTACT_REPORT_BOUNDARY
+        contact_report["claims"] = deepcopy(smoke.CONTACT_REPORT_CLAIMS)
+        contact_report["scope_flags"] = deepcopy(smoke.CONTACT_REPORT_FLAGS)
+        contact_report["coordinate_rule"]["scope"] = smoke.CONTACT_REPORT_BOUNDARY
+        for field_name in aliases:
+            with self.subTest(mode="contact-only", field=field_name):
+                mutated = deepcopy(contact_report)
+                mutated[field_name] = {}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                    )
+
+        missing = deepcopy(deformation_report)
+        missing.pop(canonical)
+        with self.assertRaisesRegex(smoke.SmokeError, "missing semantic render/collision coherence"):
+            smoke._validate_report(
+                missing,
+                payload,
+                DEFAULTS,
+                semantic_contact_command=command,
+                contact_command_identity=identity,
+                deformation_capture_bytes=captures,
+            )
+        for alias in sorted(smoke.RENDER_COLLISION_COHERENCE_ALIAS_KEYS):
+            with self.subTest(mode="deformation", field=alias):
+                mutated = deepcopy(missing)
+                mutated[alias] = {}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                        deformation_capture_bytes=captures,
+                    )
 
     def test_deformation_captures_require_real_nonuniform_pixels_and_bounded_change(self) -> None:
         _payload, report, _command, _identity, captures = _deformation_report_fixture()

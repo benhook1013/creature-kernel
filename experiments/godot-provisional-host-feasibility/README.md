@@ -47,8 +47,29 @@ host-local only; its pose command mode remains disposable semantic-selector
 injection and read-back evidence, and its no-contact paths remain unchanged
 predecessor paths.
 The deformation mode proves only slight open-edge surface deformation and
-exact recovery. Its rigid capsule remains undeformed, and its captures are a
-separate static replay rather than live render/collision-coherence evidence.
+exact recovery. Its rigid capsule remains undeformed. The completed
+experiment-local render/collision read-back coherence slice pairs the runtime
+`ArrayMesh` and `CollisionShape3D` read-back in one response-body-local frame,
+with the existing static replay linkage. Its schema is
+`creature-kernel.disposable-godot-render-collision-coherence.v1` and its frame
+is `response_body_local_selected_capsule_side`. It records `neutral`,
+`contact_onset`, `peak`, and `recovery` at ticks 0, 26, 26, and 64; onset and
+peak are legitimately the same first/strongest sample. The successful run
+reported selected rigid-capsule endpoint and radius drift of exactly zero;
+validation permits only the declared numeric tolerance, so exact zero is not a
+general enforced invariant. The selected-capsule source binding cross-validates
+semantic identity, radius, and central-segment length against the posed proxy.
+Runtime body-local placement and orientation come from `CollisionShape3D`
+read-back; this evidence does not claim that they are independently
+common-frame-derived from the source proxy endpoints. Neutral and recovery
+maximum absolute side clearance is `5.9605e-08`; peak inward penetration is
+`0.00328758359`, peak outward clearance is `5.9605e-08`, and outside-falloff
+penetration is `2.9802e-08`. Python independently reconstructs runtime capsule
+endpoints from the capsule transform/height/radius and recomputes vertex
+clearances and metrics. This remains narrow experiment-local evidence, not live
+contact rendering, deformed collision, realistic tissue, production topology,
+performance, package/adapter/R3 evidence, or permanent Godot/Jolt selection.
+The static captures remain replay linkage rather than live contact rendering.
 Normal failures remove newly written captures and the success report is
 published last. An abrupt process termination can still leave orphan captures
 without a report, so the two-part output assumes a stable, non-adversarial
@@ -393,8 +414,9 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 58 tests covering both frozen
-profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
+regressions. The `test_skeletal_pose_smoke.py` focused result contains 62 tests
+with 16 expected display skips, covering both frozen profile pairs, complete
+`Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
 carrier identity, command-mode semantic injection/read-back, no pose-file

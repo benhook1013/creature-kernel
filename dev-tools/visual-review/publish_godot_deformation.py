@@ -32,13 +32,21 @@ class GodotDeformationPublishError(RuntimeError):
 
 REPORT_SCHEMA = "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 REPORT_BOUNDARY = "experiment_local_contact_driven_smooth_forearm_surface_deformation"
-REPORT_CLAIMS = [
+# These are the only claims this capture-only publisher screens.  Runtime
+# render/collision coherence is not validated by this publisher.
+REPORT_BASE_CLAIMS = [
     "host-local Skeleton3D/Skin pose binding",
     "host-local consumption of the shared structural pose recipe",
     "experiment-local semantic proxy contact and rigid-body response",
     "experiment-local contact-driven smooth forearm surface deformation, exact recovery, and static replay "
     "captures of runtime read-back states",
 ]
+# The current experiment report may append this one claim.  It remains
+# report-declared metadata only: this publisher neither requires nor validates
+# coherence evidence, and never republishes the claim.
+REPORT_OPTIONAL_CLAIM = "experiment-local paired runtime render-surface and rigid-collision read-back coherence"
+# Keep the historical constant name as the four-claim screened base contract.
+REPORT_CLAIMS = REPORT_BASE_CLAIMS
 REPORT_SCOPE_FLAGS = {
     "physics_stepping": True,
     "animation": False,
@@ -131,8 +139,12 @@ def _validate_report(report: dict[str, Any]) -> list[dict[str, Any]]:
         raise GodotDeformationPublishError("Godot deformation report schema or status is invalid")
     if report.get("boundary") != REPORT_BOUNDARY:
         raise GodotDeformationPublishError("Godot deformation report boundary is invalid")
-    if not _exact_equal(report.get("claims"), REPORT_CLAIMS):
-        raise GodotDeformationPublishError("Godot deformation report claims are not the exact deformation scope")
+    claims = report.get("claims")
+    if not (
+        _exact_equal(claims, REPORT_BASE_CLAIMS)
+        or _exact_equal(claims, [*REPORT_BASE_CLAIMS, REPORT_OPTIONAL_CLAIM])
+    ):
+        raise GodotDeformationPublishError("Godot deformation report claims are not the exact screened deformation scope")
     scope_flags = report.get("scope_flags")
     if not _exact_equal(scope_flags, REPORT_SCOPE_FLAGS):
         raise GodotDeformationPublishError("Godot deformation report scope flags are not the exact deformation scope")
@@ -296,6 +308,8 @@ def _build_manifest(
     capture_directory: Path,
     capture_records: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    # Do not copy report claims into the manifest.  This publisher screens the
+    # four capture claims only and must not attest to unvalidated coherence.
     report_sha256 = hashlib.sha256(report_bytes).hexdigest()
     items: list[dict[str, Any]] = []
     for label, file_name, record in zip(CAPTURE_LABELS, CAPTURE_NAMES, capture_records):

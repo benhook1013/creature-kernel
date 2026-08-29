@@ -251,7 +251,13 @@ DEFORMATION_REPORT_CLAIM = (
     "experiment-local contact-driven smooth forearm surface deformation, exact recovery, and static replay "
     "captures of runtime read-back states"
 )
-DEFORMATION_REPORT_CLAIMS = CONTACT_REPORT_CLAIMS + [DEFORMATION_REPORT_CLAIM]
+RENDER_COLLISION_COHERENCE_REPORT_CLAIM = (
+    "experiment-local paired runtime render-surface and rigid-collision read-back coherence"
+)
+DEFORMATION_REPORT_CLAIMS = CONTACT_REPORT_CLAIMS + [
+    DEFORMATION_REPORT_CLAIM,
+    RENDER_COLLISION_COHERENCE_REPORT_CLAIM,
+]
 DEFORMATION_REPORT_FLAGS = {
     "physics_stepping": True,
     "animation": False,
@@ -291,6 +297,64 @@ DEFORMATION_REPORT_ALIAS_KEYS = {
     "semantic_deformation_evidence",
     "deformation_evidence",
     "deformation_captures",
+}
+RENDER_COLLISION_COHERENCE_SCHEMA = "creature-kernel.disposable-godot-render-collision-coherence.v1"
+RENDER_COLLISION_COHERENCE_BOUNDARY = "experiment_local_render_collision_coherence"
+RENDER_COLLISION_COHERENCE_FRAME = "response_body_local_selected_capsule_side"
+RENDER_COLLISION_COHERENCE_COLLISION_MODE = "rigid-selected-capsule-not-deformed"
+RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE = "semantic_deformation.drive.falloff_weights"
+RENDER_COLLISION_COHERENCE_VERTEX_COUNT = DEFORMATION_VERTEX_COUNT
+RENDER_COLLISION_COHERENCE_STATE_ORDER = ("neutral", "contact_onset", "peak", "recovery")
+RENDER_COLLISION_COHERENCE_ALIAS_KEYS = {
+    "semantic_render_collision_coherence_evidence",
+    "render_collision_coherence",
+    "render_collision_coherence_evidence",
+    "semantic_collision_coherence",
+    "semantic_render_collision_evidence",
+}
+RENDER_COLLISION_COHERENCE_KEYS = {
+    "schema",
+    "boundary",
+    "frame",
+    "collision_mode",
+    "selected_capsule",
+    "falloff_source",
+    "vertex_count",
+    "state_order",
+    "states",
+    "collision_geometry_drift",
+}
+RENDER_COLLISION_COHERENCE_STATE_KEYS = {
+    "state",
+    "tick",
+    "phase",
+    "contact",
+    "contact_sample_index",
+    "response_body_to_world",
+    "capsule_to_body",
+    "sleeve_to_body",
+    "capsule",
+    "vertices",
+    "metrics",
+}
+RENDER_COLLISION_COHERENCE_CAPSULE_KEYS = {
+    "endpoint_a",
+    "endpoint_b",
+    "radius",
+    "height",
+}
+RENDER_COLLISION_COHERENCE_METRIC_KEYS = {
+    "maximum_absolute_side_clearance",
+    "maximum_outward_clearance",
+    "maximum_inward_penetration",
+    "outside_falloff_max_penetration",
+}
+RENDER_COLLISION_COHERENCE_DRIFT_KEYS = {
+    "reference_state",
+    "max_endpoint_a_drift",
+    "max_endpoint_b_drift",
+    "max_radius_drift",
+    "maximum_geometry_drift",
 }
 
 
@@ -1545,6 +1609,151 @@ def _reconstruct_deformation_baseline_vertices(
     return vertices
 
 
+def _render_matrix_point(matrix: list[float], point: list[float]) -> list[float]:
+    return [
+        matrix[0] * point[0] + matrix[1] * point[1] + matrix[2] * point[2] + matrix[3],
+        matrix[4] * point[0] + matrix[5] * point[1] + matrix[6] * point[2] + matrix[7],
+        matrix[8] * point[0] + matrix[9] * point[1] + matrix[10] * point[2] + matrix[11],
+    ]
+
+
+def _render_identity_matrix() -> list[float]:
+    return [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ]
+
+
+def _validate_render_matrix(value: Any, where: str) -> list[float]:
+    if not isinstance(value, list) or len(value) != 16 or any(not _finite_number(item) for item in value):
+        raise SmokeError(f"{where} must be a finite 4x4 matrix")
+    matrix = [float(item) for item in value]
+    if any(abs(matrix[index] - expected) > TOLERANCE for index, expected in ((12, 0.0), (13, 0.0), (14, 0.0), (15, 1.0))):
+        raise SmokeError(f"{where} is not homogeneous")
+    columns = (
+        [matrix[index] for index in (0, 4, 8)],
+        [matrix[index] for index in (1, 5, 9)],
+        [matrix[index] for index in (2, 6, 10)],
+    )
+    for axis_index, axis in enumerate(columns):
+        length = math.sqrt(sum(component * component for component in axis))
+        if not math.isfinite(length) or abs(length - 1.0) > NORMAL_TOLERANCE:
+            raise SmokeError(f"{where} basis axis {axis_index} is not normalized")
+    for left_index, right_index in ((0, 1), (0, 2), (1, 2)):
+        dot = sum(left * right for left, right in zip(columns[left_index], columns[right_index]))
+        if not math.isfinite(dot) or abs(dot) > NORMAL_TOLERANCE:
+            raise SmokeError(f"{where} basis is not orthogonal")
+    determinant = (
+        columns[0][0] * (columns[1][1] * columns[2][2] - columns[1][2] * columns[2][1])
+        - columns[1][0] * (columns[0][1] * columns[2][2] - columns[0][2] * columns[2][1])
+        + columns[2][0] * (columns[0][1] * columns[1][2] - columns[0][2] * columns[1][1])
+    )
+    if not math.isfinite(determinant) or abs(determinant - 1.0) > NORMAL_TOLERANCE:
+        raise SmokeError(f"{where} basis is not a proper orthonormal rotation")
+    return matrix
+
+
+def _render_matrix_close(left: list[float], right: list[float], where: str) -> None:
+    if any(abs(first - second) > TOLERANCE for first, second in zip(left, right)):
+        raise SmokeError(f"{where} is not cross-linked to the expected transform")
+
+
+def _render_first_positive_contact_sample(contact_evidence: dict[str, Any]) -> dict[str, Any]:
+    tick_evidence = contact_evidence.get("contact_tick_evidence")
+    if not isinstance(tick_evidence, list):
+        raise SmokeError("semantic render/collision contact tick evidence is missing")
+    trace_by_tick = {
+        record["tick"]: record
+        for record in tick_evidence
+        if isinstance(record, dict) and type(record.get("tick")) is int
+    }
+    impulses = contact_evidence.get("solver_impulses")
+    if not isinstance(impulses, list):
+        raise SmokeError("semantic render/collision contact samples are missing")
+    positive: list[tuple[int, float, int, dict[str, Any]]] = []
+    for impulse_record in impulses:
+        if not isinstance(impulse_record, dict) or not isinstance(impulse_record.get("contact_samples"), list):
+            raise SmokeError("semantic render/collision contact samples are malformed")
+        for sample in impulse_record["contact_samples"]:
+            if not isinstance(sample, dict):
+                raise SmokeError("semantic render/collision contact sample is malformed")
+            tick = sample.get("tick")
+            trace = trace_by_tick.get(tick)
+            if (
+                type(tick) is not int
+                or trace is None
+                or sample.get("phase") != "contact"
+                or trace.get("phase") != "contact"
+                or type(trace.get("contact_count")) is not int
+                or trace["contact_count"] <= 0
+            ):
+                continue
+            impulse = _contact_vector(sample.get("impulse"), "semantic render/collision contact sample impulse")
+            impulse_length = math.sqrt(sum(component * component for component in impulse))
+            contact_index = sample.get("contact_index")
+            if type(contact_index) is not int or contact_index < 0:
+                raise SmokeError("semantic render/collision contact sample index is invalid")
+            if impulse_length > 0.0:
+                positive.append((tick, impulse_length, contact_index, sample))
+    if not positive:
+        raise SmokeError("semantic render/collision has no positive contact sample")
+    # The producer selects the strongest sample within the first actual
+    # positive-contact tick. A lower contact index is the deterministic tie
+    # break, matching the runtime's ordered contact iteration.
+    return min(positive, key=lambda candidate: (candidate[0], -candidate[1], candidate[2]))[3]
+
+
+def _render_collision_metrics(
+    vertices: list[list[float]],
+    endpoint_a: list[float],
+    endpoint_b: list[float],
+    radius: float,
+    falloff_weights: list[Any],
+    where: str,
+) -> dict[str, float]:
+    if len(vertices) != RENDER_COLLISION_COHERENCE_VERTEX_COUNT:
+        raise SmokeError(f"{where} vertices are incomplete")
+    segment = [right - left for left, right in zip(endpoint_a, endpoint_b)]
+    segment_length_squared = sum(component * component for component in segment)
+    if not math.isfinite(segment_length_squared) or segment_length_squared <= 1.0e-24:
+        raise SmokeError(f"{where} capsule segment is degenerate")
+    clearances: list[float] = []
+    outside_clearances: list[float] = []
+    for index, vertex in enumerate(vertices):
+        point = _contact_vector(vertex, f"{where} vertex {index}")
+        offset = [point[axis] - endpoint_a[axis] for axis in range(3)]
+        fraction = sum(offset[axis] * segment[axis] for axis in range(3)) / segment_length_squared
+        fraction = min(1.0, max(0.0, fraction))
+        closest = [endpoint_a[axis] + fraction * segment[axis] for axis in range(3)]
+        distance = math.sqrt(sum((point[axis] - closest[axis]) ** 2 for axis in range(3)))
+        clearance = distance - radius
+        if not math.isfinite(clearance):
+            raise SmokeError(f"{where} vertex {index} clearance is non-finite")
+        clearances.append(clearance)
+        if index < len(falloff_weights) and float(falloff_weights[index]) == 0.0:
+            outside_clearances.append(clearance)
+    return {
+        "maximum_absolute_side_clearance": max((abs(value) for value in clearances), default=0.0),
+        "maximum_outward_clearance": max((max(value, 0.0) for value in clearances), default=0.0),
+        "maximum_inward_penetration": max((max(-value, 0.0) for value in clearances), default=0.0),
+        "outside_falloff_max_penetration": max((max(-value, 0.0) for value in outside_clearances), default=0.0),
+    }
+
+
 def _read_deformation_capture_bytes(capture_directory: Path) -> dict[str, bytes]:
     if not capture_directory.is_dir() or capture_directory.is_symlink():
         raise SmokeError("Godot deformation capture directory is missing or unsafe")
@@ -2076,6 +2285,339 @@ def _validate_deformation_report(
             raise SmokeError(f"Godot semantic deformation {label} recovery metrics are inconsistent")
 
 
+def _validate_render_collision_coherence(
+    report: dict[str, Any],
+    strongest_contact_sample: dict[str, Any],
+) -> None:
+    if RENDER_COLLISION_COHERENCE_ALIAS_KEYS.intersection(report):
+        raise SmokeError("Godot report contains unsupported semantic render/collision coherence aliases")
+    if "semantic_render_collision_coherence" not in report:
+        raise SmokeError("Godot report is missing semantic render/collision coherence evidence")
+    coherence = report["semantic_render_collision_coherence"]
+    if not isinstance(coherence, dict):
+        raise SmokeError("Godot semantic render/collision coherence evidence is not an object")
+    _validate_finite_report_json(coherence, "Godot semantic render/collision coherence")
+    if set(coherence) != RENDER_COLLISION_COHERENCE_KEYS:
+        raise SmokeError("Godot semantic render/collision coherence has unexpected or missing fields")
+    if (
+        coherence["schema"] != RENDER_COLLISION_COHERENCE_SCHEMA
+        or coherence["boundary"] != RENDER_COLLISION_COHERENCE_BOUNDARY
+        or coherence["frame"] != RENDER_COLLISION_COHERENCE_FRAME
+        or coherence["collision_mode"] != RENDER_COLLISION_COHERENCE_COLLISION_MODE
+        or coherence["falloff_source"] != RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE
+        or type(coherence["vertex_count"]) is not int
+        or coherence["vertex_count"] != RENDER_COLLISION_COHERENCE_VERTEX_COUNT
+        or not _exact_json_equal(coherence["state_order"], list(RENDER_COLLISION_COHERENCE_STATE_ORDER))
+    ):
+        raise SmokeError("Godot semantic render/collision coherence identity is invalid")
+
+    contact_evidence = report.get("semantic_contact")
+    deformation_evidence = report.get("semantic_deformation")
+    if not isinstance(contact_evidence, dict) or not isinstance(deformation_evidence, dict):
+        raise SmokeError("Godot semantic render/collision coherence is missing contact or deformation lineage")
+    participants = contact_evidence.get("participants")
+    if not isinstance(participants, list) or len(participants) != len(CONTACT_PARTICIPANTS):
+        raise SmokeError("Godot semantic render/collision coherence contact lineage is incomplete")
+    response_participant = participants[1]
+    if not isinstance(response_participant, dict) or not isinstance(response_participant.get("posed_proxy"), dict):
+        raise SmokeError("Godot semantic render/collision coherence selected posed proxy is missing")
+    posed_proxy = response_participant["posed_proxy"]
+    source_endpoint_a = _contact_vector(
+        posed_proxy.get("a"), "semantic render/collision selected posed proxy endpoint a"
+    )
+    source_endpoint_b = _contact_vector(
+        posed_proxy.get("b"), "semantic render/collision selected posed proxy endpoint b"
+    )
+    source_segment = [right - left for left, right in zip(source_endpoint_a, source_endpoint_b)]
+    source_segment_length = math.sqrt(sum(component * component for component in source_segment))
+    source_radius = _contact_scalar(
+        posed_proxy.get("radius"), "semantic render/collision selected posed proxy radius"
+    )
+    if not math.isfinite(source_segment_length) or source_segment_length <= 1.0e-12 or source_radius <= 0.0:
+        raise SmokeError("semantic render/collision selected posed proxy geometry is degenerate")
+
+    selected_capsule = coherence["selected_capsule"]
+    if not isinstance(selected_capsule, dict) or set(selected_capsule) != {
+        "target_index",
+        "source_bone_id",
+        "source_shape_index",
+        "runtime_shape_index",
+        "source_lineage",
+        "source_geometry_binding",
+    }:
+        raise SmokeError("Godot semantic render/collision selected capsule lineage is incomplete or aliased")
+    expected_selected = {
+        "target_index": 1,
+        "source_bone_id": response_participant.get("source_bone_id"),
+        "source_shape_index": response_participant.get("source_proxy_index"),
+        "runtime_shape_index": response_participant.get("runtime_shape_index"),
+        "source_lineage": "semantic_contact.participants[1].posed_proxy",
+        "source_geometry_binding": "radius-and-central-segment-length-only",
+    }
+    if not _exact_json_equal(selected_capsule, expected_selected) or (
+        selected_capsule["source_bone_id"] != deformation_evidence.get("source_bone_id")
+        or selected_capsule["source_shape_index"] != deformation_evidence.get("source_shape_index")
+        or selected_capsule["runtime_shape_index"] != deformation_evidence.get("runtime_shape_index")
+    ):
+        raise SmokeError("Godot semantic render/collision selected capsule lineage is mismatched")
+
+    surface = deformation_evidence.get("surface")
+    drive = deformation_evidence.get("drive")
+    if not isinstance(surface, dict) or not isinstance(drive, dict):
+        raise SmokeError("Godot semantic render/collision coherence deformation source is incomplete")
+    surface_radius = _contact_scalar(
+        surface.get("baseline_radius"), "semantic render/collision deformation baseline radius"
+    )
+    surface_length = _contact_scalar(
+        surface.get("baseline_length"), "semantic render/collision deformation baseline length"
+    )
+    if (
+        abs(source_radius - surface_radius) > TOLERANCE
+        or abs(source_segment_length - surface_length) > TOLERANCE
+    ):
+        raise SmokeError("Godot semantic render/collision coherence source geometry is mismatched")
+    falloff_weights = drive.get("falloff_weights")
+    if (
+        not isinstance(falloff_weights, list)
+        or len(falloff_weights) != RENDER_COLLISION_COHERENCE_VERTEX_COUNT
+        or any(not _finite_number(weight) or float(weight) < 0.0 or float(weight) > 1.0 for weight in falloff_weights)
+        or not any(float(weight) == 0.0 for weight in falloff_weights)
+    ):
+        raise SmokeError("Godot semantic render/collision coherence falloff source is incomplete")
+
+    states = coherence["states"]
+    if (
+        not isinstance(states, list)
+        or len(states) != len(RENDER_COLLISION_COHERENCE_STATE_ORDER)
+    ):
+        raise SmokeError("Godot semantic render/collision coherence states are incomplete or not an ordered list")
+    state_values: dict[str, dict[str, Any]] = {}
+    state_geometry: dict[str, tuple[list[float], list[float], float, float, list[float]]] = {}
+    capsule_to_body_reference: list[float] | None = None
+    identity = _render_identity_matrix()
+    for state_index, (expected_state, expected_phase) in enumerate(zip(
+        RENDER_COLLISION_COHERENCE_STATE_ORDER, ("setup", "contact", "contact", "exit")
+    )):
+        state = states[state_index]
+        if not isinstance(state, dict) or set(state) != RENDER_COLLISION_COHERENCE_STATE_KEYS:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} state has unexpected or missing fields")
+        if state["state"] != expected_state or state["phase"] != expected_phase or type(state["contact"]) is not bool:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} state identity is invalid")
+        tick = state["tick"]
+        sample_index = state["contact_sample_index"]
+        if type(tick) is not int or tick < 0 or tick > CONTACT_TOTAL_TICKS or type(sample_index) is not int:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} timing is invalid")
+        if expected_state in ("neutral", "recovery"):
+            if state["contact"] or sample_index != -1:
+                raise SmokeError(f"Godot semantic render/collision {expected_state} incorrectly reports contact")
+        elif not state["contact"] or sample_index < 0:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} contact attribution is invalid")
+
+        response_transform = _validate_render_matrix(
+            state["response_body_to_world"],
+            f"semantic render/collision {expected_state}.response_body_to_world",
+        )
+        capsule_transform = _validate_render_matrix(
+            state["capsule_to_body"],
+            f"semantic render/collision {expected_state}.capsule_to_body",
+        )
+        sleeve_transform = _validate_render_matrix(
+            state["sleeve_to_body"],
+            f"semantic render/collision {expected_state}.sleeve_to_body",
+        )
+        _render_matrix_close(sleeve_transform, identity, f"semantic render/collision {expected_state}.sleeve_to_body")
+        if capsule_to_body_reference is None:
+            capsule_to_body_reference = capsule_transform
+        else:
+            _render_matrix_close(
+                capsule_transform,
+                capsule_to_body_reference,
+                f"semantic render/collision {expected_state}.capsule_to_body",
+            )
+
+        capsule = state["capsule"]
+        if not isinstance(capsule, dict) or set(capsule) != RENDER_COLLISION_COHERENCE_CAPSULE_KEYS:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} capsule is incomplete or aliased")
+        endpoint_a = _contact_vector(capsule["endpoint_a"], f"semantic render/collision {expected_state}.capsule.endpoint_a")
+        endpoint_b = _contact_vector(capsule["endpoint_b"], f"semantic render/collision {expected_state}.capsule.endpoint_b")
+        radius = _contact_scalar(capsule["radius"], f"semantic render/collision {expected_state}.capsule.radius")
+        height = _contact_scalar(capsule["height"], f"semantic render/collision {expected_state}.capsule.height")
+        central_length = height - 2.0 * radius
+        if radius <= 0.0 or height <= 0.0 or not math.isfinite(central_length) or central_length <= 1.0e-12:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} capsule dimensions are degenerate")
+        endpoint_distance = math.sqrt(sum((right - left) ** 2 for left, right in zip(endpoint_a, endpoint_b)))
+        if not math.isfinite(endpoint_distance) or endpoint_distance <= 1.0e-12:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} capsule endpoints are degenerate")
+        if (
+            abs(radius - source_radius) > TOLERANCE
+            or abs(central_length - source_segment_length) > TOLERANCE
+            or abs(endpoint_distance - central_length) > TOLERANCE
+        ):
+            raise SmokeError(
+                f"Godot semantic render/collision {expected_state} capsule radius or central segment length is mismatched"
+            )
+        expected_endpoint_a = _render_matrix_point(capsule_transform, [0.0, -0.5 * central_length, 0.0])
+        expected_endpoint_b = _render_matrix_point(capsule_transform, [0.0, 0.5 * central_length, 0.0])
+        if any(abs(left - right) > TOLERANCE for left, right in zip(endpoint_a, expected_endpoint_a)) or any(
+            abs(left - right) > TOLERANCE for left, right in zip(endpoint_b, expected_endpoint_b)
+        ):
+            raise SmokeError(
+                f"Godot semantic render/collision {expected_state} capsule endpoints are not reconstructed from capsule_to_body"
+            )
+
+        vertices = state["vertices"]
+        if not isinstance(vertices, list) or len(vertices) != RENDER_COLLISION_COHERENCE_VERTEX_COUNT:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} vertices are incomplete or aggregate-only")
+        parsed_vertices = [
+            _contact_vector(vertex, f"semantic render/collision {expected_state} vertex {vertex_index}")
+            for vertex_index, vertex in enumerate(vertices)
+        ]
+        metrics = state["metrics"]
+        if not isinstance(metrics, dict) or set(metrics) != RENDER_COLLISION_COHERENCE_METRIC_KEYS:
+            raise SmokeError(f"Godot semantic render/collision {expected_state} metrics are incomplete or aliased")
+        actual_metrics = _render_collision_metrics(
+            parsed_vertices,
+            endpoint_a,
+            endpoint_b,
+            radius,
+            falloff_weights,
+            f"semantic render/collision {expected_state}",
+        )
+        for metric_name, actual in actual_metrics.items():
+            reported = _contact_scalar(metrics[metric_name], f"semantic render/collision {expected_state}.{metric_name}")
+            if reported < 0.0 or abs(reported - actual) > TOLERANCE:
+                raise SmokeError(
+                    f"Godot semantic render/collision {expected_state}.{metric_name} does not match reconstructed clearance"
+                )
+        state_values[expected_state] = state
+        state_geometry[expected_state] = (endpoint_a, endpoint_b, radius, height, response_transform)
+
+    first_positive_sample = _render_first_positive_contact_sample(contact_evidence)
+    if (
+        (first_positive_sample["tick"], first_positive_sample["contact_index"])
+        != (state_values["contact_onset"]["tick"], state_values["contact_onset"]["contact_sample_index"])
+    ):
+        raise SmokeError("Godot semantic render/collision onset is not the first validated positive contact sample")
+    onset_sample = (
+        state_values["contact_onset"]["tick"],
+        state_values["contact_onset"]["contact_sample_index"],
+    )
+    peak_tick = drive.get("peak_tick")
+    peak_sample_index = drive.get("contact_sample_index")
+    if (
+        type(peak_tick) is not int
+        or type(peak_sample_index) is not int
+        or (peak_tick, peak_sample_index)
+        != (state_values["peak"]["tick"], state_values["peak"]["contact_sample_index"])
+        or (peak_tick, peak_sample_index)
+        != (strongest_contact_sample.get("tick"), strongest_contact_sample.get("contact_index"))
+    ):
+        raise SmokeError("Godot semantic render/collision peak is not tied to the strongest deformation contact sample")
+    peak_sample = (peak_tick, peak_sample_index)
+    if onset_sample != peak_sample:
+        raise SmokeError("Godot semantic render/collision onset and peak must share an identical tick/sample")
+    if state_values["neutral"]["tick"] != 0 or state_values["recovery"]["tick"] != DEFORMATION_RECOVERY_TICK:
+        raise SmokeError("Godot semantic render/collision neutral or recovery tick is invalid")
+
+    snapshots = contact_evidence.get("response", {}).get("snapshots", {})
+    if not isinstance(snapshots, dict) or not all(label in snapshots for label in ("initial", "contact", "final")):
+        raise SmokeError("Godot semantic render/collision response snapshots are missing")
+    initial_transform = _validate_render_matrix(
+        snapshots["initial"].get("transform"), "semantic render/collision initial response transform"
+    )
+    contact_transform = _validate_render_matrix(
+        snapshots["contact"].get("transform"), "semantic render/collision contact response transform"
+    )
+    final_transform = _validate_render_matrix(
+        snapshots["final"].get("transform"), "semantic render/collision final response transform"
+    )
+    peak_transform = _validate_render_matrix(
+        drive.get("sample_response_transform"), "semantic render/collision peak response transform"
+    )
+    _render_matrix_close(
+        state_geometry["neutral"][4], initial_transform, "semantic render/collision neutral response_body_to_world"
+    )
+    _render_matrix_close(
+        state_geometry["peak"][4], peak_transform, "semantic render/collision peak response_body_to_world"
+    )
+    _render_matrix_close(peak_transform, contact_transform, "semantic render/collision peak contact snapshot transform")
+    _render_matrix_close(
+        state_geometry["contact_onset"][4], peak_transform, "semantic render/collision onset response_body_to_world"
+    )
+    if state_values["contact_onset"]["vertices"] != state_values["peak"]["vertices"]:
+        raise SmokeError("Godot semantic render/collision onset and peak vertices are not cross-linked")
+    _render_matrix_close(
+        state_geometry["recovery"][4], final_transform, "semantic render/collision recovery response_body_to_world"
+    )
+
+    deformation_states = deformation_evidence.get("states")
+    if not isinstance(deformation_states, dict):
+        raise SmokeError("Godot semantic render/collision deformation state cross-link is missing")
+    for coherence_state, deformation_state in (
+        ("neutral", "reference"),
+        ("peak", "peak"),
+        ("recovery", "recovered"),
+    ):
+        expected_vertices = deformation_states.get(deformation_state, {}).get("vertices")
+        actual_vertices = state_values[coherence_state]["vertices"]
+        if not isinstance(expected_vertices, list) or len(expected_vertices) != len(actual_vertices):
+            raise SmokeError("Godot semantic render/collision vertex cross-link is incomplete")
+        if any(
+            abs(float(actual) - float(expected)) > TOLERANCE
+            for actual_vertex, expected_vertex in zip(actual_vertices, expected_vertices)
+            for actual, expected in zip(actual_vertex, expected_vertex)
+        ):
+            raise SmokeError(f"Godot semantic render/collision {coherence_state} vertices disagree with deformation evidence")
+    if state_values["recovery"]["vertices"] != state_values["neutral"]["vertices"]:
+        raise SmokeError("Godot semantic render/collision recovery is not exact")
+
+    neutral_metrics = state_values["neutral"]["metrics"]
+    recovery_metrics = state_values["recovery"]["metrics"]
+    if (
+        float(neutral_metrics["maximum_absolute_side_clearance"]) > TOLERANCE
+        or float(recovery_metrics["maximum_absolute_side_clearance"]) > TOLERANCE
+    ):
+        raise SmokeError("Godot semantic render/collision neutral or recovery side clearance exceeds tolerance")
+    peak_metrics = state_values["peak"]["metrics"]
+    absolute_peak_depth = _contact_scalar(
+        drive.get("absolute_peak_depth"), "semantic render/collision absolute peak depth"
+    )
+    if (
+        float(peak_metrics["maximum_inward_penetration"]) <= 0.0
+        or float(peak_metrics["maximum_inward_penetration"]) > absolute_peak_depth + TOLERANCE
+        or float(peak_metrics["maximum_outward_clearance"]) > TOLERANCE
+        or float(peak_metrics["outside_falloff_max_penetration"]) > TOLERANCE
+    ):
+        raise SmokeError("Godot semantic render/collision peak clearance is outside the bounded deformation envelope")
+
+    drift = coherence["collision_geometry_drift"]
+    if not isinstance(drift, dict) or set(drift) != RENDER_COLLISION_COHERENCE_DRIFT_KEYS:
+        raise SmokeError("Godot semantic render/collision geometry drift is incomplete or aliased")
+    if drift["reference_state"] != "neutral":
+        raise SmokeError("Godot semantic render/collision geometry drift reference is invalid")
+    neutral_endpoint_a, neutral_endpoint_b, neutral_radius, _neutral_height, _ = state_geometry["neutral"]
+    actual_drift = {
+        "max_endpoint_a_drift": max(
+            math.sqrt(sum((state_geometry[label][0][axis] - neutral_endpoint_a[axis]) ** 2 for axis in range(3)))
+            for label in RENDER_COLLISION_COHERENCE_STATE_ORDER
+        ),
+        "max_endpoint_b_drift": max(
+            math.sqrt(sum((state_geometry[label][1][axis] - neutral_endpoint_b[axis]) ** 2 for axis in range(3)))
+            for label in RENDER_COLLISION_COHERENCE_STATE_ORDER
+        ),
+        "max_radius_drift": max(
+            abs(state_geometry[label][2] - neutral_radius) for label in RENDER_COLLISION_COHERENCE_STATE_ORDER
+        ),
+    }
+    actual_drift["maximum_geometry_drift"] = max(actual_drift.values())
+    for drift_name, actual in actual_drift.items():
+        reported = _contact_scalar(drift[drift_name], f"semantic render/collision {drift_name}")
+        if reported < 0.0 or abs(reported - actual) > TOLERANCE:
+            raise SmokeError(f"Godot semantic render/collision {drift_name} does not match state geometry")
+    if actual_drift["maximum_geometry_drift"] > TOLERANCE:
+        raise SmokeError("Godot semantic render/collision rigid capsule geometry drift exceeds tolerance")
+
+
 def _validate_deformation_captures(
     evidence: dict[str, Any],
     staged_captures: dict[str, bytes],
@@ -2262,8 +2804,10 @@ def _validate_report(
     contact_report_keys = {
         "semantic_contact",
         "semantic_deformation",
+        "semantic_render_collision_coherence",
         *CONTACT_REPORT_ALIAS_KEYS,
         *DEFORMATION_REPORT_ALIAS_KEYS,
+        *RENDER_COLLISION_COHERENCE_ALIAS_KEYS,
     }
     if semantic_contact_command is None:
         if contact_report_keys.intersection(report):
@@ -2274,11 +2818,17 @@ def _validate_report(
         strongest_contact_sample = _validate_contact_report(report, semantic_contact_command, contact_command_identity)
         if deformation_mode:
             _validate_deformation_report(report, strongest_contact_sample)
+            _validate_render_collision_coherence(report, strongest_contact_sample)
             if not isinstance(deformation_capture_bytes, dict):
                 raise SmokeError("semantic deformation staged captures are missing")
             _validate_deformation_captures(report["semantic_deformation"], deformation_capture_bytes)
-        elif "semantic_deformation" in report or DEFORMATION_REPORT_ALIAS_KEYS.intersection(report):
-            raise SmokeError("contact-only Godot report contains unexpected semantic deformation evidence")
+        elif (
+            "semantic_deformation" in report
+            or DEFORMATION_REPORT_ALIAS_KEYS.intersection(report)
+            or "semantic_render_collision_coherence" in report
+            or RENDER_COLLISION_COHERENCE_ALIAS_KEYS.intersection(report)
+        ):
+            raise SmokeError("contact-only Godot report contains unexpected semantic deformation or render/collision evidence")
     if report.get("coordinate_rule") != {
         "kind": "disposable_host_local_identity",
         "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",

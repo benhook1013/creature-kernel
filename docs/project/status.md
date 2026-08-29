@@ -69,7 +69,9 @@ and is freshly rebuilt before launch and again before report publication. Its
 embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
 Predecessor focused evidence includes 9 contact-command tests, 12 projection
-tests, and 48 no-display tests with 14 expected display skips; the final focused
+tests, and 48 no-display tests with 14 expected display skips; the current
+`test_skeletal_pose_smoke.py` focused result is 62 tests with 16 expected display
+skips. The final focused
 real contact integration passed in 182.453s. The earlier four predecessor focused
 real-renderer cases (deterministic command rerun, alternate carrier order,
 alternate requested order, and semantic injection) passed in 165.467s. The
@@ -91,12 +93,31 @@ despite it being a slight deformation"; the guide is labelled accurately as
 a red ring. These are screened static replays of runtime read-back states, not
 live contact rendering. This passes
 readability only for slight, smooth open-edge contact deformation and exact
-recovery. It does not prove a press into the middle of a closed fleshy surface,
-realistic tissue, deformed collision, render/collision coherence, performance,
-package/adapter/R3, permanent Godot/Jolt selection, or the overall human
-checkpoint. The next direct slice is bounded render/collision coherence
-evidence at neutral/contact/peak/recovery, followed by the declared hardware,
-timing, CPU-baseline, and useful-fallback evidence still required by the trial.
+recovery. The completed experiment-local render/collision read-back coherence
+slice is recorded under schema
+`creature-kernel.disposable-godot-render-collision-coherence.v1` in frame
+`response_body_local_selected_capsule_side`. It pairs runtime `ArrayMesh` and
+`CollisionShape3D` read-back in one response-body-local frame, with the existing
+static replay linkage. The states are `neutral`, `contact_onset`, `peak`, and
+`recovery` at ticks 0, 26, 26, and 64; onset and peak are legitimately the same
+first/strongest sample. The successful run reported selected rigid-capsule
+endpoint and radius drift of exactly zero; validation permits only the declared
+numeric tolerance, so exact zero is not a general enforced invariant. The
+selected-capsule source binding cross-validates semantic identity, radius, and
+central-segment length against the posed proxy. Runtime body-local placement
+and orientation come from `CollisionShape3D` read-back; this evidence does not
+claim that they are independently common-frame-derived from the source proxy
+endpoints. Neutral and recovery maximum absolute side clearance is
+`5.9605e-08`; peak inward penetration is `0.00328758359`, peak outward clearance
+is `5.9605e-08`, and outside-falloff penetration is `2.9802e-08`. Python
+independently reconstructs runtime capsule endpoints from the capsule
+transform/height/radius and recomputes vertex clearances and metrics. This
+remains narrow experiment-local evidence: it is not live contact rendering,
+deformed collision, realistic tissue, production topology, performance,
+package/adapter/R3 evidence, permanent Godot/Jolt selection, or the overall
+human checkpoint. The next direct slice is the recorded declared
+hardware/frame/timing evidence, CPU deformation baseline, and useful fallback
+trial.
 The bounded Godot feasibility checkpoint remains the governing human checkpoint.
 
 Ben's qualified appraisal of the structural gallery was that it "looks good";

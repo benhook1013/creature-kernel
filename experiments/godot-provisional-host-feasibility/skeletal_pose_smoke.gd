@@ -94,6 +94,11 @@ const DEFORMATION_CAPTURE_WIDTH := 1536
 const DEFORMATION_CAPTURE_HEIGHT := 512
 const DEFORMATION_VIEW_SIZE := 512
 const DEFORMATION_CAPTURE_NAMES := ["reference.png", "peak.png", "recovered.png"]
+const RENDER_COLLISION_COHERENCE_SCHEMA := "creature-kernel.disposable-godot-render-collision-coherence.v1"
+const RENDER_COLLISION_COHERENCE_BOUNDARY := "experiment_local_render_collision_coherence"
+const RENDER_COLLISION_COHERENCE_FRAME := "response_body_local_selected_capsule_side"
+const RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE := "semantic_deformation.drive.falloff_weights"
+const RENDER_COLLISION_COHERENCE_STATE_ORDER := ["neutral", "contact_onset", "peak", "recovery"]
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -2311,6 +2316,12 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 			return _contact_probe_failure(contact_root, _failure)
 		deformation_surface["reference_state"] = reference_state
 		deformation_surface["reference_vertices"] = reference_state["_vertices_array"]
+		var neutral_coherence_state := _capture_render_collision_coherence_state(deformation_surface, "neutral", 0, "setup", false, -1)
+		if neutral_coherence_state.is_empty():
+			return _contact_probe_failure(contact_root, _failure)
+		var neutral_coherence_states: Dictionary = deformation_surface.get("coherence_states", {})
+		neutral_coherence_states["neutral"] = neutral_coherence_state
+		deformation_surface["coherence_states"] = neutral_coherence_states
 	var schedule := [
 		{"phase": "approach", "ticks": CONTACT_APPROACH_TICKS, "start_tick": 1, "end_tick": CONTACT_APPROACH_TICKS},
 		{"phase": "contact", "ticks": CONTACT_HOLD_TICKS, "start_tick": CONTACT_APPROACH_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS},
@@ -2342,12 +2353,22 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 					return _contact_probe_failure(contact_root, "deformation mode could not read an actual contact-phase runtime sample after the physics frame")
 				if not _drive_deformation_from_contact_sample(deformation_surface, runtime_sample.sample, int(runtime_sample.contact_index), tick):
 					return _contact_probe_failure(contact_root, _failure)
+				var last_coherence_state: Dictionary = deformation_surface.get("last_coherence_state", {})
+				if last_coherence_state.is_empty():
+					return _contact_probe_failure(contact_root, "deformation mode did not retain the contact mesh/collision state read-back")
 			if not deformation_surface.is_empty() and phase == "release":
 				if not _recover_deformation_for_release(deformation_surface, float(phase_tick + 1) / float(phase_ticks)):
 					return _contact_probe_failure(contact_root, _failure)
 			if not deformation_surface.is_empty() and phase == "exit":
 				if not _restore_deformation_baseline(deformation_surface):
 					return _contact_probe_failure(contact_root, _failure)
+				if phase_tick == phase_ticks - 1:
+					var recovery_coherence_state := _capture_render_collision_coherence_state(deformation_surface, "recovery", tick, phase, _contact_tick_has_contact(response_body, tick), -1)
+					if recovery_coherence_state.is_empty():
+						return _contact_probe_failure(contact_root, _failure)
+					var recovery_coherence_states: Dictionary = deformation_surface.get("coherence_states", {})
+					recovery_coherence_states["recovery"] = recovery_coherence_state
+					deformation_surface["coherence_states"] = recovery_coherence_states
 			if phase == "contact" and _contact_tick_has_contact(response_body, tick):
 				var contact_snapshot := _contact_snapshot(response_body, "contact", tick)
 				if contact_snapshot.is_empty():
@@ -2404,6 +2425,15 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 		return _contact_probe_failure(contact_root, "semantic contact phase has no solver impulse above the declared floor")
 	if not deformation_surface.is_empty() and (int(deformation_surface.get("peak_sample_tick", -1)) != int(strongest_sample.get("tick", -1)) or int(deformation_surface.get("peak_sample_index", -1)) != int(strongest_sample.get("contact_index", -1))):
 		return _contact_probe_failure(contact_root, "deformation peak was not retained from the strongest positive contact sample")
+	if not deformation_surface.is_empty():
+		var collected_coherence_states: Dictionary = deformation_surface.get("coherence_states", {})
+		for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+			if typeof(collected_coherence_states.get(state_name, null)) != TYPE_DICTIONARY or (collected_coherence_states[state_name] as Dictionary).is_empty():
+				return _contact_probe_failure(contact_root, "render/collision coherence did not retain all required deformation states")
+		var onset_state: Dictionary = collected_coherence_states["contact_onset"]
+		var peak_coherence_state: Dictionary = collected_coherence_states["peak"]
+		if int(onset_state.get("tick", -1)) != int(peak_coherence_state.get("tick", -1)) or int(onset_state.get("contact_sample_index", -1)) != int(peak_coherence_state.get("contact_sample_index", -1)) or int(peak_coherence_state.get("tick", -1)) != int(strongest_sample.get("tick", -1)) or int(peak_coherence_state.get("contact_sample_index", -1)) != int(strongest_sample.get("contact_index", -1)):
+			return _contact_probe_failure(contact_root, "render/collision coherence onset or peak linkage is not retained from runtime contact")
 	var strongest_tick := int(strongest_sample.tick)
 	if not contact_snapshots_by_tick.has(strongest_tick):
 		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample has no same-tick response snapshot")
@@ -2499,6 +2529,12 @@ func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dic
 			_failure = "deformation capture could not complete after physical evidence"
 			return {}
 		result["semantic_deformation"] = semantic_deformation
+		var semantic_render_collision_coherence: Dictionary = _finish_render_collision_coherence(deformation_surface, response_mapping)
+		if semantic_render_collision_coherence.is_empty():
+			if _failure.is_empty():
+				_failure = "render/collision coherence evidence could not complete after physical evidence"
+			return {}
+		result["semantic_render_collision_coherence"] = semantic_render_collision_coherence
 	return result
 
 
@@ -2517,6 +2553,171 @@ func _collision_shape_count(body: Node) -> int:
 		if child is CollisionShape3D:
 			count += 1
 	return count
+
+
+func _point_to_segment_distance(point: Vector3, start: Vector3, end: Vector3, where: String) -> Variant:
+	if not _finite_vector3(point) or not _finite_vector3(start) or not _finite_vector3(end):
+		_failure = "%s contains a non-finite point or capsule endpoint" % where
+		return null
+	var segment: Vector3 = end - start
+	var segment_length_squared: float = segment.length_squared()
+	if not is_finite(segment_length_squared) or segment_length_squared <= 1.0e-24:
+		_failure = "%s contains a degenerate capsule segment" % where
+		return null
+	var fraction: float = clampf((point - start).dot(segment) / segment_length_squared, 0.0, 1.0)
+	var closest: Vector3 = start + segment * fraction
+	var distance: float = point.distance_to(closest)
+	if not is_finite(distance):
+		_failure = "%s produced a non-finite point-to-segment distance" % where
+		return null
+	return distance
+
+
+func _capture_render_collision_coherence_state(surface: Dictionary, state_name: String, tick: int, phase: String, contact: bool, contact_sample_index: int) -> Dictionary:
+	if not RENDER_COLLISION_COHERENCE_STATE_ORDER.has(state_name) or tick < 0 or phase.is_empty() or contact_sample_index < -1 or (contact and contact_sample_index < 0) or (not contact and contact_sample_index != -1):
+		_failure = "%s render/collision coherence state metadata is invalid" % state_name
+		return {}
+	var body_value = surface.get("body", null)
+	var collision_value = surface.get("collision", null)
+	var mesh_instance_value = surface.get("mesh_instance", null)
+	var mesh_value = surface.get("mesh", null)
+	if not (body_value is ContactCaptureBody) or not is_instance_valid(body_value) or not (collision_value is CollisionShape3D) or not is_instance_valid(collision_value) or not (mesh_instance_value is MeshInstance3D) or not is_instance_valid(mesh_instance_value) or not (mesh_value is ArrayMesh) or not is_instance_valid(mesh_value):
+		_failure = "%s render/collision coherence runtime nodes are invalid" % state_name
+		return {}
+	var response_body: ContactCaptureBody = body_value
+	var collision: CollisionShape3D = collision_value
+	var mesh_instance: MeshInstance3D = mesh_instance_value
+	var mesh: ArrayMesh = mesh_value
+	if collision.get_parent() != response_body or mesh_instance.get_parent() != response_body or mesh_instance.mesh != mesh or mesh.get_surface_count() != 1:
+		_failure = "%s render/collision coherence nodes are not attached to the expected response body" % state_name
+		return {}
+	var response_body_to_world: Transform3D = response_body.global_transform
+	var capsule_to_body: Transform3D = collision.transform
+	var sleeve_to_body: Transform3D = mesh_instance.transform
+	if not _finite_transform(response_body_to_world) or not _finite_transform(capsule_to_body) or not _finite_transform(sleeve_to_body):
+		_failure = "%s render/collision coherence transform read-back is non-finite" % state_name
+		return {}
+	if not (collision.shape is CapsuleShape3D):
+		_failure = "%s render/collision coherence collision read-back is not a capsule" % state_name
+		return {}
+	var capsule_shape: CapsuleShape3D = collision.shape
+	var radius := float(capsule_shape.radius)
+	var height := float(capsule_shape.height)
+	var central_segment_length := height - 2.0 * radius
+	if not is_finite(radius) or radius <= 0.0 or not is_finite(height) or height <= 2.0 * radius or not is_finite(central_segment_length) or central_segment_length <= 1.0e-12:
+		_failure = "%s render/collision coherence capsule dimensions are invalid" % state_name
+		return {}
+	# The selected collision node is a child of the response body. Keep these
+	# endpoints in that body-local frame and apply the node transform exactly once.
+	var endpoint_a: Vector3 = capsule_to_body * Vector3(0.0, -0.5 * central_segment_length, 0.0)
+	var endpoint_b: Vector3 = capsule_to_body * Vector3(0.0, 0.5 * central_segment_length, 0.0)
+	var runtime_geometry := _read_proxy_geometry(collision, "%s coherence capsule" % state_name)
+	if runtime_geometry.is_empty() or (runtime_geometry.start as Vector3).distance_to(endpoint_a) > TOLERANCE or (runtime_geometry.end as Vector3).distance_to(endpoint_b) > TOLERANCE or abs(float(runtime_geometry.radius) - radius) > TOLERANCE:
+		_failure = "%s render/collision coherence capsule read-back is inconsistent" % state_name
+		return {}
+	var arrays: Array = mesh.surface_get_arrays(0)
+	if arrays.size() <= Mesh.ARRAY_INDEX or not (arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array) or not (arrays[Mesh.ARRAY_INDEX] is PackedInt32Array):
+		_failure = "%s render/collision coherence sleeve mesh read-back is incomplete" % state_name
+		return {}
+	var mesh_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var mesh_indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	if mesh_vertices.size() != DEFORMATION_VERTEX_COUNT or mesh_indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "%s render/collision coherence sleeve mesh read-back counts are invalid" % state_name
+		return {}
+	var body_local_vertices := PackedVector3Array()
+	var vertex_report: Array = []
+	for mesh_vertex in mesh_vertices:
+		var body_local_vertex: Vector3 = sleeve_to_body * mesh_vertex
+		if not _finite_vector3(body_local_vertex):
+			_failure = "%s render/collision coherence sleeve vertex read-back is non-finite" % state_name
+			return {}
+		body_local_vertices.append(body_local_vertex)
+		vertex_report.append(_vector_json(body_local_vertex))
+	var falloff_weights = surface.get("falloff_weights", [])
+	if typeof(falloff_weights) != TYPE_ARRAY:
+		_failure = "%s render/collision coherence falloff read-back is not an array" % state_name
+		return {}
+	var has_falloff_weights: bool = not falloff_weights.is_empty()
+	if has_falloff_weights and falloff_weights.size() != body_local_vertices.size():
+		_failure = "%s render/collision coherence falloff read-back does not cover the sleeve mesh" % state_name
+		return {}
+	var maximum_absolute_side_clearance := 0.0
+	var maximum_outward_clearance := 0.0
+	var maximum_inward_penetration := 0.0
+	var outside_falloff_max_penetration := 0.0
+	for vertex_index in range(body_local_vertices.size()):
+		var distance_value = _point_to_segment_distance(body_local_vertices[vertex_index], endpoint_a, endpoint_b, "%s coherence vertex %d" % [state_name, vertex_index])
+		if distance_value == null:
+			return {}
+		var clearance := float(distance_value) - radius
+		if not is_finite(clearance):
+			_failure = "%s render/collision coherence clearance is non-finite" % state_name
+			return {}
+		maximum_absolute_side_clearance = max(maximum_absolute_side_clearance, abs(clearance))
+		maximum_outward_clearance = max(maximum_outward_clearance, max(clearance, 0.0))
+		maximum_inward_penetration = max(maximum_inward_penetration, max(-clearance, 0.0))
+		if has_falloff_weights and float(falloff_weights[vertex_index]) == 0.0:
+			outside_falloff_max_penetration = max(outside_falloff_max_penetration, max(-clearance, 0.0))
+	if not is_finite(maximum_absolute_side_clearance) or not is_finite(maximum_outward_clearance) or not is_finite(maximum_inward_penetration) or not is_finite(outside_falloff_max_penetration):
+		_failure = "%s render/collision coherence metrics are non-finite" % state_name
+		return {}
+	return {
+		"state": state_name,
+		"tick": tick,
+		"phase": phase,
+		"contact": contact,
+		"contact_sample_index": contact_sample_index,
+		"response_body_to_world": _transform_json(response_body_to_world),
+		"capsule_to_body": _transform_json(capsule_to_body),
+		"sleeve_to_body": _transform_json(sleeve_to_body),
+		"capsule": {
+			"endpoint_a": _vector_json(endpoint_a),
+			"endpoint_b": _vector_json(endpoint_b),
+			"radius": radius,
+			"height": height,
+		},
+		"vertices": vertex_report,
+		"metrics": {
+			"maximum_absolute_side_clearance": _report_float(maximum_absolute_side_clearance),
+			"maximum_outward_clearance": _report_float(maximum_outward_clearance),
+			"maximum_inward_penetration": _report_float(maximum_inward_penetration),
+			"outside_falloff_max_penetration": _report_float(outside_falloff_max_penetration),
+		},
+	}
+
+
+func _coherence_outside_falloff_penetration(state_record: Dictionary, falloff_weights: Array, state_name: String) -> Variant:
+	var vertices_value: Variant = state_record.get("vertices", null)
+	var capsule_value: Variant = state_record.get("capsule", null)
+	if typeof(vertices_value) != TYPE_ARRAY or vertices_value.size() != DEFORMATION_VERTEX_COUNT or not (capsule_value is Dictionary) or falloff_weights.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "%s render/collision coherence cannot recompute the declared peak-falloff metric" % state_name
+		return null
+	var capsule: Dictionary = capsule_value
+	var endpoint_a_value = _vector3(capsule.get("endpoint_a", []), "%s coherence outside-falloff endpoint a" % state_name)
+	var endpoint_b_value = _vector3(capsule.get("endpoint_b", []), "%s coherence outside-falloff endpoint b" % state_name)
+	var radius := float(capsule.get("radius", 0.0))
+	if endpoint_a_value == null or endpoint_b_value == null or not is_finite(radius) or radius <= 0.0:
+		_failure = "%s render/collision coherence cannot read its capsule for the declared peak-falloff metric" % state_name
+		return null
+	var endpoint_a: Vector3 = endpoint_a_value
+	var endpoint_b: Vector3 = endpoint_b_value
+	var outside_falloff_max_penetration := 0.0
+	for vertex_index in range(DEFORMATION_VERTEX_COUNT):
+		var weight := float(falloff_weights[vertex_index])
+		if not is_finite(weight) or weight < 0.0 or weight > 1.0:
+			_failure = "%s render/collision coherence peak falloff weight is invalid" % state_name
+			return null
+		if weight != 0.0:
+			continue
+		var vertex_value = _vector3(vertices_value[vertex_index], "%s coherence outside-falloff vertex %d" % [state_name, vertex_index])
+		if vertex_value == null:
+			return null
+		var distance_value = _point_to_segment_distance(vertex_value, endpoint_a, endpoint_b, "%s coherence outside-falloff vertex %d" % [state_name, vertex_index])
+		if distance_value == null:
+			return null
+		var clearance: float = float(distance_value) - radius
+		outside_falloff_max_penetration = maxf(outside_falloff_max_penetration, maxf(-clearance, 0.0))
+	return outside_falloff_max_penetration
 
 
 func _deformation_mesh_from_arrays(vertices: PackedVector3Array, normals: PackedVector3Array, indices: PackedInt32Array, where: String) -> Variant:
@@ -2656,6 +2857,13 @@ func _create_deformation_surface(response_body: Node3D, response_collision: Coll
 		"peak_sample_index": -1,
 		"peak_sample_response_transform": [],
 		"peak_impulse_magnitude_raw": 0.0,
+		"coherence_states": {
+			"neutral": {},
+			"contact_onset": {},
+			"peak": {},
+			"recovery": {},
+		},
+		"last_coherence_state": {},
 		"last_tick": 0,
 	}
 
@@ -2909,6 +3117,16 @@ func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Diction
 	if not is_finite(actual_normalized_depth) or abs(actual_normalized_depth - normalized_depth) > TOLERANCE or actual_normalized_depth <= DEFORMATION_MIN_NORMALIZED_DEPTH or actual_normalized_depth > DEFORMATION_MAX_NORMALIZED_DEPTH + DEFORMATION_RECOVERY_TOLERANCE or float(state.get("_readback_error_raw", INF)) > TOLERANCE:
 		_failure = "deformation drive ArrayMesh read-back did not retain a bounded measurable state"
 		return false
+	var coherence_state := _capture_render_collision_coherence_state(surface, "peak", tick, "contact", true, sample_index)
+	if coherence_state.is_empty():
+		return false
+	var coherence_states: Dictionary = surface.get("coherence_states", {})
+	var contact_onset_state: Dictionary = coherence_states.get("contact_onset", {})
+	if contact_onset_state.is_empty():
+		var retained_onset_state: Dictionary = coherence_state.duplicate(true)
+		retained_onset_state["state"] = "contact_onset"
+		coherence_states["contact_onset"] = retained_onset_state
+	surface["last_coherence_state"] = coherence_state
 	surface["last_tick"] = tick
 	surface["last_state"] = state
 	var peak_state: Dictionary = surface.get("peak_state", {})
@@ -2926,6 +3144,8 @@ func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Diction
 		surface["peak_sample_response_transform"] = sample_response_matrix.duplicate()
 		surface["peak_falloff_weights"] = weights.duplicate()
 		surface["peak_impulse_magnitude_raw"] = impulse_length
+		coherence_states["peak"] = coherence_state.duplicate(true)
+		surface["coherence_states"] = coherence_states
 	return true
 
 
@@ -3346,6 +3566,209 @@ func _finish_deformation_capture(surface: Dictionary, response_mapping: Dictiona
 	}
 
 
+func _finish_render_collision_coherence(surface: Dictionary, response_mapping: Dictionary) -> Dictionary:
+	var coherence_states_value: Variant = surface.get("coherence_states", null)
+	if not (coherence_states_value is Dictionary):
+		_failure = "render/collision coherence state collection is incomplete"
+		return {}
+	var coherence_states: Dictionary = coherence_states_value
+	if not _exact_keys(coherence_states, RENDER_COLLISION_COHERENCE_STATE_ORDER):
+		_failure = "render/collision coherence state collection does not contain the exact state order"
+		return {}
+	var peak_falloff_weights_value: Variant = surface.get("peak_falloff_weights", null)
+	if typeof(peak_falloff_weights_value) != TYPE_ARRAY or peak_falloff_weights_value.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "render/collision coherence has no complete retained peak falloff"
+		return {}
+	var peak_falloff_weights: Array = peak_falloff_weights_value
+	for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+		var state_value: Variant = coherence_states.get(state_name, null)
+		if not (state_value is Dictionary):
+			_failure = "%s render/collision coherence state is not an object" % state_name
+			return {}
+		var state_record: Dictionary = state_value
+		var metrics_value: Variant = state_record.get("metrics", null)
+		if not (metrics_value is Dictionary):
+			_failure = "%s render/collision coherence metrics are missing" % state_name
+			return {}
+		var outside_penetration = _coherence_outside_falloff_penetration(state_record, peak_falloff_weights, state_name)
+		if outside_penetration == null:
+			return {}
+		var metrics: Dictionary = metrics_value.duplicate(true)
+		metrics["outside_falloff_max_penetration"] = _report_float(float(outside_penetration))
+		state_record["metrics"] = metrics
+		coherence_states[state_name] = state_record
+	var state_keys := [
+		"state",
+		"tick",
+		"phase",
+		"contact",
+		"contact_sample_index",
+		"response_body_to_world",
+		"capsule_to_body",
+		"sleeve_to_body",
+		"capsule",
+		"vertices",
+		"metrics",
+	]
+	var capsule_keys := ["endpoint_a", "endpoint_b", "radius", "height"]
+	var metric_keys := [
+		"maximum_absolute_side_clearance",
+		"maximum_outward_clearance",
+		"maximum_inward_penetration",
+		"outside_falloff_max_penetration",
+	]
+	var neutral_state: Dictionary = {}
+	var peak_state: Dictionary = {}
+	var onset_state: Dictionary = {}
+	var recovery_state: Dictionary = {}
+	for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+		var state_value: Variant = coherence_states.get(state_name, null)
+		if not (state_value is Dictionary):
+			_failure = "%s render/collision coherence state is not an object" % state_name
+			return {}
+		var coherence_state_record: Dictionary = state_value
+		if not _exact_keys(coherence_state_record, state_keys) or coherence_state_record.get("state", "") != state_name or typeof(coherence_state_record.get("tick", null)) != TYPE_INT or int(coherence_state_record.tick) < 0 or typeof(coherence_state_record.get("phase", null)) != TYPE_STRING or String(coherence_state_record.phase).is_empty() or typeof(coherence_state_record.get("contact", null)) != TYPE_BOOL or typeof(coherence_state_record.get("contact_sample_index", null)) != TYPE_INT:
+			_failure = "%s render/collision coherence state metadata is invalid" % state_name
+			return {}
+		var sample_index := int(coherence_state_record.contact_sample_index)
+		if sample_index < -1 or (coherence_state_record.contact and sample_index < 0) or (not coherence_state_record.contact and sample_index != -1):
+			_failure = "%s render/collision coherence contact sample linkage is invalid" % state_name
+			return {}
+		for transform_field in ["response_body_to_world", "capsule_to_body", "sleeve_to_body"]:
+			if _matrix(coherence_state_record[transform_field], "%s coherence %s" % [state_name, transform_field]).is_empty():
+				return {}
+		var capsule_value: Variant = coherence_state_record.get("capsule", null)
+		if not (capsule_value is Dictionary) or not _exact_keys(capsule_value, capsule_keys):
+			_failure = "%s render/collision coherence capsule evidence is incomplete" % state_name
+			return {}
+		var capsule: Dictionary = capsule_value
+		var endpoint_a = _vector3(capsule.endpoint_a, "%s coherence capsule endpoint a" % state_name)
+		var endpoint_b = _vector3(capsule.endpoint_b, "%s coherence capsule endpoint b" % state_name)
+		var radius := float(capsule.radius)
+		var height := float(capsule.height)
+		if endpoint_a == null or endpoint_b == null or not is_finite(radius) or radius <= 0.0 or not is_finite(height) or height <= 2.0 * radius:
+			_failure = "%s render/collision coherence capsule dimensions are invalid" % state_name
+			return {}
+		var central_segment_length := height - 2.0 * radius
+		if not is_finite(central_segment_length) or central_segment_length <= 1.0e-12:
+			_failure = "%s render/collision coherence capsule central segment is invalid" % state_name
+			return {}
+		var capsule_transform := _matrix_transform(_matrix(coherence_state_record.capsule_to_body, "%s coherence capsule transform" % state_name))
+		var expected_endpoint_a: Vector3 = capsule_transform * Vector3(0.0, -0.5 * central_segment_length, 0.0)
+		var expected_endpoint_b: Vector3 = capsule_transform * Vector3(0.0, 0.5 * central_segment_length, 0.0)
+		if (endpoint_a as Vector3).distance_to(expected_endpoint_a) > TOLERANCE or (endpoint_b as Vector3).distance_to(expected_endpoint_b) > TOLERANCE:
+			_failure = "%s render/collision coherence capsule endpoints do not match its runtime transform and dimensions" % state_name
+			return {}
+		var vertices: Variant = coherence_state_record.get("vertices", null)
+		if typeof(vertices) != TYPE_ARRAY or vertices.size() != DEFORMATION_VERTEX_COUNT:
+			_failure = "%s render/collision coherence vertex read-back is incomplete" % state_name
+			return {}
+		for vertex_index in range(vertices.size()):
+			if _vector3(vertices[vertex_index], "%s coherence vertex %d" % [state_name, vertex_index]) == null:
+				return {}
+		var metrics_value: Variant = coherence_state_record.get("metrics", null)
+		if not (metrics_value is Dictionary) or not _exact_keys(metrics_value, metric_keys):
+			_failure = "%s render/collision coherence metrics are incomplete" % state_name
+			return {}
+		for metric_key in metric_keys:
+			var metric := float(metrics_value[metric_key])
+			if not is_finite(metric) or metric < 0.0:
+				_failure = "%s render/collision coherence metric %s is invalid" % [state_name, metric_key]
+				return {}
+		if float(metrics_value.outside_falloff_max_penetration) > float(metrics_value.maximum_inward_penetration) + TOLERANCE:
+			_failure = "%s render/collision coherence outside-falloff penetration exceeds total inward penetration" % state_name
+			return {}
+		if state_name == "neutral":
+			neutral_state = coherence_state_record
+		elif state_name == "contact_onset":
+			onset_state = coherence_state_record
+		elif state_name == "peak":
+			peak_state = coherence_state_record
+		else:
+			recovery_state = coherence_state_record
+	if int(neutral_state.tick) != 0 or neutral_state.contact or int(neutral_state.contact_sample_index) != -1 or int(onset_state.tick) != int(peak_state.tick) or int(onset_state.contact_sample_index) != int(peak_state.contact_sample_index) or not onset_state.contact or not peak_state.contact or int(recovery_state.tick) != CONTACT_TOTAL_TICKS or recovery_state.contact or int(recovery_state.contact_sample_index) != -1:
+		_failure = "render/collision coherence state ordering or contact presence is invalid"
+		return {}
+	if int(peak_state.tick) != int(surface.get("peak_sample_tick", -1)) or int(peak_state.contact_sample_index) != int(surface.get("peak_sample_index", -1)):
+		_failure = "render/collision coherence peak is not linked to the retained strongest contact sample"
+		return {}
+	var neutral_capsule: Dictionary = neutral_state.capsule
+	var neutral_endpoint_a: Vector3 = _vector3(neutral_capsule.endpoint_a, "coherence neutral endpoint a")
+	var neutral_endpoint_b: Vector3 = _vector3(neutral_capsule.endpoint_b, "coherence neutral endpoint b")
+	var neutral_radius := float(neutral_capsule.radius)
+	if neutral_endpoint_a == null or neutral_endpoint_b == null or not is_finite(neutral_radius) or neutral_radius <= 0.0:
+		return {}
+	var source_proxy_value: Variant = response_mapping.get("posed_proxy", null)
+	if not (source_proxy_value is Dictionary):
+		_failure = "render/collision coherence source posed proxy lineage is missing"
+		return {}
+	var source_proxy: Dictionary = source_proxy_value
+	var source_a = _vector3(source_proxy.get("a", []), "coherence source posed proxy endpoint a")
+	var source_b = _vector3(source_proxy.get("b", []), "coherence source posed proxy endpoint b")
+	var source_radius := float(source_proxy.get("radius", 0.0))
+	if source_a == null or source_b == null or not is_finite(source_radius) or source_radius <= 0.0:
+		_failure = "render/collision coherence source posed proxy dimensions are invalid"
+		return {}
+	var source_segment_length := (source_b as Vector3).distance_to(source_a as Vector3)
+	var neutral_segment_length := (neutral_endpoint_b as Vector3).distance_to(neutral_endpoint_a as Vector3)
+	if not is_finite(source_segment_length) or source_segment_length <= 1.0e-12 or not is_finite(neutral_segment_length) or neutral_segment_length <= 1.0e-12 or abs(source_radius - neutral_radius) > TOLERANCE or abs(source_segment_length - neutral_segment_length) > TOLERANCE:
+		_failure = "render/collision coherence source posed proxy dimensions disagree with runtime capsule dimensions"
+		return {}
+	var max_endpoint_a_drift := 0.0
+	var max_endpoint_b_drift := 0.0
+	var max_radius_drift := 0.0
+	for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+		var drift_state_record: Dictionary = coherence_states[state_name]
+		var capsule: Dictionary = drift_state_record.capsule
+		var endpoint_a: Vector3 = _vector3(capsule.endpoint_a, "%s drift endpoint a" % state_name)
+		var endpoint_b: Vector3 = _vector3(capsule.endpoint_b, "%s drift endpoint b" % state_name)
+		var radius := float(capsule.radius)
+		var endpoint_a_drift: float = endpoint_a.distance_to(neutral_endpoint_a)
+		var endpoint_b_drift: float = endpoint_b.distance_to(neutral_endpoint_b)
+		var radius_drift: float = absf(radius - neutral_radius)
+		var maximum_geometry_drift: float = maxf(endpoint_a_drift, maxf(endpoint_b_drift, radius_drift))
+		if not is_finite(endpoint_a_drift) or not is_finite(endpoint_b_drift) or not is_finite(radius_drift) or not is_finite(maximum_geometry_drift):
+			_failure = "%s render/collision coherence geometry drift is non-finite" % state_name
+			return {}
+		max_endpoint_a_drift = max(max_endpoint_a_drift, endpoint_a_drift)
+		max_endpoint_b_drift = max(max_endpoint_b_drift, endpoint_b_drift)
+		max_radius_drift = max(max_radius_drift, radius_drift)
+	var maximum_geometry_drift: float = maxf(max_endpoint_a_drift, maxf(max_endpoint_b_drift, max_radius_drift))
+	if maximum_geometry_drift > TOLERANCE:
+		_failure = "render/collision coherence selected capsule changed across the captured states"
+		return {}
+	return {
+		"schema": RENDER_COLLISION_COHERENCE_SCHEMA,
+		"boundary": RENDER_COLLISION_COHERENCE_BOUNDARY,
+		"frame": RENDER_COLLISION_COHERENCE_FRAME,
+		"collision_mode": DEFORMATION_SURFACE_COLLISION_MODE,
+		"selected_capsule": {
+			"target_index": int(response_mapping.get("target_index", -1)),
+			"source_bone_id": String(response_mapping.get("source_bone_id", "")),
+			"source_shape_index": int(response_mapping.get("source_proxy_index", -1)),
+			"runtime_shape_index": 0,
+			"source_lineage": "semantic_contact.participants[1].posed_proxy",
+			"source_geometry_binding": "radius-and-central-segment-length-only",
+		},
+		"falloff_source": RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE,
+		"vertex_count": DEFORMATION_VERTEX_COUNT,
+		"state_order": RENDER_COLLISION_COHERENCE_STATE_ORDER.duplicate(),
+		"states": [
+			coherence_states["neutral"],
+			coherence_states["contact_onset"],
+			coherence_states["peak"],
+			coherence_states["recovery"],
+		],
+		"collision_geometry_drift": {
+			"reference_state": "neutral",
+			"max_endpoint_a_drift": _report_float(max_endpoint_a_drift),
+			"max_endpoint_b_drift": _report_float(max_endpoint_b_drift),
+			"max_radius_drift": _report_float(max_radius_drift),
+			"maximum_geometry_drift": _report_float(maximum_geometry_drift),
+		},
+	}
+
+
 func _readback_semantic_pose_injection(profile: Dictionary, index: int, binding: Dictionary, carrier_binding: Dictionary, options: Dictionary) -> Dictionary:
 	var rule_readback = profile.get("runtime_pose_rule_readback", [])
 	if typeof(rule_readback) != TYPE_ARRAY or rule_readback.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
@@ -3474,6 +3897,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		claims.append("experiment-local semantic proxy contact and rigid-body response")
 	if deformation_mode:
 		claims.append("experiment-local contact-driven smooth forearm surface deformation, exact recovery, and static replay captures of runtime read-back states")
+		claims.append("experiment-local paired runtime render-surface and rigid-collision read-back coherence")
 	var report_boundary := DEFORMATION_REPORT_BOUNDARY if deformation_mode else CONTACT_REPORT_BOUNDARY if contact_mode else REPORT_BOUNDARY
 	var report := {
 		"schema": REPORT_SCHEMA,
@@ -3597,6 +4021,11 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 				_failure = "semantic deformation report evidence is missing"
 				return {}
 			report["semantic_deformation"] = semantic_deformation_value
+			var semantic_render_collision_coherence_value: Variant = contact_probe.get("semantic_render_collision_coherence", null)
+			if not (semantic_render_collision_coherence_value is Dictionary) or (semantic_render_collision_coherence_value as Dictionary).is_empty():
+				_failure = "render/collision coherence report evidence is missing"
+				return {}
+			report["semantic_render_collision_coherence"] = semantic_render_collision_coherence_value
 	return report
 
 

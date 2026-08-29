@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 12 open observations
+Status: Operational inbox; 13 open observations
 
 Record only unexpected, evidenced operational friction that is recurring or
 likely to save future retries or work rounds. The main thread is the default
@@ -62,3 +62,7 @@ Copyable entry:
 - `2026-08-29 16:25 NZST`: Security preflight used an unsuitable Python runtime
   - Observation: A delegated security preflight first used system Python, which lacked `tomllib` and `tomli`; the bundled fallback then exposed Windows-path incompatibility before the review changed route.
   - Expected pattern: Use the repository's documented native WSL validation or security entrypoint when available, and validate one interpreter invocation before launching the full check.
+
+- `2026-08-29 17:22 NZST`: Godot API dumps polluted the selected project path
+  - Observation: A read-only API investigation found that `--dump-extension-api` wrote `extension_api.json` and `.godot/` into the selected project, while the headless documentation dump produced output and then aborted with a null-singleton error; `/dev/stdin` was also rejected as a script resource.
+  - Expected pattern: Run Godot API introspection only in a fresh native-Linux temporary project, expect a temporary script file rather than standard input, and treat a documentation-dump artifact as incomplete when the command exits nonzero.

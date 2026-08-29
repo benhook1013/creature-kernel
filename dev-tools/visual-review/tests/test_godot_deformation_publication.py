@@ -113,7 +113,7 @@ class GodotDeformationPublicationTests(unittest.TestCase):
             "schema": publisher.REPORT_SCHEMA,
             "status": "success",
             "boundary": publisher.REPORT_BOUNDARY,
-            "claims": publisher.REPORT_CLAIMS,
+            "claims": publisher.REPORT_BASE_CLAIMS,
             "scope_flags": publisher.REPORT_SCOPE_FLAGS,
             "semantic_deformation": {
                 "boundary": publisher.REPORT_BOUNDARY,
@@ -136,7 +136,7 @@ class GodotDeformationPublicationTests(unittest.TestCase):
         record["byte_count_decimal"] = str(len(data))
         self.report.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
 
-    def test_happy_path_publishes_one_stable_three_state_group(self) -> None:
+    def test_four_claim_report_publishes_one_stable_three_state_group(self) -> None:
         summary = publisher.publish_godot_deformation(self.reviews, self.report, self.captures)
         session = Path(summary["session"])
         review = json.loads((session / "review.json").read_text(encoding="utf-8"))
@@ -160,6 +160,36 @@ class GodotDeformationPublicationTests(unittest.TestCase):
         self.assertIn("rather than revalidating the runtime experiment", review["instructions"])
         self.assertIn("Rigid collision remains undeformed", review["instructions"])
         self.assertIn("inconclusive", review["instructions"])
+
+    def test_current_five_claim_report_publishes_without_coherence_attestation(self) -> None:
+        report = json.loads(self.report.read_text(encoding="utf-8"))
+        report["claims"] = [*publisher.REPORT_BASE_CLAIMS, publisher.REPORT_OPTIONAL_CLAIM]
+        self.report.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
+
+        summary = publisher.publish_godot_deformation(
+            self.reviews,
+            self.report,
+            self.captures,
+            review_id="five-claim-report",
+        )
+        review = json.loads((Path(summary["session"]) / "review.json").read_text(encoding="utf-8"))
+        published = json.dumps(review, sort_keys=True)
+        self.assertNotIn("claims", review)
+        self.assertNotIn(publisher.REPORT_OPTIONAL_CLAIM, published)
+
+    def test_different_extra_claim_is_rejected(self) -> None:
+        report = json.loads(self.report.read_text(encoding="utf-8"))
+        report["claims"] = [*publisher.REPORT_BASE_CLAIMS, "unvalidated extra claim"]
+        self.report.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(publisher.GodotDeformationPublishError, "exact screened deformation scope"):
+            publisher.publish_godot_deformation(
+                self.reviews,
+                self.report,
+                self.captures,
+                review_id="different-extra-claim",
+            )
+        self.assertFalse((self.reviews / "different-extra-claim").exists())
 
     def test_blank_capture_is_rejected(self) -> None:
         self._replace_capture(

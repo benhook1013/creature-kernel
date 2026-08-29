@@ -77,7 +77,8 @@ the canonical owner of the active runway, and the required reading order in
   identity is transport-only; this remains experiment evidence, not a durable
   package schema, R3 activation, adapter, or host lock-in. Predecessor focused
   evidence includes 9 contact-command tests and 12 projection tests. The
-  current runner file passes 58 tests with 16 expected display skips; the final
+  current `test_skeletal_pose_smoke.py` focused result is 62 tests with 16
+  expected display skips; the final
   focused real contact integration passed in 182.453s. The earlier four
   predecessor focused real-renderer cases
   (deterministic command rerun, alternate carrier order, alternate requested
@@ -95,12 +96,34 @@ the canonical owner of the active runway, and the required reading order in
   red ring. This is successful evidence only for slight smooth deformation at
   the open sleeve edge and exact recovery. The rigid capsule remains
   undeformed; the result does not prove mid-surface flesh indentation,
-  realistic tissue, render/collision coherence, performance,
+  realistic tissue, general render/collision coherence, performance,
   package/adapter/R3, permanent Godot/Jolt selection, or the human checkpoint.
-  The next direct slice is bounded render/collision coherence evidence at
-  neutral/contact/peak/recovery, followed by the declared hardware, timing,
-  CPU-baseline, and useful-fallback evidence. The bounded Godot feasibility
-  checkpoint remains the governing human checkpoint.
+  The completed experiment-local render/collision read-back coherence slice is
+  recorded under schema
+  `creature-kernel.disposable-godot-render-collision-coherence.v1` in frame
+  `response_body_local_selected_capsule_side`. It pairs runtime `ArrayMesh` and
+  `CollisionShape3D` read-back in one response-body-local frame, plus the
+  existing static replay linkage. The states are `neutral`, `contact_onset`,
+  `peak`, and `recovery` at ticks 0, 26, 26, and 64; onset and peak are
+  legitimately the same first/strongest sample. The successful run reported
+  selected rigid-capsule endpoint and radius drift of exactly zero; validation
+  permits only the declared numeric tolerance, so exact zero is not a general
+  enforced invariant. The selected-capsule source binding cross-validates
+  semantic identity, radius, and central-segment length against the posed proxy.
+  Runtime body-local placement and orientation come from `CollisionShape3D`
+  read-back; this evidence does not claim that they are independently
+  common-frame-derived from the source proxy endpoints. Neutral and recovery maximum
+  absolute side clearance is `5.9605e-08`; peak inward penetration is
+  `0.00328758359`, peak outward clearance is `5.9605e-08`, and outside-falloff
+  penetration is `2.9802e-08`. Python independently reconstructs runtime
+  capsule endpoints from the capsule transform/height/radius and recomputes
+  vertex clearances and metrics. This remains narrow experiment-local evidence,
+  not live contact rendering, deformed collision, realistic tissue, production
+  topology, performance, package/adapter/R3 evidence, permanent Godot/Jolt
+  selection, or the human checkpoint. The next direct slice is the recorded
+  declared hardware/frame/timing evidence, CPU deformation baseline, and useful
+  fallback trial. The bounded Godot feasibility checkpoint remains the
+  governing human checkpoint.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
