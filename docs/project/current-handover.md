@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-28 NZST
+Snapshot: 2026-08-29 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -9,10 +9,12 @@ the canonical owner of the active runway, and the required reading order in
 
 ## Where to continue
 
-- Primary checkout: `/home/ben/src/creature-kernel` — PR #117 merged by squash
-  at 2026-08-28T08:39:44Z as
-  `5fb4ce6668f34386e865154bab13e03fefd04e75`; primary `main` and `origin/main`
-  were verified at that commit and clean when this worktree was created.
+- Primary checkout: `/home/ben/src/creature-kernel` — PR #118 merged at
+  2026-08-28T11:16:00Z as squash commit
+  `790f0a499f837c86ed36b9248af3b87a7f8b5955`; all three final-head CI lanes
+  passed. Hosted CodeRabbit's five findings and CLI's one finding were fixed,
+  all five hosted conversations were resolved, and automatic review remained
+  disabled. Primary `main` and `origin/main` were fast-forwarded and clean.
 - [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) recorded the
   provisional Godot runway and CodeRabbit configuration. CodeRabbit installation
   and repository configuration are live. A hosted full review of commit
@@ -36,33 +38,132 @@ the canonical owner of the active runway, and the required reading order in
   skeletal probe. Its then-current non-visible suite passed 65 tests with 4
   explicit visible-renderer skips, and its focused real-renderer skeletal suite
   passed all 14 tests in 87.818s with zero skips; those results are predecessor
-  evidence only. PR #117 merged by squash at 2026-08-28T08:39:44Z as
-  `5fb4ce6668f34386e865154bab13e03fefd04e75`. The active implementation
+  evidence only. PR #118 merged at 2026-08-28T11:16:00Z as squash commit
+  `790f0a499f837c86ed36b9248af3b87a7f8b5955`; all three final-head CI lanes
+  passed. Hosted CodeRabbit's five findings and CLI's one finding were fixed,
+  all five hosted conversations were resolved, and automatic review remained
+  disabled. The active implementation
   worktree is
-  `/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` on
-  branch `codex/godot-package-input-carrier`, based on `5fb4ce6`.
-  The current provisional candidate adds a deterministic, canonical,
-  exactly-two-avatar experiment input carrier with ordered experiment instance
-  IDs and exact gallery/profile/shared-pose provenance. The Python skeletal
-  runner revalidates it before and after launch; the Godot script consumes its
-  validated projection
-  and reports the exact carrier identity summary it received. This is disposable
-  experiment evidence only: it is not a runtime package schema, durable
-  artifact identity, adapter activation, compatibility promise, Readiness 3
-  result, host commitment, performance/contact/deformation result, or human
-  visual checkpoint. Carrier reads, structural-gallery preflight, and
-  publication are descriptor-anchored against path-swap races, and its
-  cross-process byte count uses an exact canonical decimal string rather than a
-  coercive JSON number. Carrier tests pass 15/15. The full canonical non-visible
-  Godot suite passes 87 tests with 6 expected renderer skips; the real
-  Xvfb/Godot skeletal suite passes 21/21 in
-  121.396s. Two fresh hands-on trials passed the documented first-use
-  load-through and representative fail-closed
-  tamper/non-overwrite scenarios. Fresh independent-review findings were fixed
-  and the affected suites rerun. CodeRabbit and CI remain pending. This
-  candidate is a direct prerequisite, not the named bounded Godot feasibility
-  checkpoint, which
-  remains the governing human checkpoint.
+  `/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` on
+  branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`.
+  Proposed/provisional per-avatar, semantic pose/contact, and runtime
+  experiment evidence only: the current per-avatar runtime identity candidate
+  passes
+  ordered `instance_id`/`profile_id`/`candidate_profile_sha256` records into
+  Godot, binds them to deterministic runtime roots, and reads exact metadata
+  back. Python rejects missing, duplicate, reordered, swapped, mismatched, or
+  aggregate-only evidence and cross-validates carrier identity, profile order,
+  and hashes. The carrier schema and no-carrier predecessor behaviour remain
+  unchanged. A disposable CK-owned canonical semantic pose command addressed
+  to the two bound instance IDs is implemented. Godot receives it without
+  reading the gallery pose file, applies it through semantic selectors, and
+  reports runtime-derived root/bone/quaternion readback that Python
+  cross-validates; explicit-empty arguments fail closed. The now-passing
+  contact slice adds a fixed canonical contact command addressing actuator
+  avatar 0's right wrist and response avatar 1's left wrist. Its exact selected
+  posed-capsule lineage and CK, carrier, pose, and projection identities are
+  freshly validated before launch and report publication. The disposable
+  project explicitly pins Jolt Physics. The actuator is an `AnimatableBody3D`
+  moved through bounded approach/contact/release/exit phases; the response is
+  initialized once as a `RigidBody3D` with mass 1, gravity 0, locked rotation,
+  sleep disabled, and one shape, after which the probe drives only the
+  actuator. The report validates the exact logical tick trace, runtime contact
+  samples and attribution, and a nonzero Jolt-estimated contact impulse. That
+  estimate is reliable only for this isolated two-body collision; the report
+  also validates snapshot-derived normal velocity/displacement and clean exit.
+  This remains experiment-only and
+  makes no package/adapter/Readiness 3/deformation/performance/checkpoint
+  claim. A provisional disposable CK/Rust-backed projection over
+  the same two ordered avatars is now implemented. It requires an explicit
+  absolute native executable, binds producer/source/carrier/gallery/pose/
+  artifact identities, records bounded successful `inspect-structure`
+  evidence, and is freshly rebuilt before launch and report publication. Its
+  identity is transport-only; this remains experiment evidence, not a durable
+  package schema, R3 activation, adapter, or host lock-in. The focused
+  projection suite passed 19 tests with 1 expected skip, and the
+  focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
+  display skips; the full Godot experiment suite contains 162 tests with 29
+  skips. The corrected final evidence is one bounded paired runtime run using
+  one exact 512x512 X11 `gl_compatibility` trial environment with official
+  Godot 4.7.2 on Ubuntu
+  22.04.5 LTS under WSL; `runner_os_uname_release` records the runner kernel as
+  `6.18.33.2-microsoft-standard-WSL2`. The machine was a 12th Gen Intel(R)
+  Core(TM) i7-12700KF with 12 processors, using D3D12 (NVIDIA GeForce RTX
+  4070), vendor Microsoft, through Mesa/OpenGL 4.2 (`4.2 (Core Profile) Mesa
+  23.2.1-1ubuntu3.1~22.04.4`), with an empty optional `driver-info` list. The
+  actual display was X11 at 512x512 with `gl_compatibility`/`opengl3`. The
+  paired report binds launcher identity alongside project, script, executable,
+  and validated input identities. Jolt Physics ran at 60 Hz with
+  `max_steps_per_frame` 8. The frame/physics p95 `<=20000us` and CPU
+  deformation-core p95 `<=2000us` thresholds were trial-local screens only, not
+  product budgets.
+
+  CPU deformation core (not mesh-only) covered 39 samples with p95 `1075us`,
+  maximum `1461us`, and zero above `2000us`. CPU-mode physics covered 64 samples
+  with p95 `21489us`, maximum `25119us`, and eight above `20000us`. Rigid physics
+  covered 64 samples with p95 `20062us`, maximum `23196us`, and four above
+  `20000us`; rigid deformation is N/A. The CPU deformation core includes
+  validation, transforms, falloff or interpolation, normal preparation, and
+  `ArrayMesh` mutation. It excludes experiment-only readback, state, and
+  coherence validation, which remain retained in the evidence-inclusive wall
+  timing. Embedded per-mode semantic evidence now audits capabilities: CPU mode
+  has semantic contact, physical response, deformation, and captures; rigid mode
+  has semantic contact and physical response only. Rigid-contact-only is a
+  separately exercised lower-fidelity mode, not automatic failover; it preserves
+  contact/physical response and omits deformation/captures, with no visual
+  equivalence claimed. A successful report denotes valid execution; each
+  `within_screen` field carries its screen outcome. The CPU core screen passed;
+  the frame screen did not. Two pre-correction runs exposed a mesh-only
+  attribution error; their CPU values `653us` and `633us` are superseded and must
+  not be treated as full deformation evidence. Godot allocator snapshots only
+  were `107940927` current / `110380697` maximum bytes for CPU and `98272523`
+  current / `105477587` maximum bytes for rigid; process RSS and GPU memory were
+  not measured.
+
+  This is one bounded run, not a broad benchmark, product/runtime budget, or
+  permanent Godot/Jolt engine choice. The direct timing/fallback slice is
+  complete. The bounded Godot feasibility checkpoint remains the governing human
+  checkpoint. The next direct prerequisite already recorded in this runway is
+  preparation of the direct Rust and engine-neutral package prerequisites; no
+  new direction is introduced here.
+
+  Proposed/provisional deformation and render/collision coherence evidence only:
+  the current deformation slice adds a smooth open forearm sleeve,
+  actual-contact-driven localized falloff to a fixed five-percent-of-radius
+  depth, exact release recovery, independent Python reconstruction, and three
+  screened fixed-view static-replay captures of runtime read-back states, not
+  live contact rendering. The immutable human review is
+  `http://localhost:8765/review/godot-semantic-deformation-reference-peak-recovered-v4`.
+  Ben's 2026-08-29 appraisal was that it "shows what you intend clear I think
+  despite it being a slight deformation"; its guide is accurately labelled a
+  red ring. This is successful evidence only for slight smooth deformation at
+  the open sleeve edge and exact recovery. The rigid capsule remains
+  undeformed; the result does not prove mid-surface flesh indentation,
+  realistic tissue, general render/collision coherence, performance,
+  package/adapter/R3, permanent Godot/Jolt selection, or the human checkpoint.
+  The completed experiment-local render/collision read-back coherence slice is
+  recorded under schema
+  `creature-kernel.disposable-godot-render-collision-coherence.v1` in frame
+  `response_body_local_selected_capsule_side`. It pairs runtime `ArrayMesh` and
+  `CollisionShape3D` read-back in one response-body-local frame, plus the
+  existing static replay linkage. The states are `neutral`, `contact_onset`,
+  `peak`, and `recovery` at ticks 0, 26, 26, and 64; onset and peak are
+  legitimately the same first/strongest sample. The successful run reported
+  selected rigid-capsule endpoint and radius drift of exactly zero; validation
+  permits only the declared numeric tolerance, so exact zero is not a general
+  enforced invariant. The selected-capsule source binding cross-validates
+  semantic identity, radius, and central-segment length against the posed proxy.
+  Runtime body-local placement and orientation come from `CollisionShape3D`
+  read-back; this evidence does not claim that they are independently
+  common-frame-derived from the source proxy endpoints. Neutral and recovery maximum
+  absolute side clearance is `5.9605e-08`; peak inward penetration is
+  `0.00328758359`, peak outward clearance is `5.9605e-08`, and outside-falloff
+  penetration is `2.9802e-08`. Python independently reconstructs runtime
+  capsule endpoints from the capsule transform/height/radius and recomputes
+  vertex clearances and metrics. This remains narrow experiment-local evidence,
+  not live contact rendering, deformed collision, realistic tissue, production
+  topology, performance, package/adapter/R3 evidence, permanent Godot/Jolt
+  selection, or the human checkpoint.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
@@ -106,6 +207,13 @@ with named hardware and frame evidence, and demonstrate a CPU baseline plus a
 useful fallback. The
 [first host runtime evaluation](../research/first-host-runtime-evaluation.md)
 records the current evidence and unresolved trial questions.
+
+Ben flagged that the current lumpy surface may hide anything short of extreme
+deformation. The human-facing result must therefore make a moderate localized
+press and recovery legible without relying on a grotesque squash. Telemetry may
+establish mechanics but cannot replace that visual judgment; if the current
+surface masks the effect, use a smoother simplified humanoid trial region or
+leave the visual portion inconclusive rather than lowering the bar.
 
 Ben approved Godot 4.7.2 as the provisional first reference-host feasibility
 candidate after current Godot/Unity/Unreal/Bevy research and Double adversarial
@@ -162,7 +270,7 @@ interpretation, CPU fallback, or evidence budget requires a material production
 topology/backend/engine/anatomy choice. Do not answer those triggers with
 unbounded host-specific implementation.
 
-Open `/home/ben/src/creature-kernel-worktrees/godot-package-input-carrier` in the
+Open `/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` in the
 Codex app to continue the runway.
 Read `AGENTS.md` in the required order, then this handover and the linked
 [current status](status.md).

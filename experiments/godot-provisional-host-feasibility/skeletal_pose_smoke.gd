@@ -8,7 +8,10 @@ const PROXY_COUNT := 18
 const MAX_WEIGHT_ROW := 4
 const TOLERANCE := 2.0e-5
 const NORMAL_TOLERANCE := 3.0e-4
+# Source and command recipe validation remains stricter than runtime readback.
 const POSE_QUATERNION_TOLERANCE := 1.0e-7
+# Godot's Basis-to-Quaternion reconstruction can add a few float32 ULPs.
+const RUNTIME_POSE_QUATERNION_TOLERANCE := 5.0e-7
 const WEIGHT_TOLERANCE := 1.0e-6
 const TRANSLATIONS := [Vector3(-8.0, 0.0, 0.0), Vector3(8.0, 0.0, 0.0)]
 const EXPECTED_GODOT_VERSION := "4.7.2.stable.official.ed1daf0bf"
@@ -17,8 +20,94 @@ const POSE_FORMAT := "creature-kernel.disposable-structural-embodiment-shared-po
 const POSE_FILE := "structural_embodiment_shared_pose.json"
 const REPORT_SCHEMA := "creature-kernel.disposable-godot-skeletal-pose-smoke.v1"
 const REPORT_BOUNDARY := "host_local_skeleton3d_skin_pose_binding"
+const CONTACT_REPORT_BOUNDARY := "experiment_local_semantic_contact_and_physical_response"
 const CARRIER_SCHEMA := "creature-kernel.disposable-engine-neutral-avatar-input.v1"
 const CARRIER_BOUNDARY := "experiment_input_only_no_runtime_package_or_adapter_contract"
+const CK_PROJECTION_SCHEMA := "creature-kernel.disposable-ck-rust-projection.v1"
+const CK_PROJECTION_BOUNDARY := "experiment_local_ck_projection_evidence_only"
+const CK_PROJECTION_IDENTITY_SCOPE := "canonical_transport_body_only_not_provenance"
+const CK_PROJECTION_MAX_BYTES := 4 * 1024 * 1024
+const CK_PROJECTION_MAX_CLI_BYTES := 128 * 1024 * 1024
+const CK_PROJECTION_MAX_JSON_NODES := 200000
+const CK_PROJECTION_MAX_JSON_DEPTH := 96
+const CK_PROJECTION_MAX_STRING_LENGTH := 65536
+const CK_PROJECTION_MAX_DEPENDENCIES := 4096
+const CK_PROJECTION_MAX_SOURCE_BYTES := 16 * 1024 * 1024
+const CK_PROJECTION_RUST_FORMAT := "creature-kernel.provisional-structural-inspection.v1"
+const CK_PROJECTION_RUST_OPERATION := "inspect-structure"
+const CK_PROJECTION_RUST_STAGE := "structural-validation"
+const CK_PROJECTION_SOURCE_DIR := "sources"
+const CARRIER_ROOT_METADATA_KEYS := [
+	"ck_experiment_instance_id",
+	"ck_profile_id",
+	"ck_candidate_profile_sha256",
+]
+const SEMANTIC_POSE_COMMAND_SCHEMA := "creature-kernel.disposable-semantic-pose-command.v1"
+const SEMANTIC_POSE_COMMAND_BOUNDARY := "experiment_local_command_evidence_only_no_adapter_or_runtime_conformance"
+const SEMANTIC_POSE_COMMAND_ID := "inject-semantic-pose"
+const SEMANTIC_POSE_COMMAND_VERSION := 1
+const SEMANTIC_POSE_COMMAND_RULE_COUNT := 18
+const SEMANTIC_CONTACT_COMMAND_SCHEMA := "creature-kernel.disposable-semantic-contact-command.v1"
+const SEMANTIC_CONTACT_COMMAND_BOUNDARY := "experiment_local_contact_command_evidence_only_no_adapter_or_runtime_conformance"
+const SEMANTIC_CONTACT_COMMAND_ID := "probe-single-semantic-contact"
+const SEMANTIC_CONTACT_COMMAND_VERSION := 1
+const SEMANTIC_CONTACT_MAPPING_REVISION := "joint-selector-to-posed-proxy-v1"
+const CONTACT_PHASE_ORDER := ["approach", "contact", "release", "exit"]
+const CONTACT_PARTICIPANTS := [
+	# Godot's JSON parser materializes JSON numbers as floats.  Keep the
+	# comparison constants in that representation; the command's canonical
+	# bytes and identity still distinguish the authored integer spelling.
+	{"role": "actuator", "target_index": 0.0, "selector": {"kind": "joint", "role": "wrist", "anchors": ["right"]}},
+	{"role": "response", "target_index": 1.0, "selector": {"kind": "joint", "role": "wrist", "anchors": ["left"]}},
+]
+const CONTACT_INTERACTION := {"kind": "single-proxy-press-release", "phase_order": CONTACT_PHASE_ORDER}
+const CONTACT_APPROACH_TICKS := 24
+const CONTACT_HOLD_TICKS := 8
+const CONTACT_RELEASE_TICKS := 24
+const CONTACT_EXIT_TICKS := 8
+const CONTACT_TOTAL_TICKS := CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + CONTACT_EXIT_TICKS
+const CONTACT_MAX_TICKS := 256
+const CONTACT_COLLISION_LAYER := 2
+const CONTACT_OVERDRIVE := 2.0e-2
+const CONTACT_GEOMETRY_TOLERANCE := 1.0e-5
+const CONTACT_MIN_IMPULSE := 1.0e-5
+const CONTACT_MIN_NORMAL_VELOCITY := 1.0e-5
+const CONTACT_MIN_NORMAL_DISPLACEMENT := 1.0e-5
+const DEFORMATION_REPORT_BOUNDARY := "experiment_local_contact_driven_smooth_forearm_surface_deformation"
+const DEFORMATION_SURFACE_KIND := "proxy-derived-smooth-forearm"
+const DEFORMATION_SURFACE_ATTACHMENT := "child-of-contact-response-body"
+const DEFORMATION_SURFACE_COLLISION_MODE := "rigid-selected-capsule-not-deformed"
+const DEFORMATION_DRIVE_KIND := "actual-contact-triggered-fixed-depth-contact-normal-projected-sleeve-falloff"
+const DEFORMATION_AXIAL_SEGMENTS := 16
+const DEFORMATION_RADIAL_SEGMENTS := 32
+const DEFORMATION_VERTEX_COUNT := (DEFORMATION_AXIAL_SEGMENTS + 1) * DEFORMATION_RADIAL_SEGMENTS
+const DEFORMATION_TRIANGLE_COUNT := DEFORMATION_AXIAL_SEGMENTS * DEFORMATION_RADIAL_SEGMENTS * 2
+const DEFORMATION_FALLOFF_RADIUS_RATIO := 0.5
+const DEFORMATION_NORMALIZED_PEAK_DEPTH := 0.05
+const DEFORMATION_MAX_NORMALIZED_DEPTH := 0.05
+const DEFORMATION_MIN_NORMALIZED_DEPTH := 0.002
+const DEFORMATION_MAX_AFFECTED_FRACTION := 0.5
+const DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT := 0.1
+const DEFORMATION_RECOVERY_TOLERANCE := 1.0e-7
+const DEFORMATION_OUTSIDE_FALLOFF_TOLERANCE := 1.0e-6
+const DEFORMATION_CAPTURE_WIDTH := 1536
+const DEFORMATION_CAPTURE_HEIGHT := 512
+const DEFORMATION_VIEW_SIZE := 512
+const DEFORMATION_CAPTURE_MAX_BYTES := 8 * 1024 * 1024
+const DEFORMATION_CAPTURE_NAMES := ["reference.png", "peak.png", "recovered.png"]
+const RENDER_COLLISION_COHERENCE_SCHEMA := "creature-kernel.disposable-godot-render-collision-coherence.v1"
+const RENDER_COLLISION_COHERENCE_BOUNDARY := "experiment_local_render_collision_coherence"
+const RENDER_COLLISION_COHERENCE_FRAME := "response_body_local_selected_capsule_side"
+const RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE := "semantic_deformation.drive.falloff_weights"
+const RENDER_COLLISION_COHERENCE_STATE_ORDER := ["neutral", "contact_onset", "peak", "recovery"]
+const RUNTIME_MEASUREMENT_SCHEMA := "creature-kernel.disposable-godot-runtime-measurement.v1"
+const RUNTIME_MEASUREMENT_BOUNDARY := "experiment_local_runtime_measurement_only"
+const RUNTIME_MEASUREMENT_MODES := ["cpu_deformation", "rigid_contact_only"]
+const RUNTIME_PHYSICS_SAMPLE_COUNT := 64
+const RUNTIME_TARGET_PHYSICS_HZ := 60
+const RUNTIME_TARGET_NOMINAL_PHYSICS_INTERVAL_USEC := 16667
+const RUNTIME_TARGET_P95_PHYSICS_INTERVAL_USEC := 20000
+const RUNTIME_TARGET_P95_CPU_DEFORMATION_UPDATE_USEC := 2000
 const ARTIFACT_NAMES := [
 	"neutral.ply",
 	"posed.ply",
@@ -27,6 +116,45 @@ const ARTIFACT_NAMES := [
 	"proxies-neutral.json",
 	"proxies-posed.json",
 ]
+
+
+class ContactCaptureBody extends RigidBody3D:
+	var probe_tick: int = 0
+	var probe_phase: String = "setup"
+	var expected_collider_id: int = 0
+	var tick_evidence: Array[Dictionary] = []
+	var contact_samples: Array[Dictionary] = []
+
+	func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+		var contact_count := state.get_contact_count()
+		tick_evidence.append({"tick": probe_tick, "phase": probe_phase, "contact_count": contact_count})
+		for contact_index in range(contact_count):
+			var collider_object := state.get_contact_collider_object(contact_index)
+			var collider_id: int = int(state.get_contact_collider_id(contact_index))
+			var collider_shape: int = state.get_contact_collider_shape(contact_index)
+			var local_shape: int = state.get_contact_local_shape(contact_index)
+			var point: Vector3 = state.get_contact_local_position(contact_index)
+			var normal: Vector3 = state.get_contact_local_normal(contact_index)
+			var impulse: Vector3 = state.get_contact_impulse(contact_index)
+			var response_transform: Transform3D = state.transform
+			contact_samples.append({
+				"contact_index": contact_index,
+				"collider_id": collider_id,
+				"collider_object_id": int(collider_object.get_instance_id()) if collider_object != null else 0,
+				"collider_shape_index": collider_shape,
+				"local_shape_index": local_shape,
+				"point": [point.x, point.y, point.z],
+				"normal": [normal.x, normal.y, normal.z],
+				"impulse": [impulse.x, impulse.y, impulse.z],
+				"tick": probe_tick,
+				"phase": probe_phase,
+				"_response_transform": [
+					response_transform.basis.x.x, response_transform.basis.y.x, response_transform.basis.z.x, response_transform.origin.x,
+					response_transform.basis.x.y, response_transform.basis.y.y, response_transform.basis.z.y, response_transform.origin.y,
+					response_transform.basis.x.z, response_transform.basis.y.z, response_transform.basis.z.z, response_transform.origin.z,
+					0.0, 0.0, 0.0, 1.0,
+				],
+			})
 const PROXY_LINEAGE_FIELDS := ["owned_part", "partition_rule", "partition_vertex_count", "radius_rule"]
 const POSE_RECIPE := [
 	{"kind": "synthetic-root", "role": null, "anchors": [], "axis": "identity", "angle": 0.0},
@@ -70,17 +198,31 @@ func _run_smoke() -> int:
 		return _fail("validated projection payload is not an object")
 	if not _validate_options_against_projection(options, validated):
 		return _fail_exit()
-	var pose = _load_shared_pose(options.gallery_path, validated)
+	var pose: Dictionary
+	if options.semantic_pose_command_present:
+		pose = _load_semantic_pose_command(options, validated)
+	else:
+		pose = _load_shared_pose(options.gallery_path, validated)
 	if pose.is_empty():
 		return _fail_exit()
+	if options.semantic_contact_command_present:
+		var contact_command := _load_semantic_contact_command(options)
+		if contact_command.is_empty():
+			return _fail_exit()
 	if get_root().get_child_count() != 0:
 		return _fail("the disposable scene root was not empty before instantiation")
 
 	var loaded_profiles: Array[Dictionary] = []
+	var carrier_avatar_records: Array = options.get("carrier_avatar_records", [])
 	for index in range(2):
 		var profile_id: String = options.profile_ids[index]
 		var profile_payload: Dictionary = _profile_payload(validated, profile_id)
-		var loaded = _load_profile(options.gallery_path, profile_id, profile_payload, TRANSLATIONS[index], pose)
+		if options.has("ck_projection_profile_payloads"):
+			profile_payload = options.ck_projection_profile_payloads[profile_id]
+		var carrier_record: Dictionary = {}
+		if options.has("carrier_avatar_records"):
+			carrier_record = carrier_avatar_records[index]
+		var loaded = _load_profile(options.gallery_path, profile_id, profile_payload, TRANSLATIONS[index], pose, index, carrier_record)
 		if loaded.is_empty():
 			_release_profiles(loaded_profiles)
 			return _fail_exit()
@@ -123,6 +265,12 @@ func _run_smoke() -> int:
 	if not _check_posed_separation(loaded_profiles):
 		_release_profiles(loaded_profiles)
 		return _fail_exit()
+	if options.has("semantic_contact_command"):
+		var contact_probe: Dictionary = await _run_contact_probe(loaded_profiles, options)
+		if contact_probe.is_empty():
+			_release_profiles(loaded_profiles)
+			return _fail_exit()
+		options["semantic_contact_probe"] = contact_probe
 	var report := _build_report(options, validated, loaded_profiles)
 	_release_profiles(loaded_profiles)
 	if report.is_empty():
@@ -165,15 +313,34 @@ func _parse_arguments() -> Dictionary:
 	var arguments := OS.get_cmdline_user_args()
 	var result := {
 		"gallery_path": "",
+		"carrier_avatar_records_json": "",
 		"carrier_identity_json": "",
 		"profile_ids": [],
 		"report_path": "",
 		"validated_json": "",
+		"semantic_pose_command_json": "",
+		"semantic_pose_command_identity_json": "",
+		"semantic_pose_payload_json": "",
+		"semantic_pose_command_present": false,
+		"semantic_pose_command_identity_present": false,
+		"semantic_pose_payload_present": false,
+		"semantic_contact_command_json": "",
+		"semantic_contact_command_present": false,
+		"semantic_contact_command_identity_json": "",
+		"semantic_contact_command_identity_present": false,
+		"deformation_capture_dir": "",
+		"deformation_capture_present": false,
+		"runtime_measurement_mode": "",
+		"runtime_measurement_mode_present": false,
+		"ck_projection_json": "",
+		"ck_projection_identity_json": "",
+		"ck_projection_present": false,
+		"ck_projection_identity_present": false,
 	}
 	var index := 0
 	while index < arguments.size():
 		var argument: String = arguments[index]
-		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--profile-id":
+		if argument == "--gallery" or argument == "--report" or argument == "--validated-json" or argument == "--carrier-identity-json" or argument == "--carrier-avatar-records-json" or argument == "--semantic-pose-command-json" or argument == "--semantic-pose-command-identity-json" or argument == "--semantic-pose-payload-json" or argument == "--semantic-contact-command-json" or argument == "--semantic-contact-command-identity-json" or argument == "--deformation-capture-dir" or argument == "--runtime-measurement-mode" or argument == "--ck-projection-json" or argument == "--ck-projection-identity-json" or argument == "--profile-id":
 			if index + 1 >= arguments.size():
 				_failure = "missing value after %s" % argument
 				return {}
@@ -186,6 +353,38 @@ func _parse_arguments() -> Dictionary:
 				result.validated_json = value
 			elif argument == "--carrier-identity-json":
 				result.carrier_identity_json = value
+			elif argument == "--carrier-avatar-records-json":
+				result.carrier_avatar_records_json = value
+			elif argument == "--semantic-pose-command-json":
+				result.semantic_pose_command_json = value
+				result.semantic_pose_command_present = true
+			elif argument == "--semantic-pose-command-identity-json":
+				result.semantic_pose_command_identity_json = value
+				result.semantic_pose_command_identity_present = true
+			elif argument == "--semantic-pose-payload-json":
+				result.semantic_pose_payload_json = value
+				result.semantic_pose_payload_present = true
+			elif argument == "--semantic-contact-command-json":
+				result.semantic_contact_command_json = value
+				result.semantic_contact_command_present = true
+			elif argument == "--semantic-contact-command-identity-json":
+				result.semantic_contact_command_identity_json = value
+				result.semantic_contact_command_identity_present = true
+			elif argument == "--deformation-capture-dir":
+				result.deformation_capture_dir = value
+				result.deformation_capture_present = true
+			elif argument == "--runtime-measurement-mode":
+				if result.runtime_measurement_mode_present:
+					_failure = "runtime measurement mode must be supplied at most once"
+					return {}
+				result.runtime_measurement_mode = value
+				result.runtime_measurement_mode_present = true
+			elif argument == "--ck-projection-json":
+				result.ck_projection_json = value
+				result.ck_projection_present = true
+			elif argument == "--ck-projection-identity-json":
+				result.ck_projection_identity_json = value
+				result.ck_projection_identity_present = true
 			else:
 				result.profile_ids.append(value)
 			index += 2
@@ -219,12 +418,82 @@ func _validate_options_against_projection(options: Dictionary, validated: Dictio
 	if typeof(validated.get("pose_sha256", null)) != TYPE_STRING or String(validated.pose_sha256).length() != 64:
 		_failure = "validated projection pose identity is invalid"
 		return false
+	if (options.carrier_identity_json == "") != (options.carrier_avatar_records_json == ""):
+		_failure = "carrier identity and per-avatar records must be supplied together"
+		return false
 	if options.carrier_identity_json != "":
 		var carrier_identity = JSON.parse_string(options.carrier_identity_json)
 		if not _validate_carrier_identity(carrier_identity):
 			return false
 		options["carrier_identity"] = carrier_identity
+		var carrier_avatar_records = JSON.parse_string(options.carrier_avatar_records_json)
+		if not _validate_carrier_avatar_records(carrier_avatar_records, options, validated):
+			return false
+		options["carrier_avatar_records"] = carrier_avatar_records
+	var projection_presence_count := int(options.ck_projection_present) + int(options.ck_projection_identity_present)
+	if projection_presence_count != 0 and projection_presence_count != 2:
+		_failure = "CK projection and projection identity must be supplied together"
+		return false
+	if projection_presence_count == 2:
+		if not _validate_ck_projection(options, validated):
+			return false
+	var command_values := [
+		options.semantic_pose_command_present,
+		options.semantic_pose_command_identity_present,
+		options.semantic_pose_payload_present,
+	]
+	var command_value_count := 0
+	for supplied in command_values:
+		if supplied:
+			command_value_count += 1
+	if command_value_count != 0 and command_value_count != command_values.size():
+		_failure = "semantic pose command, identity, and payload must be supplied together"
+		return false
+	if command_value_count == command_values.size() and not options.has("carrier_identity"):
+		_failure = "semantic pose command requires a validated carrier"
+		return false
+	if options.semantic_contact_command_present:
+		if not options.semantic_contact_command_identity_present:
+			_failure = "semantic contact command and contact command identity must be supplied together"
+			return false
+		if command_value_count != command_values.size() or not options.has("carrier_identity"):
+			_failure = "semantic contact command requires a validated semantic pose command and carrier"
+			return false
+		if projection_presence_count != 2 or not options.has("ck_projection"):
+			_failure = "semantic contact command requires the validated CK projection and explicit CLI evidence"
+			return false
+	elif options.semantic_contact_command_identity_present:
+		_failure = "semantic contact command identity was supplied without the contact command"
+		return false
+	if options.deformation_capture_present:
+		if not options.semantic_contact_command_present:
+			_failure = "deformation capture directory is valid only with semantic contact"
+			return false
+		if options.deformation_capture_dir.is_empty() or not options.deformation_capture_dir.is_absolute_path():
+			_failure = "deformation capture directory must be a non-empty absolute path"
+			return false
+	if options.runtime_measurement_mode_present:
+		var runtime_mode: String = String(options.runtime_measurement_mode)
+		if not RUNTIME_MEASUREMENT_MODES.has(runtime_mode):
+			_failure = "runtime measurement mode is unsupported"
+			return false
+		if options.carrier_identity_json.is_empty() or options.carrier_avatar_records_json.is_empty() or not options.semantic_pose_command_present or not options.semantic_pose_command_identity_present or not options.semantic_pose_payload_present or not options.semantic_contact_command_present or not options.semantic_contact_command_identity_present or not options.ck_projection_present or not options.ck_projection_identity_present:
+			_failure = "runtime measurement mode requires the full validated semantic contact predecessor set"
+			return false
+		if runtime_mode == "cpu_deformation" and not options.deformation_capture_present:
+			_failure = "cpu deformation runtime measurement requires the existing deformation capture path"
+			return false
+		if runtime_mode == "rigid_contact_only" and options.deformation_capture_present:
+			_failure = "rigid-contact-only runtime measurement must omit the deformation capture path"
+			return false
 	return true
+
+
+func _deformation_enabled(options: Dictionary) -> bool:
+	if not bool(options.get("deformation_capture_present", false)):
+		return false
+	var runtime_mode := String(options.get("runtime_measurement_mode", ""))
+	return runtime_mode.is_empty() or runtime_mode == "cpu_deformation"
 
 
 func _validate_carrier_identity(value) -> bool:
@@ -251,9 +520,57 @@ func _validate_carrier_identity(value) -> bool:
 	if typeof(value.experiment_instance_ids) != TYPE_ARRAY or value.experiment_instance_ids.size() != 2:
 		_failure = "validated carrier must identify exactly two experiment instances"
 		return false
-	if typeof(value.experiment_instance_ids[0]) != TYPE_STRING or typeof(value.experiment_instance_ids[1]) != TYPE_STRING or value.experiment_instance_ids[0] == value.experiment_instance_ids[1]:
+	if typeof(value.experiment_instance_ids[0]) != TYPE_STRING or typeof(value.experiment_instance_ids[1]) != TYPE_STRING or not _is_safe_instance_id(String(value.experiment_instance_ids[0])) or not _is_safe_instance_id(String(value.experiment_instance_ids[1])) or value.experiment_instance_ids[0] == value.experiment_instance_ids[1]:
 		_failure = "validated carrier experiment instance identities are invalid"
 		return false
+	return true
+
+
+func _is_safe_instance_id(value: String) -> bool:
+	if value.is_empty() or value.length() > 64:
+		return false
+	for index in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if index == 0:
+			if code < 97 or code > 122:
+				return false
+		elif not ((code >= 97 and code <= 122) or (code >= 48 and code <= 57) or code == 45):
+			return false
+	return true
+
+
+func _validate_carrier_avatar_records(value, options: Dictionary, validated: Dictionary) -> bool:
+	if typeof(value) != TYPE_ARRAY or value.size() != 2:
+		_failure = "validated carrier must contain exactly two per-avatar records"
+		return false
+	if not options.has("carrier_identity"):
+		_failure = "validated carrier per-avatar records require carrier identity"
+		return false
+	var identity: Dictionary = options.carrier_identity
+	var seen := {}
+	for index in range(2):
+		var record = value[index]
+		if typeof(record) != TYPE_DICTIONARY or record.size() != 3:
+			_failure = "validated carrier per-avatar record %d must contain exactly three fields" % index
+			return false
+		for key in ["instance_id", "profile_id", "candidate_profile_sha256"]:
+			if not record.has(key) or typeof(record[key]) != TYPE_STRING:
+				_failure = "validated carrier per-avatar record %d is missing %s" % [index, key]
+				return false
+		var instance_id := String(record.instance_id)
+		var profile_id := String(record.profile_id)
+		var candidate_hash := String(record.candidate_profile_sha256)
+		if not _is_safe_instance_id(instance_id) or seen.has(instance_id):
+			_failure = "validated carrier per-avatar instance identities are not unique and safe"
+			return false
+		seen[instance_id] = true
+		if instance_id != String(identity.experiment_instance_ids[index]) or profile_id != String(options.profile_ids[index]):
+			_failure = "validated carrier per-avatar records are reordered or swapped"
+			return false
+		var profile := _profile_payload(validated, profile_id)
+		if profile.is_empty() or candidate_hash != String(profile.get("candidate_profile_sha256", "")):
+			_failure = "validated carrier per-avatar candidate identity does not match the projection"
+			return false
 	return true
 
 
@@ -276,6 +593,308 @@ func _profile_payload(validated: Dictionary, profile_id: String) -> Dictionary:
 		if typeof(profile) == TYPE_DICTIONARY and profile.get("profile_id", "") == profile_id:
 			return profile
 	return {}
+
+
+func _validate_ck_projection(options: Dictionary, validated: Dictionary) -> bool:
+	if not options.has("carrier_identity") or not options.has("carrier_avatar_records"):
+		_failure = "CK projection requires separately validated carrier identity and avatar records"
+		return false
+	var projection_json: String = options.ck_projection_json
+	var identity_json: String = options.ck_projection_identity_json
+	if projection_json.is_empty() or projection_json.ends_with("\n") or identity_json.is_empty() or identity_json.ends_with("\n"):
+		_failure = "CK projection inputs must be non-empty canonical JSON without a trailing newline"
+		return false
+	var projection_value = JSON.parse_string(projection_json)
+	var identity_value = JSON.parse_string(identity_json)
+	if typeof(projection_value) != TYPE_DICTIONARY or typeof(identity_value) != TYPE_DICTIONARY:
+		_failure = "CK projection inputs must be JSON objects"
+		return false
+	var projection: Dictionary = projection_value
+	var identity: Dictionary = identity_value
+	if projection_json.to_utf8_buffer().size() + 1 > CK_PROJECTION_MAX_BYTES:
+		_failure = "CK projection exceeds its bounded transport size"
+		return false
+	if not _validate_ck_projection_json(projection, options, validated):
+		return false
+	if not _validate_ck_projection_identity(identity, projection):
+		return false
+	var projection_records: Array[Dictionary] = []
+	var projection_payloads := {}
+	for avatar in projection.avatars:
+		var carrier_record := {
+			"instance_id": avatar.instance_id,
+			"profile_id": avatar.profile_id,
+			"candidate_profile_sha256": avatar.candidate_profile_sha256,
+		}
+		projection_records.append(carrier_record)
+		var reconstructed := {
+			"profile_id": avatar.profile_id,
+			"label": avatar.label,
+			"candidate_profile_sha256": avatar.candidate_profile_sha256,
+			"artifacts": avatar.artifacts,
+			"metrics": avatar.metrics,
+		}
+		projection_payloads[avatar.profile_id] = reconstructed
+	options["carrier_avatar_records"] = projection_records
+	options["ck_projection"] = projection
+	options["ck_projection_identity"] = identity
+	options["ck_projection_avatars"] = projection.avatars
+	options["ck_projection_profile_payloads"] = projection_payloads
+	return true
+
+
+func _validate_ck_projection_json(projection: Dictionary, options: Dictionary, validated: Dictionary) -> bool:
+	if not _exact_keys(projection, ["schema", "boundary", "projection_identity", "producer_identity", "carrier_identity", "gallery_identity", "shared_pose", "avatars"]):
+		_failure = "CK projection has unexpected or missing top-level fields"
+		return false
+	if projection.schema != CK_PROJECTION_SCHEMA or projection.boundary != CK_PROJECTION_BOUNDARY:
+		_failure = "CK projection schema or boundary is invalid"
+		return false
+	if not _validate_ck_projection_finite(projection):
+		_failure = "CK projection contains unsupported, non-finite, or oversized JSON"
+		return false
+	if _projection_has_forbidden_field(projection):
+		_failure = "CK projection contains a forbidden host, package, adapter, or readiness field"
+		return false
+	if not _validate_ck_projection_transport_identity_shape(projection.projection_identity):
+		return false
+	var producer = projection.producer_identity
+	if typeof(producer) != TYPE_DICTIONARY or not _exact_keys(producer, ["sha256", "bytes", "operation", "format"]):
+		_failure = "CK projection producer identity has unexpected or missing fields"
+		return false
+	if not _is_sha256(String(producer.sha256)) or not _is_bounded_ck_projection_integer(producer.bytes, CK_PROJECTION_MAX_CLI_BYTES, false) or producer.operation != CK_PROJECTION_RUST_OPERATION or producer.format != CK_PROJECTION_RUST_FORMAT:
+		_failure = "CK projection producer identity is invalid"
+		return false
+	var carrier = projection.carrier_identity
+	if typeof(carrier) != TYPE_DICTIONARY or not _exact_keys(carrier, ["schema", "boundary", "sha256", "bytes", "instance_ids"]):
+		_failure = "CK projection carrier identity has unexpected or missing fields"
+		return false
+	var supplied_carrier: Dictionary = options.carrier_identity
+	if carrier.schema != CARRIER_SCHEMA or carrier.boundary != CARRIER_BOUNDARY or carrier.sha256 != supplied_carrier.sha256:
+		_failure = "CK projection carrier identity does not match the validated carrier"
+		return false
+	if not _is_bounded_ck_projection_integer(carrier.bytes, CK_PROJECTION_MAX_BYTES, false) or int(carrier.bytes) != int(supplied_carrier.byte_count_decimal):
+		_failure = "CK projection carrier byte identity does not match the validated carrier"
+		return false
+	if carrier.instance_ids != supplied_carrier.experiment_instance_ids:
+		_failure = "CK projection carrier instance identities do not match the validated carrier"
+		return false
+	var gallery = projection.gallery_identity
+	if typeof(gallery) != TYPE_DICTIONARY or not _exact_keys(gallery, ["projection_contract", "manifest_sha256", "manifest_bytes", "boundary", "profile_ids"]):
+		_failure = "CK projection gallery identity has unexpected or missing fields"
+		return false
+	var expected_gallery := {
+		"projection_contract": validated.projection_contract,
+		"manifest_sha256": validated.manifest_sha256,
+		"manifest_bytes": validated.manifest_bytes,
+		"boundary": validated.boundary,
+		"profile_ids": validated.profile_ids,
+	}
+	if not _exact_json_value(gallery, expected_gallery):
+		_failure = "CK projection gallery identity does not match the validated payload"
+		return false
+	var shared_pose = projection.shared_pose
+	if typeof(shared_pose) != TYPE_DICTIONARY or not _exact_keys(shared_pose, ["path", "pose_id", "sha256", "bytes"]):
+		_failure = "CK projection shared-pose identity has unexpected or missing fields"
+		return false
+	var pose_bytes := _read_bytes(options.gallery_path.path_join(POSE_FILE), "shared pose")
+	if pose_bytes.is_empty() or shared_pose.path != POSE_FILE or shared_pose.pose_id != validated.pose_id or shared_pose.sha256 != validated.pose_sha256 or not _is_bounded_ck_projection_integer(shared_pose.bytes, CK_PROJECTION_MAX_SOURCE_BYTES, false) or int(shared_pose.bytes) != pose_bytes.size() or _sha256(pose_bytes) != shared_pose.sha256:
+		_failure = "CK projection shared-pose identity does not match the validated gallery"
+		return false
+	var avatars = projection.avatars
+	if typeof(avatars) != TYPE_ARRAY or avatars.size() != 2:
+		_failure = "CK projection must contain exactly two ordered avatars"
+		return false
+	for index in range(2):
+		var avatar = avatars[index]
+		if not _validate_ck_projection_avatar(avatar, index, options, validated):
+			return false
+	return true
+
+
+func _validate_ck_projection_avatar(avatar, index: int, options: Dictionary, validated: Dictionary) -> bool:
+	if typeof(avatar) != TYPE_DICTIONARY or not _exact_keys(avatar, ["instance_id", "profile_id", "label", "candidate_profile_sha256", "source", "rust_inspection", "artifacts", "metrics"]):
+		_failure = "CK projection avatar %d has unexpected or missing fields" % index
+		return false
+	if avatar.instance_id != String(options.carrier_identity.experiment_instance_ids[index]) or avatar.profile_id != String(options.profile_ids[index]):
+		_failure = "CK projection avatar %d identity is reordered or mismatched" % index
+		return false
+	var carrier_record: Dictionary = options.carrier_avatar_records[index]
+	if avatar.instance_id != carrier_record.instance_id or avatar.profile_id != carrier_record.profile_id or avatar.candidate_profile_sha256 != carrier_record.candidate_profile_sha256:
+		_failure = "CK projection avatar %d does not match the separately supplied carrier record" % index
+		return false
+	var validated_profile := _profile_payload(validated, String(avatar.profile_id))
+	if validated_profile.is_empty() or not _exact_keys(validated_profile, ["profile_id", "label", "candidate_profile_sha256", "artifacts", "metrics"]):
+		_failure = "CK projection avatar %d has no exact validated profile counterpart" % index
+		return false
+	var reconstructed := {
+		"profile_id": avatar.profile_id,
+		"label": avatar.label,
+		"candidate_profile_sha256": avatar.candidate_profile_sha256,
+		"artifacts": avatar.artifacts,
+		"metrics": avatar.metrics,
+	}
+	if not _exact_json_value(reconstructed, validated_profile):
+		_failure = "CK projection avatar %d cannot reconstruct the validated profile exactly" % index
+		return false
+	if not _validate_ck_projection_source(avatar.source, avatar.rust_inspection, String(avatar.profile_id), options.gallery_path):
+		return false
+	if not _validate_ck_projection_artifacts(avatar.artifacts, validated_profile.artifacts, String(avatar.profile_id)):
+		return false
+	return true
+
+
+func _validate_ck_projection_source(source, rust_inspection, profile_id: String, gallery_path: String) -> bool:
+	if typeof(source) != TYPE_DICTIONARY or not _exact_keys(source, ["path", "sha256", "bytes", "document", "namespace"]):
+		_failure = "%s CK projection source identity has unexpected or missing fields" % profile_id
+		return false
+	var expected_path := "%s/%s.json" % [CK_PROJECTION_SOURCE_DIR, profile_id]
+	if source.path != expected_path or String(source.path).is_absolute_path():
+		_failure = "%s CK projection source path is invalid" % profile_id
+		return false
+	if typeof(source.sha256) != TYPE_STRING or not _is_sha256(source.sha256) or not _is_bounded_ck_projection_integer(source.bytes, CK_PROJECTION_MAX_SOURCE_BYTES, false):
+		_failure = "%s CK projection source identity is invalid" % profile_id
+		return false
+	var source_bytes := _read_bytes(gallery_path.path_join(String(source.path)), "%s source" % profile_id)
+	if source_bytes.is_empty() or int(source.bytes) != source_bytes.size() or source.sha256 != _sha256(source_bytes):
+		_failure = "%s CK projection source identity does not match the gallery" % profile_id
+		return false
+	if typeof(source.document) != TYPE_STRING or String(source.document).is_empty() or typeof(source.namespace) != TYPE_STRING or String(source.namespace).is_empty():
+		_failure = "%s CK projection source document identity is invalid" % profile_id
+		return false
+	if typeof(rust_inspection) != TYPE_DICTIONARY or not _exact_keys(rust_inspection, ["format", "operation", "stage", "status", "processing_complete", "diagnostics_complete", "diagnostics", "summary", "source"]):
+		_failure = "%s CK projection Rust evidence has unexpected or missing fields" % profile_id
+		return false
+	if typeof(rust_inspection.format) != TYPE_STRING or typeof(rust_inspection.operation) != TYPE_STRING or typeof(rust_inspection.stage) != TYPE_STRING or typeof(rust_inspection.status) != TYPE_STRING or typeof(rust_inspection.processing_complete) != TYPE_BOOL or typeof(rust_inspection.diagnostics_complete) != TYPE_BOOL or rust_inspection.format != CK_PROJECTION_RUST_FORMAT or rust_inspection.operation != CK_PROJECTION_RUST_OPERATION or rust_inspection.stage != CK_PROJECTION_RUST_STAGE or rust_inspection.status != "success" or rust_inspection.processing_complete != true or rust_inspection.diagnostics_complete != true or rust_inspection.diagnostics != [] or typeof(rust_inspection.summary) != TYPE_DICTIONARY:
+		_failure = "%s CK projection Rust evidence is not a bounded successful inspection" % profile_id
+		return false
+	var evidence_source = rust_inspection.source
+	if typeof(evidence_source) != TYPE_DICTIONARY or not _exact_keys(evidence_source, ["dependencies", "document", "namespace"]) or evidence_source.document != source.document or evidence_source.namespace != source.namespace or typeof(evidence_source.dependencies) != TYPE_ARRAY or evidence_source.dependencies.size() > CK_PROJECTION_MAX_DEPENDENCIES:
+		_failure = "%s CK projection Rust source evidence is invalid" % profile_id
+		return false
+	for dependency in evidence_source.dependencies:
+		if typeof(dependency) != TYPE_DICTIONARY or not _exact_keys(dependency, ["document", "namespace", "content_sha256"]) or typeof(dependency.document) != TYPE_STRING or String(dependency.document).is_empty() or typeof(dependency.namespace) != TYPE_STRING or String(dependency.namespace).is_empty() or typeof(dependency.content_sha256) != TYPE_STRING or not String(dependency.content_sha256).begins_with("sha256:") or not _is_sha256(String(dependency.content_sha256).substr(7)):
+			_failure = "%s CK projection Rust dependency evidence is invalid" % profile_id
+			return false
+	return true
+
+
+func _validate_ck_projection_artifacts(artifacts, expected_artifacts, profile_id: String) -> bool:
+	if typeof(artifacts) != TYPE_ARRAY or artifacts.size() != ARTIFACT_NAMES.size() or not _exact_json_value(artifacts, expected_artifacts):
+		_failure = "%s CK projection artifacts do not exactly match the validated profile" % profile_id
+		return false
+	for index in range(ARTIFACT_NAMES.size()):
+		var artifact = artifacts[index]
+		if not _exact_keys(artifact, ["path", "sha256", "bytes"]) or artifact.path != "%s/%s" % [profile_id, ARTIFACT_NAMES[index]] or not _is_sha256(String(artifact.sha256)) or not _is_bounded_ck_projection_integer(artifact.bytes, CK_PROJECTION_MAX_SOURCE_BYTES, false):
+			_failure = "%s CK projection artifact %d is invalid" % [profile_id, index]
+			return false
+	return true
+
+
+func _validate_ck_projection_identity(identity: Dictionary, projection: Dictionary) -> bool:
+	if not _validate_ck_projection_transport_identity_shape(identity):
+		return false
+	if not _exact_json_value(identity, projection.projection_identity):
+		_failure = "CK projection transport identity does not match the embedded body identity"
+		return false
+	return true
+
+
+func _validate_ck_projection_transport_identity_shape(identity) -> bool:
+	if typeof(identity) != TYPE_DICTIONARY or not _exact_keys(identity, ["scope", "sha256", "bytes"]):
+		_failure = "CK projection transport identity has unexpected or missing fields"
+		return false
+	if identity.scope != CK_PROJECTION_IDENTITY_SCOPE or not _is_sha256(String(identity.sha256)) or not _is_bounded_ck_projection_integer(identity.bytes, CK_PROJECTION_MAX_BYTES, false):
+		_failure = "CK projection transport identity is invalid"
+		return false
+	return true
+
+
+func _is_sha256(value: String) -> bool:
+	if value.length() != 64:
+		return false
+	for index in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if not ((code >= 48 and code <= 57) or (code >= 97 and code <= 102)):
+			return false
+	return true
+
+
+func _is_bounded_ck_projection_integer(value, maximum: int, allow_zero: bool) -> bool:
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return false
+	var numeric := float(value)
+	if not is_finite(numeric) or numeric != floor(numeric):
+		return false
+	var integer := int(numeric)
+	return integer >= (0 if allow_zero else 1) and integer <= maximum
+
+
+func _exact_json_value(left, right) -> bool:
+	if typeof(left) != typeof(right):
+		return false
+	if typeof(left) == TYPE_DICTIONARY:
+		if left.size() != right.size():
+			return false
+		for key in left:
+			if not right.has(key) or not _exact_json_value(left[key], right[key]):
+				return false
+		return true
+	if typeof(left) == TYPE_ARRAY:
+		if left.size() != right.size():
+			return false
+		for index in range(left.size()):
+			if not _exact_json_value(left[index], right[index]):
+				return false
+		return true
+	return left == right
+
+
+func _validate_ck_projection_finite(value, depth: int = 0, state = null) -> bool:
+	if depth > CK_PROJECTION_MAX_JSON_DEPTH:
+		return false
+	if state == null:
+		state = [0]
+	state[0] += 1
+	if state[0] > CK_PROJECTION_MAX_JSON_NODES:
+		return false
+	match typeof(value):
+		TYPE_FLOAT:
+			return is_finite(value)
+		TYPE_STRING:
+			return value.length() <= CK_PROJECTION_MAX_STRING_LENGTH
+		TYPE_ARRAY:
+			for item in value:
+				if not _validate_ck_projection_finite(item, depth + 1, state):
+					return false
+			return true
+		TYPE_DICTIONARY:
+			if value.size() > 2048:
+				return false
+			for key in value:
+				if typeof(key) != TYPE_STRING or key.length() > CK_PROJECTION_MAX_STRING_LENGTH or not _validate_ck_projection_finite(value[key], depth + 1, state):
+					return false
+			return true
+		TYPE_INT, TYPE_BOOL, TYPE_NIL:
+			return true
+		_:
+			return false
+
+
+func _projection_has_forbidden_field(value) -> bool:
+	if typeof(value) == TYPE_DICTIONARY:
+		for key in value:
+			var normalized := String(key).to_lower().replace("-", "_")
+			for token in ["adapter", "godot", "host", "package", "readiness"]:
+				if normalized == token or normalized.begins_with(token + "_"):
+					return true
+			if _projection_has_forbidden_field(value[key]):
+				return true
+	elif typeof(value) == TYPE_ARRAY:
+		for item in value:
+			if _projection_has_forbidden_field(item):
+				return true
+	return false
 
 
 func _load_shared_pose(gallery_path: String, validated: Dictionary) -> Dictionary:
@@ -333,6 +952,265 @@ func _load_shared_pose(gallery_path: String, validated: Dictionary) -> Dictionar
 	return {"rules": normalized}
 
 
+func _load_semantic_pose_command(options: Dictionary, validated: Dictionary) -> Dictionary:
+	var command = _parse_json_text(options.semantic_pose_command_json, "semantic pose command")
+	if command.is_empty():
+		return {}
+	var command_identity = _parse_json_text(options.semantic_pose_command_identity_json, "semantic pose command identity")
+	if command_identity.is_empty():
+		return {}
+	var semantic_payload = _parse_json_text(options.semantic_pose_payload_json, "semantic pose payload")
+	if semantic_payload.is_empty():
+		return {}
+	var validated_command := _validate_semantic_pose_command(command, command_identity, semantic_payload, options, validated)
+	if validated_command.is_empty():
+		return {}
+	options["semantic_pose_command"] = command
+	options["semantic_pose_command_identity"] = command_identity
+	options["semantic_pose_frame"] = command.identity_frame
+	options["semantic_pose_command_selectors"] = validated_command.selectors
+	return {"rules": validated_command.rules}
+
+
+func _load_semantic_contact_command(options: Dictionary) -> Dictionary:
+	var command := _parse_json_text(options.semantic_contact_command_json, "semantic contact command")
+	if command.is_empty():
+		return {}
+	var command_identity := _parse_json_text(options.semantic_contact_command_identity_json, "semantic contact command identity")
+	if command_identity.is_empty():
+		return {}
+	if not _validate_semantic_contact_command(command, options):
+		return {}
+	if not _validate_semantic_contact_identity(command, command_identity, options.semantic_contact_command_json):
+		return {}
+	# JSON.parse_string represents JSON numbers as floats.  Identity validation
+	# above is against the canonical bytes; normalize the authored integer fields
+	# only for exact report read-back after that validation succeeds.
+	var normalized_command: Dictionary = command.duplicate(true)
+	normalized_command.command_version = int(normalized_command.command_version)
+	normalized_command.source_pose_command.command_version = int(normalized_command.source_pose_command.command_version)
+	for participant in normalized_command.participants:
+		participant.target_index = int(participant.target_index)
+	var normalized_identity: Dictionary = command_identity.duplicate(true)
+	normalized_identity.command_version = int(normalized_identity.command_version)
+	options["semantic_contact_command"] = normalized_command
+	options["semantic_contact_command_identity"] = normalized_identity
+	return {"participants": normalized_command.participants}
+
+
+func _validate_semantic_contact_command(command: Dictionary, options: Dictionary) -> bool:
+	if not _exact_keys(command, ["schema", "boundary", "command_id", "command_version", "mapping_revision", "targets", "source_pose_command", "participants", "interaction"]):
+		_failure = "semantic contact command has unexpected or missing fields"
+		return false
+	if command.schema != SEMANTIC_CONTACT_COMMAND_SCHEMA or command.boundary != SEMANTIC_CONTACT_COMMAND_BOUNDARY or command.command_id != SEMANTIC_CONTACT_COMMAND_ID or command.command_version != SEMANTIC_CONTACT_COMMAND_VERSION or command.mapping_revision != SEMANTIC_CONTACT_MAPPING_REVISION:
+		_failure = "semantic contact command schema, boundary, version, or mapping revision is invalid"
+		return false
+	if not options.has("carrier_avatar_records") or not options.has("semantic_pose_command_identity") or not options.has("ck_projection"):
+		_failure = "semantic contact command is missing its validated carrier, CK projection, or pose command"
+		return false
+	if typeof(command.targets) != TYPE_ARRAY or command.targets.size() != 2 or not _exact_json_value(command.targets, options.carrier_avatar_records):
+		_failure = "semantic contact command targets are not the exact ordered carrier records"
+		return false
+	if not _exact_json_value(command.source_pose_command, options.semantic_pose_command_identity):
+		_failure = "semantic contact command source pose identity does not match the supplied pose command"
+		return false
+	if not _exact_json_value(command.participants, CONTACT_PARTICIPANTS):
+		_failure = "semantic contact command participants do not match the exact actuator/response selectors"
+		return false
+	if not _exact_json_value(command.interaction, CONTACT_INTERACTION):
+		_failure = "semantic contact command interaction is not the exact press-release sequence"
+		return false
+	return true
+
+
+func _validate_semantic_contact_identity(command: Dictionary, identity: Dictionary, command_json: String) -> bool:
+	if not _exact_keys(identity, ["sha256", "byte_count_decimal", "schema", "boundary", "command_id", "command_version"]):
+		_failure = "semantic contact command identity has unexpected or missing fields"
+		return false
+	var command_bytes := command_json.to_utf8_buffer()
+	command_bytes.append(10)
+	if identity.sha256 != _sha256(command_bytes) or not _is_canonical_command_byte_count(identity.byte_count_decimal) or int(identity.byte_count_decimal) != command_bytes.size() or identity.schema != command.schema or identity.boundary != command.boundary or identity.command_id != command.command_id or identity.command_version != command.command_version:
+		_failure = "semantic contact command identity does not match the injected command"
+		return false
+	return true
+
+
+func _parse_json_text(text: String, where: String) -> Dictionary:
+	if text.is_empty() or text.ends_with("\n"):
+		_failure = "%s is not the canonical injected JSON text" % where
+		return {}
+	var value = JSON.parse_string(text)
+	if typeof(value) != TYPE_DICTIONARY:
+		_failure = "%s is not a JSON object" % where
+		return {}
+	return value
+
+
+func _exact_keys(value: Dictionary, keys: Array) -> bool:
+	if value.size() != keys.size():
+		return false
+	for key in keys:
+		if not value.has(key):
+			return false
+	return true
+
+
+func _validate_semantic_pose_command(command: Dictionary, command_identity: Dictionary, semantic_payload: Dictionary, options: Dictionary, validated: Dictionary) -> Dictionary:
+	if not _exact_keys(command, ["schema", "boundary", "command_id", "command_version", "source_pose", "targets", "rules", "identity_frame"]):
+		_failure = "semantic pose command has unexpected or missing fields"
+		return {}
+	if command.schema != SEMANTIC_POSE_COMMAND_SCHEMA or command.boundary != SEMANTIC_POSE_COMMAND_BOUNDARY or command.command_id != SEMANTIC_POSE_COMMAND_ID or command.command_version != SEMANTIC_POSE_COMMAND_VERSION:
+		_failure = "semantic pose command schema, boundary, or identity is invalid"
+		return {}
+	var source_pose = command.source_pose
+	if typeof(source_pose) != TYPE_DICTIONARY or not _exact_keys(source_pose, ["format", "pose_id", "sha256", "version"]):
+		_failure = "semantic pose command source-pose identity is incomplete"
+		return {}
+	if source_pose.format != POSE_FORMAT or source_pose.pose_id != String(validated.pose_id) or source_pose.sha256 != String(validated.pose_sha256) or source_pose.version != 1:
+		_failure = "semantic pose command source-pose identity does not match the validated gallery"
+		return {}
+	var targets = command.targets
+	if typeof(targets) != TYPE_ARRAY or targets.size() != 2 or not options.has("carrier_avatar_records"):
+		_failure = "semantic pose command must target exactly two carrier-bound avatars"
+		return {}
+	var seen_targets := {}
+	for index in range(2):
+		var target = targets[index]
+		if typeof(target) != TYPE_DICTIONARY or not _exact_keys(target, ["instance_id", "profile_id", "candidate_profile_sha256"]):
+			_failure = "semantic pose command target %d is incomplete" % index
+			return {}
+		var instance_id := String(target.instance_id)
+		if not _is_safe_instance_id(instance_id) or seen_targets.has(instance_id):
+			_failure = "semantic pose command target instance identities are not unique"
+			return {}
+		seen_targets[instance_id] = true
+		if target != options.carrier_avatar_records[index]:
+			_failure = "semantic pose command targets are missing, reordered, or mismatched"
+			return {}
+	var rules = command.rules
+	if typeof(rules) != TYPE_ARRAY or rules.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
+		_failure = "semantic pose command must contain exactly 18 semantic rules"
+		return {}
+	var normalized: Array[Dictionary] = []
+	var selectors: Array[String] = []
+	var selector_set := {}
+	for index in range(SEMANTIC_POSE_COMMAND_RULE_COUNT):
+		var rule = rules[index]
+		var expected: Dictionary = POSE_RECIPE[index]
+		if typeof(rule) != TYPE_DICTIONARY or not _exact_keys(rule, ["kind", "role", "anchors", "rotation_xyzw"]):
+			_failure = "semantic pose command rule %d has unexpected or missing fields" % index
+			return {}
+		if rule.kind != expected.kind or rule.role != expected.role or rule.anchors != expected.anchors:
+			_failure = "semantic pose command rule %d selector is reordered or mismatched" % index
+			return {}
+		var selector := _selector(String(rule.kind), rule.role, rule.anchors)
+		if selector_set.has(selector):
+			_failure = "semantic pose command contains duplicate semantic selectors"
+			return {}
+		selector_set[selector] = true
+		var quaternion = _quaternion_from_command_rule(rule, expected, index)
+		if quaternion == null:
+			return {}
+		selectors.append(selector)
+		normalized.append({"selector": selector, "rotation": quaternion})
+	if selector_set.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
+		_failure = "semantic pose command does not cover exactly 18 semantic selectors"
+		return {}
+	var frame = command.identity_frame
+	if not _validate_identity_frame(frame):
+		return {}
+	if semantic_payload != {"rules": command.rules, "identity_frame": command.identity_frame}:
+		_failure = "semantic pose payload does not match the injected command"
+		return {}
+	if not _validate_semantic_pose_identity(command, command_identity, options.semantic_pose_command_json):
+		return {}
+	return {"rules": normalized, "selectors": selectors}
+
+
+func _quaternion_from_command_rule(rule: Dictionary, expected: Dictionary, index: int) -> Variant:
+	var raw = rule.rotation_xyzw
+	if typeof(raw) != TYPE_ARRAY or raw.size() != 4:
+		_failure = "semantic pose command rule %d rotation is not a four-vector" % index
+		return null
+	var values: Array[float] = []
+	for item in raw:
+		if typeof(item) == TYPE_BOOL or not is_finite(float(item)):
+			_failure = "semantic pose command rule %d rotation contains a non-finite value" % index
+			return null
+		values.append(float(item))
+	var quaternion := Quaternion(values[0], values[1], values[2], values[3])
+	if abs(quaternion.length() - 1.0) > POSE_QUATERNION_TOLERANCE:
+		_failure = "semantic pose command rule %d rotation is not normalized" % index
+		return null
+	var axis: String = String(expected.axis)
+	var angle := deg_to_rad(float(expected.angle))
+	var expected_quaternion := Quaternion.IDENTITY if axis == "identity" else Quaternion(Vector3.RIGHT if axis == "x" else Vector3(0.0, 0.0, 1.0), angle)
+	if _quaternion_error(quaternion, expected_quaternion) > POSE_QUATERNION_TOLERANCE:
+		_failure = "semantic pose command rule %d rotation is not bound to the shared-pose recipe" % index
+		return null
+	return quaternion
+
+
+func _validate_identity_frame(frame) -> bool:
+	if typeof(frame) != TYPE_DICTIONARY or not _exact_keys(frame, ["vectors", "rotation_storage", "C", "s", "evidence_only", "runtime_conformance"]):
+		_failure = "semantic pose command identity frame is incomplete or has extra fields"
+		return false
+	if frame.vectors != "column" or frame.rotation_storage != "xyzw":
+		_failure = "semantic pose command frame does not declare column vectors and xyzw rotations"
+		return false
+	var matrix = frame.C
+	if typeof(matrix) != TYPE_ARRAY or matrix.size() != 3:
+		_failure = "semantic pose command frame C is not a 3x3 identity matrix"
+		return false
+	var identity := [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+	for row_index in range(3):
+		if typeof(matrix[row_index]) != TYPE_ARRAY or matrix[row_index].size() != 3:
+			_failure = "semantic pose command frame C is not a 3x3 identity matrix"
+			return false
+		for column_index in range(3):
+			if typeof(matrix[row_index][column_index]) == TYPE_BOOL or not is_finite(float(matrix[row_index][column_index])):
+				_failure = "semantic pose command frame C contains a non-finite value"
+				return false
+	if matrix != identity or frame.s != 1.0 or typeof(frame.evidence_only) != TYPE_BOOL or frame.evidence_only != true or typeof(frame.runtime_conformance) != TYPE_BOOL or frame.runtime_conformance != false:
+		_failure = "semantic pose command frame is not explicit trial-local identity evidence"
+		return false
+	return true
+
+
+func _validate_semantic_pose_identity(command: Dictionary, identity: Dictionary, command_json: String) -> bool:
+	if not _exact_keys(identity, ["sha256", "byte_count_decimal", "schema", "boundary", "command_id", "command_version"]):
+		_failure = "semantic pose command identity evidence has unexpected or missing fields"
+		return false
+	var command_bytes := command_json.to_utf8_buffer()
+	command_bytes.append(10)
+	if identity.sha256 != _sha256(command_bytes) or not _is_canonical_command_byte_count(identity.byte_count_decimal) or int(identity.byte_count_decimal) != command_bytes.size() or identity.schema != command.schema or identity.boundary != command.boundary or identity.command_id != command.command_id or identity.command_version != command.command_version:
+		_failure = "semantic pose command identity evidence does not match the injected command"
+		return false
+	return true
+
+
+func _is_canonical_command_byte_count(value) -> bool:
+	if typeof(value) != TYPE_STRING or value.is_empty() or value.length() > 6 or value.begins_with("0"):
+		return false
+	for index in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if code < 48 or code > 57:
+			return false
+	var byte_count: int = value.to_int()
+	return byte_count > 0 and byte_count <= 262144 and str(byte_count) == value
+
+
+func _is_canonical_capture_byte_count(value) -> bool:
+	if typeof(value) != TYPE_STRING or value.is_empty() or value.length() > 7 or value.begins_with("0"):
+		return false
+	for index in range(value.length()):
+		var code: int = value.unicode_at(index)
+		if code < 48 or code > 57:
+			return false
+	var byte_count: int = value.to_int()
+	return byte_count > 0 and byte_count <= DEFORMATION_CAPTURE_MAX_BYTES and str(byte_count) == value
+
+
 func _selector(kind: String, role, anchors) -> String:
 	var role_text := "" if role == null else String(role)
 	var anchor_text := ",".join(PackedStringArray(anchors))
@@ -364,10 +1242,12 @@ func _quaternion_from_rule(rule: Dictionary) -> Variant:
 
 
 func _quaternion_error(left: Quaternion, right: Quaternion) -> float:
-	return max(abs(left.x - right.x), abs(left.y - right.y), abs(left.z - right.z), abs(left.w - right.w))
+	var direct: float = max(abs(left.x - right.x), abs(left.y - right.y), abs(left.z - right.z), abs(left.w - right.w))
+	var antipodal: float = max(abs(left.x + right.x), abs(left.y + right.y), abs(left.z + right.z), abs(left.w + right.w))
+	return min(direct, antipodal)
 
 
-func _load_profile(gallery_path: String, profile_id: String, profile_payload: Dictionary, translation: Vector3, pose: Dictionary) -> Dictionary:
+func _load_profile(gallery_path: String, profile_id: String, profile_payload: Dictionary, translation: Vector3, pose: Dictionary, avatar_index: int, carrier_record: Dictionary = {}) -> Dictionary:
 	var artifact_bytes: Dictionary = {}
 	var artifacts = profile_payload.get("artifacts", [])
 	for artifact_index in range(ARTIFACT_NAMES.size()):
@@ -406,7 +1286,14 @@ func _load_profile(gallery_path: String, profile_id: String, profile_payload: Di
 		return {}
 
 	var root := Node3D.new()
-	root.name = "Profile_%s" % profile_id
+	if carrier_record.is_empty():
+		root.name = "Profile_%s" % profile_id
+	else:
+		var instance_id := String(carrier_record.instance_id)
+		root.name = _safe_avatar_root_name(avatar_index, instance_id)
+		root.set_meta("ck_experiment_instance_id", instance_id)
+		root.set_meta("ck_profile_id", String(carrier_record.profile_id))
+		root.set_meta("ck_candidate_profile_sha256", String(carrier_record.candidate_profile_sha256))
 	root.position = translation
 	get_root().add_child(root)
 	var skeleton_node := Skeleton3D.new()
@@ -599,6 +1486,7 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 		return {}
 	var neutral_by_bone := {}
 	var posed_by_bone := {}
+	var posed_proxy_index_by_bone := {}
 	for index in range(PROXY_COUNT):
 		var neutral_proxy = neutral_proxy_list[index]
 		var posed_proxy = posed_proxy_list[index]
@@ -620,6 +1508,7 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 			return {}
 		neutral_by_bone[bone_id] = neutral_proxy
 		posed_by_bone[bone_id] = posed_proxy
+		posed_proxy_index_by_bone[bone_id] = index
 	if neutral_by_bone.size() != BONE_COUNT or posed_by_bone.size() != BONE_COUNT:
 		_failure = "%s proxies do not cover every bone" % profile_id
 		return {}
@@ -657,6 +1546,7 @@ func _validate_structural_records(profile_id: String, neutral: Dictionary, posed
 		"posed_world": posed_world_matrices,
 		"neutral_by_bone": neutral_by_bone,
 		"posed_by_bone": posed_by_bone,
+		"posed_proxy_index_by_bone": posed_proxy_index_by_bone,
 	}
 
 
@@ -973,7 +1863,44 @@ func _readback_proxy_nodes(profile: Dictionary) -> Dictionary:
 	}
 
 
-func _readback_binding(profile: Dictionary) -> Dictionary:
+func _safe_avatar_root_name(index: int, instance_id: String) -> String:
+	return "Avatar_%02d_%s" % [index, instance_id.replace("-", "_")]
+
+
+func _readback_carrier_avatar_binding(profile: Dictionary, avatar_index: int, expected_record: Dictionary) -> Dictionary:
+	var root = profile.get("root", null)
+	if not (root is Node3D) or not is_instance_valid(root):
+		_failure = "carrier avatar binding root is invalid"
+		return {}
+	var instance_id := String(expected_record.get("instance_id", ""))
+	var expected_name := _safe_avatar_root_name(avatar_index, instance_id)
+	if root.name != expected_name:
+		_failure = "carrier avatar %s root name read-back is invalid" % instance_id
+		return {}
+	var metadata := {}
+	for key in CARRIER_ROOT_METADATA_KEYS:
+		if not root.has_meta(key):
+			_failure = "carrier avatar %s root metadata is missing %s" % [instance_id, key]
+			return {}
+		metadata[key] = root.get_meta(key)
+	var expected_metadata := {
+		"ck_experiment_instance_id": expected_record.instance_id,
+		"ck_profile_id": expected_record.profile_id,
+		"ck_candidate_profile_sha256": expected_record.candidate_profile_sha256,
+	}
+	if metadata != expected_metadata:
+		_failure = "carrier avatar %s root metadata does not match its validated record" % instance_id
+		return {}
+	return {
+		"instance_id": metadata.ck_experiment_instance_id,
+		"profile_id": metadata.ck_profile_id,
+		"candidate_profile_sha256": metadata.ck_candidate_profile_sha256,
+		"root_name": String(root.name),
+		"root_metadata": metadata,
+	}
+
+
+func _readback_binding(profile: Dictionary, validate_command_rotation: bool) -> Dictionary:
 	var skeleton: Skeleton3D = profile.skeleton
 	var skin: Skin = profile.skin
 	var mesh_instance: MeshInstance3D = profile.mesh_instance
@@ -1031,18 +1958,39 @@ func _readback_binding(profile: Dictionary) -> Dictionary:
 	var pose_rule_match_count := 0
 	var pose_global_match_count := 0
 	var skin_match_count := 0
+	var max_command_rotation_error := 0.0
+	var max_command_rotation_error_selector := ""
+	var runtime_pose_rule_readback: Array[Dictionary] = []
 	for bone in profile.ordered_bones:
 		var bone_id: String = String(bone.id)
 		var bone_index: int = int(profile.bone_indices[bone_id])
+		if not skeleton.has_bone_meta(bone_index, "ck_bone_id") or String(skeleton.get_bone_meta(bone_index, "ck_bone_id")) != bone_id:
+			_failure = "%s runtime pose read-back bone identity is missing or mismatched" % profile.profile_id
+			return {}
 		var selector = _pose_selector_for_bone(bone, profile.profile_id)
 		if selector == null:
 			return {}
 		if not pose_rotations.has(selector):
 			_failure = "%s runtime pose rotation read-back is missing selector %s" % [profile.profile_id, selector]
 			return {}
-		var expected_local_pose: Transform3D = skeleton.get_bone_rest(bone_index) * Transform3D(Basis(pose_rotations[selector]), Vector3.ZERO)
-		if _transform_error(skeleton.get_bone_pose(bone_index), expected_local_pose) <= TOLERANCE:
+		var rest: Transform3D = skeleton.get_bone_rest(bone_index)
+		var actual_local_pose: Transform3D = skeleton.get_bone_pose(bone_index)
+		var expected_rotation: Quaternion = pose_rotations[selector]
+		var expected_local_pose: Transform3D = rest * Transform3D(Basis(expected_rotation), Vector3.ZERO)
+		var observed_rotation: Quaternion = (rest.affine_inverse() * actual_local_pose).basis.get_rotation_quaternion()
+		var command_rotation_error := _quaternion_error(observed_rotation, expected_rotation)
+		if command_rotation_error > max_command_rotation_error:
+			max_command_rotation_error = command_rotation_error
+			max_command_rotation_error_selector = selector
+		var command_rotation_matches: bool = not validate_command_rotation or command_rotation_error <= RUNTIME_POSE_QUATERNION_TOLERANCE
+		if _transform_error(actual_local_pose, expected_local_pose) <= TOLERANCE and command_rotation_matches:
 			pose_rule_match_count += 1
+		runtime_pose_rule_readback.append({
+			"selector": selector,
+			"runtime_bone_id": String(skeleton.get_bone_meta(bone_index, "ck_bone_id")),
+			"observed_rotation_xyzw": _quaternion_json(observed_rotation),
+			"max_component_error_to_command": command_rotation_error,
+		})
 		var global_pose: Transform3D = skeleton.get_bone_global_pose(bone_index)
 		if _transform_matrix_error(global_pose, profile.structural.posed_world[bone_id]) <= TOLERANCE:
 			pose_global_match_count += 1
@@ -1083,8 +2031,9 @@ func _readback_binding(profile: Dictionary) -> Dictionary:
 		"max_posed_proxy_endpoint_error": proxy_readback.max_endpoint_error,
 	}
 	if not unique_bone_names or not parent_links_match or not neutral_rest_matches_published or not skin_bind_poses_match_published or pose_rule_match_count != BONE_COUNT or pose_global_match_count != BONE_COUNT or skin_match_count != BONE_COUNT or not neutral_compare.matches_published or not posed_compare.matches_published or proxy_readback.matching_node_count != PROXY_COUNT:
-		_failure = "%s runtime binding read-back does not satisfy the expected host-local evidence" % profile.profile_id
+		_failure = "%s runtime binding read-back does not satisfy the expected host-local evidence: pose=%d global=%d skin=%d proxy=%d max_command_rotation_error=%.12f selector=%s neutral_mesh=%s posed_mesh=%s" % [profile.profile_id, pose_rule_match_count, pose_global_match_count, skin_match_count, proxy_readback.matching_node_count, max_command_rotation_error, max_command_rotation_error_selector, neutral_compare.matches_published, posed_compare.matches_published]
 		return {}
+	profile["runtime_pose_rule_readback"] = runtime_pose_rule_readback
 	return binding
 
 
@@ -1154,16 +2103,1966 @@ func _check_posed_separation(profiles: Array[Dictionary]) -> bool:
 	return true
 
 
+func _resolve_contact_proxy(profile: Dictionary, selector: Dictionary, participant_role: String, target_index: int) -> Dictionary:
+	if typeof(selector) != TYPE_DICTIONARY or not _exact_keys(selector, ["kind", "role", "anchors"]):
+		_failure = "%s contact selector is incomplete" % participant_role
+		return {}
+	if selector.kind != "joint" or typeof(selector.role) != TYPE_STRING or String(selector.role).is_empty() or typeof(selector.anchors) != TYPE_ARRAY:
+		_failure = "%s contact selector is not a joint selector" % participant_role
+		return {}
+	var matching_bones: Array = []
+	for bone in profile.ordered_bones:
+		var joint = bone.get("joint", null)
+		if typeof(joint) == TYPE_DICTIONARY and joint.get("kind", "") == selector.kind and joint.get("role", "") == selector.role and joint.get("anchors", []) == selector.anchors:
+			matching_bones.append(bone)
+	if matching_bones.size() != 1:
+		_failure = "%s contact selector resolved to %d source joint bones; expected exactly one" % [participant_role, matching_bones.size()]
+		return {}
+	var bone: Dictionary = matching_bones[0]
+	var bone_id := String(bone.get("id", ""))
+	var posed_by_bone: Dictionary = profile.structural.posed_by_bone
+	var proxy = posed_by_bone.get(bone_id, null)
+	if typeof(proxy) != TYPE_DICTIONARY or proxy.get("bone_id", "") != bone_id or proxy.get("kind", "") != "capsule":
+		_failure = "%s contact selector has no unique posed capsule for source bone %s" % [participant_role, bone_id]
+		return {}
+	if typeof(proxy.get("owned_part", null)) != TYPE_DICTIONARY or String(proxy.owned_part.get("role", "")).is_empty() or typeof(proxy.get("partition_rule", null)) != TYPE_STRING or typeof(proxy.get("radius_rule", null)) != TYPE_STRING:
+		_failure = "%s contact proxy %s is missing owned-part lineage" % [participant_role, bone_id]
+		return {}
+	var proxy_nodes: Dictionary = profile.get("proxy_nodes", {})
+	if not proxy_nodes.has(bone_id) or not (proxy_nodes[bone_id] is CollisionShape3D):
+		_failure = "%s contact selector has no runtime posed proxy node for source bone %s" % [participant_role, bone_id]
+		return {}
+	var source_collision: CollisionShape3D = proxy_nodes[bone_id]
+	var local_geometry := _read_proxy_geometry(source_collision, "%s contact source proxy %s" % [participant_role, bone_id])
+	if local_geometry.is_empty() or not (source_collision.shape is CapsuleShape3D):
+		_failure = "%s contact source proxy %s is not one valid capsule" % [participant_role, bone_id]
+		return {}
+	var expected_start: Vector3 = _vector3(proxy.a, "%s contact posed proxy a" % participant_role)
+	var expected_end: Vector3 = _vector3(proxy.b, "%s contact posed proxy b" % participant_role)
+	if expected_start == null or expected_end == null or (local_geometry.start as Vector3).distance_to(expected_start) > TOLERANCE or (local_geometry.end as Vector3).distance_to(expected_end) > TOLERANCE or abs(float(local_geometry.radius) - float(proxy.radius)) > TOLERANCE:
+		_failure = "%s contact runtime proxy does not match the selected posed proxy" % participant_role
+		return {}
+	var posed_proxy_index_by_bone: Dictionary = profile.structural.get("posed_proxy_index_by_bone", {})
+	var source_proxy_index := int(posed_proxy_index_by_bone.get(bone_id, -1))
+	if source_proxy_index < 0:
+		_failure = "%s contact source proxy index is unresolved" % participant_role
+		return {}
+	var report_proxy: Dictionary = proxy.duplicate(true)
+	report_proxy.partition_vertex_count = int(report_proxy.partition_vertex_count)
+	var source_body = source_collision.get_parent()
+	if not (source_body is Node3D):
+		_failure = "%s contact source proxy has no spatial parent" % participant_role
+		return {}
+	# _read_proxy_geometry already applies the CollisionShape3D transform and
+	# returns coordinates in the source body's frame.  Applying the collision
+	# transform again would move and rotate the selected capsule twice.
+	var world_start: Vector3 = (source_body as Node3D).global_transform * (local_geometry.start as Vector3)
+	var world_end: Vector3 = (source_body as Node3D).global_transform * (local_geometry.end as Vector3)
+	if not _finite_vector3(world_start) or not _finite_vector3(world_end):
+		_failure = "%s contact source proxy has non-finite world endpoints" % participant_role
+		return {}
+	return {
+		"participant_role": participant_role,
+		"target_index": target_index,
+		"selector": selector.duplicate(true),
+		"source_joint": bone.joint.duplicate(true),
+		"source_bone_id": bone_id,
+		"source_proxy_index": source_proxy_index,
+		"source_collision": source_collision,
+		"posed_proxy": report_proxy,
+		"world_start": world_start,
+		"world_end": world_end,
+		"radius": float(local_geometry.radius),
+	}
+
+
+func _duplicate_contact_shape(source_collision: CollisionShape3D, body: Node3D, where: String) -> Dictionary:
+	if not is_instance_valid(source_collision) or not (source_collision.shape is CapsuleShape3D):
+		_failure = "%s source shape is not a valid capsule" % where
+		return {}
+	var duplicate_resource = source_collision.shape.duplicate()
+	if not (duplicate_resource is CapsuleShape3D):
+		_failure = "%s could not duplicate one capsule shape" % where
+		return {}
+	var collision := CollisionShape3D.new()
+	collision.name = "SelectedCapsule"
+	collision.shape = duplicate_resource
+	collision.transform = Transform3D(source_collision.global_transform.basis, Vector3.ZERO)
+	body.add_child(collision)
+	if body.get_child_count() != 1 or not (collision.shape is CapsuleShape3D):
+		_failure = "%s did not create exactly one duplicated capsule shape" % where
+		return {}
+	return {"collision": collision, "shape": collision.shape}
+
+
+func _closest_points_on_segments(first_start: Vector3, first_end: Vector3, second_start: Vector3, second_end: Vector3, where: String) -> Dictionary:
+	var first_axis := first_end - first_start
+	var second_axis := second_end - second_start
+	var offset := first_start - second_start
+	var first_length_squared := first_axis.length_squared()
+	var second_length_squared := second_axis.length_squared()
+	if not _finite_vector3(first_axis) or not _finite_vector3(second_axis) or first_length_squared <= 1.0e-24 or second_length_squared <= 1.0e-24:
+		_failure = "%s contains a degenerate capsule segment" % where
+		return {}
+	var dot_axes := first_axis.dot(second_axis)
+	var dot_first_offset := first_axis.dot(offset)
+	var dot_second_offset := second_axis.dot(offset)
+	var denominator := first_length_squared * second_length_squared - dot_axes * dot_axes
+	var first_fraction := 0.0
+	var second_fraction := 0.0
+	if abs(denominator) > 1.0e-24:
+		first_fraction = clamp((dot_axes * dot_second_offset - dot_first_offset * second_length_squared) / denominator, 0.0, 1.0)
+	var second_numerator := dot_axes * first_fraction + dot_second_offset
+	if second_numerator < 0.0:
+		second_fraction = 0.0
+		first_fraction = clamp(-dot_first_offset / first_length_squared, 0.0, 1.0)
+	elif second_numerator > second_length_squared:
+		second_fraction = 1.0
+		first_fraction = clamp((dot_axes - dot_first_offset) / first_length_squared, 0.0, 1.0)
+	else:
+		second_fraction = second_numerator / second_length_squared
+	var first_point := first_start + first_axis * first_fraction
+	var second_point := second_start + second_axis * second_fraction
+	var separation := second_point - first_point
+	var distance := separation.length()
+	if not _finite_vector3(first_point) or not _finite_vector3(second_point) or not is_finite(distance):
+		_failure = "%s closest-point calculation is non-finite" % where
+		return {}
+	return {"first": first_point, "second": second_point, "distance": distance}
+
+
+func _finite_vector3(value: Vector3) -> bool:
+	return is_finite(value.x) and is_finite(value.y) and is_finite(value.z)
+
+
+func _contact_snapshot(body: RigidBody3D, label: String, tick: int) -> Dictionary:
+	var transform: Transform3D = body.global_transform
+	var linear_velocity: Vector3 = body.linear_velocity
+	var angular_velocity: Vector3 = body.angular_velocity
+	if not _finite_transform(transform) or not _finite_vector3(linear_velocity) or not _finite_vector3(angular_velocity):
+		_failure = "%s response-body snapshot is non-finite" % label
+		return {}
+	return {
+		"label": label,
+		"tick": tick,
+		"transform": _transform_json(transform),
+		"position": _vector_json(transform.origin),
+		"linear_velocity": _vector_json(linear_velocity),
+		"angular_velocity": _vector_json(angular_velocity),
+	}
+
+
+func _finite_transform(value: Transform3D) -> bool:
+	return _finite_vector3(value.basis.x) and _finite_vector3(value.basis.y) and _finite_vector3(value.basis.z) and _finite_vector3(value.origin)
+
+
+func _contact_probe_failure(container: Node3D, message: String) -> Dictionary:
+	if is_instance_valid(container):
+		container.free()
+	_failure = message
+	return {}
+
+
+func _run_contact_probe(profiles: Array[Dictionary], options: Dictionary) -> Dictionary:
+	var command: Dictionary = options.semantic_contact_command
+	var runtime_mode := String(options.get("runtime_measurement_mode", ""))
+	var deformation_enabled := _deformation_enabled(options)
+	var runtime_physics_timestamp_points_usec: Array[int] = []
+	var runtime_physics_frame_ids: Array[int] = []
+	var runtime_physics_interval_samples: Array[int] = []
+	var runtime_deformation_update_records: Array[Dictionary] = []
+	var physics_engine := String(ProjectSettings.get_setting("physics/3d/physics_engine", ""))
+	if physics_engine != "Jolt Physics":
+		_failure = "semantic contact probe requires the explicit disposable Jolt Physics backend"
+		return {}
+	if not runtime_mode.is_empty():
+		Engine.set_physics_ticks_per_second(RUNTIME_TARGET_PHYSICS_HZ)
+		if Engine.get_physics_ticks_per_second() != RUNTIME_TARGET_PHYSICS_HZ:
+			_failure = "runtime measurement could not set physics ticks per second to 60"
+			return {}
+	var participants: Array = command.participants
+	var actuator_mapping := _resolve_contact_proxy(profiles[int(participants[0].target_index)], participants[0].selector, "actuator", int(participants[0].target_index))
+	var response_mapping := _resolve_contact_proxy(profiles[int(participants[1].target_index)], participants[1].selector, "response", int(participants[1].target_index))
+	if actuator_mapping.is_empty() or response_mapping.is_empty():
+		return {}
+	var actuator_start: Vector3 = (actuator_mapping.world_start + actuator_mapping.world_end) * 0.5
+	var response_start: Vector3 = (response_mapping.world_start + response_mapping.world_end) * 0.5
+	var initial_closest := _closest_points_on_segments(actuator_mapping.world_start, actuator_mapping.world_end, response_mapping.world_start, response_mapping.world_end, "semantic contact initial proxy geometry")
+	if initial_closest.is_empty():
+		return {}
+	var combined_radius := float(actuator_mapping.radius) + float(response_mapping.radius)
+	if float(initial_closest.distance) <= combined_radius + CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact probe starts with penetrating or touching selected capsules"
+		return {}
+	var closest_vector: Vector3 = (initial_closest.second as Vector3) - (initial_closest.first as Vector3)
+	var approach_direction: Vector3 = closest_vector / float(initial_closest.distance)
+	var projected_gap := float(initial_closest.distance) - combined_radius
+	if not is_finite(projected_gap) or projected_gap <= CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact closest proxy points and radii do not define a positive approach gap"
+		return {}
+	var precontact_distance := projected_gap - CONTACT_OVERDRIVE
+	if not is_finite(precontact_distance) or precontact_distance <= CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact proxy approach gap is too small for a separated pre-contact phase"
+		return {}
+	var approach_distance := projected_gap + CONTACT_OVERDRIVE
+	var contact_center := actuator_start + approach_direction * approach_distance
+	var contact_press_distance := approach_distance + CONTACT_OVERDRIVE
+	if not _finite_vector3(contact_center):
+		_failure = "semantic contact target position is non-finite"
+		return {}
+	var contact_translation := approach_direction * approach_distance
+	var contact_closest := _closest_points_on_segments(actuator_mapping.world_start + contact_translation, actuator_mapping.world_end + contact_translation, response_mapping.world_start, response_mapping.world_end, "semantic contact target proxy geometry")
+	if contact_closest.is_empty():
+		return {}
+	if float(contact_closest.distance) >= combined_radius - CONTACT_GEOMETRY_TOLERANCE:
+		_failure = "semantic contact target does not create a verified capsule overlap"
+		return {}
+
+	var contact_root := Node3D.new()
+	contact_root.name = "SemanticContactProbe"
+	get_root().add_child(contact_root)
+	var actuator_body := AnimatableBody3D.new()
+	actuator_body.name = "ContactActuator"
+	actuator_body.sync_to_physics = true
+	actuator_body.collision_layer = CONTACT_COLLISION_LAYER
+	actuator_body.collision_mask = CONTACT_COLLISION_LAYER
+	contact_root.add_child(actuator_body)
+	actuator_body.global_position = actuator_start
+	var actuator_shape := _duplicate_contact_shape(actuator_mapping.source_collision, actuator_body, "semantic contact actuator")
+	if actuator_shape.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+
+	var response_body := ContactCaptureBody.new()
+	response_body.name = "ContactResponse"
+	response_body.contact_monitor = true
+	response_body.max_contacts_reported = 8
+	response_body.mass = 1.0
+	response_body.gravity_scale = 0.0
+	response_body.can_sleep = false
+	response_body.axis_lock_angular_x = true
+	response_body.axis_lock_angular_y = true
+	response_body.axis_lock_angular_z = true
+	response_body.collision_layer = CONTACT_COLLISION_LAYER
+	response_body.collision_mask = CONTACT_COLLISION_LAYER
+	contact_root.add_child(response_body)
+	if not actuator_body.sync_to_physics or not response_body.axis_lock_angular_x or not response_body.axis_lock_angular_y or not response_body.axis_lock_angular_z:
+		return _contact_probe_failure(contact_root, "semantic contact bodies did not retain the required synchronization and angular locks")
+	response_body.global_position = response_start
+	var response_shape := _duplicate_contact_shape(response_mapping.source_collision, response_body, "semantic contact response")
+	if response_shape.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+	var deformation_surface := {}
+	if deformation_enabled:
+		deformation_surface = _create_deformation_surface(response_body, response_shape.collision, response_mapping)
+		if deformation_surface.is_empty():
+			return _contact_probe_failure(contact_root, _failure)
+	response_body.expected_collider_id = int(actuator_body.get_instance_id())
+	response_body.linear_velocity = Vector3.ZERO
+	response_body.angular_velocity = Vector3.ZERO
+
+	response_body.probe_phase = "setup"
+	response_body.probe_tick = 0
+	await physics_frame
+	if response_body.tick_evidence.is_empty():
+		await physics_frame
+	if response_body.tick_evidence.is_empty() or int(response_body.tick_evidence[0].tick) != 0:
+		return _contact_probe_failure(contact_root, "semantic contact setup tick did not reach the rigid-body direct-state callback")
+	var initial_response := _contact_snapshot(response_body, "initial", 0)
+	if initial_response.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+	if not deformation_surface.is_empty():
+		var reference_state := _capture_deformation_state(deformation_surface, "reference", 0, 0.0, deformation_surface.baseline_vertices, 0)
+		if reference_state.is_empty():
+			return _contact_probe_failure(contact_root, _failure)
+		deformation_surface["reference_state"] = reference_state
+		deformation_surface["reference_vertices"] = reference_state["_vertices_array"]
+		var neutral_coherence_state := _capture_render_collision_coherence_state(deformation_surface, "neutral", 0, "setup", false, -1)
+		if neutral_coherence_state.is_empty():
+			return _contact_probe_failure(contact_root, _failure)
+		var neutral_coherence_states: Dictionary = deformation_surface.get("coherence_states", {})
+		neutral_coherence_states["neutral"] = neutral_coherence_state
+		deformation_surface["coherence_states"] = neutral_coherence_states
+	var schedule := [
+		{"phase": "approach", "ticks": CONTACT_APPROACH_TICKS, "start_tick": 1, "end_tick": CONTACT_APPROACH_TICKS},
+		{"phase": "contact", "ticks": CONTACT_HOLD_TICKS, "start_tick": CONTACT_APPROACH_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS},
+		{"phase": "release", "ticks": CONTACT_RELEASE_TICKS, "start_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS},
+		{"phase": "exit", "ticks": CONTACT_EXIT_TICKS, "start_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + 1, "end_tick": CONTACT_APPROACH_TICKS + CONTACT_HOLD_TICKS + CONTACT_RELEASE_TICKS + CONTACT_EXIT_TICKS},
+	]
+	var tick := 0
+	var onset_response := {}
+	var contact_response := {}
+	var contact_snapshots_by_tick: Dictionary = {}
+	if not runtime_mode.is_empty():
+		# These points delimit real-time physics-callback pacing/wall elapsed, not
+		# total frame time or process CPU time.
+		runtime_physics_timestamp_points_usec.append(Time.get_ticks_usec())
+		runtime_physics_frame_ids.append(Engine.get_physics_frames())
+	for phase_record in schedule:
+		var phase: String = phase_record.phase
+		var phase_ticks: int = int(phase_record.ticks)
+		for phase_tick in range(phase_ticks):
+			tick += 1
+			response_body.probe_phase = phase
+			response_body.probe_tick = tick
+			if phase == "approach":
+				actuator_body.global_position = actuator_start + approach_direction * precontact_distance * (float(phase_tick + 1) / float(phase_ticks))
+			elif phase == "contact":
+				actuator_body.global_position = actuator_start + approach_direction * lerp(approach_distance, contact_press_distance, float(phase_tick + 1) / float(phase_ticks))
+			elif phase == "release":
+				actuator_body.global_position = actuator_start + approach_direction * contact_press_distance * (1.0 - float(phase_tick + 1) / float(phase_ticks))
+			else:
+				actuator_body.global_position = actuator_start
+			await physics_frame
+			if not runtime_mode.is_empty():
+				runtime_physics_timestamp_points_usec.append(Time.get_ticks_usec())
+				runtime_physics_frame_ids.append(Engine.get_physics_frames())
+			var validated_contact_sample: Dictionary = {}
+			if phase == "contact" and _contact_tick_has_contact(response_body, tick):
+				validated_contact_sample = _strongest_contact_sample_for_tick(response_body, tick)
+			if not deformation_surface.is_empty() and not validated_contact_sample.is_empty():
+				var runtime_sample: Dictionary = validated_contact_sample
+				var deformation_update_start_usec: int = 0
+				if runtime_mode == "cpu_deformation":
+					# This bracket excludes the preceding physics wait and includes the
+					# complete evidence-producing contact operation.
+					deformation_update_start_usec = Time.get_ticks_usec()
+				var deformation_update_succeeded := _drive_deformation_from_contact_sample(deformation_surface, runtime_sample.sample, int(runtime_sample.contact_index), tick)
+				if not deformation_update_succeeded:
+					return _contact_probe_failure(contact_root, _failure)
+				var last_coherence_state: Dictionary = deformation_surface.get("last_coherence_state", {})
+				if last_coherence_state.is_empty():
+					return _contact_probe_failure(contact_root, "deformation mode did not retain the contact mesh/collision state read-back")
+				if runtime_mode == "cpu_deformation":
+					var contact_evidence_inclusive_wall_duration_usec := Time.get_ticks_usec() - deformation_update_start_usec
+					var cpu_deformation_core_duration_usec := int(deformation_surface.get("last_deformation_core_duration_usec", -1))
+					if contact_evidence_inclusive_wall_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement deformation update clock moved backwards")
+					if deformation_update_succeeded and cpu_deformation_core_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement deformation core duration is unavailable")
+					if deformation_update_succeeded and contact_evidence_inclusive_wall_duration_usec < cpu_deformation_core_duration_usec:
+						return _contact_probe_failure(contact_root, "runtime measurement deformation inclusive duration is less than deformation core duration")
+					runtime_deformation_update_records.append({
+						"sample_index": runtime_deformation_update_records.size(),
+						"operation": "contact_drive",
+						"phase": phase,
+						"logical_tick": tick,
+						"cpu_deformation_core_duration_usec": cpu_deformation_core_duration_usec,
+						"evidence_inclusive_wall_duration_usec": contact_evidence_inclusive_wall_duration_usec,
+					})
+			if not deformation_surface.is_empty() and phase == "release":
+				var release_update_start_usec: int = 0
+				if runtime_mode == "cpu_deformation":
+					release_update_start_usec = Time.get_ticks_usec()
+				var release_update_succeeded := _recover_deformation_for_release(deformation_surface, float(phase_tick + 1) / float(phase_ticks))
+				if runtime_mode == "cpu_deformation":
+					var release_evidence_inclusive_wall_duration_usec := Time.get_ticks_usec() - release_update_start_usec
+					var cpu_deformation_core_duration_usec := int(deformation_surface.get("last_deformation_core_duration_usec", -1))
+					if release_evidence_inclusive_wall_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement release update clock moved backwards")
+					if release_update_succeeded and cpu_deformation_core_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement release deformation core duration is unavailable")
+					if release_update_succeeded and release_evidence_inclusive_wall_duration_usec < cpu_deformation_core_duration_usec:
+						return _contact_probe_failure(contact_root, "runtime measurement release inclusive duration is less than deformation core duration")
+					runtime_deformation_update_records.append({
+						"sample_index": runtime_deformation_update_records.size(),
+						"operation": "release_recovery",
+						"phase": phase,
+						"logical_tick": tick,
+						"cpu_deformation_core_duration_usec": cpu_deformation_core_duration_usec,
+						"evidence_inclusive_wall_duration_usec": release_evidence_inclusive_wall_duration_usec,
+					})
+				if not release_update_succeeded:
+					return _contact_probe_failure(contact_root, _failure)
+			if not deformation_surface.is_empty() and phase == "exit":
+				var exit_update_start_usec: int = 0
+				if runtime_mode == "cpu_deformation":
+					exit_update_start_usec = Time.get_ticks_usec()
+				var exit_update_succeeded := _restore_deformation_baseline(deformation_surface)
+				if not exit_update_succeeded:
+					return _contact_probe_failure(contact_root, _failure)
+				if phase_tick == phase_ticks - 1:
+					var recovery_coherence_state := _capture_render_collision_coherence_state(deformation_surface, "recovery", tick, phase, _contact_tick_has_contact(response_body, tick), -1)
+					if recovery_coherence_state.is_empty():
+						return _contact_probe_failure(contact_root, _failure)
+					var recovery_coherence_states: Dictionary = deformation_surface.get("coherence_states", {})
+					recovery_coherence_states["recovery"] = recovery_coherence_state
+					deformation_surface["coherence_states"] = recovery_coherence_states
+				if runtime_mode == "cpu_deformation":
+					var exit_evidence_inclusive_wall_duration_usec := Time.get_ticks_usec() - exit_update_start_usec
+					var cpu_deformation_core_duration_usec := int(deformation_surface.get("last_deformation_core_duration_usec", -1))
+					if exit_evidence_inclusive_wall_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement exit update clock moved backwards")
+					if cpu_deformation_core_duration_usec < 0:
+						return _contact_probe_failure(contact_root, "runtime measurement exit deformation core duration is unavailable")
+					if exit_evidence_inclusive_wall_duration_usec < cpu_deformation_core_duration_usec:
+						return _contact_probe_failure(contact_root, "runtime measurement exit inclusive duration is less than deformation core duration")
+					runtime_deformation_update_records.append({
+						"sample_index": runtime_deformation_update_records.size(),
+						"operation": "restore_baseline",
+						"phase": phase,
+						"logical_tick": tick,
+						"cpu_deformation_core_duration_usec": cpu_deformation_core_duration_usec,
+						"evidence_inclusive_wall_duration_usec": exit_evidence_inclusive_wall_duration_usec,
+					})
+			if phase == "contact" and not validated_contact_sample.is_empty():
+				var contact_snapshot := _contact_snapshot(response_body, "contact", tick)
+				if contact_snapshot.is_empty():
+					return _contact_probe_failure(contact_root, _failure)
+				contact_snapshots_by_tick[tick] = contact_snapshot
+				if onset_response.is_empty():
+					onset_response = contact_snapshot.duplicate(true)
+					onset_response["label"] = "onset"
+	var final_response := _contact_snapshot(response_body, "final", tick)
+	if final_response.is_empty():
+		return _contact_probe_failure(contact_root, _failure)
+	if response_body.tick_evidence.size() != tick + 1:
+		return _contact_probe_failure(contact_root, "semantic contact probe did not record exactly one logical direct-state sample per declared tick (expected=%d observed=%d)" % [tick + 1, response_body.tick_evidence.size()])
+	for expected_tick in range(tick + 1):
+		if int(response_body.tick_evidence[expected_tick].tick) != expected_tick:
+			return _contact_probe_failure(contact_root, "semantic contact probe direct-state tick sequence is incomplete or reordered")
+
+	var attribution_valid := true
+	var max_impulse := 0.0
+	var strongest_sample := {}
+	for sample in response_body.contact_samples:
+		if int(sample.collider_id) != response_body.expected_collider_id or int(sample.collider_object_id) != response_body.expected_collider_id or int(sample.collider_shape_index) != 0 or int(sample.local_shape_index) != 0:
+			attribution_valid = false
+		var point: Variant = _vector3(sample.point, "semantic contact sample point")
+		var normal: Variant = _vector3(sample.normal, "semantic contact sample normal")
+		var impulse: Variant = _vector3(sample.impulse, "semantic contact sample impulse")
+		if point == null or normal == null or impulse == null or not _finite_vector3(point as Vector3) or not _finite_vector3(normal as Vector3) or not _finite_vector3(impulse as Vector3) or (normal as Vector3).length() <= 1.0e-9:
+			attribution_valid = false
+			continue
+		var impulse_length := (impulse as Vector3).length()
+		if String(sample.phase) == "contact" and impulse_length > max_impulse:
+			max_impulse = impulse_length
+			strongest_sample = sample
+	if not attribution_valid:
+		return _contact_probe_failure(contact_root, "semantic contact sample collider or shape attribution is invalid")
+	var contact_seen := false
+	var exit_empty_seen := false
+	var final_exit_contact_count := -1
+	for tick_record in response_body.tick_evidence:
+		if (not deformation_surface.is_empty() or not runtime_mode.is_empty()) and String(tick_record.phase) == "approach" and int(tick_record.contact_count) > 0:
+			return _contact_probe_failure(contact_root, "semantic contact side-alignment approach contacted before the declared contact phase")
+		if String(tick_record.phase) == "contact" and int(tick_record.contact_count) > 0:
+			contact_seen = true
+		if String(tick_record.phase) == "exit":
+			final_exit_contact_count = int(tick_record.contact_count)
+			if final_exit_contact_count == 0:
+				exit_empty_seen = true
+	if not contact_seen or onset_response.is_empty() or response_body.contact_samples.is_empty():
+		return _contact_probe_failure(contact_root, "semantic contact probe did not establish a clean contact phase")
+	if not exit_empty_seen or final_exit_contact_count != 0:
+		return _contact_probe_failure(contact_root, "semantic contact probe did not establish a clean exit phase")
+	if not strongest_sample.is_empty() and String(strongest_sample.phase) != "contact":
+		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample was outside the contact phase")
+	if max_impulse <= CONTACT_MIN_IMPULSE:
+		return _contact_probe_failure(contact_root, "semantic contact phase has no solver impulse above the declared floor")
+	if not runtime_mode.is_empty():
+		if runtime_physics_timestamp_points_usec.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1 or runtime_physics_frame_ids.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1:
+			return _contact_probe_failure(contact_root, "runtime measurement did not record exactly 65 timestamp and physics-frame boundary points")
+		for interval_index in range(RUNTIME_PHYSICS_SAMPLE_COUNT):
+			var physics_interval_usec := runtime_physics_timestamp_points_usec[interval_index + 1] - runtime_physics_timestamp_points_usec[interval_index]
+			var physics_frame_delta := runtime_physics_frame_ids[interval_index + 1] - runtime_physics_frame_ids[interval_index]
+			if physics_interval_usec <= 0:
+				return _contact_probe_failure(contact_root, "runtime measurement physics interval is not positive")
+			if physics_frame_delta != 1:
+				return _contact_probe_failure(contact_root, "runtime measurement physics-frame IDs are not consecutive")
+			runtime_physics_interval_samples.append(physics_interval_usec)
+		if runtime_physics_interval_samples.size() != RUNTIME_PHYSICS_SAMPLE_COUNT:
+			return _contact_probe_failure(contact_root, "runtime measurement did not derive exactly 64 logical physics intervals")
+		if runtime_mode == "cpu_deformation" and runtime_deformation_update_records.is_empty():
+			return _contact_probe_failure(contact_root, "cpu deformation runtime measurement did not record a deformation update")
+		if runtime_mode == "rigid_contact_only" and not runtime_deformation_update_records.is_empty():
+			return _contact_probe_failure(contact_root, "rigid-contact-only runtime measurement recorded an unexpected deformation update")
+	if not deformation_surface.is_empty() and (int(deformation_surface.get("peak_sample_tick", -1)) != int(strongest_sample.get("tick", -1)) or int(deformation_surface.get("peak_sample_index", -1)) != int(strongest_sample.get("contact_index", -1))):
+		return _contact_probe_failure(contact_root, "deformation peak was not retained from the strongest positive contact sample")
+	if not deformation_surface.is_empty():
+		var collected_coherence_states: Dictionary = deformation_surface.get("coherence_states", {})
+		for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+			if typeof(collected_coherence_states.get(state_name, null)) != TYPE_DICTIONARY or (collected_coherence_states[state_name] as Dictionary).is_empty():
+				return _contact_probe_failure(contact_root, "render/collision coherence did not retain all required deformation states")
+		var peak_coherence_state: Dictionary = collected_coherence_states["peak"]
+		if int(peak_coherence_state.get("tick", -1)) != int(strongest_sample.get("tick", -1)) or int(peak_coherence_state.get("contact_sample_index", -1)) != int(strongest_sample.get("contact_index", -1)):
+			return _contact_probe_failure(contact_root, "render/collision coherence peak linkage is not retained from runtime contact")
+	var strongest_tick := int(strongest_sample.tick)
+	if not contact_snapshots_by_tick.has(strongest_tick):
+		return _contact_probe_failure(contact_root, "semantic contact strongest solver sample has no same-tick response snapshot")
+	contact_response = contact_snapshots_by_tick[strongest_tick]
+
+	var initial_position: Variant = _vector3(initial_response.position, "semantic contact initial response position")
+	var final_position: Variant = _vector3(final_response.position, "semantic contact final response position")
+	var initial_velocity: Variant = _vector3(initial_response.linear_velocity, "semantic contact initial response velocity")
+	var contact_velocity: Variant = _vector3(contact_response.linear_velocity, "semantic contact contact response velocity")
+	var strongest_normal: Variant = _vector3(strongest_sample.normal, "semantic contact strongest sample normal")
+	if initial_position == null or final_position == null or initial_velocity == null or contact_velocity == null or strongest_normal == null:
+		return _contact_probe_failure(contact_root, _failure)
+	var normal_direction := (strongest_normal as Vector3).normalized()
+	var displacement: Vector3 = (final_position as Vector3) - (initial_position as Vector3)
+	var velocity_delta: Vector3 = (contact_velocity as Vector3) - (initial_velocity as Vector3)
+	var normal_velocity_delta: float = abs(velocity_delta.dot(normal_direction))
+	var normal_displacement: float = abs(displacement.dot(normal_direction))
+	if not is_finite(normal_velocity_delta) or normal_velocity_delta <= CONTACT_MIN_NORMAL_VELOCITY:
+		return _contact_probe_failure(contact_root, "semantic contact response normal velocity delta is absent or below its declared floor")
+	if not is_finite(normal_displacement) or normal_displacement <= CONTACT_MIN_NORMAL_DISPLACEMENT:
+		return _contact_probe_failure(contact_root, "semantic contact response normal displacement is absent or below its declared floor")
+
+	var result := {
+		"mapping_revision": SEMANTIC_CONTACT_MAPPING_REVISION,
+		"participants": [
+			{
+				"role": "actuator",
+				"target_index": 0,
+				"target": options.carrier_avatar_records[0],
+				"selector": actuator_mapping.selector,
+				"source_joint": actuator_mapping.source_joint,
+				"source_bone_id": actuator_mapping.source_bone_id,
+				"source_proxy_index": actuator_mapping.source_proxy_index,
+				"posed_proxy": actuator_mapping.posed_proxy,
+				"runtime_shape_index": 0,
+			},
+			{
+				"role": "response",
+				"target_index": 1,
+				"target": options.carrier_avatar_records[1],
+				"selector": response_mapping.selector,
+				"source_joint": response_mapping.source_joint,
+				"source_bone_id": response_mapping.source_bone_id,
+				"source_proxy_index": response_mapping.source_proxy_index,
+				"posed_proxy": response_mapping.posed_proxy,
+				"runtime_shape_index": 0,
+			},
+		],
+		"phase_tick_schedule": schedule,
+		"approach_geometry": {
+			"actuator_start_center": _vector_json(actuator_start),
+			"response_start_center": _vector_json(response_start),
+			"approach_direction": _vector_json(approach_direction),
+			"initial_segment_distance": initial_closest.distance,
+			"combined_radius": combined_radius,
+			"projected_gap": projected_gap,
+			"precontact_distance": precontact_distance,
+			"approach_distance": approach_distance,
+			"contact_press_distance": contact_press_distance,
+		},
+		"physics_configuration": {
+			"physics_engine": physics_engine,
+			"actuator_body": "AnimatableBody3D",
+			"actuator_sync_to_physics": actuator_body.sync_to_physics,
+			"response_body": "RigidBody3D",
+			"response_mass": response_body.mass,
+			"response_gravity_scale": response_body.gravity_scale,
+			"response_can_sleep": response_body.can_sleep,
+			"response_rotation_locked": response_body.axis_lock_angular_x and response_body.axis_lock_angular_y and response_body.axis_lock_angular_z,
+			"response_contact_monitor": response_body.contact_monitor,
+			"response_max_contacts_reported": response_body.max_contacts_reported,
+		"one_shape_per_contact_body": actuator_body.get_child_count() == 1 and _collision_shape_count(response_body) == 1,
+		},
+		"contact_tick_evidence": response_body.tick_evidence,
+		"contact_samples": response_body.contact_samples,
+		"initial_response": initial_response,
+		"onset_response": onset_response,
+		"contact_response": contact_response,
+		"final_response": final_response,
+		"response_displacement": _vector_json(displacement),
+		"response_displacement_length": displacement.length(),
+		"contact_normal": _vector_json(normal_direction),
+		"solver_impulse_magnitude": max_impulse,
+		"normal_velocity_delta": normal_velocity_delta,
+		"normal_displacement": normal_displacement,
+		"clean_contact": contact_seen,
+		"clean_exit": exit_empty_seen and final_exit_contact_count == 0,
+		"solver_response": max_impulse > CONTACT_MIN_IMPULSE and normal_velocity_delta > CONTACT_MIN_NORMAL_VELOCITY and normal_displacement > CONTACT_MIN_NORMAL_DISPLACEMENT,
+		"runtime_physics_timestamp_points_usec": runtime_physics_timestamp_points_usec,
+		"runtime_physics_frame_ids": runtime_physics_frame_ids,
+		"runtime_physics_interval_samples": runtime_physics_interval_samples,
+		"runtime_deformation_update_records": runtime_deformation_update_records,
+	}
+	contact_root.free()
+	if not deformation_surface.is_empty():
+		var semantic_deformation: Dictionary = await _finish_deformation_capture(deformation_surface, response_mapping, options.deformation_capture_dir)
+		if semantic_deformation.is_empty():
+			_failure = "deformation capture could not complete after physical evidence"
+			return {}
+		result["semantic_deformation"] = semantic_deformation
+		var semantic_render_collision_coherence: Dictionary = _finish_render_collision_coherence(deformation_surface, response_mapping)
+		if semantic_render_collision_coherence.is_empty():
+			if _failure.is_empty():
+				_failure = "render/collision coherence evidence could not complete after physical evidence"
+			return {}
+		result["semantic_render_collision_coherence"] = semantic_render_collision_coherence
+	return result
+
+
+func _contact_tick_has_contact(response_body: ContactCaptureBody, tick: int) -> bool:
+	for tick_record in response_body.tick_evidence:
+		if int(tick_record.tick) == tick and int(tick_record.contact_count) > 0:
+			return true
+	return false
+
+
+func _collision_shape_count(body: Node) -> int:
+	if body == null or not is_instance_valid(body):
+		return 0
+	var count := 0
+	for child in body.get_children():
+		if child is CollisionShape3D:
+			count += 1
+	return count
+
+
+func _point_to_segment_distance(point: Vector3, start: Vector3, end: Vector3, where: String) -> Variant:
+	if not _finite_vector3(point) or not _finite_vector3(start) or not _finite_vector3(end):
+		_failure = "%s contains a non-finite point or capsule endpoint" % where
+		return null
+	var segment: Vector3 = end - start
+	var segment_length_squared: float = segment.length_squared()
+	if not is_finite(segment_length_squared) or segment_length_squared <= 1.0e-24:
+		_failure = "%s contains a degenerate capsule segment" % where
+		return null
+	var fraction: float = clampf((point - start).dot(segment) / segment_length_squared, 0.0, 1.0)
+	var closest: Vector3 = start + segment * fraction
+	var distance: float = point.distance_to(closest)
+	if not is_finite(distance):
+		_failure = "%s produced a non-finite point-to-segment distance" % where
+		return null
+	return distance
+
+
+func _capture_render_collision_coherence_state(surface: Dictionary, state_name: String, tick: int, phase: String, contact: bool, contact_sample_index: int) -> Dictionary:
+	if not RENDER_COLLISION_COHERENCE_STATE_ORDER.has(state_name) or tick < 0 or phase.is_empty() or contact_sample_index < -1 or (contact and contact_sample_index < 0) or (not contact and contact_sample_index != -1):
+		_failure = "%s render/collision coherence state metadata is invalid" % state_name
+		return {}
+	var body_value = surface.get("body", null)
+	var collision_value = surface.get("collision", null)
+	var mesh_instance_value = surface.get("mesh_instance", null)
+	var mesh_value = surface.get("mesh", null)
+	if not (body_value is ContactCaptureBody) or not is_instance_valid(body_value) or not (collision_value is CollisionShape3D) or not is_instance_valid(collision_value) or not (mesh_instance_value is MeshInstance3D) or not is_instance_valid(mesh_instance_value) or not (mesh_value is ArrayMesh) or not is_instance_valid(mesh_value):
+		_failure = "%s render/collision coherence runtime nodes are invalid" % state_name
+		return {}
+	var response_body: ContactCaptureBody = body_value
+	var collision: CollisionShape3D = collision_value
+	var mesh_instance: MeshInstance3D = mesh_instance_value
+	var mesh: ArrayMesh = mesh_value
+	if collision.get_parent() != response_body or mesh_instance.get_parent() != response_body or mesh_instance.mesh != mesh or mesh.get_surface_count() != 1:
+		_failure = "%s render/collision coherence nodes are not attached to the expected response body" % state_name
+		return {}
+	var response_body_to_world: Transform3D = response_body.global_transform
+	var capsule_to_body: Transform3D = collision.transform
+	var sleeve_to_body: Transform3D = mesh_instance.transform
+	if not _finite_transform(response_body_to_world) or not _finite_transform(capsule_to_body) or not _finite_transform(sleeve_to_body):
+		_failure = "%s render/collision coherence transform read-back is non-finite" % state_name
+		return {}
+	if not (collision.shape is CapsuleShape3D):
+		_failure = "%s render/collision coherence collision read-back is not a capsule" % state_name
+		return {}
+	var capsule_shape: CapsuleShape3D = collision.shape
+	var radius := float(capsule_shape.radius)
+	var height := float(capsule_shape.height)
+	var central_segment_length := height - 2.0 * radius
+	if not is_finite(radius) or radius <= 0.0 or not is_finite(height) or height <= 2.0 * radius or not is_finite(central_segment_length) or central_segment_length <= 1.0e-12:
+		_failure = "%s render/collision coherence capsule dimensions are invalid" % state_name
+		return {}
+	# The selected collision node is a child of the response body. Keep these
+	# endpoints in that body-local frame and apply the node transform exactly once.
+	var endpoint_a: Vector3 = capsule_to_body * Vector3(0.0, -0.5 * central_segment_length, 0.0)
+	var endpoint_b: Vector3 = capsule_to_body * Vector3(0.0, 0.5 * central_segment_length, 0.0)
+	var runtime_geometry := _read_proxy_geometry(collision, "%s coherence capsule" % state_name)
+	if runtime_geometry.is_empty() or (runtime_geometry.start as Vector3).distance_to(endpoint_a) > TOLERANCE or (runtime_geometry.end as Vector3).distance_to(endpoint_b) > TOLERANCE or abs(float(runtime_geometry.radius) - radius) > TOLERANCE:
+		_failure = "%s render/collision coherence capsule read-back is inconsistent" % state_name
+		return {}
+	var arrays: Array = mesh.surface_get_arrays(0)
+	if arrays.size() <= Mesh.ARRAY_INDEX or not (arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array) or not (arrays[Mesh.ARRAY_INDEX] is PackedInt32Array):
+		_failure = "%s render/collision coherence sleeve mesh read-back is incomplete" % state_name
+		return {}
+	var mesh_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var mesh_indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	if mesh_vertices.size() != DEFORMATION_VERTEX_COUNT or mesh_indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "%s render/collision coherence sleeve mesh read-back counts are invalid" % state_name
+		return {}
+	var body_local_vertices := PackedVector3Array()
+	var vertex_report: Array = []
+	for mesh_vertex in mesh_vertices:
+		var body_local_vertex: Vector3 = sleeve_to_body * mesh_vertex
+		if not _finite_vector3(body_local_vertex):
+			_failure = "%s render/collision coherence sleeve vertex read-back is non-finite" % state_name
+			return {}
+		body_local_vertices.append(body_local_vertex)
+		vertex_report.append(_vector_json(body_local_vertex))
+	var falloff_weights = surface.get("falloff_weights", [])
+	if typeof(falloff_weights) != TYPE_ARRAY:
+		_failure = "%s render/collision coherence falloff read-back is not an array" % state_name
+		return {}
+	var has_falloff_weights: bool = not falloff_weights.is_empty()
+	if has_falloff_weights and falloff_weights.size() != body_local_vertices.size():
+		_failure = "%s render/collision coherence falloff read-back does not cover the sleeve mesh" % state_name
+		return {}
+	var maximum_absolute_side_clearance := 0.0
+	var maximum_outward_clearance := 0.0
+	var maximum_inward_penetration := 0.0
+	var outside_falloff_max_penetration := 0.0
+	for vertex_index in range(body_local_vertices.size()):
+		var distance_value = _point_to_segment_distance(body_local_vertices[vertex_index], endpoint_a, endpoint_b, "%s coherence vertex %d" % [state_name, vertex_index])
+		if distance_value == null:
+			return {}
+		var clearance := float(distance_value) - radius
+		if not is_finite(clearance):
+			_failure = "%s render/collision coherence clearance is non-finite" % state_name
+			return {}
+		maximum_absolute_side_clearance = max(maximum_absolute_side_clearance, abs(clearance))
+		maximum_outward_clearance = max(maximum_outward_clearance, max(clearance, 0.0))
+		maximum_inward_penetration = max(maximum_inward_penetration, max(-clearance, 0.0))
+		if has_falloff_weights and float(falloff_weights[vertex_index]) == 0.0:
+			outside_falloff_max_penetration = max(outside_falloff_max_penetration, max(-clearance, 0.0))
+	if not is_finite(maximum_absolute_side_clearance) or not is_finite(maximum_outward_clearance) or not is_finite(maximum_inward_penetration) or not is_finite(outside_falloff_max_penetration):
+		_failure = "%s render/collision coherence metrics are non-finite" % state_name
+		return {}
+	return {
+		"state": state_name,
+		"tick": tick,
+		"phase": phase,
+		"contact": contact,
+		"contact_sample_index": contact_sample_index,
+		"response_body_to_world": _transform_json(response_body_to_world),
+		"capsule_to_body": _transform_json(capsule_to_body),
+		"sleeve_to_body": _transform_json(sleeve_to_body),
+		"capsule": {
+			"endpoint_a": _vector_json(endpoint_a),
+			"endpoint_b": _vector_json(endpoint_b),
+			"radius": radius,
+			"height": height,
+		},
+		"vertices": vertex_report,
+		"metrics": {
+			"maximum_absolute_side_clearance": _report_float(maximum_absolute_side_clearance),
+			"maximum_outward_clearance": _report_float(maximum_outward_clearance),
+			"maximum_inward_penetration": _report_float(maximum_inward_penetration),
+			"outside_falloff_max_penetration": _report_float(outside_falloff_max_penetration),
+		},
+	}
+
+
+func _validate_retained_onset_coherence(surface: Dictionary) -> bool:
+	var retained_transform_value: Variant = surface.get("onset_coherence_response_body_to_world", null)
+	var retained_vertices_value: Variant = surface.get("onset_coherence_vertices", null)
+	if retained_transform_value == null or retained_vertices_value == null:
+		_failure = "render/collision coherence retained onset state is incomplete"
+		return false
+	var coherence_states_value: Variant = surface.get("coherence_states", null)
+	if not (coherence_states_value is Dictionary):
+		_failure = "render/collision coherence retained onset state has no state collection"
+		return false
+	var onset_value: Variant = (coherence_states_value as Dictionary).get("contact_onset", null)
+	if typeof(retained_transform_value) == TYPE_ARRAY and retained_transform_value.is_empty() and retained_vertices_value is PackedVector3Array and (retained_vertices_value as PackedVector3Array).is_empty():
+		if onset_value is Dictionary and (onset_value as Dictionary).is_empty():
+			return true
+		_failure = "render/collision coherence retained onset state is missing"
+		return false
+	if typeof(retained_transform_value) != TYPE_ARRAY or not (retained_vertices_value is PackedVector3Array):
+		_failure = "render/collision coherence retained onset state is incomplete"
+		return false
+	var retained_transform := _matrix(retained_transform_value, "retained onset coherence response transform")
+	var retained_vertices: PackedVector3Array = retained_vertices_value
+	if retained_transform.is_empty() or retained_vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "render/collision coherence retained onset state is invalid"
+		return false
+	if not (onset_value is Dictionary):
+		_failure = "render/collision coherence retained onset state is missing"
+		return false
+	var onset_state: Dictionary = onset_value
+	var onset_transform := _matrix(onset_state.get("response_body_to_world", []), "retained onset coherence read-back transform")
+	if onset_transform.is_empty():
+		return false
+	for matrix_index in range(16):
+		if abs(float(onset_transform[matrix_index]) - float(retained_transform[matrix_index])) > TOLERANCE:
+			_failure = "render/collision coherence onset response transform diverged before report construction"
+			return false
+	var onset_vertices_value: Variant = onset_state.get("vertices", null)
+	if typeof(onset_vertices_value) != TYPE_ARRAY or onset_vertices_value.size() != retained_vertices.size():
+		_failure = "render/collision coherence retained onset vertices are incomplete"
+		return false
+	for vertex_index in range(retained_vertices.size()):
+		var onset_vertex: Variant = _vector3(onset_vertices_value[vertex_index], "retained onset coherence vertex %d" % vertex_index)
+		if onset_vertex == null or (onset_vertex as Vector3).distance_to(retained_vertices[vertex_index]) > TOLERANCE:
+			_failure = "render/collision coherence onset vertices diverged before report construction"
+			return false
+	return true
+
+
+func _coherence_outside_falloff_penetration(state_record: Dictionary, falloff_weights: Array, state_name: String) -> Variant:
+	var vertices_value: Variant = state_record.get("vertices", null)
+	var capsule_value: Variant = state_record.get("capsule", null)
+	if typeof(vertices_value) != TYPE_ARRAY or vertices_value.size() != DEFORMATION_VERTEX_COUNT or not (capsule_value is Dictionary) or falloff_weights.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "%s render/collision coherence cannot recompute the declared peak-falloff metric" % state_name
+		return null
+	var capsule: Dictionary = capsule_value
+	var endpoint_a_value = _vector3(capsule.get("endpoint_a", []), "%s coherence outside-falloff endpoint a" % state_name)
+	var endpoint_b_value = _vector3(capsule.get("endpoint_b", []), "%s coherence outside-falloff endpoint b" % state_name)
+	var radius := float(capsule.get("radius", 0.0))
+	if endpoint_a_value == null or endpoint_b_value == null or not is_finite(radius) or radius <= 0.0:
+		_failure = "%s render/collision coherence cannot read its capsule for the declared peak-falloff metric" % state_name
+		return null
+	var endpoint_a: Vector3 = endpoint_a_value
+	var endpoint_b: Vector3 = endpoint_b_value
+	var outside_falloff_max_penetration := 0.0
+	for vertex_index in range(DEFORMATION_VERTEX_COUNT):
+		var weight := float(falloff_weights[vertex_index])
+		if not is_finite(weight) or weight < 0.0 or weight > 1.0:
+			_failure = "%s render/collision coherence peak falloff weight is invalid" % state_name
+			return null
+		if weight != 0.0:
+			continue
+		var vertex_value = _vector3(vertices_value[vertex_index], "%s coherence outside-falloff vertex %d" % [state_name, vertex_index])
+		if vertex_value == null:
+			return null
+		var distance_value = _point_to_segment_distance(vertex_value, endpoint_a, endpoint_b, "%s coherence outside-falloff vertex %d" % [state_name, vertex_index])
+		if distance_value == null:
+			return null
+		var clearance: float = float(distance_value) - radius
+		outside_falloff_max_penetration = maxf(outside_falloff_max_penetration, maxf(-clearance, 0.0))
+	return outside_falloff_max_penetration
+
+
+func _deformation_mesh_from_arrays(vertices: PackedVector3Array, normals: PackedVector3Array, indices: PackedInt32Array, where: String) -> Variant:
+	if vertices.size() != DEFORMATION_VERTEX_COUNT or normals.size() != vertices.size() or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "%s has invalid CPU mesh array counts" % where
+		return null
+	var mesh := ArrayMesh.new()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	if mesh.get_surface_count() != 1:
+		_failure = "%s could not create exactly one ArrayMesh surface" % where
+		return null
+	return mesh
+
+
+func _calculate_deformation_normals(vertices: PackedVector3Array, indices: PackedInt32Array, fallback: PackedVector3Array, where: String) -> Variant:
+	if vertices.size() != DEFORMATION_VERTEX_COUNT or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3 or fallback.size() != vertices.size():
+		_failure = "%s has incomplete normal-generation arrays" % where
+		return null
+	var accumulated := PackedVector3Array()
+	accumulated.resize(vertices.size())
+	for face_offset in range(0, indices.size(), 3):
+		var first_index := int(indices[face_offset])
+		var second_index := int(indices[face_offset + 1])
+		var third_index := int(indices[face_offset + 2])
+		if first_index < 0 or first_index >= vertices.size() or second_index < 0 or second_index >= vertices.size() or third_index < 0 or third_index >= vertices.size():
+			_failure = "%s contains an out-of-range triangle index" % where
+			return null
+		var face := (vertices[second_index] - vertices[first_index]).cross(vertices[third_index] - vertices[first_index])
+		if not _finite_vector3(face) or face.length_squared() <= 1.0e-24:
+			_failure = "%s contains a degenerate or non-finite triangle" % where
+			return null
+		accumulated[first_index] = accumulated[first_index] + face
+		accumulated[second_index] = accumulated[second_index] + face
+		accumulated[third_index] = accumulated[third_index] + face
+	var normals := PackedVector3Array()
+	normals.resize(vertices.size())
+	for vertex_index in range(vertices.size()):
+		var normal := accumulated[vertex_index]
+		if not _finite_vector3(normal):
+			_failure = "%s generated a non-finite normal" % where
+			return null
+		if normal.length_squared() <= 1.0e-24:
+			normal = fallback[vertex_index]
+		if not _finite_vector3(normal) or normal.length_squared() <= 1.0e-24:
+			_failure = "%s could not generate a valid normal at vertex %d" % [where, vertex_index]
+			return null
+		normals[vertex_index] = normal.normalized()
+	return normals
+
+
+func _create_deformation_surface(response_body: Node3D, response_collision: CollisionShape3D, response_mapping: Dictionary) -> Dictionary:
+	if not (response_body is ContactCaptureBody) or not is_instance_valid(response_body) or not is_instance_valid(response_collision) or response_collision.get_parent() != response_body:
+		_failure = "deformation surface is not attached to the ContactResponse body"
+		return {}
+	if typeof(response_mapping) != TYPE_DICTIONARY or String(response_mapping.get("source_bone_id", "")).is_empty():
+		_failure = "deformation surface source mapping is incomplete"
+		return {}
+	if not (response_collision.shape is CapsuleShape3D):
+		_failure = "deformation surface source collision is not a capsule"
+		return {}
+	var shape: CapsuleShape3D = response_collision.shape
+	var radius := float(shape.radius)
+	var baseline_length := float(shape.height) - 2.0 * radius
+	var capsule_transform: Transform3D = response_collision.transform
+	if not is_finite(radius) or radius <= 0.0 or not is_finite(baseline_length) or baseline_length <= 1.0e-12 or not _finite_transform(capsule_transform) or abs(capsule_transform.basis.determinant() - 1.0) > TOLERANCE:
+		_failure = "deformation surface duplicated capsule dimensions or transform are invalid"
+		return {}
+	var baseline_vertices := PackedVector3Array()
+	var baseline_normals := PackedVector3Array()
+	var baseline_indices := PackedInt32Array()
+	var half_length := 0.5 * baseline_length
+	for axial_index in range(DEFORMATION_AXIAL_SEGMENTS + 1):
+		var axial_fraction := float(axial_index) / float(DEFORMATION_AXIAL_SEGMENTS)
+		var axial: float = lerp(-half_length, half_length, axial_fraction)
+		for radial_index in range(DEFORMATION_RADIAL_SEGMENTS):
+			var angle := 2.0 * PI * float(radial_index) / float(DEFORMATION_RADIAL_SEGMENTS)
+			var radial := Vector3(cos(angle), 0.0, sin(angle))
+			baseline_vertices.append(capsule_transform * Vector3(radial.x * radius, axial, radial.z * radius))
+			baseline_normals.append((capsule_transform.basis * radial).normalized())
+	for axial_index in range(DEFORMATION_AXIAL_SEGMENTS):
+		for radial_index in range(DEFORMATION_RADIAL_SEGMENTS):
+			var next_radial := (radial_index + 1) % DEFORMATION_RADIAL_SEGMENTS
+			var lower := axial_index * DEFORMATION_RADIAL_SEGMENTS + radial_index
+			var upper := (axial_index + 1) * DEFORMATION_RADIAL_SEGMENTS + radial_index
+			var lower_next := axial_index * DEFORMATION_RADIAL_SEGMENTS + next_radial
+			var upper_next := (axial_index + 1) * DEFORMATION_RADIAL_SEGMENTS + next_radial
+			baseline_indices.append(lower)
+			baseline_indices.append(upper)
+			baseline_indices.append(upper_next)
+			baseline_indices.append(lower)
+			baseline_indices.append(upper_next)
+			baseline_indices.append(lower_next)
+	if baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT or baseline_indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "deformation surface deterministic CPU array generation produced unexpected counts"
+		return {}
+	var mesh_value = _deformation_mesh_from_arrays(baseline_vertices, baseline_normals, baseline_indices, "deformation baseline")
+	if mesh_value == null:
+		return {}
+	var mesh: ArrayMesh = mesh_value
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "DeformationSurface"
+	mesh_instance.mesh = mesh
+	mesh_instance.transform = Transform3D.IDENTITY
+	mesh_instance.visible = false
+	response_body.add_child(mesh_instance)
+	if mesh_instance.get_parent() != response_body or mesh_instance.mesh != mesh:
+		_failure = "deformation surface was not retained on the ContactResponse body"
+		return {}
+	return {
+		"body": response_body,
+		"collision": response_collision,
+		"mesh_instance": mesh_instance,
+		"mesh": mesh,
+		"surface_transform": capsule_transform,
+		"baseline_vertices": baseline_vertices,
+		"baseline_normals": baseline_normals,
+		"baseline_indices": baseline_indices,
+		"baseline_radius": radius,
+		"baseline_length": baseline_length,
+		"falloff_radius": radius * DEFORMATION_FALLOFF_RADIUS_RATIO,
+		"falloff_weights": [],
+		"reference_state": {},
+		"peak_state": {},
+		"recovered_state": {},
+		"peak_normalized_depth_raw": 0.0,
+		"peak_absolute_depth_raw": 0.0,
+		"peak_runtime_contact_point": Vector3.ZERO,
+		"peak_contact_point": Vector3.ZERO,
+		"peak_deformation_center": Vector3.ZERO,
+		"peak_inward_direction": Vector3.ZERO,
+		"peak_sample_tick": -1,
+		"peak_sample_index": -1,
+		"peak_sample_response_transform": [],
+		"peak_impulse_magnitude_raw": 0.0,
+		"onset_coherence_response_body_to_world": [],
+		"onset_coherence_vertices": PackedVector3Array(),
+		"last_deformation_core_duration_usec": -1,
+		"coherence_states": {
+			"neutral": {},
+			"contact_onset": {},
+			"peak": {},
+			"recovery": {},
+		},
+		"last_coherence_state": {},
+		"last_tick": 0,
+	}
+
+
+func _set_deformation_mesh_arrays(surface: Dictionary, vertices: PackedVector3Array, provided_normals = null, core_start_usec: int = -1) -> bool:
+	var mesh = surface.get("mesh", null)
+	var indices = surface.get("baseline_indices", PackedInt32Array())
+	var fallback = surface.get("baseline_normals", PackedVector3Array())
+	if core_start_usec < 0 or not (mesh is ArrayMesh) or vertices.size() != DEFORMATION_VERTEX_COUNT or not (indices is PackedInt32Array) or indices.size() != DEFORMATION_TRIANGLE_COUNT * 3 or not (fallback is PackedVector3Array) or fallback.size() != vertices.size():
+		_failure = "deformation ArrayMesh update arrays are incomplete"
+		return false
+	var normals: PackedVector3Array
+	if provided_normals is PackedVector3Array and provided_normals.size() == vertices.size():
+		normals = provided_normals.duplicate()
+	else:
+		var generated = _calculate_deformation_normals(vertices, indices, fallback, "deformation update")
+		if generated == null:
+			return false
+		normals = generated as PackedVector3Array
+	mesh.clear_surfaces()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	# End the CPU deformation core immediately after normal preparation and the
+	# ArrayMesh mutation. Read-back and evidence validation below stay outside it.
+	var core_duration_usec := Time.get_ticks_usec() - core_start_usec
+	if core_duration_usec < 0:
+		_failure = "deformation core clock moved backwards"
+		return false
+	surface["last_deformation_core_duration_usec"] = core_duration_usec
+	if mesh.get_surface_count() != 1:
+		_failure = "deformation ArrayMesh update did not retain one surface"
+		return false
+	var readback: Array = mesh.surface_get_arrays(0)
+	if readback.size() <= Mesh.ARRAY_INDEX or not (readback[Mesh.ARRAY_VERTEX] is PackedVector3Array) or not (readback[Mesh.ARRAY_NORMAL] is PackedVector3Array) or not (readback[Mesh.ARRAY_INDEX] is PackedInt32Array):
+		_failure = "deformation ArrayMesh update read-back arrays are incomplete"
+		return false
+	var actual_vertices: PackedVector3Array = readback[Mesh.ARRAY_VERTEX]
+	var actual_indices: PackedInt32Array = readback[Mesh.ARRAY_INDEX]
+	if actual_vertices.size() != vertices.size() or actual_indices != indices:
+		_failure = "deformation ArrayMesh update read-back changed the deterministic topology"
+		return false
+	for vertex_index in range(vertices.size()):
+		if actual_vertices[vertex_index].distance_to(vertices[vertex_index]) > TOLERANCE:
+			_failure = "deformation ArrayMesh update read-back changed vertex %d beyond tolerance" % vertex_index
+			return false
+	surface["last_readback_arrays"] = readback
+	return true
+
+
+func _capture_deformation_state(surface: Dictionary, label: String, tick: int, expected_normalized_depth: float, expected_vertices, _expected_affected_vertex_count: int) -> Dictionary:
+	var mesh = surface.get("mesh", null)
+	var radius := float(surface.get("baseline_radius", 0.0))
+	var baseline_vertices = surface.get("baseline_vertices", PackedVector3Array())
+	var baseline_indices = surface.get("baseline_indices", PackedInt32Array())
+	var reference_vertices = surface.get("reference_vertices", baseline_vertices)
+	if not (mesh is ArrayMesh) or not is_finite(radius) or radius <= 0.0 or not (baseline_vertices is PackedVector3Array) or not (baseline_indices is PackedInt32Array) or not (reference_vertices is PackedVector3Array) or reference_vertices.size() != DEFORMATION_VERTEX_COUNT or not (expected_vertices is PackedVector3Array) or expected_vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "%s deformation state inputs are invalid" % label
+		return {}
+	if not is_finite(expected_normalized_depth) or expected_normalized_depth < 0.0:
+		_failure = "%s deformation state expected depth is invalid" % label
+		return {}
+	if mesh.get_surface_count() != 1:
+		_failure = "%s deformation state does not have one ArrayMesh surface" % label
+		return {}
+	var arrays: Array = mesh.surface_get_arrays(0)
+	if arrays.size() <= Mesh.ARRAY_INDEX or not (arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array) or not (arrays[Mesh.ARRAY_NORMAL] is PackedVector3Array) or not (arrays[Mesh.ARRAY_INDEX] is PackedInt32Array):
+		_failure = "%s deformation state ArrayMesh read-back is incomplete" % label
+		return {}
+	var actual_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var actual_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var actual_indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	if actual_vertices.size() != DEFORMATION_VERTEX_COUNT or actual_normals.size() != DEFORMATION_VERTEX_COUNT or actual_indices != baseline_indices:
+		_failure = "%s deformation state ArrayMesh read-back counts or topology are invalid" % label
+		return {}
+	var weights = surface.get("falloff_weights", [])
+	if typeof(weights) != TYPE_ARRAY and label != "reference":
+		_failure = "%s deformation state falloff weights are invalid" % label
+		return {}
+	if typeof(weights) == TYPE_ARRAY and not weights.is_empty() and weights.size() != actual_vertices.size():
+		_failure = "%s deformation state falloff weights do not cover the mesh" % label
+		return {}
+	var max_residual := 0.0
+	var readback_error := 0.0
+	var affected_vertex_count := 0
+	var outside_falloff_max_residual := 0.0
+	for vertex_index in range(actual_vertices.size()):
+		var actual_vertex := actual_vertices[vertex_index]
+		var expected_vertex: Vector3 = expected_vertices[vertex_index]
+		var reference_vertex: Vector3 = reference_vertices[vertex_index]
+		if not _finite_vector3(actual_vertex) or not _finite_vector3(expected_vertex) or not _finite_vector3(reference_vertex) or not _finite_vector3(actual_normals[vertex_index]):
+			_failure = "%s deformation state contains a non-finite read-back vertex or normal" % label
+			return {}
+		var displacement := actual_vertex.distance_to(reference_vertex)
+		readback_error = max(readback_error, actual_vertex.distance_to(expected_vertex))
+		max_residual = max(max_residual, displacement)
+		if label == "peak" and typeof(weights) == TYPE_ARRAY and not weights.is_empty() and float(weights[vertex_index]) > 0.0:
+			affected_vertex_count += 1
+		if typeof(weights) == TYPE_ARRAY and not weights.is_empty() and float(weights[vertex_index]) == 0.0:
+			outside_falloff_max_residual = max(outside_falloff_max_residual, displacement)
+	if not is_finite(max_residual) or not is_finite(readback_error) or not is_finite(outside_falloff_max_residual):
+		_failure = "%s deformation state metrics are non-finite" % label
+		return {}
+	if readback_error > TOLERANCE:
+		_failure = "%s deformation state read-back error exceeds tolerance" % label
+		return {}
+	var normalized_depth := max_residual / radius
+	if not is_finite(normalized_depth) or normalized_depth < 0.0 or normalized_depth > DEFORMATION_MAX_NORMALIZED_DEPTH + DEFORMATION_RECOVERY_TOLERANCE:
+		_failure = "%s deformation state exceeds the declared normalized depth cap" % label
+		return {}
+	return {
+		"tick": tick,
+		"normalized_depth": _report_float(normalized_depth),
+		"max_residual": _report_float(max_residual),
+		"affected_vertex_count": affected_vertex_count,
+		"outside_falloff_max_residual": _report_float(outside_falloff_max_residual),
+		"_normalized_depth_raw": normalized_depth,
+		"_max_residual_raw": max_residual,
+		"_readback_error_raw": readback_error,
+		"_outside_falloff_max_residual_raw": outside_falloff_max_residual,
+		"_vertices_array": actual_vertices.duplicate(),
+		"_normals_array": actual_normals.duplicate(),
+		"_indices_array": actual_indices.duplicate(),
+	}
+
+
+func _strongest_contact_sample_for_tick(response_body: ContactCaptureBody, tick: int) -> Dictionary:
+	if not is_instance_valid(response_body) or response_body.expected_collider_id <= 0:
+		return {}
+	var strongest_index := -1
+	var strongest_impulse := 0.0
+	for sample_index in range(response_body.contact_samples.size()):
+		var sample: Dictionary = response_body.contact_samples[sample_index]
+		if int(sample.get("tick", -1)) != tick or String(sample.get("phase", "")) != "contact":
+			continue
+		if int(sample.get("collider_id", 0)) != response_body.expected_collider_id or int(sample.get("collider_object_id", 0)) != response_body.expected_collider_id or int(sample.get("collider_shape_index", -1)) != 0 or int(sample.get("local_shape_index", -1)) != 0:
+			continue
+		var point = _vector3(sample.get("point", []), "deformation contact sample point")
+		var normal = _vector3(sample.get("normal", []), "deformation contact sample normal")
+		var impulse = _vector3(sample.get("impulse", []), "deformation contact sample impulse")
+		if point == null or normal == null or impulse == null or not _finite_vector3(point as Vector3) or not _finite_vector3(normal as Vector3) or not _finite_vector3(impulse as Vector3) or (normal as Vector3).length_squared() <= 1.0e-18:
+			continue
+		var impulse_length := (impulse as Vector3).length()
+		if not is_finite(impulse_length) or impulse_length <= 0.0 or int(sample.get("contact_index", -1)) < 0:
+			continue
+		if impulse_length > strongest_impulse:
+			strongest_impulse = impulse_length
+			strongest_index = sample_index
+	if strongest_index < 0:
+		return {}
+	var strongest_sample: Dictionary = response_body.contact_samples[strongest_index].duplicate(true)
+	return {"sample": strongest_sample, "contact_index": int(strongest_sample.get("contact_index", -1))}
+
+
+func _drive_deformation_from_contact_sample(surface: Dictionary, sample: Dictionary, sample_index: int, tick: int) -> bool:
+	var core_start_usec := Time.get_ticks_usec()
+	surface["last_deformation_core_duration_usec"] = -1
+	if not _validate_retained_onset_coherence(surface):
+		return false
+	if typeof(sample) != TYPE_DICTIONARY or sample_index < 0 or sample_index != int(sample.get("contact_index", -1)) or String(sample.get("phase", "")) != "contact" or int(sample.get("tick", -1)) != tick:
+		_failure = "deformation drive did not receive the selected post-physics contact sample"
+		return false
+	var point = _vector3(sample.get("point", []), "deformation drive contact point")
+	var normal = _vector3(sample.get("normal", []), "deformation drive contact normal")
+	var impulse = _vector3(sample.get("impulse", []), "deformation drive contact impulse")
+	var sample_response_matrix := _matrix(sample.get("_response_transform", []), "deformation drive sample response transform")
+	if point == null or normal == null or impulse == null or sample_response_matrix.is_empty() or not _finite_vector3(point as Vector3) or not _finite_vector3(normal as Vector3) or not _finite_vector3(impulse as Vector3) or (normal as Vector3).length_squared() <= 1.0e-18:
+		_failure = "deformation drive contact sample is non-finite or has no usable normal"
+		return false
+	var sample_response_transform := _matrix_transform(sample_response_matrix)
+	if not _finite_transform(sample_response_transform) or abs(sample_response_transform.basis.determinant() - 1.0) > TOLERANCE:
+		_failure = "deformation drive sample response transform is not finite and orthonormal"
+		return false
+	var radius := float(surface.get("baseline_radius", 0.0))
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	var surface_transform: Transform3D = surface.get("surface_transform", Transform3D.IDENTITY)
+	var response_body = surface.get("body", null)
+	if not is_finite(radius) or radius <= 0.0 or baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or not _finite_transform(surface_transform) or not (response_body is ContactCaptureBody) or not is_instance_valid(response_body):
+		_failure = "deformation drive surface geometry is invalid"
+		return false
+	var impulse_length := (impulse as Vector3).length()
+	if not is_finite(impulse_length) or impulse_length <= 0.0:
+		_failure = "deformation drive contact impulse was not positive and measurable"
+		return false
+	var normalized_depth: float = DEFORMATION_NORMALIZED_PEAK_DEPTH
+	var runtime_contact_point: Vector3 = point as Vector3
+	# Despite its historical name, get_contact_local_position() returns a
+	# global-space point. Convert through the response body exactly once before
+	# projecting into the capsule-local surface frame.
+	var local_contact_point: Vector3 = sample_response_transform.affine_inverse() * runtime_contact_point
+	var surface_contact_point: Vector3 = surface_transform.affine_inverse() * local_contact_point
+	var radial := Vector3(surface_contact_point.x, 0.0, surface_contact_point.z)
+	if not _finite_vector3(runtime_contact_point) or not _finite_vector3(local_contact_point) or not _finite_vector3(surface_contact_point) or radial.length_squared() <= 1.0e-18:
+		_failure = "deformation drive contact point cannot define an inward capsule-axis direction"
+		return false
+	var radial_direction := radial.normalized()
+	var half_length := 0.5 * float(surface.get("baseline_length", 0.0))
+	var falloff_radius := float(surface.get("falloff_radius", 0.0))
+	if not is_finite(half_length) or half_length <= 0.0 or not is_finite(falloff_radius) or falloff_radius <= 0.0:
+		_failure = "deformation drive falloff geometry is invalid"
+		return false
+	var falloff_center := Vector3(radial_direction.x * radius, clamp(surface_contact_point.y, -half_length, half_length), radial_direction.z * radius)
+	var local_deformation_center: Vector3 = surface_transform * falloff_center
+	var toward_sleeve_center: Vector3 = surface_transform.origin - local_deformation_center
+	var contact_normal: Vector3 = (normal as Vector3).normalized()
+	var normal_center_alignment: float = abs(contact_normal.dot(toward_sleeve_center.normalized()))
+	if not _finite_vector3(local_deformation_center) or not _finite_vector3(toward_sleeve_center) or toward_sleeve_center.length_squared() <= 1.0e-18 or not _finite_vector3(contact_normal) or contact_normal.length_squared() <= 1.0e-18 or not is_finite(normal_center_alignment) or normal_center_alignment < DEFORMATION_MIN_CONTACT_NORMAL_CENTER_ALIGNMENT:
+		_failure = "deformation drive actual contact normal does not define an inward direction for the projected sleeve center"
+		return false
+	var inward_direction: Vector3 = contact_normal if contact_normal.dot(toward_sleeve_center) > 0.0 else -contact_normal
+	var raw_weights: Array[float] = []
+	var positive_weight_max := 0.0
+	for vertex_index in range(baseline_vertices.size()):
+		var surface_vertex: Vector3 = surface_transform.affine_inverse() * baseline_vertices[vertex_index]
+		var distance := surface_vertex.distance_to(falloff_center)
+		var raw_weight := 0.0
+		if distance < falloff_radius:
+			raw_weight = pow(max(0.0, 1.0 - distance / falloff_radius), 2.0)
+		if not is_finite(distance) or not is_finite(raw_weight) or raw_weight < 0.0:
+			_failure = "deformation drive generated a non-finite compact falloff weight"
+			return false
+		raw_weights.append(raw_weight)
+		if raw_weight > positive_weight_max:
+			positive_weight_max = raw_weight
+	if not is_finite(positive_weight_max) or positive_weight_max <= 0.0:
+		_failure = "deformation drive compact falloff has no positive vertex weight"
+		return false
+	var weights: Array[float] = []
+	var deformed_vertices := PackedVector3Array()
+	var affected_weight_count := 0
+	var unaffected_weight_count := 0
+	for vertex_index in range(raw_weights.size()):
+		var raw_weight: float = raw_weights[vertex_index]
+		var weight := 0.0
+		if raw_weight > 0.0:
+			weight = raw_weight / positive_weight_max
+		if not is_finite(weight) or weight < 0.0 or weight > 1.0:
+			_failure = "deformation drive generated a non-finite or unbounded normalized falloff weight"
+			return false
+		weights.append(weight)
+		if weight > 0.0:
+			affected_weight_count += 1
+		else:
+			unaffected_weight_count += 1
+		deformed_vertices.append(baseline_vertices[vertex_index] + inward_direction * (radius * normalized_depth * weight))
+	if affected_weight_count <= 0 or unaffected_weight_count <= 0 or float(affected_weight_count) / float(weights.size()) > DEFORMATION_MAX_AFFECTED_FRACTION:
+		_failure = "deformation drive compact falloff did not contain both affected and unaffected vertices within its fraction cap"
+		return false
+	if not weights.has(1.0):
+		_failure = "deformation drive normalized falloff did not retain an exact unit peak"
+		return false
+	surface["falloff_weights"] = weights
+	if not _set_deformation_mesh_arrays(surface, deformed_vertices, null, core_start_usec):
+		return false
+	var state := _capture_deformation_state(surface, "peak", tick, normalized_depth, deformed_vertices, affected_weight_count)
+	if state.is_empty():
+		return false
+	var actual_normalized_depth := float(state.get("_normalized_depth_raw", -1.0))
+	if not is_finite(actual_normalized_depth) or abs(actual_normalized_depth - normalized_depth) > TOLERANCE or actual_normalized_depth <= DEFORMATION_MIN_NORMALIZED_DEPTH or actual_normalized_depth > DEFORMATION_MAX_NORMALIZED_DEPTH + DEFORMATION_RECOVERY_TOLERANCE or float(state.get("_readback_error_raw", INF)) > TOLERANCE:
+		_failure = "deformation drive ArrayMesh read-back did not retain a bounded measurable state"
+		return false
+	var coherence_state := _capture_render_collision_coherence_state(surface, "peak", tick, "contact", true, sample_index)
+	if coherence_state.is_empty():
+		return false
+	var coherence_states: Dictionary = surface.get("coherence_states", {})
+	var contact_onset_state: Dictionary = coherence_states.get("contact_onset", {})
+	if contact_onset_state.is_empty():
+		var onset_coherence_state := _capture_render_collision_coherence_state(surface, "contact_onset", tick, "contact", true, sample_index)
+		if onset_coherence_state.is_empty():
+			return false
+		coherence_states["contact_onset"] = onset_coherence_state
+		var onset_vertices: PackedVector3Array = state.get("_vertices_array", PackedVector3Array())
+		if onset_vertices.size() != DEFORMATION_VERTEX_COUNT:
+			_failure = "render/collision coherence onset vertex retention is incomplete"
+			return false
+		surface["onset_coherence_response_body_to_world"] = onset_coherence_state["response_body_to_world"].duplicate()
+		surface["onset_coherence_vertices"] = onset_vertices.duplicate()
+	if not _validate_retained_onset_coherence(surface):
+		return false
+	surface["last_coherence_state"] = coherence_state
+	surface["last_tick"] = tick
+	surface["last_state"] = state
+	var peak_state: Dictionary = surface.get("peak_state", {})
+	var prior_peak_impulse := float(surface.get("peak_impulse_magnitude_raw", 0.0))
+	if peak_state.is_empty() or impulse_length > prior_peak_impulse:
+		surface["peak_state"] = state.duplicate(true)
+		surface["peak_normalized_depth_raw"] = actual_normalized_depth
+		surface["peak_absolute_depth_raw"] = actual_normalized_depth * radius
+		surface["peak_runtime_contact_point"] = runtime_contact_point
+		surface["peak_contact_point"] = local_contact_point
+		surface["peak_deformation_center"] = local_deformation_center
+		surface["peak_inward_direction"] = inward_direction
+		surface["peak_sample_tick"] = tick
+		surface["peak_sample_index"] = sample_index
+		surface["peak_sample_response_transform"] = sample_response_matrix.duplicate()
+		surface["peak_falloff_weights"] = weights.duplicate()
+		surface["peak_impulse_magnitude_raw"] = impulse_length
+		coherence_states["peak"] = coherence_state.duplicate(true)
+		surface["coherence_states"] = coherence_states
+	return true
+
+
+func _recover_deformation_for_release(surface: Dictionary, fraction: float) -> bool:
+	var core_start_usec := Time.get_ticks_usec()
+	surface["last_deformation_core_duration_usec"] = -1
+	if not is_finite(fraction) or fraction < 0.0 or fraction > 1.0:
+		_failure = "deformation release interpolation fraction is invalid"
+		return false
+	var peak_state: Dictionary = surface.get("peak_state", {})
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	if peak_state.is_empty() or not (peak_state.get("_vertices_array", null) is PackedVector3Array) or baseline_vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "deformation release interpolation has no retained peak state"
+		return false
+	var peak_vertices: PackedVector3Array = peak_state["_vertices_array"]
+	if peak_vertices.size() != baseline_vertices.size():
+		_failure = "deformation release interpolation peak and baseline arrays differ"
+		return false
+	var interpolated := PackedVector3Array()
+	for vertex_index in range(baseline_vertices.size()):
+		interpolated.append(peak_vertices[vertex_index].lerp(baseline_vertices[vertex_index], fraction))
+	if not _set_deformation_mesh_arrays(surface, interpolated, null, core_start_usec):
+		return false
+	var release_tick := int(surface.get("last_tick", 0)) + 1
+	var expected_depth := float(surface.get("peak_normalized_depth_raw", 0.0)) * (1.0 - fraction)
+	var state := _capture_deformation_state(surface, "release", release_tick, expected_depth, interpolated, 0)
+	if state.is_empty() or float(state.get("_outside_falloff_max_residual_raw", INF)) > DEFORMATION_OUTSIDE_FALLOFF_TOLERANCE:
+		if _failure.is_empty():
+			_failure = "deformation release interpolation escaped its compact falloff"
+		return false
+	surface["last_tick"] = release_tick
+	surface["last_release_fraction"] = fraction
+	surface["current_state"] = state
+	return true
+
+
+func _restore_deformation_baseline(surface: Dictionary) -> bool:
+	var core_start_usec := Time.get_ticks_usec()
+	surface["last_deformation_core_duration_usec"] = -1
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	var baseline_normals: PackedVector3Array = surface.get("baseline_normals", PackedVector3Array())
+	if baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "deformation baseline recovery arrays are incomplete"
+		return false
+	if not _set_deformation_mesh_arrays(surface, baseline_vertices, baseline_normals, core_start_usec):
+		return false
+	var state := _capture_deformation_state(surface, "recovery", CONTACT_TOTAL_TICKS, 0.0, baseline_vertices, 0)
+	if state.is_empty() or float(state.get("_normalized_depth_raw", INF)) > DEFORMATION_RECOVERY_TOLERANCE or float(state.get("_max_residual_raw", INF)) > DEFORMATION_RECOVERY_TOLERANCE:
+		if _failure.is_empty():
+			_failure = "deformation baseline recovery was not exact"
+		return false
+	surface["current_state"] = state
+	return true
+
+
+func _deformation_state_report(state: Dictionary) -> Dictionary:
+	var vertices: PackedVector3Array = state.get("_vertices_array", PackedVector3Array())
+	if vertices.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "deformation state report does not contain the exact read-back vertices"
+		return {}
+	var vertex_report: Array = []
+	for vertex in vertices:
+		if not _finite_vector3(vertex):
+			_failure = "deformation state report contains a non-finite vertex"
+			return {}
+		vertex_report.append(_vector_json(vertex))
+	return {
+		"tick": int(state.get("tick", -1)),
+		"normalized_depth": float(state.get("normalized_depth", INF)),
+		"vertices": vertex_report,
+		"max_residual": float(state.get("max_residual", INF)),
+		"affected_vertex_count": int(state.get("affected_vertex_count", -1)),
+		"outside_falloff_max_residual": float(state.get("outside_falloff_max_residual", INF)),
+	}
+
+
+func _deformation_material(color: Color, alpha: float, transparent: bool) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(color.r, color.g, color.b, alpha)
+	material.roughness = 0.5
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if transparent:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	return material
+
+
+func _deformation_marker_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.22, 0.04, 1.0)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.08, 0.01, 1.0)
+	material.emission_energy_multiplier = 1.8
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+
+func _deformation_marker_ring(inner_radius: float, outer_radius: float, material: StandardMaterial3D, name: String) -> MeshInstance3D:
+	var marker_mesh := TorusMesh.new()
+	marker_mesh.inner_radius = inner_radius
+	marker_mesh.outer_radius = outer_radius
+	marker_mesh.rings = 32
+	marker_mesh.ring_segments = 12
+	var marker := MeshInstance3D.new()
+	marker.name = name
+	marker.mesh = marker_mesh
+	marker.material_override = material
+	return marker
+
+
+func _render_deformation_capture(surface: Dictionary, state: Dictionary, label: String, capture_dir: String, file_name: String, capture_index: int) -> Dictionary:
+	var state_vertices: PackedVector3Array = state.get("_vertices_array", PackedVector3Array())
+	var state_normals: PackedVector3Array = state.get("_normals_array", PackedVector3Array())
+	var state_indices: PackedInt32Array = state.get("_indices_array", PackedInt32Array())
+	var baseline_vertices: PackedVector3Array = surface.get("baseline_vertices", PackedVector3Array())
+	var baseline_normals: PackedVector3Array = surface.get("baseline_normals", PackedVector3Array())
+	var baseline_indices: PackedInt32Array = surface.get("baseline_indices", PackedInt32Array())
+	if state_vertices.size() != DEFORMATION_VERTEX_COUNT or state_normals.size() != DEFORMATION_VERTEX_COUNT or state_indices != baseline_indices or baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "%s static replay scene does not contain the exact stored state arrays" % label
+		return {}
+	var state_mesh_value = _deformation_mesh_from_arrays(state_vertices, state_normals, state_indices, "%s replay state" % label)
+	var baseline_mesh_value = _deformation_mesh_from_arrays(baseline_vertices, baseline_normals, baseline_indices, "%s replay baseline" % label)
+	if state_mesh_value == null or baseline_mesh_value == null:
+		return {}
+	var state_mesh: ArrayMesh = state_mesh_value
+	var baseline_mesh: ArrayMesh = baseline_mesh_value
+	var replay_root := Node3D.new()
+	replay_root.name = "StaticDeformationReplay_%s" % label
+	get_root().add_child(replay_root)
+	var viewports: Array[SubViewport] = []
+	var surface_transform: Transform3D = surface.get("surface_transform", Transform3D.IDENTITY)
+	var radius := float(surface.get("baseline_radius", 0.0))
+	var length := float(surface.get("baseline_length", 0.0))
+	if not is_finite(radius) or radius <= 0.0 or not is_finite(length) or length <= 0.0 or not _finite_transform(surface_transform):
+		replay_root.free()
+		_failure = "%s static replay framing geometry is invalid" % label
+		return {}
+	var center := surface_transform.origin
+	var body_up: Vector3 = (surface_transform.basis * Vector3.UP).normalized()
+	var actuator_point: Vector3 = surface.get("peak_contact_point", center + surface_transform.basis * Vector3(radius, 0.0, 0.0))
+	var inward_direction: Vector3 = surface.get("peak_inward_direction", (surface_transform.basis * Vector3(-1.0, 0.0, 0.0)).normalized())
+	var deformation_center: Vector3 = surface.get("peak_deformation_center", actuator_point)
+	if not _finite_vector3(actuator_point) or not _finite_vector3(deformation_center) or not _finite_vector3(inward_direction) or inward_direction.length_squared() <= 1.0e-18:
+		replay_root.free()
+		_failure = "%s static replay actuator placement is invalid" % label
+		return {}
+	var surface_center_local := surface_transform.affine_inverse() * deformation_center
+	var surface_outward_direction := surface_transform.basis * Vector3(surface_center_local.x, 0.0, surface_center_local.z)
+	if not _finite_vector3(surface_outward_direction) or surface_outward_direction.length_squared() <= 1.0e-18:
+		replay_root.free()
+		_failure = "%s static replay deformation center cannot define the local surface normal" % label
+		return {}
+	surface_outward_direction = surface_outward_direction.normalized()
+	var side_direction := body_up.cross(surface_outward_direction)
+	if side_direction.length_squared() <= 1.0e-18:
+		side_direction = (surface_transform.basis * Vector3(0.0, 0.0, 1.0)).normalized()
+	else:
+		side_direction = side_direction.normalized()
+	var view_directions := [
+		side_direction,
+		surface_outward_direction,
+		(surface_outward_direction + side_direction * 0.62 + body_up * 0.22).normalized(),
+	]
+	var camera_size: float = max(length + 2.0 * radius, 4.0 * radius) * 1.25
+	var camera_distance: float = max(length + 4.0 * radius, 8.0 * radius)
+	var marker_material := _deformation_marker_material()
+	var falloff_radius := float(surface.get("falloff_radius", 0.0))
+	if not is_finite(falloff_radius) or falloff_radius <= 0.0:
+		replay_root.free()
+		_failure = "%s static replay falloff footprint is invalid" % label
+		return {}
+	var marker_ring_center := deformation_center + surface_outward_direction * (radius * 0.055)
+	for view_index in range(3):
+		var viewport := SubViewport.new()
+		viewport.name = "View_%d" % view_index
+		viewport.size = Vector2i(DEFORMATION_VIEW_SIZE, DEFORMATION_VIEW_SIZE)
+		viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+		viewport.transparent_bg = false
+		viewport.own_world_3d = true
+		viewport.world_3d = World3D.new()
+		replay_root.add_child(viewport)
+		var scene_root := Node3D.new()
+		viewport.add_child(scene_root)
+		var environment_node := WorldEnvironment.new()
+		var environment := Environment.new()
+		environment.background_mode = Environment.BG_COLOR
+		environment.background_color = Color(0.035, 0.045, 0.065, 1.0)
+		environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		environment.ambient_light_color = Color(0.62, 0.68, 0.8, 1.0)
+		environment.ambient_light_energy = 0.65
+		environment_node.environment = environment
+		scene_root.add_child(environment_node)
+		var key_light := DirectionalLight3D.new()
+		key_light.rotation_degrees = Vector3(-32.0, -38.0, 0.0)
+		key_light.light_energy = 1.1
+		scene_root.add_child(key_light)
+		var fill_light := OmniLight3D.new()
+		fill_light.position = center + body_up * (length * 0.2 + radius * 1.5)
+		fill_light.omni_range = camera_size * 2.0
+		fill_light.light_energy = 0.8
+		scene_root.add_child(fill_light)
+		var baseline_instance := MeshInstance3D.new()
+		baseline_instance.name = "BaselineGhostGuide"
+		baseline_instance.mesh = baseline_mesh
+		baseline_instance.material_override = _deformation_material(Color(0.55, 0.65, 0.85, 1.0), 0.22, true)
+		scene_root.add_child(baseline_instance)
+		var state_instance := MeshInstance3D.new()
+		state_instance.name = "StoredReadbackState"
+		state_instance.mesh = state_mesh
+		state_instance.material_override = _deformation_material(Color(0.72, 0.50, 0.34, 1.0), 1.0, false)
+		scene_root.add_child(state_instance)
+		var marker_ring := _deformation_marker_ring(falloff_radius * 0.78, falloff_radius * 0.96, marker_material, "FixedFalloffFootprintGuide_%d" % view_index)
+		marker_ring.position = marker_ring_center
+		marker_ring.quaternion = Quaternion(Vector3.UP, surface_outward_direction)
+		scene_root.add_child(marker_ring)
+		var camera := Camera3D.new()
+		camera.name = "BodyRelativeCloseView_%d" % view_index
+		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+		camera.size = camera_size
+		camera.near = 0.05
+		camera.far = camera_distance * 4.0
+		camera.look_at_from_position(center + view_directions[view_index] * camera_distance, center, body_up)
+		scene_root.add_child(camera)
+		viewports.append(viewport)
+	await process_frame
+	await process_frame
+	var composite := Image.create(DEFORMATION_CAPTURE_WIDTH, DEFORMATION_CAPTURE_HEIGHT, false, Image.FORMAT_RGBA8)
+	if composite == null:
+		replay_root.free()
+		_failure = "%s static replay composite image could not be allocated" % label
+		return {}
+	composite.fill(Color(0.035, 0.045, 0.065, 1.0))
+	for view_index in range(viewports.size()):
+		var view_image := viewports[view_index].get_texture().get_image()
+		if view_image == null or view_image.get_width() != DEFORMATION_VIEW_SIZE or view_image.get_height() != DEFORMATION_VIEW_SIZE:
+			replay_root.free()
+			_failure = "%s static replay view %d did not render at the fixed 512x512 size" % [label, view_index]
+			return {}
+		if view_image.get_format() != Image.FORMAT_RGBA8:
+			view_image.convert(Image.FORMAT_RGBA8)
+		composite.blit_rect(view_image, Rect2i(Vector2i.ZERO, Vector2i(DEFORMATION_VIEW_SIZE, DEFORMATION_VIEW_SIZE)), Vector2i(view_index * DEFORMATION_VIEW_SIZE, 0))
+	replay_root.free()
+	var path := capture_dir.path_join(file_name)
+	var save_error := composite.save_png(path)
+	if save_error != OK:
+		_failure = "%s static replay capture could not be saved to the explicit staging directory" % label
+		return {}
+	var bytes := _read_bytes(path, "%s deformation capture" % label)
+	if bytes.is_empty():
+		return {}
+	var verified_image := Image.new()
+	if verified_image.load(path) != OK or verified_image.get_width() != DEFORMATION_CAPTURE_WIDTH or verified_image.get_height() != DEFORMATION_CAPTURE_HEIGHT:
+		_failure = "%s saved deformation capture failed exact dimension read-back" % label
+		return {}
+	return {
+		"label": label,
+		"file_name": file_name,
+		"width": verified_image.get_width(),
+		"height": verified_image.get_height(),
+		"sha256": _sha256(bytes),
+		"byte_count_decimal": str(bytes.size()),
+	}
+
+
+func _finish_deformation_capture(surface: Dictionary, response_mapping: Dictionary, capture_dir: String) -> Dictionary:
+	if surface.is_empty() or capture_dir.is_empty() or not capture_dir.is_absolute_path():
+		_failure = "deformation capture finalization inputs are incomplete"
+		return {}
+	if typeof(response_mapping.get("source_joint", null)) != TYPE_DICTIONARY or String(response_mapping.get("source_bone_id", "")).is_empty() or int(response_mapping.get("source_proxy_index", -1)) < 0:
+		_failure = "deformation capture finalization source mapping is incomplete"
+		return {}
+	var baseline_vertices_value: Variant = surface.get("baseline_vertices", null)
+	var baseline_normals_value: Variant = surface.get("baseline_normals", null)
+	var baseline_indices_value: Variant = surface.get("baseline_indices", null)
+	if not (baseline_vertices_value is PackedVector3Array) or not (baseline_normals_value is PackedVector3Array) or not (baseline_indices_value is PackedInt32Array):
+		_failure = "deformation capture finalization baseline read-back is incomplete"
+		return {}
+	var baseline_vertices: PackedVector3Array = baseline_vertices_value
+	var baseline_normals: PackedVector3Array = baseline_normals_value
+	var baseline_indices: PackedInt32Array = baseline_indices_value
+	if baseline_vertices.size() != DEFORMATION_VERTEX_COUNT or baseline_normals.size() != DEFORMATION_VERTEX_COUNT or baseline_indices.size() != DEFORMATION_TRIANGLE_COUNT * 3:
+		_failure = "deformation capture finalization baseline topology is invalid"
+		return {}
+	var reference_value: Variant = surface.get("reference_state", null)
+	var peak_value: Variant = surface.get("peak_state", null)
+	var recovered_value: Variant = surface.get("current_state", null)
+	if not (reference_value is Dictionary) or not (peak_value is Dictionary):
+		_failure = "deformation capture finalization is missing reference or peak read-back"
+		return {}
+	if not (recovered_value is Dictionary) or (recovered_value as Dictionary).is_empty():
+		_failure = "deformation capture finalization is missing recovered read-back"
+		return {}
+	var reference_state: Dictionary = reference_value
+	var peak_state: Dictionary = peak_value
+	var recovered_state: Dictionary = recovered_value
+	var states: Array[Dictionary] = [reference_state, peak_state, recovered_state]
+	var peak_tick := int(surface.get("peak_sample_tick", -1))
+	var peak_sample_index := int(surface.get("peak_sample_index", -1))
+	var peak_sample_response_transform = surface.get("peak_sample_response_transform", [])
+	var peak_depth := float(surface.get("peak_normalized_depth_raw", 0.0))
+	var peak_absolute_depth := float(surface.get("peak_absolute_depth_raw", 0.0))
+	var expected_ticks: Array[int] = [0, peak_tick, CONTACT_TOTAL_TICKS]
+	var state_labels: Array[String] = ["reference", "peak", "recovered"]
+	for state_index in range(states.size()):
+		var state: Dictionary = states[state_index]
+		var vertices_value: Variant = state.get("_vertices_array", null)
+		var normals_value: Variant = state.get("_normals_array", null)
+		var indices_value: Variant = state.get("_indices_array", null)
+		if not (vertices_value is PackedVector3Array) or not (normals_value is PackedVector3Array) or not (indices_value is PackedInt32Array):
+			_failure = "%s deformation state read-back arrays are incomplete" % state_labels[state_index]
+			return {}
+		var state_vertices: PackedVector3Array = vertices_value
+		var state_normals: PackedVector3Array = normals_value
+		var state_indices: PackedInt32Array = indices_value
+		if state_vertices.size() != DEFORMATION_VERTEX_COUNT or state_normals.size() != DEFORMATION_VERTEX_COUNT or state_indices != baseline_indices:
+			_failure = "%s deformation state read-back topology is invalid" % state_labels[state_index]
+			return {}
+		for vertex_index in range(state_vertices.size()):
+			if not _finite_vector3(state_vertices[vertex_index]) or not _finite_vector3(state_normals[vertex_index]):
+				_failure = "%s deformation state read-back contains a non-finite vertex or normal" % state_labels[state_index]
+				return {}
+		var state_tick := int(state.get("tick", -1))
+		var normalized_depth := float(state.get("_normalized_depth_raw", INF))
+		var max_residual := float(state.get("_max_residual_raw", INF))
+		var readback_error := float(state.get("_readback_error_raw", INF))
+		var outside_falloff_max_residual := float(state.get("_outside_falloff_max_residual_raw", INF))
+		var affected_vertex_count := int(state.get("affected_vertex_count", -1))
+		if state_tick != expected_ticks[state_index] or not is_finite(normalized_depth) or not is_finite(max_residual) or not is_finite(readback_error) or not is_finite(outside_falloff_max_residual) or affected_vertex_count < 0 or affected_vertex_count > DEFORMATION_VERTEX_COUNT:
+			_failure = "%s deformation state read-back metrics are invalid" % state_labels[state_index]
+			return {}
+		if readback_error > TOLERANCE or outside_falloff_max_residual > DEFORMATION_OUTSIDE_FALLOFF_TOLERANCE:
+			_failure = "%s deformation state read-back exceeds its declared tolerance" % state_labels[state_index]
+			return {}
+		if state_index == 1:
+			if abs(max_residual - peak_absolute_depth) > TOLERANCE or normalized_depth <= DEFORMATION_MIN_NORMALIZED_DEPTH or normalized_depth > DEFORMATION_MAX_NORMALIZED_DEPTH + DEFORMATION_RECOVERY_TOLERANCE or affected_vertex_count <= 0 or float(affected_vertex_count) / float(DEFORMATION_VERTEX_COUNT) > DEFORMATION_MAX_AFFECTED_FRACTION:
+				_failure = "peak deformation state read-back is not measurable, bounded, and compact"
+				return {}
+		else:
+			if max_residual > DEFORMATION_RECOVERY_TOLERANCE or normalized_depth > DEFORMATION_RECOVERY_TOLERANCE or affected_vertex_count != 0:
+				_failure = "%s deformation state did not recover to the exact baseline" % state_labels[state_index]
+				return {}
+	var peak_falloff_value: Variant = surface.get("peak_falloff_weights", null)
+	var falloff_radius := float(surface.get("falloff_radius", 0.0))
+	var radius := float(surface.get("baseline_radius", 0.0))
+	if not (peak_falloff_value is Array) or (peak_falloff_value as Array).size() != DEFORMATION_VERTEX_COUNT or not is_finite(falloff_radius) or falloff_radius <= 0.0 or not is_finite(radius) or radius <= 0.0:
+		_failure = "deformation capture finalization falloff evidence is incomplete"
+		return {}
+	var peak_falloff_weights: Array = peak_falloff_value
+	var positive_weight_count := 0
+	var exact_zero_weight_count := 0
+	var has_exact_unit_weight := false
+	for weight_value in peak_falloff_weights:
+		var weight := float(weight_value)
+		if not is_finite(weight) or weight < 0.0 or weight > 1.0:
+			_failure = "deformation capture finalization falloff evidence is invalid"
+			return {}
+		if weight > 0.0:
+			positive_weight_count += 1
+		if weight == 0.0:
+			exact_zero_weight_count += 1
+		if weight == 1.0:
+			has_exact_unit_weight = true
+	if positive_weight_count <= 0 or exact_zero_weight_count <= 0 or not has_exact_unit_weight or peak_state.get("affected_vertex_count", -1) != positive_weight_count:
+		_failure = "deformation capture finalization falloff evidence does not prove compact normalized weights"
+		return {}
+	if peak_tick != expected_ticks[1] or peak_sample_index < 0 or _matrix(peak_sample_response_transform, "deformation peak sample response transform").is_empty() or not is_finite(peak_depth) or not is_finite(peak_absolute_depth) or abs(peak_depth - DEFORMATION_NORMALIZED_PEAK_DEPTH) > TOLERANCE or abs(peak_absolute_depth - radius * DEFORMATION_NORMALIZED_PEAK_DEPTH) > TOLERANCE or abs(peak_absolute_depth - peak_depth * radius) > TOLERANCE:
+		_failure = "deformation capture finalization peak contact evidence is invalid"
+		return {}
+	var reference_report: Dictionary = _deformation_state_report(reference_state)
+	var peak_report: Dictionary = _deformation_state_report(peak_state)
+	var recovered_report: Dictionary = _deformation_state_report(recovered_state)
+	if reference_report.is_empty() or peak_report.is_empty() or recovered_report.is_empty():
+		return {}
+	var capture_labels: Array[String] = ["reference", "peak", "recovered"]
+	var captures: Array[Dictionary] = []
+	for capture_index in range(DEFORMATION_CAPTURE_NAMES.size()):
+		var capture: Dictionary = await _render_deformation_capture(surface, states[capture_index], capture_labels[capture_index], capture_dir, String(DEFORMATION_CAPTURE_NAMES[capture_index]), capture_index)
+		if capture.is_empty():
+			return {}
+		if not _exact_keys(capture, ["label", "file_name", "width", "height", "sha256", "byte_count_decimal"]) or capture.get("label", "") != capture_labels[capture_index] or capture.get("file_name", "") != String(DEFORMATION_CAPTURE_NAMES[capture_index]) or int(capture.get("width", -1)) != DEFORMATION_CAPTURE_WIDTH or int(capture.get("height", -1)) != DEFORMATION_CAPTURE_HEIGHT or not _is_sha256(String(capture.get("sha256", ""))) or not _is_canonical_capture_byte_count(capture.get("byte_count_decimal", "")):
+			_failure = "%s deformation capture metadata is invalid" % capture_labels[capture_index]
+			return {}
+		captures.append(capture)
+	surface["recovered_state"] = recovered_state
+	return {
+		"boundary": DEFORMATION_REPORT_BOUNDARY,
+		"target_index": 1,
+		"source_bone_id": String(response_mapping.get("source_bone_id", "")),
+		"source_shape_index": int(response_mapping.get("source_proxy_index", -1)),
+		"runtime_shape_index": 0,
+		"surface": {
+			"kind": DEFORMATION_SURFACE_KIND,
+			"attachment": DEFORMATION_SURFACE_ATTACHMENT,
+			"collision_mode": DEFORMATION_SURFACE_COLLISION_MODE,
+			"axial_segments": DEFORMATION_AXIAL_SEGMENTS,
+			"radial_segments": DEFORMATION_RADIAL_SEGMENTS,
+			"vertex_count": DEFORMATION_VERTEX_COUNT,
+			"triangle_count": DEFORMATION_TRIANGLE_COUNT,
+			"baseline_radius": radius,
+			"baseline_length": float(surface.get("baseline_length", 0.0)),
+		},
+		"drive": {
+			"kind": DEFORMATION_DRIVE_KIND,
+			"normalized_peak_depth": peak_depth,
+			"absolute_peak_depth": peak_absolute_depth,
+			"falloff_radius_ratio": DEFORMATION_FALLOFF_RADIUS_RATIO,
+			"peak_tick": peak_tick,
+			"contact_sample_tick": peak_tick,
+			"contact_sample_index": peak_sample_index,
+			"sample_response_transform": peak_sample_response_transform.duplicate(),
+			"runtime_contact_point": _vector_json(surface.get("peak_runtime_contact_point", Vector3.ZERO)),
+			"local_contact_point": _vector_json(surface.get("peak_contact_point", Vector3.ZERO)),
+			"local_deformation_center": _vector_json(surface.get("peak_deformation_center", Vector3.ZERO)),
+			"local_inward_direction": _vector_json(surface.get("peak_inward_direction", Vector3.ZERO)),
+			"falloff_weights": peak_falloff_weights.duplicate(),
+		},
+		"states": {
+			"reference": reference_report,
+			"peak": peak_report,
+			"recovered": recovered_report,
+		},
+		"captures": captures,
+	}
+
+
+func _finish_render_collision_coherence(surface: Dictionary, response_mapping: Dictionary) -> Dictionary:
+	var coherence_states_value: Variant = surface.get("coherence_states", null)
+	if not (coherence_states_value is Dictionary):
+		_failure = "render/collision coherence state collection is incomplete"
+		return {}
+	var coherence_states: Dictionary = coherence_states_value
+	if not _exact_keys(coherence_states, RENDER_COLLISION_COHERENCE_STATE_ORDER):
+		_failure = "render/collision coherence state collection does not contain the exact state order"
+		return {}
+	if not _validate_retained_onset_coherence(surface):
+		return {}
+	var peak_falloff_weights_value: Variant = surface.get("peak_falloff_weights", null)
+	if typeof(peak_falloff_weights_value) != TYPE_ARRAY or peak_falloff_weights_value.size() != DEFORMATION_VERTEX_COUNT:
+		_failure = "render/collision coherence has no complete retained peak falloff"
+		return {}
+	var peak_falloff_weights: Array = peak_falloff_weights_value
+	for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+		var state_value: Variant = coherence_states.get(state_name, null)
+		if not (state_value is Dictionary):
+			_failure = "%s render/collision coherence state is not an object" % state_name
+			return {}
+		var state_record: Dictionary = state_value
+		var metrics_value: Variant = state_record.get("metrics", null)
+		if not (metrics_value is Dictionary):
+			_failure = "%s render/collision coherence metrics are missing" % state_name
+			return {}
+		var outside_penetration = _coherence_outside_falloff_penetration(state_record, peak_falloff_weights, state_name)
+		if outside_penetration == null:
+			return {}
+		var metrics: Dictionary = metrics_value.duplicate(true)
+		metrics["outside_falloff_max_penetration"] = _report_float(float(outside_penetration))
+		state_record["metrics"] = metrics
+		coherence_states[state_name] = state_record
+	var state_keys := [
+		"state",
+		"tick",
+		"phase",
+		"contact",
+		"contact_sample_index",
+		"response_body_to_world",
+		"capsule_to_body",
+		"sleeve_to_body",
+		"capsule",
+		"vertices",
+		"metrics",
+	]
+	var capsule_keys := ["endpoint_a", "endpoint_b", "radius", "height"]
+	var metric_keys := [
+		"maximum_absolute_side_clearance",
+		"maximum_outward_clearance",
+		"maximum_inward_penetration",
+		"outside_falloff_max_penetration",
+	]
+	var neutral_state: Dictionary = {}
+	var peak_state: Dictionary = {}
+	var onset_state: Dictionary = {}
+	var recovery_state: Dictionary = {}
+	for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+		var state_value: Variant = coherence_states.get(state_name, null)
+		if not (state_value is Dictionary):
+			_failure = "%s render/collision coherence state is not an object" % state_name
+			return {}
+		var coherence_state_record: Dictionary = state_value
+		if not _exact_keys(coherence_state_record, state_keys) or coherence_state_record.get("state", "") != state_name or typeof(coherence_state_record.get("tick", null)) != TYPE_INT or int(coherence_state_record.tick) < 0 or typeof(coherence_state_record.get("phase", null)) != TYPE_STRING or String(coherence_state_record.phase).is_empty() or typeof(coherence_state_record.get("contact", null)) != TYPE_BOOL or typeof(coherence_state_record.get("contact_sample_index", null)) != TYPE_INT:
+			_failure = "%s render/collision coherence state metadata is invalid" % state_name
+			return {}
+		var sample_index := int(coherence_state_record.contact_sample_index)
+		if sample_index < -1 or (coherence_state_record.contact and sample_index < 0) or (not coherence_state_record.contact and sample_index != -1):
+			_failure = "%s render/collision coherence contact sample linkage is invalid" % state_name
+			return {}
+		for transform_field in ["response_body_to_world", "capsule_to_body", "sleeve_to_body"]:
+			if _matrix(coherence_state_record[transform_field], "%s coherence %s" % [state_name, transform_field]).is_empty():
+				return {}
+		var capsule_value: Variant = coherence_state_record.get("capsule", null)
+		if not (capsule_value is Dictionary) or not _exact_keys(capsule_value, capsule_keys):
+			_failure = "%s render/collision coherence capsule evidence is incomplete" % state_name
+			return {}
+		var capsule: Dictionary = capsule_value
+		var endpoint_a = _vector3(capsule.endpoint_a, "%s coherence capsule endpoint a" % state_name)
+		var endpoint_b = _vector3(capsule.endpoint_b, "%s coherence capsule endpoint b" % state_name)
+		var radius := float(capsule.radius)
+		var height := float(capsule.height)
+		if endpoint_a == null or endpoint_b == null or not is_finite(radius) or radius <= 0.0 or not is_finite(height) or height <= 2.0 * radius:
+			_failure = "%s render/collision coherence capsule dimensions are invalid" % state_name
+			return {}
+		var central_segment_length := height - 2.0 * radius
+		if not is_finite(central_segment_length) or central_segment_length <= 1.0e-12:
+			_failure = "%s render/collision coherence capsule central segment is invalid" % state_name
+			return {}
+		var capsule_transform := _matrix_transform(_matrix(coherence_state_record.capsule_to_body, "%s coherence capsule transform" % state_name))
+		var expected_endpoint_a: Vector3 = capsule_transform * Vector3(0.0, -0.5 * central_segment_length, 0.0)
+		var expected_endpoint_b: Vector3 = capsule_transform * Vector3(0.0, 0.5 * central_segment_length, 0.0)
+		if (endpoint_a as Vector3).distance_to(expected_endpoint_a) > TOLERANCE or (endpoint_b as Vector3).distance_to(expected_endpoint_b) > TOLERANCE:
+			_failure = "%s render/collision coherence capsule endpoints do not match its runtime transform and dimensions" % state_name
+			return {}
+		var vertices: Variant = coherence_state_record.get("vertices", null)
+		if typeof(vertices) != TYPE_ARRAY or vertices.size() != DEFORMATION_VERTEX_COUNT:
+			_failure = "%s render/collision coherence vertex read-back is incomplete" % state_name
+			return {}
+		for vertex_index in range(vertices.size()):
+			if _vector3(vertices[vertex_index], "%s coherence vertex %d" % [state_name, vertex_index]) == null:
+				return {}
+		var metrics_value: Variant = coherence_state_record.get("metrics", null)
+		if not (metrics_value is Dictionary) or not _exact_keys(metrics_value, metric_keys):
+			_failure = "%s render/collision coherence metrics are incomplete" % state_name
+			return {}
+		for metric_key in metric_keys:
+			var metric := float(metrics_value[metric_key])
+			if not is_finite(metric) or metric < 0.0:
+				_failure = "%s render/collision coherence metric %s is invalid" % [state_name, metric_key]
+				return {}
+		if float(metrics_value.outside_falloff_max_penetration) > float(metrics_value.maximum_inward_penetration) + TOLERANCE:
+			_failure = "%s render/collision coherence outside-falloff penetration exceeds total inward penetration" % state_name
+			return {}
+		if state_name == "neutral":
+			neutral_state = coherence_state_record
+		elif state_name == "contact_onset":
+			onset_state = coherence_state_record
+		elif state_name == "peak":
+			peak_state = coherence_state_record
+		else:
+			recovery_state = coherence_state_record
+	if int(neutral_state.tick) != 0 or neutral_state.contact or int(neutral_state.contact_sample_index) != -1 or not onset_state.contact or not peak_state.contact or int(recovery_state.tick) != CONTACT_TOTAL_TICKS or recovery_state.contact or int(recovery_state.contact_sample_index) != -1:
+		_failure = "render/collision coherence state ordering or contact presence is invalid"
+		return {}
+	if int(peak_state.tick) != int(surface.get("peak_sample_tick", -1)) or int(peak_state.contact_sample_index) != int(surface.get("peak_sample_index", -1)):
+		_failure = "render/collision coherence peak is not linked to the retained strongest contact sample"
+		return {}
+	var neutral_capsule: Dictionary = neutral_state.capsule
+	var neutral_endpoint_a: Vector3 = _vector3(neutral_capsule.endpoint_a, "coherence neutral endpoint a")
+	var neutral_endpoint_b: Vector3 = _vector3(neutral_capsule.endpoint_b, "coherence neutral endpoint b")
+	var neutral_radius := float(neutral_capsule.radius)
+	if neutral_endpoint_a == null or neutral_endpoint_b == null or not is_finite(neutral_radius) or neutral_radius <= 0.0:
+		return {}
+	var source_proxy_value: Variant = response_mapping.get("posed_proxy", null)
+	if not (source_proxy_value is Dictionary):
+		_failure = "render/collision coherence source posed proxy lineage is missing"
+		return {}
+	var source_proxy: Dictionary = source_proxy_value
+	var source_a = _vector3(source_proxy.get("a", []), "coherence source posed proxy endpoint a")
+	var source_b = _vector3(source_proxy.get("b", []), "coherence source posed proxy endpoint b")
+	var source_radius := float(source_proxy.get("radius", 0.0))
+	if source_a == null or source_b == null or not is_finite(source_radius) or source_radius <= 0.0:
+		_failure = "render/collision coherence source posed proxy dimensions are invalid"
+		return {}
+	var source_segment_length := (source_b as Vector3).distance_to(source_a as Vector3)
+	var neutral_segment_length := (neutral_endpoint_b as Vector3).distance_to(neutral_endpoint_a as Vector3)
+	if not is_finite(source_segment_length) or source_segment_length <= 1.0e-12 or not is_finite(neutral_segment_length) or neutral_segment_length <= 1.0e-12 or abs(source_radius - neutral_radius) > TOLERANCE or abs(source_segment_length - neutral_segment_length) > TOLERANCE:
+		_failure = "render/collision coherence source posed proxy dimensions disagree with runtime capsule dimensions"
+		return {}
+	var max_endpoint_a_drift := 0.0
+	var max_endpoint_b_drift := 0.0
+	var max_radius_drift := 0.0
+	for state_name in RENDER_COLLISION_COHERENCE_STATE_ORDER:
+		var drift_state_record: Dictionary = coherence_states[state_name]
+		var capsule: Dictionary = drift_state_record.capsule
+		var endpoint_a: Vector3 = _vector3(capsule.endpoint_a, "%s drift endpoint a" % state_name)
+		var endpoint_b: Vector3 = _vector3(capsule.endpoint_b, "%s drift endpoint b" % state_name)
+		var radius := float(capsule.radius)
+		var endpoint_a_drift: float = endpoint_a.distance_to(neutral_endpoint_a)
+		var endpoint_b_drift: float = endpoint_b.distance_to(neutral_endpoint_b)
+		var radius_drift: float = absf(radius - neutral_radius)
+		var maximum_geometry_drift: float = maxf(endpoint_a_drift, maxf(endpoint_b_drift, radius_drift))
+		if not is_finite(endpoint_a_drift) or not is_finite(endpoint_b_drift) or not is_finite(radius_drift) or not is_finite(maximum_geometry_drift):
+			_failure = "%s render/collision coherence geometry drift is non-finite" % state_name
+			return {}
+		max_endpoint_a_drift = max(max_endpoint_a_drift, endpoint_a_drift)
+		max_endpoint_b_drift = max(max_endpoint_b_drift, endpoint_b_drift)
+		max_radius_drift = max(max_radius_drift, radius_drift)
+	var maximum_geometry_drift: float = maxf(max_endpoint_a_drift, maxf(max_endpoint_b_drift, max_radius_drift))
+	if maximum_geometry_drift > TOLERANCE:
+		_failure = "render/collision coherence selected capsule changed across the captured states"
+		return {}
+	return {
+		"schema": RENDER_COLLISION_COHERENCE_SCHEMA,
+		"boundary": RENDER_COLLISION_COHERENCE_BOUNDARY,
+		"frame": RENDER_COLLISION_COHERENCE_FRAME,
+		"collision_mode": DEFORMATION_SURFACE_COLLISION_MODE,
+		"selected_capsule": {
+			"target_index": int(response_mapping.get("target_index", -1)),
+			"source_bone_id": String(response_mapping.get("source_bone_id", "")),
+			"source_shape_index": int(response_mapping.get("source_proxy_index", -1)),
+			"runtime_shape_index": 0,
+			"source_lineage": "semantic_contact.participants[1].posed_proxy",
+			"source_geometry_binding": "radius-and-central-segment-length-only",
+		},
+		"falloff_source": RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE,
+		"vertex_count": DEFORMATION_VERTEX_COUNT,
+		"state_order": RENDER_COLLISION_COHERENCE_STATE_ORDER.duplicate(),
+		"states": [
+			coherence_states["neutral"],
+			coherence_states["contact_onset"],
+			coherence_states["peak"],
+			coherence_states["recovery"],
+		],
+		"collision_geometry_drift": {
+			"reference_state": "neutral",
+			"max_endpoint_a_drift": _report_float(max_endpoint_a_drift),
+			"max_endpoint_b_drift": _report_float(max_endpoint_b_drift),
+			"max_radius_drift": _report_float(max_radius_drift),
+			"maximum_geometry_drift": _report_float(maximum_geometry_drift),
+		},
+	}
+
+
+func _readback_semantic_pose_injection(profile: Dictionary, index: int, binding: Dictionary, carrier_binding: Dictionary, options: Dictionary) -> Dictionary:
+	var rule_readback = profile.get("runtime_pose_rule_readback", [])
+	if typeof(rule_readback) != TYPE_ARRAY or rule_readback.size() != SEMANTIC_POSE_COMMAND_RULE_COUNT:
+		_failure = "%s semantic pose runtime rule read-back is incomplete" % profile.profile_id
+		return {}
+	var readback_by_selector := {}
+	for record in rule_readback:
+		if typeof(record) != TYPE_DICTIONARY:
+			_failure = "%s semantic pose runtime rule read-back is malformed" % profile.profile_id
+			return {}
+		var selector := String(record.get("selector", ""))
+		if selector.is_empty() or readback_by_selector.has(selector):
+			_failure = "%s semantic pose runtime rule read-back has a missing or duplicate selector" % profile.profile_id
+			return {}
+		readback_by_selector[selector] = record
+	var ordered_readback: Array[Dictionary] = []
+	for selector in options.semantic_pose_command_selectors:
+		if not readback_by_selector.has(selector):
+			_failure = "%s semantic pose selector read-back is incomplete" % profile.profile_id
+			return {}
+		ordered_readback.append(readback_by_selector[selector])
+	var target := {
+		"instance_id": carrier_binding.get("instance_id", ""),
+		"profile_id": carrier_binding.get("profile_id", ""),
+		"candidate_profile_sha256": carrier_binding.get("candidate_profile_sha256", ""),
+	}
+	var applied: bool = (
+		target == options.semantic_pose_command.targets[index]
+		and ordered_readback.size() == SEMANTIC_POSE_COMMAND_RULE_COUNT
+		and int(binding.pose_rules_applied) == SEMANTIC_POSE_COMMAND_RULE_COUNT
+		and int(binding.pose_global_matrices_match) == SEMANTIC_POSE_COMMAND_RULE_COUNT
+		and int(binding.skin_matrices_match) == SEMANTIC_POSE_COMMAND_RULE_COUNT
+	)
+	if not applied:
+		_failure = "%s semantic pose command did not produce complete runtime read-back" % profile.profile_id
+		return {}
+	return {
+		"target": target,
+		"rule_readback": ordered_readback,
+		"rules_observed": ordered_readback.size(),
+		"local_pose_matches_command": int(binding.pose_rules_applied),
+		"global_pose_matches_published": int(binding.pose_global_matrices_match),
+		"skin_matrices_match_published": int(binding.skin_matrices_match),
+		"applied": applied,
+	}
+
+
 func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: Array[Dictionary]) -> Dictionary:
 	var candidate_hashes := {}
 	var profiles: Array[Dictionary] = []
+	var carrier_avatar_bindings: Array[Dictionary] = []
 	var profile_translations: Array = []
 	var pose_rule_count := -1
 	var pose_rules_validated := true
-	for profile in loaded_profiles:
+	var contact_mode: bool = options.has("semantic_contact_command")
+	var deformation_mode: bool = contact_mode and _deformation_enabled(options)
+	for index in range(loaded_profiles.size()):
+		var profile: Dictionary = loaded_profiles[index]
 		candidate_hashes[profile.profile_id] = profile.candidate_profile_sha256
 		var metrics: Dictionary = profile.metrics
-		var binding := _readback_binding(profile)
+		var binding := _readback_binding(profile, options.has("semantic_pose_command"))
 		if binding.is_empty():
 			return {}
 		var node_counts := _readback_node_counts(profile)
@@ -1174,6 +4073,12 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		if actual_translation.distance_to(expected_translation) > TOLERANCE:
 			_failure = "%s runtime profile translation differs from the expected host-only placement" % profile.profile_id
 			return {}
+		var carrier_binding := {}
+		if options.has("carrier_identity"):
+			carrier_binding = _readback_carrier_avatar_binding(profile, index, options.carrier_avatar_records[index])
+			if carrier_binding.is_empty():
+				return {}
+			carrier_avatar_bindings.append(carrier_binding)
 		profile_translations.append(_vector_json(actual_translation))
 		var profile_pose_rule_count := int(binding.pose_rules_applied)
 		if pose_rule_count < 0:
@@ -1182,7 +4087,7 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			_failure = "runtime profiles disagree on the applied shared-pose rule count"
 			return {}
 		pose_rules_validated = pose_rules_validated and profile.pose_rules_validated
-		profiles.append({
+		var profile_report := {
 			"profile_id": profile.profile_id,
 			"candidate_profile_sha256": profile.candidate_profile_sha256,
 			"metrics": metrics,
@@ -1201,21 +4106,43 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 			"posed_proxy_aabb": profile.posed_proxy_aabb,
 			"node_counts": node_counts,
 			"binding": binding,
-		})
+		}
+		if options.has("ck_projection"):
+			var projection_avatar: Dictionary = options.ck_projection_avatars[index]
+			profile_report["ck_projection_binding"] = {
+				"instance_id": projection_avatar.instance_id,
+				"profile_id": projection_avatar.profile_id,
+				"candidate_profile_sha256": projection_avatar.candidate_profile_sha256,
+				"source": projection_avatar.source,
+				"artifacts": projection_avatar.artifacts,
+			}
+		if options.has("semantic_pose_command"):
+			var injection := _readback_semantic_pose_injection(profile, index, binding, carrier_binding, options)
+			if injection.is_empty():
+				return {}
+			profile_report["semantic_pose_injection"] = injection
+		profiles.append(profile_report)
 	if pose_rule_count < 0 or not pose_rules_validated:
 		_failure = "runtime shared-pose evidence is incomplete"
 		return {}
+	var claims: Array[String] = ["host-local Skeleton3D/Skin pose binding", "host-local consumption of the shared structural pose recipe"]
+	if contact_mode:
+		claims.append("experiment-local semantic proxy contact and rigid-body response")
+	if deformation_mode:
+		claims.append("experiment-local contact-driven smooth forearm surface deformation, exact recovery, and static replay captures of runtime read-back states")
+		claims.append("experiment-local paired runtime render-surface and rigid-collision read-back coherence")
+	var report_boundary := DEFORMATION_REPORT_BOUNDARY if deformation_mode else CONTACT_REPORT_BOUNDARY if contact_mode else REPORT_BOUNDARY
 	var report := {
 		"schema": REPORT_SCHEMA,
 		"status": "success",
-		"boundary": REPORT_BOUNDARY,
-		"claims": ["host-local Skeleton3D/Skin pose binding", "host-local consumption of the shared structural pose recipe"],
+		"boundary": report_boundary,
+		"claims": claims,
 		"scope_flags": {
-			"physics_stepping": false,
+			"physics_stepping": contact_mode,
 			"animation": false,
-			"contact": false,
-			"deformation": false,
-			"render_output": false,
+			"contact": contact_mode,
+			"deformation": deformation_mode,
+			"render_output": deformation_mode,
 			"adapter": false,
 		},
 		"godot_version": validated.godot_version,
@@ -1237,24 +4164,301 @@ func _build_report(options: Dictionary, validated: Dictionary, loaded_profiles: 
 		"coordinate_rule": {
 			"kind": "disposable_host_local_identity",
 			"mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
-			"scope": REPORT_BOUNDARY,
+			"scope": report_boundary,
 			"profile_translations": profile_translations,
 		},
 		"pose_binding": {
 			"pose_id": validated.pose_id,
 			"pose_sha256": validated.pose_sha256,
-			"path": POSE_FILE,
+			"path": "injected-semantic-pose-command" if options.has("semantic_pose_command") else POSE_FILE,
 			"rule_count": pose_rule_count,
 			"rules_validated": pose_rules_validated,
 			"applied_to_skeleton3d": pose_rule_count == BONE_COUNT,
 			"ik": false,
-			"contact": false,
+			"contact": contact_mode,
 		},
 		"profiles": profiles,
 	}
 	if options.has("carrier_identity"):
 		report["validated_carrier"] = options.carrier_identity
+		report["carrier_avatar_bindings"] = carrier_avatar_bindings
+	if options.has("ck_projection_identity"):
+		report["validated_ck_projection"] = options.ck_projection_identity
+	if options.has("semantic_pose_command"):
+		report["semantic_pose_command_identity"] = options.semantic_pose_command_identity
+		report["semantic_pose_targets"] = options.semantic_pose_command.targets
+		report["semantic_pose_frame"] = options.semantic_pose_frame
+	if contact_mode:
+		var contact_probe: Dictionary = options.get("semantic_contact_probe", {})
+		if contact_probe.is_empty():
+			_failure = "semantic contact report evidence is missing"
+			return {}
+		var selector_mappings: Array[Dictionary] = []
+		for participant in contact_probe.participants:
+			selector_mappings.append({
+				"role": participant.role,
+				"target_index": participant.target_index,
+				"selector": participant.selector,
+				"bone_id": participant.source_bone_id,
+				"proxy_id": participant.source_bone_id,
+				"owned_part": participant.posed_proxy.owned_part,
+				"shape_index": participant.source_proxy_index,
+				"runtime_shape_index": participant.runtime_shape_index,
+			})
+		var public_contact_samples: Array[Dictionary] = []
+		for contact_sample in contact_probe.contact_samples:
+			var public_sample: Dictionary = contact_sample.duplicate(true)
+			public_sample.erase("_response_transform")
+			public_contact_samples.append(public_sample)
+		var solver_impulses := [{
+			"runtime_derived": true,
+			"target_indices": [0, 1],
+			"shape_indices": [contact_probe.participants[0].source_proxy_index, contact_probe.participants[1].source_proxy_index],
+			"impulse_magnitude": contact_probe.solver_impulse_magnitude,
+			"contact_samples": public_contact_samples,
+		}]
+		var initial_response: Dictionary = contact_probe.initial_response
+		var onset_response: Dictionary = contact_probe.onset_response
+		var contact_response: Dictionary = contact_probe.contact_response
+		var final_response: Dictionary = contact_probe.final_response
+		report["semantic_contact"] = {
+			"command_identity": options.semantic_contact_command_identity,
+			"targets": options.semantic_contact_command.targets,
+			"source_pose_command": options.semantic_contact_command.source_pose_command,
+			"mapping_revision": contact_probe.mapping_revision,
+			"participants": contact_probe.participants,
+			"interaction": options.semantic_contact_command.interaction,
+			"selector_mappings": selector_mappings,
+			"phase_order": CONTACT_PHASE_ORDER,
+			"phase_ticks": contact_probe.phase_tick_schedule,
+			"max_ticks": CONTACT_MAX_TICKS,
+			"contact_tick_evidence": contact_probe.contact_tick_evidence,
+			"physics_configuration": contact_probe.physics_configuration,
+			"solver_impulses": solver_impulses,
+			"response": {
+				"target_index": 1,
+				"shape_index": contact_probe.participants[1].source_proxy_index,
+				"normal": contact_probe.contact_normal,
+				"snapshots": {
+					"initial": initial_response,
+					"onset": onset_response,
+					"contact": contact_response,
+					"final": final_response,
+				},
+				"normal_velocity_delta": contact_probe.normal_velocity_delta,
+				"normal_displacement": contact_probe.normal_displacement,
+				"displacement": contact_probe.response_displacement_length,
+			},
+		}
+		if deformation_mode:
+			var semantic_deformation_value: Variant = contact_probe.get("semantic_deformation", null)
+			if not (semantic_deformation_value is Dictionary) or (semantic_deformation_value as Dictionary).is_empty():
+				_failure = "semantic deformation report evidence is missing"
+				return {}
+			report["semantic_deformation"] = semantic_deformation_value
+			var semantic_render_collision_coherence_value: Variant = contact_probe.get("semantic_render_collision_coherence", null)
+			if not (semantic_render_collision_coherence_value is Dictionary) or (semantic_render_collision_coherence_value as Dictionary).is_empty():
+				_failure = "render/collision coherence report evidence is missing"
+				return {}
+			report["semantic_render_collision_coherence"] = semantic_render_collision_coherence_value
+		if options.runtime_measurement_mode_present:
+			var runtime_measurement := _build_runtime_measurement(options, contact_probe)
+			if runtime_measurement.is_empty():
+				return {}
+			report["runtime_measurement"] = runtime_measurement
 	return report
+
+
+func _build_runtime_measurement(options: Dictionary, contact_probe: Dictionary) -> Dictionary:
+	var runtime_mode := String(options.get("runtime_measurement_mode", ""))
+	if not RUNTIME_MEASUREMENT_MODES.has(runtime_mode):
+		_failure = "runtime measurement report mode is unsupported"
+		return {}
+	var timestamp_points_value: Variant = contact_probe.get("runtime_physics_timestamp_points_usec", null)
+	var frame_ids_value: Variant = contact_probe.get("runtime_physics_frame_ids", null)
+	var interval_samples_value: Variant = contact_probe.get("runtime_physics_interval_samples", null)
+	var deformation_records_value: Variant = contact_probe.get("runtime_deformation_update_records", null)
+	if typeof(timestamp_points_value) != TYPE_ARRAY or typeof(frame_ids_value) != TYPE_ARRAY or typeof(interval_samples_value) != TYPE_ARRAY or typeof(deformation_records_value) != TYPE_ARRAY:
+		_failure = "runtime measurement raw samples are incomplete"
+		return {}
+	var timestamp_points: Array = timestamp_points_value
+	var frame_ids: Array = frame_ids_value
+	var interval_samples: Array = interval_samples_value
+	var deformation_records: Array = deformation_records_value
+	if timestamp_points.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1 or frame_ids.size() != RUNTIME_PHYSICS_SAMPLE_COUNT + 1 or interval_samples.size() != RUNTIME_PHYSICS_SAMPLE_COUNT:
+		_failure = "runtime measurement raw sample counts do not match the selected mode"
+		return {}
+	if runtime_mode == "cpu_deformation" and deformation_records.is_empty():
+		_failure = "cpu deformation runtime measurement did not retain deformation update records"
+		return {}
+	if runtime_mode == "rigid_contact_only" and not deformation_records.is_empty():
+		_failure = "rigid-contact-only runtime measurement retained unexpected deformation update records"
+		return {}
+	if not _validate_runtime_measurement_samples(timestamp_points, "physics timestamp") or not _validate_runtime_measurement_samples(frame_ids, "physics frame ID") or not _validate_runtime_measurement_samples(interval_samples, "physics interval"):
+		return {}
+	var physics_timestamp_points: Array[Dictionary] = []
+	var first_engine_frame_id := int(frame_ids[0])
+	for point_index in range(RUNTIME_PHYSICS_SAMPLE_COUNT + 1):
+		var timestamp_usec := int(timestamp_points[point_index])
+		var engine_frame_id := int(frame_ids[point_index])
+		var logical_frame_id := engine_frame_id - first_engine_frame_id
+		if logical_frame_id != point_index:
+			_failure = "runtime measurement physics-frame IDs are not a consecutive logical sequence"
+			return {}
+		physics_timestamp_points.append({
+			"frame_id": logical_frame_id,
+			"timestamp_usec": timestamp_usec,
+		})
+	for interval_index in range(RUNTIME_PHYSICS_SAMPLE_COUNT):
+		var derived_interval_usec := int(timestamp_points[interval_index + 1]) - int(timestamp_points[interval_index])
+		if derived_interval_usec <= 0 or derived_interval_usec != int(interval_samples[interval_index]):
+			_failure = "runtime measurement physics timestamp intervals do not match the retained raw intervals"
+			return {}
+	var cpu_deformation_updates: Array[Dictionary] = []
+	if runtime_mode == "cpu_deformation":
+		for record_index in range(deformation_records.size()):
+			var record: Variant = deformation_records[record_index]
+			if typeof(record) != TYPE_DICTIONARY or not _exact_keys(record, ["sample_index", "operation", "phase", "logical_tick", "cpu_deformation_core_duration_usec", "evidence_inclusive_wall_duration_usec"]):
+				_failure = "runtime measurement deformation update record fields are invalid"
+				return {}
+			if int(record.sample_index) != record_index or typeof(record.operation) != TYPE_STRING or typeof(record.phase) != TYPE_STRING or typeof(record.logical_tick) == TYPE_BOOL or typeof(record.cpu_deformation_core_duration_usec) == TYPE_BOOL or typeof(record.evidence_inclusive_wall_duration_usec) == TYPE_BOOL:
+				_failure = "runtime measurement deformation update record identity is invalid"
+				return {}
+			if int(record.logical_tick) <= 0 or int(record.cpu_deformation_core_duration_usec) < 0 or int(record.evidence_inclusive_wall_duration_usec) < 0 or not is_finite(float(record.cpu_deformation_core_duration_usec)) or not is_finite(float(record.evidence_inclusive_wall_duration_usec)):
+				_failure = "runtime measurement deformation update record value is invalid"
+				return {}
+			if int(record.evidence_inclusive_wall_duration_usec) < int(record.cpu_deformation_core_duration_usec):
+				_failure = "runtime measurement deformation inclusive duration is less than deformation core duration"
+				return {}
+			cpu_deformation_updates.append(record)
+	var version_info: Dictionary = Engine.get_version_info()
+	var version_hash := String(version_info.get("hash", ""))
+	var godot_version := "%d.%d.%d.%s.%s.%s" % [int(version_info.get("major", -1)), int(version_info.get("minor", -1)), int(version_info.get("patch", -1)), String(version_info.get("status", "")), String(version_info.get("build", "")), version_hash.left(9)]
+	var engine_version_string := String(version_info.get("string", ""))
+	if godot_version != EXPECTED_GODOT_VERSION or engine_version_string.is_empty():
+		_failure = "runtime measurement Godot version identity is invalid"
+		return {}
+	var physics_engine := String(ProjectSettings.get_setting("physics/3d/physics_engine", ""))
+	var physics_ticks_per_second := int(Engine.get_physics_ticks_per_second())
+	if physics_engine.is_empty() or physics_ticks_per_second != RUNTIME_TARGET_PHYSICS_HZ:
+		_failure = "runtime measurement physics configuration is invalid"
+		return {}
+	var processor_count := int(OS.get_processor_count())
+	if processor_count <= 0:
+		_failure = "runtime measurement CPU processor count is invalid"
+		return {}
+	var os_name := OS.get_name()
+	var distribution_name := OS.get_distribution_name()
+	var os_version := OS.get_version()
+	var model_name := OS.get_model_name()
+	var architecture := Engine.get_architecture_name()
+	var processor_name := OS.get_processor_name()
+	var renderer_method := RenderingServer.get_current_rendering_method()
+	var renderer_driver_name := RenderingServer.get_current_rendering_driver_name()
+	var actual_display_server := DisplayServer.get_name()
+	var window_size := DisplayServer.window_get_size()
+	var adapter_name := RenderingServer.get_video_adapter_name()
+	var adapter_vendor := RenderingServer.get_video_adapter_vendor()
+	var adapter_api_version := RenderingServer.get_video_adapter_api_version()
+	var adapter_device_type := int(RenderingServer.get_video_adapter_type())
+	var adapter_driver_info: Array[String] = []
+	for driver_item in OS.get_video_adapter_driver_info():
+		var driver_info := String(driver_item)
+		if not driver_info.is_empty():
+			adapter_driver_info.append(driver_info)
+	if os_name.is_empty() or distribution_name.is_empty() or os_version.is_empty() or architecture.is_empty() or processor_name.is_empty() or renderer_method.is_empty() or renderer_driver_name.is_empty():
+		_failure = "runtime measurement environment identity is incomplete"
+		return {}
+	if actual_display_server != "X11":
+		_failure = "runtime measurement actual display server is not X11"
+		return {}
+	if adapter_name.is_empty() or adapter_vendor.is_empty() or adapter_api_version.is_empty():
+		_failure = "runtime measurement adapter identity is incomplete"
+		return {}
+	if window_size != Vector2i(512, 512):
+		_failure = "runtime measurement effective window size is not the requested 512x512"
+		return {}
+	var memory_snapshot := _runtime_memory_snapshot()
+	if memory_snapshot.is_empty():
+		return {}
+	return {
+		"schema": RUNTIME_MEASUREMENT_SCHEMA,
+		"boundary": RUNTIME_MEASUREMENT_BOUNDARY,
+		"mode": runtime_mode,
+		"godot": {
+			"version": godot_version,
+			"engine_version_string": engine_version_string,
+		},
+		"os": {
+			"name": os_name,
+			"distribution_name": distribution_name,
+			"version": os_version,
+			"model_name": model_name,
+			"architecture": architecture,
+		},
+		"cpu": {
+			"processor_name": processor_name,
+			"processor_count": processor_count,
+		},
+		"renderer": {
+			"method": renderer_method,
+			"driver_name": renderer_driver_name,
+			"requested_display_driver": "x11",
+			"actual_display_server": actual_display_server,
+			"window_size_pixels": [window_size.x, window_size.y],
+		},
+		"adapter": {
+			"name": adapter_name,
+			"vendor": adapter_vendor,
+			"api_version": adapter_api_version,
+			"device_type": adapter_device_type,
+			"driver_info": adapter_driver_info,
+		},
+		"physics": {
+			"engine": physics_engine,
+			"ticks_per_second": physics_ticks_per_second,
+			"max_steps_per_frame": Engine.get_max_physics_steps_per_frame(),
+		},
+		"memory": memory_snapshot,
+		"physics_timestamp_points": physics_timestamp_points,
+		"cpu_deformation_updates": {
+			"applicability": "applicable" if runtime_mode == "cpu_deformation" else "not_applicable",
+			"records": cpu_deformation_updates,
+		},
+	}
+
+
+func _validate_runtime_measurement_samples(samples: Array, label: String) -> bool:
+	for sample in samples:
+		if typeof(sample) == TYPE_BOOL or not is_finite(float(sample)) or float(sample) < 0.0:
+			_failure = "runtime measurement %s sample is non-finite or negative" % label
+			return false
+	return true
+
+
+func _runtime_memory_snapshot() -> Dictionary:
+	# This is a bounded Godot Performance allocator/render-memory snapshot only;
+	# it is not process RSS, process peak memory, or GPU memory accounting.
+	var static_bytes = _runtime_performance_monitor(Performance.MEMORY_STATIC, "static memory")
+	var static_max_bytes = _runtime_performance_monitor(Performance.MEMORY_STATIC_MAX, "static memory maximum")
+	if static_bytes == null or static_max_bytes == null:
+		return {}
+	return {
+		"scope": "godot_allocator_snapshot_not_process_rss_or_gpu_memory",
+		"units": "bytes",
+		"static_bytes": static_bytes,
+		"static_max_bytes": static_max_bytes,
+		"process_rss_bytes": null,
+		"gpu_memory_bytes": null,
+	}
+
+
+func _runtime_performance_monitor(monitor: int, label: String) -> Variant:
+	var value := float(Performance.get_monitor(monitor))
+	if not is_finite(value) or value < 0.0:
+		_failure = "runtime measurement %s monitor is non-finite or negative" % label
+		return null
+	return int(value)
 
 
 func _parse_ply(bytes: PackedByteArray, where: String) -> Dictionary:
@@ -1509,6 +4713,19 @@ func _aabb_json(aabb: AABB) -> Dictionary:
 
 func _vector_json(value: Vector3) -> Array[float]:
 	return [value.x, value.y, value.z]
+
+
+func _transform_json(value: Transform3D) -> Array[float]:
+	return [
+		value.basis.x.x, value.basis.y.x, value.basis.z.x, value.origin.x,
+		value.basis.x.y, value.basis.y.y, value.basis.z.y, value.origin.y,
+		value.basis.x.z, value.basis.y.z, value.basis.z.z, value.origin.z,
+		0.0, 0.0, 0.0, 1.0,
+	]
+
+
+func _quaternion_json(value: Quaternion) -> Array[float]:
+	return [value.x, value.y, value.z, value.w]
 
 
 func _influence_count(rows) -> int:

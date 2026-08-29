@@ -20,15 +20,61 @@ recipe, bakes neutral and posed host mesh evidence, and compares that evidence
 plus 18 posed proxy nodes to the published artifacts. Its host normal evidence
 uses a documented `3e-4` tolerance for Godot's host mesh normal encoding.
 All three probes record deterministic host-local evidence in isolated
-temporary Godot projects and remove those projects afterward.
+temporary Godot projects and remove those projects afterward. The skeletal
+probe's semantic-contact mode is a bounded experiment-local contact path: its
+fixed canonical command addresses actuator avatar 0's right wrist and response
+avatar 1's left wrist, and freshly validates the exact selected posed-capsule
+lineage plus CK, carrier, semantic-pose, and CK-projection identities before
+launch and report publication. The disposable project explicitly pins Jolt
+Physics. It moves an `AnimatableBody3D` actuator through bounded
+approach/contact/release/exit phases against a `RigidBody3D` response body and
+records runtime-derived contact and solver-response evidence. Its optional
+deformation mode adds a smooth open forearm sleeve, drives a fixed localized
+falloff from the retained contact sample, validates exact release recovery,
+and emits static replay captures of the runtime mesh read-back states.
 
-This is not a package, adapter, Readiness 3 result, semantic-contact result,
-deformation result, physical-response result, benchmark, or checkpoint claim.
-It makes no claim about a permanent Godot engine selection or about the wider
-feasibility trial. The skeletal smoke's binding claim is host-local only; none
-of the probes claims animation, semantic pose injection, physics stepping,
-contact, deformation, render output, adapter/package/R3/performance/checkpoint
-evidence, or visual review.
+This is not a package, adapter, Readiness 3 result, realistic tissue result,
+benchmark, or checkpoint claim. The contact path proves only bounded
+experiment-local semantic contact and physical response: its report validates
+the exact logical tick trace, contact samples and attribution, nonzero solver
+impulse, snapshot-derived normal velocity/displacement, and clean exit. Its
+runtime configuration is `AnimatableBody3D` actuator plus `RigidBody3D`
+response initialized once with mass 1, gravity 0, locked rotation, sleep
+disabled, and one shape; after setup the probe drives only the actuator. It
+makes no claim about visual quality, package/adapter/R3/performance, permanent
+Godot/Jolt selection, or the human checkpoint. The skeletal smoke's binding claim is
+host-local only; its pose command mode remains disposable semantic-selector
+injection and read-back evidence, and its no-contact paths remain unchanged
+predecessor paths.
+The deformation mode proves only slight open-edge surface deformation and
+exact recovery. Its rigid capsule remains undeformed. The completed
+experiment-local render/collision read-back coherence slice pairs the runtime
+`ArrayMesh` and `CollisionShape3D` read-back in one response-body-local frame,
+with the existing static replay linkage. Its schema is
+`creature-kernel.disposable-godot-render-collision-coherence.v1` and its frame
+is `response_body_local_selected_capsule_side`. It records `neutral`,
+`contact_onset`, `peak`, and `recovery` at ticks 0, 26, 26, and 64; onset and
+peak are legitimately the same first/strongest sample. The successful run
+reported selected rigid-capsule endpoint and radius drift of exactly zero;
+validation permits only the declared numeric tolerance, so exact zero is not a
+general enforced invariant. The selected-capsule source binding cross-validates
+semantic identity, radius, and central-segment length against the posed proxy.
+Runtime body-local placement and orientation come from `CollisionShape3D`
+read-back; this evidence does not claim that they are independently
+common-frame-derived from the source proxy endpoints. Neutral and recovery
+maximum absolute side clearance is `5.9605e-08`; peak inward penetration is
+`0.00328758359`, peak outward clearance is `5.9605e-08`, and outside-falloff
+penetration is `2.9802e-08`. Python independently reconstructs runtime capsule
+endpoints from the capsule transform/height/radius and recomputes vertex
+clearances and metrics. This remains narrow experiment-local evidence, not live
+contact rendering, deformed collision, realistic tissue, production topology,
+performance, package/adapter/R3 evidence, or permanent Godot/Jolt selection.
+The static captures remain replay linkage rather than live contact rendering.
+Normal failures remove newly written captures and the success report is
+published last. An abrupt process termination can still leave orphan captures
+without a report, so the two-part output assumes a stable, non-adversarial
+same-user parent directory; consumers must not treat captures without the
+matching success report as evidence.
 
 ## Provisioning
 
@@ -135,10 +181,17 @@ Pass that canonical carrier back through the skeletal probe with `--carrier`.
 The carrier selects the authoritative ordered profile and experiment-instance
 identities. Omit `--profile-id`, or repeat it exactly twice in the same order as
 the carrier. The runner revalidates the carrier and gallery before launch,
-passes the carrier-derived payload to Godot, records the carrier SHA-256, byte
-count, schema, boundary, and instance order in the report, then repeats carrier
-and gallery validation before publishing success. The earlier no-carrier route
-remains available as predecessor evidence.
+passes the carrier-derived payload plus one ordered record per avatar to Godot.
+Each record contains the carrier-backed `instance_id`, `profile_id`, and
+`candidate_profile_sha256`. Godot binds each record to one actual runtime root
+using deterministic safe naming and runtime-readable root metadata. The report
+retains the aggregate carrier SHA-256, byte count, schema, boundary, and
+instance order, and adds `carrier_avatar_bindings` with one root-metadata
+read-back record per avatar. Python rejects missing, duplicate, reordered,
+swapped, mismatched, or aggregate-only binding evidence before publication.
+Carrier and gallery validation then repeat before publishing success. The earlier
+no-carrier route remains available as predecessor evidence and does not emit
+carrier avatar bindings.
 
     CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
       xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
@@ -147,6 +200,213 @@ remains available as predecessor evidence.
       --gallery /absolute/path/to/completed-gallery \
       --carrier /absolute/path/to/disposable-avatar-carrier.json \
       --report /absolute/path/to/skeletal-pose-report.json
+
+Build the separate canonical semantic-pose command from that carrier and the
+exact gallery shared-pose source:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_pose_command.py \
+        build \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --output /absolute/path/to/disposable-semantic-pose-command.json
+
+Validate the command independently before consumption:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_pose_command.py \
+        validate \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --command /absolute/path/to/disposable-semantic-pose-command.json
+
+Consume it by adding `--command` to the carrier-backed skeletal probe:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --command /absolute/path/to/disposable-semantic-pose-command.json \
+      --report /absolute/path/to/semantic-pose-report.json
+
+The command is experiment-local and canonical newline-terminated JSON. It
+contains the command/schema boundary, exact shared-pose format/ID/SHA/version,
+the ordered two-entry carrier target list, and exactly 18 ordered semantic rules
+using the existing kind/role/anchor selectors and source `xyzw` rotations. Its
+identity-frame evidence declares column vectors, `xyzw`, `C = I`, and `s = 1`
+with `evidence_only=true` and `runtime_conformance=false`. It contains no node
+names, bone indices, clips, or durable adapter/package schema. Python validates
+the command and carrier before launch and again after Godot returns; any target,
+	selector, source, frame, payload, or identity change prevents report
+publication. Godot receives the injected semantic payload and does not load the
+shared-pose file in command mode. Its command evidence is derived from runtime
+root metadata plus each `Skeleton3D` bone's semantic metadata and observed local
+rotation, with measured command error and complete local/global/`Skin` matrix
+counts; it is not an echoed selector list. The no-command and carrier-only paths
+remain unchanged predecessor paths.
+
+Build the fixed canonical semantic-contact command from the same carrier and
+the validated semantic-pose command:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_contact_command.py \
+        build \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --pose-command /absolute/path/to/disposable-semantic-pose-command.json \
+        --output /absolute/path/to/disposable-semantic-contact-command.json
+
+Validate the contact command independently against the fresh gallery, carrier,
+and semantic-pose lineage:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+        experiments/godot-provisional-host-feasibility/disposable_semantic_contact_command.py \
+        validate \
+        --gallery /absolute/path/to/completed-gallery \
+        --carrier /absolute/path/to/disposable-avatar-carrier.json \
+        --pose-command /absolute/path/to/disposable-semantic-pose-command.json \
+        --command /absolute/path/to/disposable-semantic-contact-command.json
+
+Consume it through the carrier-, pose-, and CK-projection-backed skeletal probe:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --command /absolute/path/to/disposable-semantic-pose-command.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --ck-cli /absolute/path/to/target/debug/creature-kernel \
+      --contact-command /absolute/path/to/disposable-semantic-contact-command.json \
+      --report /absolute/path/to/semantic-deformation-report.json \
+      --deformation-captures /absolute/path/to/not-yet-existing-deformation-captures
+
+Publish the screened static replay captures for human comparison:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      dev-tools/visual-review/publish_godot_deformation.py \
+      --root /absolute/path/to/existing-review-root \
+      --report /absolute/path/to/semantic-deformation-report.json \
+      --captures /absolute/path/to/deformation-captures
+
+Contact mode requires the explicit Rust CLI and validated CK projection in
+addition to the carrier and semantic-pose command. It does not alter the
+experiment-local command, package, adapter, or engine-selection boundaries.
+
+Run the new opt-in paired runtime evaluation, which launches the same validated
+contact setup once with CPU deformation and once with rigid contact only:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --command /absolute/path/to/disposable-semantic-pose-command.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --ck-cli /absolute/path/to/target/debug/creature-kernel \
+      --contact-command /absolute/path/to/disposable-semantic-contact-command.json \
+      --report /absolute/path/to/runtime-evaluation-report.json \
+      --deformation-captures /absolute/path/to/not-yet-existing-runtime-evaluation-captures \
+      --runtime-evaluation
+
+This mode requires an attended X11 renderer and fixes both launches to
+`--resolution 512x512`, `--display-driver x11`, and
+`--rendering-method gl_compatibility`. The corrected final evidence is one
+bounded paired run in Godot 4.7.2 on Ubuntu 22.04.5 under WSL2, with a 12th Gen
+Intel Core i7-12700KF, Jolt Physics at 60 Hz, and
+`max_steps_per_frame` 8. The actual display was X11 at 512x512 using
+`gl_compatibility`/`opengl3`. The adapter reported D3D12 (NVIDIA GeForce RTX
+4070), vendor Microsoft, Mesa/OpenGL 4.2
+(`4.2 (Core Profile) Mesa 23.2.1-1ubuntu3.1~22.04.4`), and an empty optional
+`driver-info` list. The paired report binds launcher identity alongside
+project, script, executable, and validated input identities.
+
+The trial-local screens are a 60 Hz physics loop with a 20,000 us frame
+(physics-interval) screen and a 2,000 us CPU deformation-core screen;
+percentiles use nearest-rank p95. CPU deformation core (not mesh-only) covered
+39 samples at p95 `1075us`, maximum `1461us`, and zero above `2000us`.
+CPU-mode physics covered 64 samples at p95 `21489us`, maximum `25119us`, and
+eight above `20000us`. Rigid physics covered 64 samples at p95 `20062us`,
+maximum `23196us`, and four above `20000us`; rigid deformation is N/A.
+
+The CPU deformation core includes validation, transforms, falloff or
+interpolation, normal preparation, and `ArrayMesh` mutation. It excludes
+experiment-only readback, state, and coherence validation, which remain
+retained in the evidence-inclusive wall timing. Embedded per-mode semantic
+evidence now audits capabilities: CPU mode has semantic contact, physical
+response, deformation, and captures; rigid mode has semantic contact and
+physical response only. Rigid-contact-only is a separately exercised,
+lower-fidelity mode, not automatic failover; it preserves contact/physical
+response and omits deformation/captures, with no visual equivalence claimed.
+A successful report denotes valid execution; `within_screen` carries the
+screen outcome. The CPU core screen passed, while the frame screen did not.
+Two pre-correction runs exposed a mesh-only attribution error; their CPU values
+`653us` and `633us` are superseded and must not be treated as full deformation
+evidence. Godot allocator snapshots only were `107940927` current /
+`110380697` maximum bytes for CPU and `98272523` current / `105477587` maximum
+bytes for rigid; process RSS and GPU memory were not measured. This is one
+bounded run, not a broad benchmark, product/runtime budget, or permanent
+Godot/Jolt engine choice.
+
+Build a disposable CK/Rust-backed projection from the same carrier and gallery
+with the workspace CLI. The CLI path is mandatory and must be an absolute,
+native WSL/Linux path to an executable regular non-symlink file; wrappers,
+relative paths, symlinks, and Windows-style paths are rejected:
+
+    cargo build -p creature-kernel-cli
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/disposable_ck_projection.py \
+      build \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --output /absolute/path/to/disposable-ck-rust-projection.json \
+      --cli /absolute/path/to/target/debug/creature-kernel
+
+Validate that projection afresh against the carrier, gallery, and the same
+native CLI executable:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/disposable_ck_projection.py \
+      validate \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --cli /absolute/path/to/target/debug/creature-kernel
+
+The builder runs `inspect-structure` once for each of the two ordered source
+profiles, records its bounded success summary plus source and artifact lineage,
+and binds the executable SHA-256, byte count, operation, and format. It checks
+the Rust output envelope, structural contract/basis/profile identities, source
+identity, collection shapes, and summary cardinalities before compacting the
+evidence. It deliberately does not duplicate every Rust graph-member semantic
+inside Python: the exact hash-bound CK executable remains the structural
+validator. The builder rechecks the carrier, gallery sources, and executable
+after inspection; validation also requires an exact fresh rebuild. Publication
+is canonical JSON and does not overwrite an existing output.
+
+The skeletal runner accepts the projection only with its paired explicit
+`--ck-cli /absolute/path/to/target/debug/creature-kernel` input. It performs the
+same fresh projection validation before launch and again before publishing a
+success report; supplying either argument without the other fails closed.
+
+This provisional projection is transport and evidence bookkeeping
+for this experiment only
+(`creature-kernel.disposable-ck-rust-projection.v1`, boundary
+`experiment_local_ck_projection_evidence_only`). It does not generate geometry
+or define a durable CK package, artifact/build identity, adapter, host contract,
+compatibility promise, Readiness 3 activation, or engine selection.
 
 On a Linux or WSL host with `xvfb-run` available, use a virtual display to
 exercise the same real-renderer path without opening a window. Set the existing
@@ -190,7 +450,8 @@ isolates home/XDG/temporary roots, rejects Godot error or resource-leak
 diagnostics, and cross-checks the returned report against validator-backed
 evidence before atomically writing canonical JSON. The reported CK XYZ to
 Godot XYZ identity mapping and fixed profile translations are disposable
-host-local choices, not a durable adapter contract.
+host-local choices, not a durable adapter contract. The carrier root names and
+metadata are likewise experiment-only runtime read-back evidence.
 
 ## Checks
 
@@ -210,12 +471,31 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The skeletal pose suite contains 21 tests covering both frozen
-profile pairs, complete `Skeleton3D`/`Skin` binding evidence, malformed and
-tampered inputs, deterministic reruns, carrier load-through and postflight
-identity, real-process rejection of noncanonical carrier identity, and
-repository/cache cleanliness. The neutral and posed suites run their real Godot
-paths when the completed-gallery fixture and exact pinned binary are available.
+regressions. The `test_skeletal_pose_smoke.py` focused result contains 68 tests
+with 16 expected display skips, covering both frozen profile pairs, complete
+`Skeleton3D`/`Skin` binding evidence, malformed and
+tampered inputs and reports, deterministic reruns, carrier load-through with
+one-to-one runtime-root read-back, real-process rejection of noncanonical
+carrier identity, command-mode semantic injection/read-back, no pose-file
+fallback after injection, repository/cache cleanliness, and bounded semantic
+contact command consumption and report validation. The 12-test
+semantic command suite covers
+deterministic canonical bytes for both frozen profile pairs, strict field,
+rotation, quaternion precision, and frame validation, lineage mismatch, and
+safe publication. The neutral and posed
+suites run their real Godot paths when the completed-gallery fixture and exact
+pinned binary are available.
+The nine-test semantic contact command suite covers fixed participant mapping,
+fresh predecessor lineage, canonical publication, strict field validation,
+tampering and mutation rejection, and command identity. Focused real contact
+integration passed in 182.453s; the focused no-display file has 16 expected display
+skips when its attended renderer path is unavailable.
+The 19-test disposable CK projection suite covers exact producer and transport
+identity, private CLI/source snapshot binding, bounded subprocess output, fresh
+source/carrier/gallery/executable revalidation, deterministic publication,
+mutation rejection, and both frozen
+profile pairs against the native Rust CLI.
+The full Godot experiment suite currently contains 162 tests with 29 skips.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from contextlib import contextmanager
 import hashlib
 import importlib.util
+from io import BytesIO
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -14,11 +17,14 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+from PIL import Image, ImageDraw, ImageOps
+
 
 HERE = Path(__file__).resolve()
 EXPERIMENT = HERE.parent
 REPOSITORY_ROOT = HERE.parents[2]
 GALLERY = Path(os.environ.get("CK_GODOT_STRUCTURAL_GALLERY", "/tmp/ck-godot-structural-inputs/gallery"))
+REAL_CLI = HERE.parents[2] / "target" / "debug" / "creature-kernel"
 DEFAULTS = ("compact_broad_short_limb_large_head", "tall_narrow_long_legged")
 ALTERNATE = ("slender_long_limb", "stocky_broad_chested")
 FAIL_CLOSED_PROJECTION_DIAGNOSTIC = (
@@ -31,6 +37,18 @@ CARRIER_IDENTITY = {
     "boundary": "experiment_input_only_no_runtime_package_or_adapter_contract",
     "experiment_instance_ids": ["avatar-left", "avatar-right"],
 }
+CARRIER_AVATAR_RECORDS = [
+    {
+        "instance_id": "avatar-left",
+        "profile_id": DEFAULTS[0],
+        "candidate_profile_sha256": "a" * 64,
+    },
+    {
+        "instance_id": "avatar-right",
+        "profile_id": DEFAULTS[1],
+        "candidate_profile_sha256": "b" * 64,
+    },
+]
 
 
 def load_module(name: str, path: Path):
@@ -42,9 +60,790 @@ def load_module(name: str, path: Path):
     return module
 
 
+@contextmanager
+def _temporary_directory_with_repository_cleanliness_guard(
+    test_case: unittest.TestCase, *, prefix: str
+):
+    before_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
+    before_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
+    before_status = subprocess.run(
+        ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
+    ).stdout
+    with tempfile.TemporaryDirectory(prefix=prefix) as temporary:
+        yield Path(temporary)
+    after_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
+    after_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
+    after_status = subprocess.run(
+        ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
+    ).stdout
+    test_case.assertEqual(before_godot_dirs, after_godot_dirs)
+    test_case.assertEqual(before_python_cache_dirs, after_python_cache_dirs)
+    test_case.assertEqual(before_status, after_status)
+
+
 smoke = load_module("skeletal_pose_smoke_under_test", EXPERIMENT / "run_skeletal_pose_smoke.py")
 sys.modules["run_structural_gallery_smoke"] = smoke.neutral_smoke
 carrier = load_module("disposable_avatar_carrier_for_skeletal_tests", EXPERIMENT / "disposable_avatar_carrier.py")
+sys.modules["disposable_avatar_carrier"] = carrier
+projection = load_module("disposable_ck_projection_for_skeletal_tests", EXPERIMENT / "disposable_ck_projection.py")
+semantic_command = load_module(
+    "disposable_semantic_pose_command_for_skeletal_tests",
+    EXPERIMENT / "disposable_semantic_pose_command.py",
+)
+
+
+def _contact_command_fixture() -> tuple[dict, dict]:
+    command = {
+        "schema": smoke.CONTACT_COMMAND_SCHEMA,
+        "boundary": smoke.CONTACT_COMMAND_BOUNDARY,
+        "command_id": smoke.CONTACT_COMMAND_ID,
+        "command_version": smoke.CONTACT_COMMAND_VERSION,
+        "mapping_revision": smoke.CONTACT_MAPPING_REVISION,
+        "targets": deepcopy(CARRIER_AVATAR_RECORDS),
+        "source_pose_command": {
+            "sha256": "p" * 64,
+            "byte_count_decimal": "1",
+            "schema": semantic_command.SCHEMA,
+            "boundary": semantic_command.BOUNDARY,
+            "command_id": semantic_command.COMMAND_ID,
+            "command_version": semantic_command.COMMAND_VERSION,
+        },
+        "participants": deepcopy(smoke.CONTACT_PARTICIPANTS),
+        "interaction": deepcopy(smoke.CONTACT_INTERACTION),
+    }
+    identity = {
+        "sha256": "c" * 64,
+        "byte_count_decimal": "1",
+        "schema": command["schema"],
+        "boundary": command["boundary"],
+        "command_id": command["command_id"],
+        "command_version": command["command_version"],
+    }
+    return command, identity
+
+
+def _contact_report_fixture(command: dict, identity: dict) -> dict:
+    def transform(x: float) -> list[float]:
+        return [
+            1.0,
+            0.0,
+            0.0,
+            x,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        ]
+
+    participants = []
+    selector_mappings = []
+    for index, participant in enumerate(smoke.CONTACT_PARTICIPANTS):
+        posed_proxy = {
+            "a": [0.0, 0.0, 0.0],
+            "b": [0.0, 1.0, 0.0],
+            "bone_id": smoke.CONTACT_BONE_IDS[index],
+            "kind": "capsule",
+            "owned_part": deepcopy(smoke.CONTACT_OWNED_PARTS[index]),
+            "partition_rule": smoke.CONTACT_PROXY_PARTITION_RULE,
+            "partition_vertex_count": 100 + index,
+            "radius": 0.25,
+            "radius_rule": smoke.CONTACT_PROXY_RADIUS_RULE,
+        }
+        participants.append(
+            {
+                **deepcopy(participant),
+                "target": deepcopy(command["targets"][index]),
+                "source_joint": deepcopy(smoke.CONTACT_SOURCE_JOINTS[index]),
+                "source_bone_id": smoke.CONTACT_BONE_IDS[index],
+                "source_proxy_index": smoke.CONTACT_SHAPE_INDICES[index],
+                "posed_proxy": posed_proxy,
+                "runtime_shape_index": smoke.CONTACT_RUNTIME_SHAPE_INDICES[index],
+            }
+        )
+        selector_mappings.append(
+            {
+                **deepcopy(participant),
+                "bone_id": smoke.CONTACT_BONE_IDS[index],
+                "proxy_id": smoke.CONTACT_BONE_IDS[index],
+                "owned_part": deepcopy(smoke.CONTACT_OWNED_PARTS[index]),
+                "shape_index": smoke.CONTACT_SHAPE_INDICES[index],
+                "runtime_shape_index": smoke.CONTACT_RUNTIME_SHAPE_INDICES[index],
+            }
+        )
+    phase_ticks = []
+    contact_tick_evidence = [{"tick": 0, "phase": "setup", "contact_count": 0}]
+    start_tick = 1
+    for phase, ticks in zip(smoke.CONTACT_PHASE_ORDER, smoke.CONTACT_PHASE_TICKS):
+        end_tick = start_tick + ticks - 1
+        phase_ticks.append(
+            {"phase": phase, "ticks": ticks, "start_tick": start_tick, "end_tick": end_tick}
+        )
+        for tick in range(start_tick, end_tick + 1):
+            contact_tick_evidence.append(
+                {"tick": tick, "phase": phase, "contact_count": 1 if phase == "contact" else 0}
+            )
+        start_tick = end_tick + 1
+    def snapshot(label: str, tick: int, position_x: float, linear_velocity: list[float]) -> dict:
+        return {
+            "label": label,
+            "tick": tick,
+            "transform": transform(position_x),
+            "position": [position_x, 0.0, 0.0],
+            "linear_velocity": linear_velocity,
+            "angular_velocity": [0.0, 0.0, 0.0],
+        }
+
+    return {
+        "command_identity": deepcopy(identity),
+        "targets": deepcopy(command["targets"]),
+        "source_pose_command": deepcopy(command["source_pose_command"]),
+        "mapping_revision": smoke.CONTACT_MAPPING_REVISION,
+        "participants": participants,
+        "interaction": deepcopy(smoke.CONTACT_INTERACTION),
+        "selector_mappings": selector_mappings,
+        "physics_configuration": {
+            "physics_engine": "Jolt Physics",
+            "actuator_body": "AnimatableBody3D",
+            "actuator_sync_to_physics": True,
+            "response_body": "RigidBody3D",
+            "response_mass": 1.0,
+            "response_gravity_scale": 0.0,
+            "response_can_sleep": False,
+            "response_rotation_locked": True,
+            "response_contact_monitor": True,
+            "response_max_contacts_reported": 8,
+            "one_shape_per_contact_body": True,
+        },
+        "phase_order": deepcopy(smoke.CONTACT_PHASE_ORDER),
+        "max_ticks": smoke.CONTACT_MAX_TICKS,
+        "phase_ticks": phase_ticks,
+        "contact_tick_evidence": contact_tick_evidence,
+        "solver_impulses": [
+            {
+                "runtime_derived": True,
+                "target_indices": [0, 1],
+                "shape_indices": list(smoke.CONTACT_SHAPE_INDICES),
+                "impulse_magnitude": 0.25,
+                "contact_samples": [
+                    {
+                        "contact_index": 0,
+                        "collider_id": 42,
+                        "collider_object_id": 42,
+                        "collider_shape_index": 0,
+                        "local_shape_index": 0,
+                        "point": [0.25, 0.0, 0.0],
+                        "normal": [1.0, 0.0, 0.0],
+                        "impulse": [0.25, 0.0, 0.0],
+                        "tick": 25,
+                        "phase": "contact",
+                    }
+                ],
+            }
+        ],
+        "response": {
+            "target_index": 1,
+            "shape_index": smoke.CONTACT_SHAPE_INDICES[1],
+            "normal": [1.0, 0.0, 0.0],
+            "snapshots": {
+                "initial": snapshot("initial", 0, 0.0, [0.0, 0.0, 0.0]),
+                "onset": snapshot("onset", 25, 0.05, [0.1, 0.0, 0.0]),
+                "contact": snapshot("contact", 25, 0.05, [0.1, 0.0, 0.0]),
+                "final": snapshot("final", smoke.CONTACT_TOTAL_TICKS, 0.1, [0.05, 0.0, 0.0]),
+            },
+            "normal_velocity_delta": 0.1,
+            "normal_displacement": 0.1,
+            "displacement": 0.1,
+        },
+    }
+
+
+def _runtime_measurement_fixture(mode: str, contact_report: dict, *, include_runner_release: bool = False) -> dict:
+    contact_ticks = [
+        record["tick"]
+        for record in contact_report["semantic_contact"]["contact_tick_evidence"]
+        if record["phase"] == "contact" and record["contact_count"] > 0
+    ]
+    interval_values = [16600] * (smoke.RUNTIME_MEASUREMENT_PHYSICS_SAMPLE_COUNT - 1) + [20100]
+    timestamps = [0]
+    for interval in interval_values:
+        timestamps.append(timestamps[-1] + interval)
+    update_stages = [
+        ("contact_drive", "contact", tick) for tick in contact_ticks
+    ]
+    release_start = smoke.CONTACT_PHASE_TICKS[0] + smoke.CONTACT_PHASE_TICKS[1] + 1
+    release_end = release_start + smoke.CONTACT_PHASE_TICKS[2]
+    restore_start = release_end
+    restore_end = restore_start + smoke.CONTACT_PHASE_TICKS[3]
+    update_stages.extend(("release_recovery", "release", tick) for tick in range(release_start, release_end))
+    update_stages.extend(("restore_baseline", "exit", tick) for tick in range(restore_start, restore_end))
+    measurement = {
+        "schema": smoke.RUNTIME_MEASUREMENT_SCHEMA,
+        "boundary": smoke.RUNTIME_MEASUREMENT_BOUNDARY,
+        "mode": mode,
+        "godot": {
+            "version": smoke.EXPECTED_GODOT_VERSION,
+            "engine_version_string": smoke.EXPECTED_GODOT_ENGINE_VERSION_STRING,
+        },
+        "os": {
+            "name": "Linux",
+            "distribution_name": "Fixture Linux",
+            "version": "fixture-os",
+            "model_name": "",
+            "architecture": "x86_64",
+        },
+        "cpu": {"processor_name": "fixture-cpu", "processor_count": 8},
+        "renderer": {
+            "method": "gl_compatibility",
+            "driver_name": "opengl3",
+            "requested_display_driver": "x11",
+            "actual_display_server": "X11",
+            "window_size_pixels": [512, 512],
+        },
+        "adapter": {
+            "name": "fixture-adapter",
+            "vendor": "fixture-vendor",
+            "api_version": "fixture-api",
+            "device_type": 0,
+            "driver_info": [],
+        },
+        "physics": {
+            "engine": "Jolt Physics",
+            "ticks_per_second": 60,
+            "max_steps_per_frame": 8,
+        },
+        "memory": {
+            "scope": "godot_allocator_snapshot_not_process_rss_or_gpu_memory",
+            "units": "bytes",
+            "static_bytes": 1000,
+            "static_max_bytes": 2000,
+            "process_rss_bytes": None,
+            "gpu_memory_bytes": None,
+        },
+        "physics_timestamp_points": [
+            {"frame_id": index, "timestamp_usec": timestamp}
+            for index, timestamp in enumerate(timestamps)
+        ],
+        "cpu_deformation_updates": {
+            "applicability": (
+                smoke.RUNTIME_DEFORMATION_APPLICABLE
+                if mode == "cpu_deformation"
+                else smoke.RUNTIME_DEFORMATION_NOT_APPLICABLE
+            ),
+            "records": [
+                {
+                    "sample_index": index,
+                    "operation": operation,
+                    "phase": phase,
+                    "logical_tick": tick,
+                    "cpu_deformation_core_duration_usec": 100 + index,
+                    "evidence_inclusive_wall_duration_usec": 10000 + index,
+                }
+                for index, (operation, phase, tick) in enumerate(update_stages)
+            ]
+            if mode == "cpu_deformation"
+            else [],
+        },
+    }
+    if include_runner_release:
+        measurement["runner_os_uname_release"] = os.uname().release
+    return measurement
+
+
+def _encode_png(image: Image.Image) -> bytes:
+    output = BytesIO()
+    image.save(output, format="PNG", optimize=False)
+    return output.getvalue()
+
+
+def _png_fixture(*, peak: bool = False, blank: bool = False) -> bytes:
+    size = (smoke.DEFORMATION_CAPTURE_WIDTH, smoke.DEFORMATION_CAPTURE_HEIGHT)
+    background = (9, 11, 16, 255)
+    image = Image.new("RGBA", size, background)
+    if not blank:
+        draw = ImageDraw.Draw(image)
+        for view_index in range(3):
+            left = view_index * smoke.DEFORMATION_CAPTURE_WIDTH // 3
+            right = (view_index + 1) * smoke.DEFORMATION_CAPTURE_WIDTH // 3
+            draw.rectangle((left + 80, 64, right - 80, 448), fill=(52, 64, 84, 255))
+            for stripe in range(32):
+                colour = (52 + stripe, 64 + (stripe * 3) % 48, 84 + (stripe * 5) % 64, 255)
+                y = 72 + stripe * 11
+                draw.line((left + 88, y, right - 88, y), fill=colour, width=8)
+            draw.ellipse(
+                (left + 150, 130, right - 150, 382),
+                fill=(117, 135, 158, 255),
+                outline=(232, 170, 105, 255),
+                width=5,
+            )
+            draw.line((left + 120, 256, right - 120, 256), fill=(245, 225, 170, 255), width=7)
+            if peak:
+                draw.ellipse((left + 222, 202, left + 330, 310), fill=(199, 76, 44, 255))
+                draw.rectangle((left + 244, 212, left + 282, 300), fill=(236, 119, 60, 255))
+    return _encode_png(image)
+
+
+def _one_pixel_delta(data: bytes) -> bytes:
+    with Image.open(BytesIO(data)) as source:
+        image = source.convert("RGBA")
+    pixel = image.getpixel((0, 0))
+    image.putpixel((0, 0), (255 - pixel[0], pixel[1], pixel[2], pixel[3]))
+    return _encode_png(image)
+
+
+def _capture_evidence_for_bytes(report: dict, captures: dict[str, bytes]) -> dict:
+    evidence = deepcopy(report["semantic_deformation"])
+    for record, file_name in zip(evidence["captures"], smoke.DEFORMATION_CAPTURE_NAMES):
+        data = captures[file_name]
+        record["sha256"] = hashlib.sha256(data).hexdigest()
+        record["byte_count_decimal"] = str(len(data))
+    return evidence
+
+
+def _reference_render_collision_metrics(
+    vertices: list[list[float]],
+    endpoint_a: list[float],
+    endpoint_b: list[float],
+    radius: float,
+    falloff_weights: list[float],
+) -> dict[str, float]:
+    """Independently calculate capsule side clearances for report fixtures."""
+    axis = [right - left for left, right in zip(endpoint_a, endpoint_b)]
+    axis_length = math.sqrt(sum(component * component for component in axis))
+    axis_unit = [component / axis_length for component in axis]
+    clearances = []
+    outside_clearances = []
+    for index, vertex in enumerate(vertices):
+        offset = [coordinate - origin for coordinate, origin in zip(vertex, endpoint_a)]
+        axial_distance = min(axis_length, max(0.0, sum(left * right for left, right in zip(offset, axis_unit))))
+        closest = [origin + axial_distance * component for origin, component in zip(endpoint_a, axis_unit)]
+        radial_distance = math.sqrt(
+            sum((coordinate - closest_coordinate) ** 2 for coordinate, closest_coordinate in zip(vertex, closest))
+        )
+        clearance = radial_distance - radius
+        clearances.append(clearance)
+        if index < len(falloff_weights) and float(falloff_weights[index]) == 0.0:
+            outside_clearances.append(clearance)
+    return {
+        "maximum_absolute_side_clearance": max((abs(value) for value in clearances), default=0.0),
+        "maximum_outward_clearance": max((max(value, 0.0) for value in clearances), default=0.0),
+        "maximum_inward_penetration": max((max(-value, 0.0) for value in clearances), default=0.0),
+        "outside_falloff_max_penetration": max((max(-value, 0.0) for value in outside_clearances), default=0.0),
+    }
+
+
+def _deformation_report_fixture() -> tuple[dict, dict, dict, dict, dict[str, bytes]]:
+    payload, report = _skeletal_validation_fixture()
+    command, identity = _contact_command_fixture()
+    contact_evidence = _contact_report_fixture(command, identity)
+    reference = smoke._reconstruct_deformation_baseline_vertices(
+        0.25,
+        1.0,
+        smoke._deformation_capsule_basis([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
+    )
+    deformation_center = [0.25, 0.0, 0.0]
+    falloff_radius = 0.25 * smoke.DEFORMATION_FALLOFF_RADIUS_RATIO
+    raw_weights = []
+    for vertex in reference:
+        distance = math.sqrt(
+            sum((coordinate - center_coordinate) ** 2 for coordinate, center_coordinate in zip(vertex, deformation_center))
+        )
+        raw_weights.append(max(0.0, 1.0 - distance / falloff_radius) ** 2 if distance < falloff_radius else 0.0)
+    raw_weight_max = max(raw_weights)
+    weights = [weight / raw_weight_max for weight in raw_weights]
+    absolute_depth = 0.25 * smoke.DEFORMATION_NORMALIZED_PEAK_DEPTH
+    inward = [-1.0, 0.0, 0.0]
+    peak = [
+        [coordinate + inward[axis] * absolute_depth * weight for axis, coordinate in enumerate(vertex)]
+        for vertex, weight in zip(reference, weights)
+    ]
+    residuals = [absolute_depth * weight for weight in weights]
+    peak_max = max(residuals)
+    affected = sum(weight > 0.0 for weight in weights)
+    states = {
+        "reference": {
+            "tick": 0,
+            "normalized_depth": 0.0,
+            "vertices": deepcopy(reference),
+            "max_residual": 0.0,
+            "affected_vertex_count": 0,
+            "outside_falloff_max_residual": 0.0,
+        },
+        "peak": {
+            "tick": 25,
+            "normalized_depth": smoke.DEFORMATION_NORMALIZED_PEAK_DEPTH,
+            "vertices": peak,
+            "max_residual": peak_max,
+            "affected_vertex_count": affected,
+            "outside_falloff_max_residual": 0.0,
+        },
+        "recovered": {
+            "tick": smoke.DEFORMATION_RECOVERY_TICK,
+            "normalized_depth": 0.0,
+            "vertices": deepcopy(reference),
+            "max_residual": 0.0,
+            "affected_vertex_count": 0,
+            "outside_falloff_max_residual": 0.0,
+        },
+    }
+    reference_capture = _png_fixture()
+    captures = {
+        "reference.png": reference_capture,
+        "peak.png": _png_fixture(peak=True),
+        "recovered.png": reference_capture,
+    }
+    report.update(
+        {
+            "boundary": smoke.DEFORMATION_REPORT_BOUNDARY,
+            "claims": deepcopy(smoke.DEFORMATION_REPORT_CLAIMS),
+            "scope_flags": deepcopy(smoke.DEFORMATION_REPORT_FLAGS),
+            "coordinate_rule": {
+                "kind": "disposable_host_local_identity",
+                "mapping": "CK XYZ -> Godot XYZ: x->x, y->y, z->z",
+                "scope": smoke.DEFORMATION_REPORT_BOUNDARY,
+                "profile_translations": [list(value) for value in smoke.EXPECTED_TRANSLATIONS],
+            },
+            "pose_binding": {
+                "pose_id": "test-pose",
+                "pose_sha256": "d" * 64,
+                "path": "structural_embodiment_shared_pose.json",
+                "rule_count": 18,
+                "rules_validated": True,
+                "applied_to_skeleton3d": True,
+                "ik": False,
+                "contact": True,
+            },
+            "semantic_contact": contact_evidence,
+            "semantic_deformation": {
+                "boundary": smoke.DEFORMATION_REPORT_BOUNDARY,
+                "target_index": 1,
+                "source_bone_id": smoke.CONTACT_BONE_IDS[1],
+                "source_shape_index": smoke.CONTACT_SHAPE_INDICES[1],
+                "runtime_shape_index": smoke.CONTACT_RUNTIME_SHAPE_INDICES[1],
+                "surface": {
+                    "kind": smoke.DEFORMATION_SURFACE_KIND,
+                    "attachment": smoke.DEFORMATION_SURFACE_ATTACHMENT,
+                    "collision_mode": smoke.DEFORMATION_SURFACE_COLLISION_MODE,
+                    "axial_segments": smoke.DEFORMATION_AXIAL_SEGMENTS,
+                    "radial_segments": smoke.DEFORMATION_RADIAL_SEGMENTS,
+                    "vertex_count": smoke.DEFORMATION_VERTEX_COUNT,
+                    "triangle_count": smoke.DEFORMATION_TRIANGLE_COUNT,
+                    "baseline_radius": 0.25,
+                    "baseline_length": 1.0,
+                },
+                "drive": {
+                    "kind": smoke.DEFORMATION_DRIVE_KIND,
+                    "normalized_peak_depth": smoke.DEFORMATION_NORMALIZED_PEAK_DEPTH,
+                    "absolute_peak_depth": absolute_depth,
+                    "falloff_radius_ratio": smoke.DEFORMATION_FALLOFF_RADIUS_RATIO,
+                    "peak_tick": 25,
+                    "contact_sample_tick": 25,
+                    "contact_sample_index": 0,
+                    "sample_response_transform": [
+                        1.0, 0.0, 0.0, 0.05,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        0.0, 0.0, 0.0, 1.0,
+                    ],
+                    "runtime_contact_point": [0.25, 0.0, 0.0],
+                    "local_contact_point": [0.20, 0.0, 0.0],
+                    "local_deformation_center": deformation_center,
+                    "local_inward_direction": inward,
+                    "falloff_weights": weights,
+                },
+                "states": states,
+                "captures": [
+                    {
+                        "label": label,
+                        "file_name": file_name,
+                        "width": smoke.DEFORMATION_CAPTURE_WIDTH,
+                        "height": smoke.DEFORMATION_CAPTURE_HEIGHT,
+                        "sha256": hashlib.sha256(captures[file_name]).hexdigest(),
+                        "byte_count_decimal": str(len(captures[file_name])),
+                    }
+                    for label, file_name in zip(smoke.DEFORMATION_CAPTURE_LABELS, smoke.DEFORMATION_CAPTURE_NAMES)
+                ],
+            },
+        }
+    )
+    identity_matrix = [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    ]
+    peak_transform = [
+        1.0, 0.0, 0.0, 0.05,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    ]
+    endpoint_a = [0.0, -0.5, 0.0]
+    endpoint_b = [0.0, 0.5, 0.0]
+
+    def coherence_state(
+        state: str,
+        tick: int,
+        phase: str,
+        contact: bool,
+        sample_index: int,
+        response_transform: list[float],
+        vertices: list[list[float]],
+    ) -> dict:
+        return {
+            "state": state,
+            "tick": tick,
+            "phase": phase,
+            "contact": contact,
+            "contact_sample_index": sample_index,
+            "response_body_to_world": response_transform,
+            "capsule_to_body": list(identity_matrix),
+            "sleeve_to_body": list(identity_matrix),
+            "capsule": {
+                "endpoint_a": list(endpoint_a),
+                "endpoint_b": list(endpoint_b),
+                "radius": 0.25,
+                "height": 1.5,
+            },
+            "vertices": deepcopy(vertices),
+            "metrics": _reference_render_collision_metrics(
+                vertices,
+                endpoint_a,
+                endpoint_b,
+                0.25,
+                weights,
+            ),
+        }
+
+    report["semantic_render_collision_coherence"] = {
+        "schema": smoke.RENDER_COLLISION_COHERENCE_SCHEMA,
+        "boundary": smoke.RENDER_COLLISION_COHERENCE_BOUNDARY,
+        "frame": smoke.RENDER_COLLISION_COHERENCE_FRAME,
+        "collision_mode": smoke.RENDER_COLLISION_COHERENCE_COLLISION_MODE,
+        "selected_capsule": {
+            "target_index": 1,
+            "source_bone_id": smoke.CONTACT_BONE_IDS[1],
+            "source_shape_index": smoke.CONTACT_SHAPE_INDICES[1],
+            "runtime_shape_index": smoke.CONTACT_RUNTIME_SHAPE_INDICES[1],
+            "source_lineage": "semantic_contact.participants[1].posed_proxy",
+            "source_geometry_binding": "radius-and-central-segment-length-only",
+        },
+        "falloff_source": smoke.RENDER_COLLISION_COHERENCE_FALLOFF_SOURCE,
+        "vertex_count": smoke.RENDER_COLLISION_COHERENCE_VERTEX_COUNT,
+        "state_order": list(smoke.RENDER_COLLISION_COHERENCE_STATE_ORDER),
+        "states": [
+            coherence_state("neutral", 0, "setup", False, -1, identity_matrix, reference),
+            coherence_state("contact_onset", 25, "contact", True, 0, peak_transform, peak),
+            coherence_state("peak", 25, "contact", True, 0, peak_transform, peak),
+            coherence_state(
+                "recovery",
+                smoke.CONTACT_TOTAL_TICKS,
+                "exit",
+                False,
+                -1,
+                [
+                    1.0, 0.0, 0.0, 0.1,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0,
+                ],
+                reference,
+            ),
+        ],
+        "collision_geometry_drift": {
+            "reference_state": "neutral",
+            "max_endpoint_a_drift": 0.0,
+            "max_endpoint_b_drift": 0.0,
+            "max_radius_drift": 0.0,
+            "maximum_geometry_drift": 0.0,
+        },
+    }
+    strongest_contact_sample = smoke._validate_contact_report(report, command, identity)
+    smoke._validate_deformation_report(report, strongest_contact_sample)
+    smoke._validate_render_collision_coherence(report, strongest_contact_sample)
+    return payload, report, command, identity, captures
+
+
+def _scale_reported_deformation_falloff(report: dict, factor: float) -> None:
+    evidence = report["semantic_deformation"]
+    drive = evidence["drive"]
+    reference = evidence["states"]["reference"]["vertices"]
+    peak_state = evidence["states"]["peak"]
+    absolute_depth = drive["absolute_peak_depth"]
+    inward = drive["local_inward_direction"]
+    scaled_weights = [float(weight) * factor for weight in drive["falloff_weights"]]
+    drive["falloff_weights"] = scaled_weights
+    peak_state["vertices"] = [
+        [coordinate + inward[axis] * absolute_depth * weight for axis, coordinate in enumerate(vertex)]
+        for vertex, weight in zip(reference, scaled_weights)
+    ]
+    peak_state["max_residual"] = absolute_depth * max(scaled_weights)
+
+
+def _remove_first_positive_falloff_weight(report: dict) -> None:
+    weights = report["semantic_deformation"]["drive"]["falloff_weights"]
+    index = next(index for index, weight in enumerate(weights) if float(weight) > 0.0)
+    weights[index] = 0.0
+
+
+def _coherence_state(report: dict, state_name: str) -> dict:
+    for state in report["semantic_render_collision_coherence"]["states"]:
+        if state.get("state") == state_name:
+            return state
+    raise AssertionError(f"missing coherence state {state_name}")
+
+
+def _recompute_coherence_metrics(report: dict, state_name: str) -> None:
+    coherence = report["semantic_render_collision_coherence"]
+    state = _coherence_state(report, state_name)
+    capsule = state["capsule"]
+    state["metrics"] = _reference_render_collision_metrics(
+        state["vertices"],
+        capsule["endpoint_a"],
+        capsule["endpoint_b"],
+        capsule["radius"],
+        report["semantic_deformation"]["drive"]["falloff_weights"],
+    )
+
+
+def _move_coherence_vertex_radially(report: dict, state_name: str, vertex_index: int, distance: float) -> None:
+    state = _coherence_state(report, state_name)
+    capsule = state["capsule"]
+    endpoint_a = capsule["endpoint_a"]
+    endpoint_b = capsule["endpoint_b"]
+    segment = [right - left for left, right in zip(endpoint_a, endpoint_b)]
+    segment_length_squared = sum(component * component for component in segment)
+    vertex = state["vertices"][vertex_index]
+    offset = [coordinate - origin for coordinate, origin in zip(vertex, endpoint_a)]
+    fraction = min(1.0, max(0.0, sum(left * right for left, right in zip(offset, segment)) / segment_length_squared))
+    closest = [origin + fraction * component for origin, component in zip(endpoint_a, segment)]
+    radial = [coordinate - origin for coordinate, origin in zip(vertex, closest)]
+    radial_length = math.sqrt(sum(component * component for component in radial))
+    direction = [component / radial_length for component in radial]
+    state["vertices"][vertex_index] = [coordinate + direction[axis] * distance for axis, coordinate in enumerate(vertex)]
+    _recompute_coherence_metrics(report, state_name)
+
+
+def _tamper_onset_vertex_and_metrics(report: dict) -> None:
+    onset = _coherence_state(report, "contact_onset")
+    onset["vertices"][1][0] += 0.01
+    _recompute_coherence_metrics(report, "contact_onset")
+
+
+def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tuple[dict, dict, dict, list[dict], tuple[str, str]]:
+    projected_payload = deepcopy(payload)
+    for profile in projected_payload["profiles"]:
+        profile_id = profile["profile_id"]
+        profile["artifacts"] = [
+            {
+                "path": f"{profile_id}/{name}",
+                "sha256": hashlib.sha256(f"{profile_id}/{name}".encode()).hexdigest(),
+                "bytes": index + 1,
+            }
+            for index, name in enumerate(smoke.EXPECTED_ARTIFACT_NAMES)
+        ]
+    records = deepcopy(CARRIER_AVATAR_RECORDS)
+    carrier_instances = [
+        {
+            **record,
+            "label": f"Fixture {record['profile_id']}",
+            "artifacts": deepcopy(profile["artifacts"]),
+            "metrics": deepcopy(profile["metrics"]),
+        }
+        for record, profile in zip(records, projected_payload["profiles"])
+    ]
+    carrier_value = carrier_value or {
+        "schema": carrier.SCHEMA,
+        "boundary": carrier.BOUNDARY,
+        "source_gallery": {
+            "projection_contract": projected_payload["projection_contract"],
+            "manifest_sha256": projected_payload["manifest_sha256"],
+            "manifest_bytes": projected_payload["manifest_bytes"],
+            "boundary": projected_payload["boundary"],
+        },
+        "shared_pose": {
+            "path": carrier.POSE_FILE,
+            "pose_id": projected_payload["pose_id"],
+            "sha256": projected_payload["pose_sha256"],
+            "bytes": 1,
+        },
+        "instances": carrier_instances,
+    }
+    carrier_value["schema"] = carrier.SCHEMA
+    carrier_module = SimpleNamespace(
+        SCHEMA=carrier.SCHEMA,
+        BOUNDARY=carrier.BOUNDARY,
+        _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+    )
+    carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+    projection_body = {
+        "schema": projection.SCHEMA,
+        "boundary": projection.BOUNDARY,
+        "producer_identity": {
+            "sha256": "9" * 64,
+            "bytes": 1,
+            "operation": projection.RUST_OPERATION,
+            "format": projection.RUST_FORMAT,
+        },
+        "carrier_identity": {
+            "schema": carrier.SCHEMA,
+            "boundary": carrier.BOUNDARY,
+            "sha256": carrier_identity["sha256"],
+            "bytes": int(carrier_identity["byte_count_decimal"]),
+            "instance_ids": [record["instance_id"] for record in records],
+        },
+        "gallery_identity": {
+            "projection_contract": projected_payload["projection_contract"],
+            "manifest_sha256": projected_payload["manifest_sha256"],
+            "manifest_bytes": projected_payload["manifest_bytes"],
+            "boundary": projected_payload["boundary"],
+            "profile_ids": list(DEFAULTS),
+        },
+        "shared_pose": deepcopy(carrier_value["shared_pose"]),
+        "avatars": [
+            {
+                "instance_id": record["instance_id"],
+                "profile_id": record["profile_id"],
+                "label": f"Fixture {record['profile_id']}",
+                "candidate_profile_sha256": profile["candidate_profile_sha256"],
+                "source": {
+                    "path": f"sources/{record['profile_id']}.json",
+                    "sha256": "f" * 64,
+                    "bytes": 1,
+                    "document": f"fixture.{record['profile_id']}",
+                    "namespace": "fixture",
+                },
+                "rust_inspection": {},
+                "artifacts": deepcopy(profile["artifacts"]),
+                "metrics": deepcopy(profile["metrics"]),
+            }
+            for record, profile in zip(records, projected_payload["profiles"])
+        ],
+    }
+    projection_body_bytes = (json.dumps(projection_body, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    identity = {
+        "scope": projection.PROJECTION_IDENTITY_SCOPE,
+        "sha256": hashlib.sha256(projection_body_bytes).hexdigest(),
+        "bytes": len(projection_body_bytes),
+    }
+    projection_value = {
+        "schema": projection_body["schema"],
+        "boundary": projection_body["boundary"],
+        "projection_identity": identity,
+        "producer_identity": projection_body["producer_identity"],
+        "carrier_identity": projection_body["carrier_identity"],
+        "gallery_identity": projection_body["gallery_identity"],
+        "shared_pose": projection_body["shared_pose"],
+        "avatars": projection_body["avatars"],
+    }
+    return projection_value, identity, carrier_value, records, DEFAULTS
 
 
 def _skeletal_validation_fixture() -> tuple[dict, dict]:
@@ -254,6 +1053,1473 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(smoke.SmokeError, "visible X11 Godot launch is disabled"):
                 smoke._launch_godot(self.root, DEFAULTS, {})
 
+    def test_semantic_pose_command_requires_carrier_before_launch(self) -> None:
+        with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+            with self.assertRaisesRegex(smoke.SmokeError, "requires --carrier"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    DEFAULTS,
+                    self.root / "report.json",
+                    None,
+                    self.root / "command.json",
+                )
+
+    def test_ck_projection_requires_carrier_before_launch(self) -> None:
+        with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+            with self.assertRaisesRegex(smoke.SmokeError, "CK projection requires --carrier"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    DEFAULTS,
+                    self.root / "report.json",
+                    None,
+                    None,
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                )
+
+    def test_ck_projection_requires_explicit_cli_path_before_launch(self) -> None:
+        with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+            with self.assertRaisesRegex(smoke.SmokeError, "explicit Rust CLI path"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    DEFAULTS,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    None,
+                    self.root / "projection.json",
+                )
+
+    def test_semantic_contact_command_requires_all_predecessors_before_launch(self) -> None:
+        missing_predecessors = (
+            (None, self.root / "pose.json", self.root / "projection.json", self.root / "cli"),
+            (self.root / "carrier.json", self.root / "pose.json", None, None),
+            (self.root / "carrier.json", None, self.root / "projection.json", self.root / "cli"),
+            (self.root / "carrier.json", self.root / "pose.json", self.root / "projection.json", None),
+        )
+        for carrier_path, pose_path, projection_path, cli_path in missing_predecessors:
+            with self.subTest(carrier=carrier_path, pose=pose_path, projection=projection_path, cli=cli_path):
+                with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+                    with self.assertRaisesRegex(smoke.SmokeError, "requires carrier, CK projection, explicit Rust CLI, and semantic pose command"):
+                        smoke.run_skeletal_pose_smoke(
+                            self.root,
+                            None,
+                            self.root / "report.json",
+                            carrier_path,
+                            pose_path,
+                            projection_path,
+                            cli_path,
+                            self.root / "contact.json",
+                        )
+
+    def test_contact_mode_mocked_launch_receives_canonical_command_and_revalidates(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+        command = {"pose": "fixture"}
+        command_identity = {"sha256": "p" * 64}
+        semantic_payload = {"rules": []}
+        contact_command, contact_identity = _contact_command_fixture()
+        serializer = lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        contact_module = SimpleNamespace(_canonical_json=serializer)
+        carrier_result = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        projection_result = (None, projection_value, projection_identity)
+        pose_result = (semantic_command, command, command_identity, semantic_payload)
+        contact_result = (contact_module, contact_command, contact_identity)
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[carrier_result, carrier_result]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[projection_result, projection_result]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=[pose_result, pose_result]),
+            patch.object(smoke, "_validated_semantic_contact_command", side_effect=[contact_result, contact_result]) as validate_contact,
+            patch.object(smoke, "_load_contact_command_module", return_value=contact_module),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)) as launch,
+            patch.object(smoke, "_validate_report") as validate_report,
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            result = smoke.run_skeletal_pose_smoke(
+                self.root,
+                None,
+                self.root / "report.json",
+                self.root / "carrier.json",
+                self.root / "pose.json",
+                self.root / "projection.json",
+                self.root / "creature-kernel",
+                self.root / "contact.json",
+            )
+        self.assertIs(result, report)
+        self.assertEqual(validate_contact.call_count, 2)
+        self.assertEqual(launch.call_args.args[10], contact_command)
+        self.assertEqual(launch.call_args.args[11], contact_identity)
+        self.assertEqual(launch.call_args.args[12], self.root / "creature-kernel")
+        validate_report.assert_called_once_with(
+            report,
+            payload,
+            profile_ids,
+            carrier_identity,
+            smoke._carrier_avatar_records(carrier_value),
+            command,
+            command_identity,
+            projection_value,
+            projection_identity,
+            contact_command,
+            contact_identity,
+        )
+        publish.assert_called_once_with(self.root / "report.json", report)
+
+    def test_runtime_measurement_contract_is_strict_and_p95_is_nearest_rank(self) -> None:
+        payload, cpu_child, command, identity, _captures = _deformation_report_fixture()
+        contact_evidence = cpu_child["semantic_contact"]
+        contact_report = {"semantic_contact": contact_evidence}
+        cpu_measurement = _runtime_measurement_fixture("cpu_deformation", contact_report)
+        rigid_measurement = _runtime_measurement_fixture("rigid_contact_only", contact_report)
+        cpu_child["runtime_measurement"] = cpu_measurement
+        rigid_child = _skeletal_validation_fixture()[1]
+        rigid_child["semantic_contact"] = deepcopy(contact_evidence)
+        rigid_child["runtime_measurement"] = rigid_measurement
+
+        smoke._validate_runtime_measurement(cpu_measurement, "cpu_deformation", contact_report)
+        smoke._validate_runtime_measurement(rigid_measurement, "rigid_contact_only", contact_report)
+        runtime_evaluation = {
+            "cpu_deformation": {
+                "raw_measurement": {
+                    **deepcopy(cpu_measurement),
+                    "runner_os_uname_release": os.uname().release,
+                },
+                "summary": smoke._runtime_measurement_summary(
+                    {**deepcopy(cpu_measurement), "runner_os_uname_release": os.uname().release}
+                ),
+                "semantic_contact": deepcopy(cpu_child["semantic_contact"]),
+                "semantic_deformation": deepcopy(cpu_child["semantic_deformation"]),
+                "semantic_render_collision_coherence": deepcopy(cpu_child["semantic_render_collision_coherence"]),
+            },
+            "rigid_contact_only": {
+                "raw_measurement": {
+                    **deepcopy(rigid_measurement),
+                    "runner_os_uname_release": os.uname().release,
+                },
+                "summary": smoke._runtime_measurement_summary(
+                    {**deepcopy(rigid_measurement), "runner_os_uname_release": os.uname().release}
+                ),
+                "semantic_contact": deepcopy(rigid_child["semantic_contact"]),
+                "semantic_deformation": None,
+                "semantic_render_collision_coherence": None,
+            },
+            "capability_comparison": {
+                "cpu_deformation": smoke._runtime_evidence_capabilities(
+                    {
+                        "semantic_contact": cpu_child["semantic_contact"],
+                        "semantic_deformation": cpu_child["semantic_deformation"],
+                    }
+                ),
+                "rigid_contact_only": smoke._runtime_evidence_capabilities(
+                    {"semantic_contact": rigid_child["semantic_contact"], "semantic_deformation": None}
+                ),
+                "visual_equivalence": "not_claimed",
+            },
+            "paired_identities": {
+                "validated_gallery": {"manifest_sha256": "g" * 64},
+                "validated_carrier": {"sha256": "c" * 64},
+                "semantic_pose_command": {"sha256": "p" * 64},
+                "validated_ck_projection": {"sha256": "k" * 64},
+                "semantic_contact_command": {"sha256": "t" * 64},
+                "project": {"sha256": "a" * 64, "byte_count_decimal": "1"},
+                "script": {"sha256": "b" * 64, "byte_count_decimal": "2"},
+                "launcher": {"sha256": "l" * 64, "byte_count_decimal": "4"},
+                "executable": {"sha256": "d" * 64, "byte_count_decimal": "3"},
+            },
+        }
+        smoke._validate_runtime_evaluation(
+            runtime_evaluation,
+            cpu_child,
+            rigid_child,
+            runtime_evaluation["paired_identities"],
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+        )
+
+        interval_values = [
+            right["timestamp_usec"] - left["timestamp_usec"]
+            for left, right in zip(
+                cpu_measurement["physics_timestamp_points"],
+                cpu_measurement["physics_timestamp_points"][1:],
+            )
+        ]
+        expected_interval_rank = math.ceil(0.95 * len(interval_values))
+        expected_interval_p95 = sorted(interval_values)[expected_interval_rank - 1]
+        self.assertEqual(
+            runtime_evaluation["cpu_deformation"]["summary"]["physics_interval"]["p95_usec"],
+            expected_interval_p95,
+        )
+        self.assertEqual(expected_interval_rank, 61)
+        self.assertEqual(runtime_evaluation["cpu_deformation"]["summary"]["physics_interval"]["sample_count"], 64)
+        self.assertEqual(runtime_evaluation["cpu_deformation"]["summary"]["physics_interval"]["p95_rank"], 61)
+        self.assertEqual(runtime_evaluation["cpu_deformation"]["summary"]["physics_interval"]["maximum_usec"], max(interval_values))
+        self.assertEqual(runtime_evaluation["cpu_deformation"]["summary"]["physics_interval"]["above_screen_count"], 1)
+        self.assertEqual(
+            runtime_evaluation["rigid_contact_only"]["summary"]["cpu_deformation_update"]["p95_usec"],
+            None,
+        )
+        cpu_records = cpu_measurement["cpu_deformation_updates"]["records"]
+        self.assertEqual(set(cpu_records[0]), smoke.RUNTIME_MEASUREMENT_DEFORMATION_RECORD_KEYS)
+        core_values = [record["cpu_deformation_core_duration_usec"] for record in cpu_records]
+        core_rank = math.ceil(0.95 * len(core_values))
+        self.assertEqual(
+            runtime_evaluation["cpu_deformation"]["summary"]["cpu_deformation_update"]["p95_usec"],
+            sorted(core_values)[core_rank - 1],
+        )
+        self.assertEqual(
+            runtime_evaluation["cpu_deformation"]["summary"]["cpu_deformation_update"]["maximum_usec"],
+            max(core_values),
+        )
+        self.assertNotIn("evidence_inclusive_wall_duration_usec", runtime_evaluation["cpu_deformation"]["summary"]["cpu_deformation_update"])
+
+        mutations = {
+            "unexpected raw field": lambda value: value.__setitem__("extra", True),
+            "wrong mode": lambda value: value.__setitem__("mode", "rigid_contact_only"),
+            "missing timestamp point": lambda value: value["physics_timestamp_points"].pop(),
+            "reordered timestamp point": lambda value: value["physics_timestamp_points"].reverse(),
+            "nonfinite timestamp": lambda value: value["physics_timestamp_points"][0].__setitem__("timestamp_usec", float("inf")),
+            "missing actual display server": lambda value: value["renderer"].pop("actual_display_server"),
+            "wrong actual display server": lambda value: value["renderer"].__setitem__("actual_display_server", "Wayland"),
+            "missing adapter name": lambda value: value["adapter"].__setitem__("name", ""),
+            "missing adapter vendor": lambda value: value["adapter"].__setitem__("vendor", ""),
+            "missing adapter API": lambda value: value["adapter"].__setitem__("api_version", ""),
+            "rigid deformation sample": lambda value: value["cpu_deformation_updates"]["records"].append(
+                {
+                    "sample_index": 0,
+                    "operation": "contact_drive",
+                    "phase": "contact",
+                    "logical_tick": 25,
+                    "cpu_deformation_core_duration_usec": 1,
+                    "evidence_inclusive_wall_duration_usec": 1,
+                }
+            ),
+            "legacy CPU duration field": lambda value: value["cpu_deformation_updates"]["records"][0].__setitem__(
+                "cpu_mesh_update_duration_usec", value["cpu_deformation_updates"]["records"][0].pop("cpu_deformation_core_duration_usec")
+            ),
+            "inclusive wall duration below core": lambda value: value["cpu_deformation_updates"]["records"][0].__setitem__(
+                "evidence_inclusive_wall_duration_usec",
+                value["cpu_deformation_updates"]["records"][0]["cpu_deformation_core_duration_usec"] - 1,
+            ),
+            "inclusive wall duration is not an integer": lambda value: value["cpu_deformation_updates"]["records"][0].__setitem__(
+                "evidence_inclusive_wall_duration_usec", 100.5
+            ),
+            "wrong CPU update operation": lambda value: value["cpu_deformation_updates"]["records"][0].__setitem__(
+                "operation", "wrong"
+            ),
+            "missing runner release": lambda value: value.pop("runner_os_uname_release"),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                if name == "missing runner release":
+                    mutated = {**deepcopy(rigid_measurement), "runner_os_uname_release": os.uname().release}
+                    mutate(mutated)
+                    with self.assertRaises(smoke.SmokeError):
+                        smoke._validate_runtime_measurement(
+                            mutated,
+                            "rigid_contact_only",
+                            contact_report,
+                            include_runner_release=True,
+                        )
+                    continue
+                mutated = deepcopy(
+                    rigid_measurement
+                    if name == "rigid deformation sample"
+                    else cpu_measurement
+                )
+                mutate(mutated)
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_runtime_measurement(
+                        mutated,
+                        "rigid_contact_only" if name == "rigid deformation sample" else "cpu_deformation",
+                        contact_report,
+                    )
+
+        mutated_evaluation = deepcopy(runtime_evaluation)
+        mutated_evaluation["cpu_deformation"]["summary"]["physics_interval"]["p95_usec"] += 1
+        with self.assertRaisesRegex(smoke.SmokeError, "not independently derived"):
+            smoke._validate_runtime_evaluation(
+                mutated_evaluation,
+                cpu_child,
+                rigid_child,
+                runtime_evaluation["paired_identities"],
+                semantic_contact_command=command,
+                contact_command_identity=identity,
+            )
+
+        for name, mutate in (
+            (
+                "rigid semantic-contact evidence",
+                lambda value: value["rigid_contact_only"]["semantic_contact"]["response"].__setitem__(
+                    "displacement", 0.2
+                ),
+            ),
+            (
+                "CPU semantic-deformation evidence",
+                lambda value: value["cpu_deformation"]["semantic_deformation"]["drive"].__setitem__(
+                    "normalized_peak_depth", 0.04
+                ),
+            ),
+            (
+                "CPU coherence evidence",
+                lambda value: value["cpu_deformation"]["semantic_render_collision_coherence"].__setitem__(
+                    "vertex_count", 543
+                ),
+            ),
+            (
+                "launcher identity",
+                lambda value: value["paired_identities"]["launcher"].__setitem__("sha256", "0" * 64),
+            ),
+        ):
+            with self.subTest(evidence_tampering=name):
+                mutated = deepcopy(runtime_evaluation)
+                mutate(mutated)
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_runtime_evaluation(
+                        mutated,
+                        cpu_child,
+                        rigid_child,
+                        runtime_evaluation["paired_identities"],
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                    )
+
+    def test_runtime_evaluation_requires_full_deformation_contact_predecessors(self) -> None:
+        with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+            with self.assertRaisesRegex(smoke.SmokeError, "runtime evaluation requires the full deformation-capture/contact predecessor set"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    self.root / "pose.json",
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                    self.root / "contact.json",
+                    None,
+                    True,
+                )
+
+    def test_runtime_launch_identity_includes_launcher_mutation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-runtime-launch-identity-") as temporary:
+            root = Path(temporary)
+            project = root / "project.godot"
+            script = root / "skeletal_pose_smoke.gd"
+            launcher = root / "launch_godot.sh"
+            executable = root / "Godot"
+            project.write_bytes(b"project\n")
+            script.write_bytes(b"script\n")
+            launcher.write_bytes(b"launcher-v1\n")
+            executable.write_bytes(b"executable\n")
+            launcher.chmod(0o755)
+            executable.chmod(0o755)
+            with (
+                patch.object(smoke.neutral_smoke, "PROJECT_FILE", project),
+                patch.object(smoke, "GODOT_SCRIPT", script),
+                patch.object(smoke.neutral_smoke, "LAUNCHER", launcher),
+                patch.object(smoke.neutral_smoke, "_resolve_pinned_binary", return_value=executable),
+            ):
+                before = smoke._runtime_launch_identity()
+                launcher.write_bytes(b"launcher-v2\n")
+                after = smoke._runtime_launch_identity()
+        self.assertEqual(set(before), {"project", "script", "launcher", "executable"})
+        self.assertNotEqual(before["launcher"], after["launcher"])
+        for key in ("project", "script", "executable"):
+            self.assertEqual(before[key], after[key])
+
+    def test_runtime_evaluation_launches_matched_modes_and_publishes_one_pair(self) -> None:
+        payload, deformation_base_report, _fixture_command, _fixture_identity, _fixture_captures = _deformation_report_fixture()
+        base_report = _skeletal_validation_fixture()[1]
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+        command = {"pose": "fixture"}
+        command_identity = {"sha256": "p" * 64}
+        semantic_payload = {"rules": []}
+        contact_command, contact_identity = _contact_command_fixture()
+        contact_report = _contact_report_fixture(contact_command, contact_identity)
+        cpu_report = deepcopy(deformation_base_report)
+        cpu_report["semantic_contact"] = deepcopy(contact_report)
+        cpu_report["validated_carrier"] = deepcopy(carrier_identity)
+        cpu_report["semantic_pose_command_identity"] = deepcopy(command_identity)
+        cpu_report["validated_ck_projection"] = deepcopy(projection_identity)
+        cpu_report["runtime_measurement"] = _runtime_measurement_fixture("cpu_deformation", cpu_report)
+        rigid_report = deepcopy(base_report)
+        rigid_report["semantic_contact"] = deepcopy(contact_report)
+        rigid_report["validated_carrier"] = deepcopy(carrier_identity)
+        rigid_report["semantic_pose_command_identity"] = deepcopy(command_identity)
+        rigid_report["validated_ck_projection"] = deepcopy(projection_identity)
+        rigid_report["runtime_measurement"] = _runtime_measurement_fixture("rigid_contact_only", rigid_report)
+        launch_identity = {
+            "project": {"sha256": "a" * 64, "byte_count_decimal": "1"},
+            "script": {"sha256": "b" * 64, "byte_count_decimal": "2"},
+            "launcher": {"sha256": "l" * 64, "byte_count_decimal": "4"},
+            "executable": {"sha256": "d" * 64, "byte_count_decimal": "3"},
+        }
+        serializer = lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        contact_module = SimpleNamespace(_canonical_json=serializer)
+        carrier_result = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        projection_result = (None, projection_value, projection_identity)
+        pose_result = (semantic_command, command, command_identity, semantic_payload)
+        contact_result = (contact_module, contact_command, contact_identity)
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[carrier_result, carrier_result]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[projection_result, projection_result]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=[pose_result, pose_result]),
+            patch.object(smoke, "_validated_semantic_contact_command", side_effect=[contact_result, contact_result]),
+            patch.object(smoke, "_load_contact_command_module", return_value=contact_module),
+            patch.object(smoke, "_runtime_launch_identity", return_value=launch_identity),
+            patch.object(smoke, "_launch_godot", side_effect=[("", "", 0, cpu_report), ("", "", 0, rigid_report)]) as launch,
+            patch.object(smoke, "_validate_report") as validate_report,
+            patch.object(smoke, "_publish_deformation_result") as publish,
+        ):
+            result = smoke.run_skeletal_pose_smoke(
+                self.root,
+                None,
+                self.root / "report.json",
+                self.root / "carrier.json",
+                self.root / "pose.json",
+                self.root / "projection.json",
+                self.root / "creature-kernel",
+                self.root / "contact.json",
+                self.root / "captures",
+                True,
+            )
+        self.assertIs(result, cpu_report)
+        self.assertEqual(launch.call_count, 2)
+        self.assertEqual(launch.call_args_list[0].kwargs["runtime_measurement_mode"], "cpu_deformation")
+        self.assertTrue(launch.call_args_list[0].kwargs["deformation_capture"])
+        self.assertIn("deformation_capture_sink", launch.call_args_list[0].kwargs)
+        self.assertEqual(launch.call_args_list[1].kwargs, {"runtime_measurement_mode": "rigid_contact_only"})
+        self.assertEqual(validate_report.call_count, 2)
+        self.assertEqual(
+            [call.kwargs["runtime_measurement_mode"] for call in validate_report.call_args_list],
+            ["cpu_deformation", "rigid_contact_only"],
+        )
+        self.assertEqual(set(result["runtime_evaluation"]), smoke.RUNTIME_EVALUATION_KEYS)
+        self.assertEqual(result["runtime_evaluation"]["cpu_deformation"]["raw_measurement"]["mode"], "cpu_deformation")
+        self.assertEqual(result["runtime_evaluation"]["rigid_contact_only"]["raw_measurement"]["mode"], "rigid_contact_only")
+        self.assertIsInstance(result["runtime_evaluation"]["cpu_deformation"]["semantic_contact"], dict)
+        self.assertIsInstance(result["runtime_evaluation"]["cpu_deformation"]["semantic_deformation"], dict)
+        self.assertIsInstance(
+            result["runtime_evaluation"]["cpu_deformation"]["semantic_render_collision_coherence"], dict
+        )
+        self.assertIsInstance(result["runtime_evaluation"]["rigid_contact_only"]["semantic_contact"], dict)
+        self.assertIsNone(result["runtime_evaluation"]["rigid_contact_only"]["semantic_deformation"])
+        self.assertIsNone(result["runtime_evaluation"]["rigid_contact_only"]["semantic_render_collision_coherence"])
+        self.assertEqual(result["runtime_evaluation"]["paired_identities"]["project"], launch_identity["project"])
+        self.assertEqual(result["runtime_evaluation"]["paired_identities"]["launcher"], launch_identity["launcher"])
+        publish.assert_called_once_with(
+            self.root / "report.json",
+            result,
+            self.root / "captures",
+            unittest.mock.ANY,
+        )
+
+    def test_runtime_evaluation_publishes_nothing_when_rigid_child_fails(self) -> None:
+        payload, _base_report = _skeletal_validation_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+        command = {"pose": "fixture"}
+        command_identity = {"sha256": "p" * 64}
+        contact_command, contact_identity = _contact_command_fixture()
+        carrier_result = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        projection_result = (None, projection_value, projection_identity)
+        pose_result = (semantic_command, command, command_identity, {"rules": []})
+        contact_result = (SimpleNamespace(), contact_command, contact_identity)
+        launch_identity = {
+            "project": {"sha256": "a" * 64, "byte_count_decimal": "1"},
+            "script": {"sha256": "b" * 64, "byte_count_decimal": "2"},
+            "launcher": {"sha256": "l" * 64, "byte_count_decimal": "4"},
+            "executable": {"sha256": "d" * 64, "byte_count_decimal": "3"},
+        }
+        report_path = self.root / "report.json"
+        captures_path = self.root / "captures"
+        with (
+            patch.object(smoke, "_validated_carrier_input", return_value=carrier_result),
+            patch.object(smoke, "_validated_projection_input", return_value=projection_result),
+            patch.object(smoke, "_validated_semantic_pose_command", return_value=pose_result),
+            patch.object(smoke, "_validated_semantic_contact_command", return_value=contact_result),
+            patch.object(smoke, "_runtime_launch_identity", return_value=launch_identity),
+            patch.object(
+                smoke,
+                "_launch_godot",
+                side_effect=[("", "", 0, {}), ("", "rigid-error", 7, None)],
+            ),
+            patch.object(smoke, "_publish_deformation_result") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "rigid_contact_only runtime-evaluation launch returned exit code 7"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    report_path,
+                    self.root / "carrier.json",
+                    self.root / "pose.json",
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                    self.root / "contact.json",
+                    captures_path,
+                    True,
+                )
+        publish.assert_not_called()
+        self.assertFalse(report_path.exists())
+        self.assertFalse(captures_path.exists())
+
+    def test_contact_report_requires_runtime_mapping_impulse_response_and_exact_snapshots(self) -> None:
+        command, identity = _contact_command_fixture()
+        evidence = _contact_report_fixture(command, identity)
+        smoke._validate_contact_report({"semantic_contact": evidence}, command, identity)
+        self.assertEqual(
+            set(evidence["response"]["snapshots"]),
+            {"initial", "onset", "contact", "final"},
+        )
+
+        def clear_contact_counts(value: dict) -> None:
+            for record in value["contact_tick_evidence"]:
+                record["contact_count"] = 0
+
+        mutations = {
+            "swapped participants": lambda value: value["participants"].reverse(),
+            "aggregate mapping": lambda value: value.__setitem__("participants", []),
+            "echoed impulse": lambda value: value["solver_impulses"][0].__setitem__("runtime_derived", False),
+            "zero impulse": lambda value: value["solver_impulses"][0].__setitem__("impulse_magnitude", 0.0),
+            "solver scalar mismatch": lambda value: value["solver_impulses"][0].__setitem__("impulse_magnitude", 0.3),
+            "top-level solver scalar path": lambda value: value.__setitem__("solver_impulse", 0.25),
+            "solver impulse scalar alias": lambda value: (
+                value["solver_impulses"][0].__setitem__("solver_impulse", value["solver_impulses"][0].pop("impulse_magnitude"))
+            ),
+            "solver provenance alias": lambda value: (
+                value["solver_impulses"][0].__setitem__("derived_from_runtime", value["solver_impulses"][0].pop("runtime_derived"))
+            ),
+            "contact events alias": lambda value: value.__setitem__("contact_events", ["enter", "contact", "exit"]),
+            "reordered phases": lambda value: value.__setitem__("phase_order", list(reversed(smoke.CONTACT_PHASE_ORDER))),
+            "nonfinite response": lambda value: value["response"].__setitem__("displacement", float("inf")),
+            "reported normal velocity mismatch": lambda value: value["response"].__setitem__("normal_velocity_delta", 0.2),
+            "reported normal displacement mismatch": lambda value: value["response"].__setitem__("normal_displacement", 0.2),
+            "reported displacement mismatch": lambda value: value["response"].__setitem__("displacement", 0.2),
+            "velocity snapshot mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("linear_velocity", [0.2, 0.0, 0.0]),
+            "transform snapshot mismatch": lambda value: value["response"]["snapshots"]["final"]["transform"].__setitem__(3, 0.2),
+            "position snapshot mismatch": lambda value: value["response"]["snapshots"]["final"]["position"].__setitem__(0, 0.2),
+            "snapshot label mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("label", "initial"),
+            "snapshot tick mismatch": lambda value: value["response"]["snapshots"]["contact"].__setitem__("tick", 24),
+            "snapshot differs from strongest contact tick": lambda value: value["response"]["snapshots"]["contact"].__setitem__("tick", 26),
+            "missing onset snapshot": lambda value: value["response"]["snapshots"].pop("onset"),
+            "unexpected snapshot alias": lambda value: value["response"]["snapshots"].__setitem__("onset_response", deepcopy(value["response"]["snapshots"]["onset"])),
+            "nonzero initial velocity": lambda value: value["response"]["snapshots"]["initial"].__setitem__("linear_velocity", [0.1, 0.0, 0.0]),
+            "locked rotation violated": lambda value: value["response"]["snapshots"]["contact"].__setitem__("angular_velocity", [0.0, 0.1, 0.0]),
+            "strongest sample normal mismatch": lambda value: value["response"].__setitem__("normal", [0.0, 1.0, 0.0]),
+            "response magnitude alias": lambda value: (
+                value["response"].__setitem__("normal_velocity_change", value["response"].pop("normal_velocity_delta"))
+            ),
+            "missing contact tick": lambda value: value["contact_tick_evidence"].pop(),
+            "setup contact count": lambda value: value["contact_tick_evidence"][0].__setitem__("contact_count", 1),
+            "reordered contact tick": lambda value: value["contact_tick_evidence"][1].__setitem__("tick", 2),
+            "wrong contact tick phase": lambda value: value["contact_tick_evidence"][25].__setitem__("phase", "approach"),
+            "negative contact count": lambda value: value["contact_tick_evidence"][25].__setitem__("contact_count", -1),
+            "constant events without transitions": clear_contact_counts,
+            "final exit contact count": lambda value: value["contact_tick_evidence"][-1].__setitem__("contact_count", 1),
+            "sample tick outside trace": lambda value: value["solver_impulses"][0]["contact_samples"][0].__setitem__("tick", smoke.CONTACT_TOTAL_TICKS + 1),
+            "sample phase disagrees with trace": lambda value: value["solver_impulses"][0]["contact_samples"][0].__setitem__("phase", "release"),
+            "sample index exceeds trace count": lambda value: value["solver_impulses"][0]["contact_samples"][0].__setitem__("contact_index", 1),
+            "wrong response mass": lambda value: value["physics_configuration"].__setitem__("response_mass", 2.0),
+            "boolean response mass": lambda value: value["physics_configuration"].__setitem__("response_mass", True),
+            "wrong response gravity": lambda value: value["physics_configuration"].__setitem__("response_gravity_scale", 0.1),
+            "boolean response gravity": lambda value: value["physics_configuration"].__setitem__("response_gravity_scale", False),
+            "sleep enabled": lambda value: value["physics_configuration"].__setitem__("response_can_sleep", True),
+            "sleep evidence omitted": lambda value: value["physics_configuration"].pop("response_can_sleep"),
+            "wrong physics backend": lambda value: value["physics_configuration"].__setitem__("physics_engine", "DEFAULT"),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                mutated = deepcopy(evidence)
+                mutate(mutated)
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_contact_report({"semantic_contact": mutated}, command, identity)
+
+        for alias in ("semantic_contact_evidence", "contact_evidence", "semantic_contact_response"):
+            with self.subTest(report_alias=alias):
+                report = {"semantic_contact": deepcopy(evidence), alias: deepcopy(evidence)}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_contact_report(report, command, identity)
+
+    def test_contact_report_rejects_rotated_response_snapshot_basis(self) -> None:
+        command, identity = _contact_command_fixture()
+        evidence = _contact_report_fixture(command, identity)
+        for label in ("initial", "onset", "contact", "final"):
+            with self.subTest(snapshot=label):
+                mutated = deepcopy(evidence)
+                transform = mutated["response"]["snapshots"][label]["transform"]
+                for index, value in ((0, 0.0), (1, 1.0), (4, -1.0), (5, 0.0)):
+                    transform[index] = value
+                with self.assertRaisesRegex(smoke.SmokeError, "required identity basis"):
+                    smoke._validate_contact_report({"semantic_contact": mutated}, command, identity)
+
+    def test_deformation_report_requires_exact_scope_schema_and_independent_vertex_evidence(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
+        mutations = {
+            "wrong boundary": lambda value: value.__setitem__("boundary", smoke.CONTACT_REPORT_BOUNDARY),
+            "extra claim": lambda value: value["claims"].append("unbounded deformation"),
+            "deformation flag disabled": lambda value: value["scope_flags"].__setitem__("deformation", False),
+            "missing deformation field": lambda value: value["semantic_deformation"].pop("drive"),
+            "reference geometry tampered": lambda value: value["semantic_deformation"]["states"]["reference"]["vertices"][1].__setitem__(0, 0.1),
+            "peak residual tampered": lambda value: value["semantic_deformation"]["states"]["peak"]["vertices"][1].__setitem__(0, 0.1),
+            "falloff weight tampered": _remove_first_positive_falloff_weight,
+            "falloff radius ratio tampered": lambda value: value["semantic_deformation"]["drive"].__setitem__("falloff_radius_ratio", 0.75),
+            "unit falloff peak removed": lambda value: _scale_reported_deformation_falloff(value, 0.8),
+            "recovered vertex tampered": lambda value: value["semantic_deformation"]["states"]["recovered"]["vertices"][1].__setitem__(1, 0.1),
+            "outside falloff metric tampered": lambda value: value["semantic_deformation"]["states"]["peak"].__setitem__("outside_falloff_max_residual", 0.1),
+            "onset transform detached": lambda value: (
+                value["semantic_contact"]["response"]["snapshots"]["onset"]["transform"].__setitem__(3, 0.06),
+                value["semantic_contact"]["response"]["snapshots"]["onset"]["position"].__setitem__(0, 0.06),
+            ),
+            "onset vertex and recomputed metrics": _tamper_onset_vertex_and_metrics,
+            "peak tick detached": lambda value: value["semantic_deformation"]["drive"].__setitem__("peak_tick", 26),
+            "runtime contact point detached": lambda value: value["semantic_deformation"]["drive"].__setitem__("runtime_contact_point", [0.26, 0.0, 0.0]),
+            "body-local contact point detached": lambda value: value["semantic_deformation"]["drive"].__setitem__("local_contact_point", [0.21, 0.0, 0.0]),
+            "sample response transform detached": lambda value: value["semantic_deformation"]["drive"]["sample_response_transform"].__setitem__(3, 0.06),
+            "inward direction leaves contact-normal line": lambda value: value["semantic_deformation"]["drive"].__setitem__("local_inward_direction", [0.0, 1.0, 0.0]),
+            "inward direction points outward": lambda value: value["semantic_deformation"]["drive"].__setitem__("local_inward_direction", [1.0, 0.0, 0.0]),
+            "capture digest tampered": lambda value: value["semantic_deformation"]["captures"][0].__setitem__("sha256", "0" * 64),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                mutated_report = deepcopy(report)
+                mutated_captures = dict(captures)
+                mutate(mutated_report)
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated_report,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                        deformation_capture_bytes=mutated_captures,
+                    )
+
+        tampered_captures = dict(captures)
+        tampered_captures["peak.png"] = tampered_captures["peak.png"][:-1] + b"!"
+        with self.assertRaises(smoke.SmokeError):
+            smoke._validate_report(
+                report,
+                payload,
+                DEFAULTS,
+                semantic_contact_command=command,
+                contact_command_identity=identity,
+                deformation_capture_bytes=tampered_captures,
+            )
+
+    def test_deformation_inward_direction_accepts_either_contact_normal_convention(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        flipped = deepcopy(report)
+        sample = flipped["semantic_contact"]["solver_impulses"][0]["contact_samples"][0]
+        sample["normal"] = [-1.0, 0.0, 0.0]
+        flipped["semantic_contact"]["response"]["normal"] = [-1.0, 0.0, 0.0]
+        smoke._validate_report(
+            flipped,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
+    def test_render_collision_coherence_fixture_has_exact_independent_record(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        coherence = report["semantic_render_collision_coherence"]
+        self.assertEqual(set(coherence), smoke.RENDER_COLLISION_COHERENCE_KEYS)
+        self.assertEqual(coherence["schema"], smoke.RENDER_COLLISION_COHERENCE_SCHEMA)
+        self.assertEqual(coherence["boundary"], smoke.RENDER_COLLISION_COHERENCE_BOUNDARY)
+        self.assertEqual(coherence["frame"], smoke.RENDER_COLLISION_COHERENCE_FRAME)
+        self.assertEqual(coherence["collision_mode"], smoke.RENDER_COLLISION_COHERENCE_COLLISION_MODE)
+        self.assertEqual(coherence["state_order"], list(smoke.RENDER_COLLISION_COHERENCE_STATE_ORDER))
+        self.assertIsInstance(coherence["states"], list)
+        self.assertEqual(
+            [state["state"] for state in coherence["states"]],
+            list(smoke.RENDER_COLLISION_COHERENCE_STATE_ORDER),
+        )
+        self.assertEqual(
+            coherence["selected_capsule"]["source_lineage"],
+            "semantic_contact.participants[1].posed_proxy",
+        )
+        self.assertEqual(
+            coherence["selected_capsule"]["source_geometry_binding"],
+            "radius-and-central-segment-length-only",
+        )
+        self.assertEqual(
+            set(_coherence_state(report, "peak")["metrics"]),
+            smoke.RENDER_COLLISION_COHERENCE_METRIC_KEYS,
+        )
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
+    def test_render_collision_coherence_accepts_later_stronger_peak_than_onset(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        contact = report["semantic_contact"]
+        impulse_record = contact["solver_impulses"][0]
+        later_sample = deepcopy(impulse_record["contact_samples"][0])
+        later_sample["tick"] = 26
+        later_sample["impulse"] = [0.5, 0.0, 0.0]
+        later_sample["point"] = [0.25, 0.125, 0.0]
+        impulse_record["contact_samples"].append(later_sample)
+        impulse_record["impulse_magnitude"] = 0.5
+
+        contact_snapshot = contact["response"]["snapshots"]["contact"]
+        contact_snapshot["tick"] = 26
+        contact_snapshot["transform"][3] = 0.06
+        contact_snapshot["position"][0] = 0.06
+
+        deformation = report["semantic_deformation"]
+        drive = deformation["drive"]
+        drive["peak_tick"] = 26
+        drive["contact_sample_tick"] = 26
+        drive["sample_response_transform"][3] = 0.06
+        drive["runtime_contact_point"] = [0.25, 0.125, 0.0]
+        drive["local_contact_point"] = [0.19, 0.125, 0.0]
+        drive["local_deformation_center"] = [0.25, 0.125, 0.0]
+        reference_vertices = deformation["states"]["reference"]["vertices"]
+        falloff_radius = 0.25 * smoke.DEFORMATION_FALLOFF_RADIUS_RATIO
+        raw_weights = [
+            max(
+                0.0,
+                1.0
+                - math.sqrt(
+                    sum(
+                        (coordinate - center_coordinate) ** 2
+                        for coordinate, center_coordinate in zip(vertex, drive["local_deformation_center"])
+                    )
+                )
+                / falloff_radius,
+            )
+            ** 2
+            for vertex in reference_vertices
+        ]
+        weight_max = max(raw_weights)
+        drive["falloff_weights"] = [weight / weight_max for weight in raw_weights]
+        absolute_depth = drive["absolute_peak_depth"]
+        inward = drive["local_inward_direction"]
+        later_peak = [
+            [coordinate + inward[axis] * absolute_depth * weight for axis, coordinate in enumerate(vertex)]
+            for vertex, weight in zip(reference_vertices, drive["falloff_weights"])
+        ]
+        deformation["states"]["peak"]["vertices"] = later_peak
+        deformation["states"]["peak"]["max_residual"] = absolute_depth * max(drive["falloff_weights"])
+        deformation["states"]["peak"]["affected_vertex_count"] = sum(
+            weight > 0.0 for weight in drive["falloff_weights"]
+        )
+        deformation["states"]["peak"]["tick"] = 26
+
+        onset = _coherence_state(report, "contact_onset")
+        peak = _coherence_state(report, "peak")
+        onset["response_body_to_world"] = list(onset["response_body_to_world"])
+        peak["response_body_to_world"] = list(peak["response_body_to_world"])
+        onset["response_body_to_world"][3] = 0.05
+        peak["tick"] = 26
+        peak["response_body_to_world"][3] = 0.06
+        peak["vertices"] = deepcopy(later_peak)
+        _recompute_coherence_metrics(report, "contact_onset")
+        _recompute_coherence_metrics(report, "peak")
+
+        self.assertEqual(
+            (onset["tick"], onset["contact_sample_index"]),
+            (25, 0),
+        )
+        self.assertEqual(
+            (peak["tick"], peak["contact_sample_index"]),
+            (26, 0),
+        )
+        self.assertNotEqual(onset["response_body_to_world"], peak["response_body_to_world"])
+        self.assertNotEqual(onset["vertices"], peak["vertices"])
+
+        strongest = smoke._validate_contact_report(report, command, identity)
+        self.assertEqual((strongest["tick"], strongest["contact_index"]), (26, 0))
+        smoke._validate_deformation_report(report, strongest)
+        smoke._validate_render_collision_coherence(report, strongest)
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
+    def test_render_collision_onset_selects_strongest_sample_in_first_contact_tick(self) -> None:
+        contact_evidence = {
+            "contact_tick_evidence": [
+                {"tick": 25, "phase": "contact", "contact_count": 2},
+                {"tick": 26, "phase": "contact", "contact_count": 1},
+            ],
+            "solver_impulses": [
+                {
+                    "contact_samples": [
+                        {"tick": 25, "phase": "contact", "contact_index": 0, "impulse": [0.1, 0.0, 0.0]},
+                        {"tick": 25, "phase": "contact", "contact_index": 1, "impulse": [0.2, 0.0, 0.0]},
+                        {"tick": 26, "phase": "contact", "contact_index": 0, "impulse": [1.0, 0.0, 0.0]},
+                    ]
+                }
+            ],
+        }
+
+        selected = smoke._render_first_positive_contact_sample(contact_evidence)
+
+        self.assertEqual((selected["tick"], selected["contact_index"]), (25, 1))
+
+    def test_render_collision_skips_nonpositive_first_contact_tick_and_retains_later_onset_and_peak(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+        contact = report["semantic_contact"]
+        impulse_record = contact["solver_impulses"][0]
+        first_sample = impulse_record["contact_samples"][0]
+        first_sample["impulse"] = [0.0, 0.0, 0.0]
+        contact["contact_tick_evidence"][25]["contact_count"] = 1
+        later_sample = deepcopy(first_sample)
+        later_sample["tick"] = 26
+        later_sample["impulse"] = [0.5, 0.0, 0.0]
+        impulse_record["contact_samples"].append(later_sample)
+        impulse_record["impulse_magnitude"] = 0.5
+
+        for label in ("onset", "contact"):
+            contact["response"]["snapshots"][label]["tick"] = 26
+        deformation = report["semantic_deformation"]
+        deformation["drive"]["peak_tick"] = 26
+        deformation["drive"]["contact_sample_tick"] = 26
+        deformation["states"]["peak"]["tick"] = 26
+        for state_name in ("contact_onset", "peak"):
+            _coherence_state(report, state_name)["tick"] = 26
+
+        selected = smoke._render_first_positive_contact_sample(contact)
+        self.assertEqual((selected["tick"], selected["contact_index"]), (26, 0))
+        strongest = smoke._validate_contact_report(report, command, identity)
+        self.assertEqual((strongest["tick"], strongest["contact_index"]), (26, 0))
+        self.assertEqual(contact["response"]["snapshots"]["onset"]["tick"], 26)
+        self.assertEqual(deformation["states"]["peak"]["tick"], 26)
+        self.assertEqual(_coherence_state(report, "contact_onset")["tick"], 26)
+        self.assertEqual(_coherence_state(report, "peak")["tick"], 26)
+        smoke._validate_deformation_report(report, strongest)
+        smoke._validate_render_collision_coherence(report, strongest)
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            semantic_contact_command=command,
+            contact_command_identity=identity,
+            deformation_capture_bytes=captures,
+        )
+
+    def test_render_collision_selection_fails_closed_when_all_contact_samples_are_nonpositive(self) -> None:
+        command, identity = _contact_command_fixture()
+        contact_evidence = _contact_report_fixture(command, identity)
+        impulse_record = contact_evidence["solver_impulses"][0]
+        first_sample = impulse_record["contact_samples"][0]
+        first_sample["impulse"] = [0.0, 0.0, 0.0]
+        later_sample = deepcopy(first_sample)
+        later_sample["tick"] = 26
+        impulse_record["contact_samples"].append(later_sample)
+        impulse_record["impulse_magnitude"] = 0.0
+
+        with self.assertRaisesRegex(smoke.SmokeError, "no positive contact sample"):
+            smoke._render_first_positive_contact_sample(contact_evidence)
+        with self.assertRaisesRegex(smoke.SmokeError, "do not prove one selected-shape pair"):
+            smoke._validate_contact_report({"semantic_contact": contact_evidence}, command, identity)
+
+    def test_render_collision_coherence_rejects_table_driven_tampering(self) -> None:
+        payload, report, command, identity, captures = _deformation_report_fixture()
+
+        def outward_movement(value: dict) -> None:
+            weights = value["semantic_deformation"]["drive"]["falloff_weights"]
+            index = next(index for index, weight in enumerate(weights) if float(weight) > 0.0)
+            _move_coherence_vertex_radially(value, "peak", index, 0.01)
+
+        def zero_weight_penetration(value: dict) -> None:
+            weights = value["semantic_deformation"]["drive"]["falloff_weights"]
+            index = next(index for index, weight in enumerate(weights) if float(weight) == 0.0)
+            _move_coherence_vertex_radially(value, "peak", index, -0.01)
+
+        def cross_link_mismatch(value: dict) -> None:
+            _coherence_state(value, "neutral")["vertices"][0][0] += 0.01
+            _recompute_coherence_metrics(value, "neutral")
+
+        mutations = {
+            "schema": lambda value: value["semantic_render_collision_coherence"].__setitem__("schema", "wrong"),
+            "boundary": lambda value: value["semantic_render_collision_coherence"].__setitem__("boundary", "wrong"),
+            "field set": lambda value: value["semantic_render_collision_coherence"].__setitem__("unexpected", True),
+            "state field set": lambda value: _coherence_state(value, "peak").pop("metrics"),
+            "state order": lambda value: value["semantic_render_collision_coherence"].__setitem__("state_order", ["peak", "neutral", "contact_onset", "recovery"]),
+            "ticks": lambda value: _coherence_state(value, "peak").__setitem__("tick", 26),
+            "distinct onset sample": lambda value: _coherence_state(value, "contact_onset").__setitem__("contact_sample_index", 1),
+            "lineage": lambda value: value["semantic_render_collision_coherence"]["selected_capsule"].__setitem__("source_bone_id", "wrong"),
+            "transform": lambda value: _coherence_state(value, "peak")["capsule_to_body"].__setitem__(0, 2.0),
+            "sleeve transform semantics": lambda value: _coherence_state(value, "peak")["sleeve_to_body"].__setitem__(3, 0.1),
+            "vertex count": lambda value: value["semantic_render_collision_coherence"].__setitem__("vertex_count", 543),
+            "nonfinite": lambda value: _coherence_state(value, "peak")["vertices"][0].__setitem__(0, float("nan")),
+            "degenerate capsule": lambda value: _coherence_state(value, "peak")["capsule"].__setitem__("endpoint_b", _coherence_state(value, "peak")["capsule"]["endpoint_a"]),
+            "drift": lambda value: value["semantic_render_collision_coherence"]["collision_geometry_drift"].__setitem__("max_radius_drift", 0.1),
+            "outward movement": outward_movement,
+            "zero-weight penetration": zero_weight_penetration,
+            "cross-link mismatch": cross_link_mismatch,
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                mutated = deepcopy(report)
+                mutate(mutated)
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                        deformation_capture_bytes=captures,
+                    )
+
+        for metric_name in smoke.RENDER_COLLISION_COHERENCE_METRIC_KEYS:
+            with self.subTest(metric=metric_name):
+                mutated = deepcopy(report)
+                _coherence_state(mutated, "peak")["metrics"][metric_name] += 0.01
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                        deformation_capture_bytes=captures,
+                    )
+
+    def test_render_collision_coherence_is_deformation_only_and_aliases_fail_closed(self) -> None:
+        payload, deformation_report, command, identity, captures = _deformation_report_fixture()
+        canonical = "semantic_render_collision_coherence"
+        aliases = (canonical, *sorted(smoke.RENDER_COLLISION_COHERENCE_ALIAS_KEYS))
+
+        no_contact_payload, no_contact_report = _skeletal_validation_fixture()
+        for field_name in aliases:
+            with self.subTest(mode="no-contact", field=field_name):
+                report = deepcopy(no_contact_report)
+                report[field_name] = {}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(report, no_contact_payload, DEFAULTS)
+
+        contact_report = deepcopy(deformation_report)
+        contact_report.pop("semantic_deformation")
+        contact_report.pop(canonical)
+        contact_report["boundary"] = smoke.CONTACT_REPORT_BOUNDARY
+        contact_report["claims"] = deepcopy(smoke.CONTACT_REPORT_CLAIMS)
+        contact_report["scope_flags"] = deepcopy(smoke.CONTACT_REPORT_FLAGS)
+        contact_report["coordinate_rule"]["scope"] = smoke.CONTACT_REPORT_BOUNDARY
+        for field_name in aliases:
+            with self.subTest(mode="contact-only", field=field_name):
+                mutated = deepcopy(contact_report)
+                mutated[field_name] = {}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                    )
+
+        missing = deepcopy(deformation_report)
+        missing.pop(canonical)
+        with self.assertRaisesRegex(smoke.SmokeError, "missing semantic render/collision coherence"):
+            smoke._validate_report(
+                missing,
+                payload,
+                DEFAULTS,
+                semantic_contact_command=command,
+                contact_command_identity=identity,
+                deformation_capture_bytes=captures,
+            )
+        for alias in sorted(smoke.RENDER_COLLISION_COHERENCE_ALIAS_KEYS):
+            with self.subTest(mode="deformation", field=alias):
+                mutated = deepcopy(missing)
+                mutated[alias] = {}
+                with self.assertRaises(smoke.SmokeError):
+                    smoke._validate_report(
+                        mutated,
+                        payload,
+                        DEFAULTS,
+                        semantic_contact_command=command,
+                        contact_command_identity=identity,
+                        deformation_capture_bytes=captures,
+                    )
+
+    def test_deformation_captures_require_real_nonuniform_pixels_and_bounded_change(self) -> None:
+        _payload, report, _command, _identity, captures = _deformation_report_fixture()
+        smoke._validate_deformation_captures(_capture_evidence_for_bytes(report, captures), captures)
+
+        blank = {file_name: _png_fixture(blank=True) for file_name in smoke.DEFORMATION_CAPTURE_NAMES}
+        identical = dict(captures)
+        identical["peak.png"] = identical["reference.png"]
+        trivial = dict(captures)
+        trivial["peak.png"] = _one_pixel_delta(trivial["reference.png"])
+        with Image.open(BytesIO(captures["reference.png"])) as source:
+            inverted_image = ImageOps.invert(source.convert("RGB")).convert("RGBA")
+        overly_broad = dict(captures)
+        overly_broad["peak.png"] = _encode_png(inverted_image)
+
+        cases = (
+            ("blank", blank, "blank or uniform.*observed_unique_rgba_pixels=1"),
+            ("identical", identical, "bounded meaningful.*observed_changed_pixels=0"),
+            ("trivial", trivial, "bounded meaningful.*observed_changed_pixels=1"),
+            ("overly broad", overly_broad, "bounded meaningful.*observed_changed_pixel_fraction="),
+        )
+        for name, mutated, expected in cases:
+            with self.subTest(capture=name):
+                with self.assertRaisesRegex(smoke.SmokeError, expected):
+                    smoke._validate_deformation_captures(_capture_evidence_for_bytes(report, mutated), mutated)
+
+    def test_deformation_capture_destination_requires_full_contact_inputs(self) -> None:
+        input_sets = (
+            (None, self.root / "pose.json", self.root / "projection.json", self.root / "cli", self.root / "contact.json"),
+            (self.root / "carrier.json", None, self.root / "projection.json", self.root / "cli", self.root / "contact.json"),
+            (self.root / "carrier.json", self.root / "pose.json", None, None, self.root / "contact.json"),
+            (self.root / "carrier.json", self.root / "pose.json", self.root / "projection.json", self.root / "cli", None),
+        )
+        for carrier_path, pose_path, projection_path, cli_path, contact_path in input_sets:
+            with self.subTest(carrier=carrier_path, pose=pose_path, projection=projection_path, contact=contact_path):
+                with patch.object(smoke, "_launch_godot", side_effect=AssertionError("Godot must not launch")):
+                    with self.assertRaisesRegex(smoke.SmokeError, "require.*full semantic-contact predecessor"):
+                        smoke.run_skeletal_pose_smoke(
+                            self.root,
+                            None,
+                            self.root / "report.json",
+                            carrier_path,
+                            pose_path,
+                            projection_path,
+                            cli_path,
+                            contact_path,
+                            self.root / "captures",
+                        )
+
+    def test_deformation_capture_directory_is_not_published_when_report_validation_fails(self) -> None:
+        payload, report, contact_command, contact_identity, captures = _deformation_report_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_result = (
+            carrier_module,
+            carrier_value,
+            payload,
+            profile_ids,
+            tuple(record["instance_id"] for record in records),
+        )
+        projection_result = (None, projection_value, projection_identity)
+        pose_command = {"pose": "fixture"}
+        pose_identity = {"sha256": "p" * 64}
+        pose_result = (semantic_command, pose_command, pose_identity, {"rules": []})
+        contact_module = SimpleNamespace(
+            _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        )
+        contact_result = (contact_module, contact_command, contact_identity)
+
+        def launch(*_args, **kwargs):
+            kwargs["deformation_capture_sink"](captures)
+            return "", "", 0, report
+
+        capture_path = self.root / "captures"
+        report_path = self.root / "report.json"
+        with (
+            patch.object(smoke, "_validated_carrier_input", return_value=carrier_result),
+            patch.object(smoke, "_validated_projection_input", return_value=projection_result),
+            patch.object(smoke, "_validated_semantic_pose_command", return_value=pose_result),
+            patch.object(smoke, "_validated_semantic_contact_command", return_value=contact_result),
+            patch.object(smoke, "_launch_godot", side_effect=launch),
+            patch.object(smoke, "_validate_report", side_effect=smoke.SmokeError("invalid report")),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish_report,
+            patch.object(smoke, "_publish_deformation_captures") as publish_captures,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "invalid report"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    report_path,
+                    self.root / "carrier.json",
+                    self.root / "pose.json",
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                    self.root / "contact.json",
+                    capture_path,
+                )
+
+        self.assertFalse(capture_path.exists())
+        self.assertFalse(report_path.exists())
+        publish_report.assert_not_called()
+        publish_captures.assert_not_called()
+
+    def test_deformation_capture_directory_is_not_published_when_postflight_predecessor_revalidation_fails(self) -> None:
+        payload, report, contact_command, contact_identity, captures = _deformation_report_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_result = (
+            carrier_module,
+            carrier_value,
+            payload,
+            profile_ids,
+            tuple(record["instance_id"] for record in records),
+        )
+        projection_result = (None, projection_value, projection_identity)
+        pose_command = {"pose": "fixture"}
+        pose_identity = {"sha256": "p" * 64}
+        pose_result = (semantic_command, pose_command, pose_identity, {"rules": []})
+        contact_module = SimpleNamespace(
+            _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        )
+        contact_result = (contact_module, contact_command, contact_identity)
+
+        def launch(*_args, **kwargs):
+            kwargs["deformation_capture_sink"](captures)
+            return "", "", 0, report
+
+        capture_path = self.root / "captures"
+        report_path = self.root / "report.json"
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[carrier_result, carrier_result]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[projection_result, projection_result]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=[pose_result, pose_result]),
+            patch.object(
+                smoke,
+                "_validated_semantic_contact_command",
+                side_effect=[contact_result, smoke.SmokeError("postflight predecessor revalidation failed")],
+            ),
+            patch.object(smoke, "_launch_godot", side_effect=launch),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish_report,
+            patch.object(smoke, "_publish_deformation_captures") as publish_captures,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "postflight predecessor revalidation failed"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    report_path,
+                    self.root / "carrier.json",
+                    self.root / "pose.json",
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                    self.root / "contact.json",
+                    capture_path,
+                )
+
+        self.assertFalse(capture_path.exists())
+        self.assertFalse(report_path.exists())
+        self.assertEqual(list(self.root.iterdir()), [])
+        publish_report.assert_not_called()
+        publish_captures.assert_not_called()
+
+    def test_deformation_capture_publication_failure_precedes_success_report(self) -> None:
+        _payload, report, _command, _identity, captures = _deformation_report_fixture()
+        capture_path = self.root / "captures"
+        report_path = self.root / "report.json"
+        with (
+            patch.object(
+                smoke,
+                "_publish_deformation_captures",
+                side_effect=smoke.SmokeError("capture publication failed"),
+            ) as publish_captures,
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish_report,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "capture publication failed"):
+                smoke._publish_deformation_result(report_path, report, capture_path, captures)
+        publish_captures.assert_called_once_with(capture_path, captures)
+        publish_report.assert_not_called()
+        self.assertFalse(capture_path.exists())
+        self.assertFalse(report_path.exists())
+
+    def test_deformation_report_publication_failure_rolls_back_exact_capture_set(self) -> None:
+        _payload, report, _command, _identity, captures = _deformation_report_fixture()
+        capture_path = self.root / "captures"
+        report_path = self.root / "report.json"
+        with patch.object(
+            smoke.neutral_smoke,
+            "_publish_report",
+            side_effect=smoke.SmokeError("report publication failed"),
+        ) as publish_report:
+            with self.assertRaisesRegex(smoke.SmokeError, "report publication failed"):
+                smoke._publish_deformation_result(report_path, report, capture_path, captures)
+        publish_report.assert_called_once_with(report_path, report)
+        self.assertFalse(capture_path.exists())
+        self.assertFalse(report_path.exists())
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_deformation_capture_publication_is_atomic_no_overwrite_and_exact(self) -> None:
+        _payload, _report, _command, _identity, captures = _deformation_report_fixture()
+        capture_path = self.root / "captures"
+
+        smoke._publish_deformation_captures(capture_path, captures)
+
+        self.assertEqual(
+            {entry.name for entry in capture_path.iterdir()},
+            set(smoke.DEFORMATION_CAPTURE_NAMES),
+        )
+        for file_name in smoke.DEFORMATION_CAPTURE_NAMES:
+            self.assertEqual((capture_path / file_name).read_bytes(), captures[file_name])
+        self.assertEqual({entry.name for entry in self.root.iterdir()}, {capture_path.name})
+
+        before = {
+            entry.name: entry.read_bytes()
+            for entry in capture_path.iterdir()
+        }
+        with self.assertRaisesRegex(smoke.SmokeError, "must not already exist"):
+            smoke._publish_deformation_captures(capture_path, captures)
+        after = {
+            entry.name: entry.read_bytes()
+            for entry in capture_path.iterdir()
+        }
+        self.assertEqual(after, before)
+        self.assertEqual({entry.name for entry in self.root.iterdir()}, {capture_path.name})
+
+    def test_contact_command_module_exposes_exact_runner_api(self) -> None:
+        module = smoke._load_contact_command_module()
+        self.assertTrue(callable(module.load_contact_command))
+        self.assertTrue(callable(module.validate_contact_command))
+        self.assertTrue(callable(module.command_identity))
+        self.assertFalse(hasattr(module, "contact_command_identity"))
+
+    def test_no_contact_report_rejects_contact_evidence_aliases(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        for alias in ("semantic_contact", "semantic_contact_evidence", "contact_evidence"):
+            with self.subTest(report_alias=alias):
+                mutated = deepcopy(report)
+                mutated[alias] = {}
+                with self.assertRaisesRegex(smoke.SmokeError, "unexpected semantic contact evidence"):
+                    smoke._validate_report(mutated, payload, DEFAULTS)
+
+    def test_ck_projection_cross_checks_fresh_carrier_payload_and_tampering(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        )
+        carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+        projection_module = SimpleNamespace(
+            ProjectionError=ValueError,
+            validate_projection=lambda *_args, **_kwargs: projection_value,
+            projection_identity=lambda _value: identity,
+        )
+        with patch.object(smoke, "_load_projection_module", return_value=projection_module):
+            result = smoke._validated_projection_input(
+                self.root,
+                self.root / "carrier.json",
+                carrier_value,
+                {**payload, "profiles": [{**profile, "artifacts": projection_value["avatars"][index]["artifacts"]} for index, profile in enumerate(payload["profiles"])]},
+                profile_ids,
+                tuple(record["instance_id"] for record in records),
+                carrier_identity,
+                records,
+                self.root / "projection.json",
+                self.root / "creature-kernel",
+            )
+        self.assertIs(result[1], projection_value)
+        self.assertIs(result[2], identity)
+
+        tampered = deepcopy(projection_value)
+        tampered["avatars"][0]["artifacts"] = []
+        with patch.object(
+            smoke,
+            "_load_projection_module",
+            return_value=SimpleNamespace(
+                ProjectionError=ValueError,
+                validate_projection=lambda *_args, **_kwargs: tampered,
+                projection_identity=lambda _value: identity,
+            ),
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "artifacts disagree"):
+                smoke._validated_projection_input(
+                    self.root,
+                    self.root / "carrier.json",
+                    carrier_value,
+                    {**payload, "profiles": [{**profile, "artifacts": projection_value["avatars"][index]["artifacts"]} for index, profile in enumerate(payload["profiles"])]},
+                    profile_ids,
+                    tuple(record["instance_id"] for record in records),
+                    carrier_identity,
+                    records,
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                )
+
+    def test_report_rejects_projection_fields_without_projection_mode(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        report["validated_ck_projection"] = {"unexpected": True}
+        with self.assertRaisesRegex(smoke.SmokeError, "unexpected CK projection identity"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+        payload, report = _skeletal_validation_fixture()
+        report["profiles"][0]["ck_projection_binding"] = {}
+        with self.assertRaisesRegex(smoke.SmokeError, "unexpected CK projection binding"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+    def test_projection_report_fields_are_exactly_validated(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, identity, _carrier_value, _records, _profile_ids = _projection_fixture(payload)
+        report["validated_ck_projection"] = deepcopy(identity)
+        bindings = smoke._projection_bindings(projection_value)
+        for index, binding in enumerate(bindings):
+            report["profiles"][index]["ck_projection_binding"] = deepcopy(binding)
+        smoke._validate_report(report, payload, DEFAULTS, projection=projection_value, projection_identity=identity)
+        report["profiles"][0]["ck_projection_binding"]["source"]["bytes"] = 2
+        with self.assertRaisesRegex(smoke.SmokeError, "CK projection binding is invalid"):
+            smoke._validate_report(report, payload, DEFAULTS, projection=projection_value, projection_identity=identity)
+
+    def test_projection_postflight_change_fails_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        )
+        validated = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        changed = deepcopy(projection_value)
+        changed["avatars"][0]["label"] = "changed-after-launch"
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, validated]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[(None, projection_value, identity), (None, changed, identity)]),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "CK projection changed"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    None,
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                )
+        publish.assert_not_called()
+
+    def test_projection_and_semantic_command_transport_uses_exact_json_arguments(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, projection_identity, _carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_identity = deepcopy(CARRIER_IDENTITY)
+        command = {"command": "fixture"}
+        command_identity = {"sha256": "c" * 64}
+        semantic_payload = {"rules": []}
+        serializer = lambda value: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        command_module = SimpleNamespace(_canonical_json=serializer)
+        projection_module = SimpleNamespace(_canonical_json=serializer)
+        contact_command, contact_identity = _contact_command_fixture()
+        contact_module = SimpleNamespace(_canonical_json=serializer)
+        with tempfile.TemporaryDirectory(prefix="ck-godot-projection-args-") as temporary:
+            root = Path(temporary)
+            project_file = root / "project.godot"
+            script_file = root / "skeletal_pose_smoke.gd"
+            launcher = root / "godot-launcher"
+            project_file.write_text("[application]\n", encoding="utf-8")
+            script_file.write_text("extends SceneTree\n", encoding="utf-8")
+            launcher.write_text("", encoding="utf-8")
+            launcher.chmod(0o755)
+            with (
+                patch.object(smoke.neutral_smoke, "PROJECT_FILE", project_file),
+                patch.object(smoke, "GODOT_SCRIPT", script_file),
+                patch.object(smoke.neutral_smoke, "LAUNCHER", launcher),
+                patch.object(smoke.neutral_smoke, "_resolve_pinned_binary", return_value=launcher),
+                patch.object(smoke, "_load_command_module", return_value=command_module),
+                patch.object(smoke, "_load_projection_module", return_value=projection_module),
+                patch.object(smoke, "_load_contact_command_module", return_value=contact_module),
+                patch.object(smoke.neutral_smoke, "_read_report", return_value={}),
+                patch.object(smoke.neutral_smoke, "_has_godot_error_diagnostics", return_value=False),
+                patch.dict(os.environ, {smoke.VISIBLE_GODOT_OPT_IN: "1"}),
+                patch.object(subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run,
+            ):
+                smoke._launch_godot(
+                    self.root,
+                    profile_ids,
+                    payload,
+                    carrier_identity,
+                    records,
+                    command,
+                    command_identity,
+                    semantic_payload,
+                    projection_value,
+                    projection_identity,
+                    contact_command,
+                    contact_identity,
+                    self.root / "creature-kernel",
+                )
+                smoke._launch_godot(
+                    self.root,
+                    profile_ids,
+                    payload,
+                    carrier_identity,
+                    records,
+                    command,
+                    command_identity,
+                    semantic_payload,
+                    projection_value,
+                    projection_identity,
+                    contact_command,
+                    contact_identity,
+                    self.root / "creature-kernel",
+                    runtime_measurement_mode="rigid_contact_only",
+                )
+        command_line = run.call_args_list[0].args[0]
+        runtime_command_line = run.call_args_list[1].args[0]
+        self.assertNotIn("--runtime-measurement-mode", command_line)
+        self.assertNotIn("--resolution", command_line)
+        self.assertEqual(runtime_command_line.count("--runtime-measurement-mode"), 1)
+        mode_index = runtime_command_line.index("--runtime-measurement-mode")
+        self.assertEqual(runtime_command_line[mode_index + 1], "rigid_contact_only")
+        self.assertEqual(runtime_command_line[runtime_command_line.index("--resolution") + 1], "512x512")
+        self.assertEqual(runtime_command_line[runtime_command_line.index("--display-driver") + 1], "x11")
+        self.assertEqual(runtime_command_line[runtime_command_line.index("--rendering-method") + 1], "gl_compatibility")
+        self.assertEqual(
+            command_line[command_line.index("--ck-projection-json") + 1],
+            serializer(projection_value).decode().removesuffix("\n"),
+        )
+        self.assertEqual(
+            command_line[command_line.index("--ck-projection-identity-json") + 1],
+            serializer(projection_identity).decode().removesuffix("\n"),
+        )
+        self.assertNotIn("\n", command_line[command_line.index("--ck-projection-json") + 1])
+        self.assertEqual(
+            command_line[command_line.index("--semantic-contact-command-json") + 1],
+            serializer(contact_command).decode().removesuffix("\n"),
+        )
+        self.assertEqual(
+            command_line[command_line.index("--semantic-contact-command-identity-json") + 1],
+            serializer(contact_identity).decode().removesuffix("\n"),
+        )
+        self.assertNotIn("\n", command_line[command_line.index("--semantic-contact-command-json") + 1])
+
     def test_integration_availability_probe_times_out_fail_closed(self) -> None:
         with (
             patch.object(sys.modules[__name__], "GALLERY", self.root),
@@ -412,7 +2678,18 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         proxy_source = source[source.index("func _build_host_proxies"):source.index("func _read_proxy_geometry")]
         self.assertIn("if report.is_empty():", run_source)
         self.assertIn("runtime evidence report is empty", run_source)
-        self.assertIn("var binding := _readback_binding(profile)", report_source)
+        self.assertIn(
+            'var binding := _readback_binding(profile, options.has("semantic_pose_command"))',
+            report_source,
+        )
+        self.assertIn(
+            "not validate_command_rotation or command_rotation_error <= RUNTIME_POSE_QUATERNION_TOLERANCE",
+            binding_source,
+        )
+        self.assertIn(
+            "_quaternion_error(quaternion, expected_quaternion) > POSE_QUATERNION_TOLERANCE",
+            source,
+        )
         self.assertIn("var node_counts := _readback_node_counts(profile)", report_source)
         self.assertIn("var orientation = _basis_for_y_axis", proxy_source)
         self.assertNotIn("Quaternion(Vector3.UP", proxy_source)
@@ -421,7 +2698,12 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         self.assertNotIn("NOTIFICATION_UPDATE_SKELETON", source)
         self.assertIn("skeleton_updated.connect", source)
         self.assertIn("--carrier-identity-json", source)
+        self.assertIn("--carrier-avatar-records-json", source)
         self.assertIn("func _validate_carrier_identity", source)
+        self.assertIn("func _validate_carrier_avatar_records", source)
+        self.assertIn("func _readback_carrier_avatar_binding", source)
+        self.assertIn("root.set_meta", source)
+        self.assertIn("root.get_meta", source)
         for field in (
             "unique_bone_names",
             "parent_links_match",
@@ -452,9 +2734,76 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         ):
             self.assertIn(expression, source)
 
+    def test_capture_metadata_uses_capture_specific_canonical_byte_validator(self) -> None:
+        source = (EXPERIMENT / "skeletal_pose_smoke.gd").read_text(encoding="utf-8")
+        capture_validator = source[source.index("func _is_canonical_capture_byte_count"):source.index("func _selector")]
+        capture_finalization = source[source.index("func _finish_deformation_capture"):source.index("func _finish_render_collision_coherence")]
+        carrier_validator = source[source.index("func _validate_carrier_identity"):source.index("func _is_safe_instance_id")]
+
+        self.assertIn("const DEFORMATION_CAPTURE_MAX_BYTES := 8 * 1024 * 1024", source)
+        self.assertIn("byte_count <= DEFORMATION_CAPTURE_MAX_BYTES", capture_validator)
+        self.assertIn("not _is_canonical_capture_byte_count(capture.get(\"byte_count_decimal\", \"\"))", capture_finalization)
+        self.assertNotIn("_is_canonical_carrier_byte_count(capture.get(\"byte_count_decimal\", \"\"))", capture_finalization)
+        self.assertIn("not _is_canonical_carrier_byte_count(value.byte_count_decimal)", carrier_validator)
+
     def test_report_validator_accepts_complete_binding_evidence(self) -> None:
         payload, report = _skeletal_validation_fixture()
+        self.assertIn("coordinate_rule", report)
+        self.assertNotIn("coordinate_mapping", report)
         smoke._validate_report(report, payload, DEFAULTS)
+
+    def test_semantic_pose_runtime_quaternion_tolerance_is_bounded(self) -> None:
+        rules = []
+        readback = []
+        for index in range(smoke.BONE_COUNT):
+            role = f"test-role-{index}"
+            rules.append(
+                {
+                    "kind": "joint",
+                    "role": role,
+                    "anchors": [],
+                    "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+                }
+            )
+            readback.append(
+                {
+                    "selector": f"joint|{role}|",
+                    "runtime_bone_id": f"test-bone-{index}",
+                    "observed_rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+                    "max_component_error_to_command": 0.0,
+                }
+            )
+        command = {"rules": rules}
+        target = {"instance_id": "test-avatar"}
+        actual = {
+            "target": deepcopy(target),
+            "rule_readback": readback,
+            "rules_observed": smoke.BONE_COUNT,
+            "local_pose_matches_command": smoke.BONE_COUNT,
+            "global_pose_matches_published": smoke.BONE_COUNT,
+            "skin_matrices_match_published": smoke.BONE_COUNT,
+            "applied": True,
+        }
+        accepted_error = smoke.SEMANTIC_POSE_QUATERNION_TOLERANCE * 0.9
+        actual["rule_readback"][0]["observed_rotation_xyzw"] = [
+            accepted_error,
+            0.0,
+            0.0,
+            math.sqrt(1.0 - accepted_error * accepted_error),
+        ]
+        actual["rule_readback"][0]["max_component_error_to_command"] = accepted_error
+        smoke._validate_command_injection(actual, target, command, "test-profile")
+
+        rejected_error = smoke.SEMANTIC_POSE_QUATERNION_TOLERANCE + 1.0e-8
+        actual["rule_readback"][0]["observed_rotation_xyzw"] = [
+            rejected_error,
+            0.0,
+            0.0,
+            math.sqrt(1.0 - rejected_error * rejected_error),
+        ]
+        actual["rule_readback"][0]["max_component_error_to_command"] = rejected_error
+        with self.assertRaisesRegex(smoke.SmokeError, "does not match the command"):
+            smoke._validate_command_injection(actual, target, command, "test-profile")
 
     def test_report_validator_rejects_numeric_boolean_substitutes(self) -> None:
         payload, report = _skeletal_validation_fixture()
@@ -467,10 +2816,87 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(smoke.SmokeError, "pose binding evidence is invalid"):
             smoke._validate_report(report, payload, DEFAULTS)
 
+        payload, report = _skeletal_validation_fixture()
+        report["profiles"][0]["binding"]["max_posed_vertex_error"] = 10**1000
+        with self.assertRaisesRegex(smoke.SmokeError, "non-finite or unbounded numeric evidence"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
+        payload, report = _skeletal_validation_fixture()
+        report["profiles"][0]["neutral_mesh_aabb"] = deepcopy(report["profiles"][0]["neutral_mesh_aabb"])
+        report["profiles"][0]["neutral_mesh_aabb"]["min"][0] = 10**1000
+        with self.assertRaisesRegex(smoke.SmokeError, "non-finite or unbounded numeric evidence"):
+            smoke._validate_report(report, payload, DEFAULTS)
+
     def test_report_validator_accepts_exact_carrier_identity(self) -> None:
         payload, report = _skeletal_validation_fixture()
         report["validated_carrier"] = deepcopy(CARRIER_IDENTITY)
-        smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
+        report["carrier_avatar_bindings"] = deepcopy(smoke._expected_carrier_avatar_bindings(CARRIER_AVATAR_RECORDS))
+        smoke._validate_report(
+            report,
+            payload,
+            DEFAULTS,
+            deepcopy(CARRIER_IDENTITY),
+            deepcopy(CARRIER_AVATAR_RECORDS),
+        )
+
+    def test_report_validator_rejects_aggregate_only_and_tampered_avatar_bindings(self) -> None:
+        mutations = {
+            "aggregate-only": None,
+            "missing record": [],
+            "duplicate instance": deepcopy(smoke._expected_carrier_avatar_bindings(CARRIER_AVATAR_RECORDS)),
+            "reordered records": list(reversed(smoke._expected_carrier_avatar_bindings(CARRIER_AVATAR_RECORDS))),
+            "swapped profiles": deepcopy(smoke._expected_carrier_avatar_bindings(CARRIER_AVATAR_RECORDS)),
+            "mismatched candidate identity": deepcopy(smoke._expected_carrier_avatar_bindings(CARRIER_AVATAR_RECORDS)),
+        }
+        mutations["duplicate instance"][1]["instance_id"] = mutations["duplicate instance"][0]["instance_id"]
+        mutations["swapped profiles"][0]["profile_id"], mutations["swapped profiles"][1]["profile_id"] = (
+            mutations["swapped profiles"][1]["profile_id"],
+            mutations["swapped profiles"][0]["profile_id"],
+        )
+        mutations["mismatched candidate identity"][0]["candidate_profile_sha256"] = "f" * 64
+        for label, bindings in mutations.items():
+            with self.subTest(case=label):
+                payload, report = _skeletal_validation_fixture()
+                report["validated_carrier"] = deepcopy(CARRIER_IDENTITY)
+                if bindings is not None:
+                    report["carrier_avatar_bindings"] = bindings
+                with self.assertRaisesRegex(smoke.SmokeError, "carrier avatar binding|aggregate-only"):
+                    smoke._validate_report(
+                        report,
+                        payload,
+                        DEFAULTS,
+                        deepcopy(CARRIER_IDENTITY),
+                        deepcopy(CARRIER_AVATAR_RECORDS),
+                    )
+
+    def test_report_validator_rejects_inconsistent_carrier_expectations(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        report["validated_carrier"] = deepcopy(CARRIER_IDENTITY)
+        report["carrier_avatar_bindings"] = deepcopy(smoke._expected_carrier_avatar_bindings(CARRIER_AVATAR_RECORDS))
+        with self.assertRaisesRegex(smoke.SmokeError, "must be supplied together"):
+            smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
+
+        mutations = {
+            "instance IDs": (deepcopy(CARRIER_IDENTITY), deepcopy(CARRIER_AVATAR_RECORDS)),
+            "profile order": (deepcopy(CARRIER_IDENTITY), deepcopy(CARRIER_AVATAR_RECORDS)),
+            "candidate identity": (deepcopy(CARRIER_IDENTITY), deepcopy(CARRIER_AVATAR_RECORDS)),
+        }
+        mutations["instance IDs"][0]["experiment_instance_ids"][0] = "different-left"
+        mutations["profile order"][1][0]["profile_id"], mutations["profile order"][1][1]["profile_id"] = (
+            mutations["profile order"][1][1]["profile_id"],
+            mutations["profile order"][1][0]["profile_id"],
+        )
+        mutations["candidate identity"][1][0]["candidate_profile_sha256"] = "f" * 64
+        for label, (identity, records) in mutations.items():
+            with self.subTest(case=label):
+                with self.assertRaisesRegex(smoke.SmokeError, "expectations are inconsistent"):
+                    smoke._validate_report(report, payload, DEFAULTS, identity, records)
+
+    def test_no_carrier_report_rejects_unexpected_avatar_bindings(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        report["carrier_avatar_bindings"] = deepcopy(smoke._expected_carrier_avatar_bindings(CARRIER_AVATAR_RECORDS))
+        with self.assertRaisesRegex(smoke.SmokeError, "no-carrier"):
+            smoke._validate_report(report, payload, DEFAULTS)
 
     def test_carrier_loader_is_cached_and_identity_uses_carrier_canonicalizer(self) -> None:
         self.assertIs(smoke._load_carrier_module(), smoke._load_carrier_module())
@@ -515,12 +2941,24 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                 report["validated_carrier"] = deepcopy(CARRIER_IDENTITY)
                 report["validated_carrier"][key] = replacement
                 with self.assertRaisesRegex(smoke.SmokeError, "validated-carrier identity is invalid"):
-                    smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
+                    smoke._validate_report(
+                        report,
+                        payload,
+                        DEFAULTS,
+                        deepcopy(CARRIER_IDENTITY),
+                        deepcopy(CARRIER_AVATAR_RECORDS),
+                    )
 
         payload, report = _skeletal_validation_fixture()
         report["validated_carrier"] = {**deepcopy(CARRIER_IDENTITY), "extra": False}
         with self.assertRaisesRegex(smoke.SmokeError, "validated-carrier identity is incomplete"):
-            smoke._validate_report(report, payload, DEFAULTS, deepcopy(CARRIER_IDENTITY))
+            smoke._validate_report(
+                report,
+                payload,
+                DEFAULTS,
+                deepcopy(CARRIER_IDENTITY),
+                deepcopy(CARRIER_AVATAR_RECORDS),
+            )
 
     def test_carrier_flow_passes_validated_payload_and_identity_through_unchanged(self) -> None:
         payload, report = _skeletal_validation_fixture()
@@ -528,8 +2966,16 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             "schema": carrier.SCHEMA,
             "boundary": carrier.BOUNDARY,
             "instances": [
-                {"instance_id": "avatar-left"},
-                {"instance_id": "avatar-right"},
+                {
+                    "instance_id": "avatar-left",
+                    "profile_id": DEFAULTS[0],
+                    "candidate_profile_sha256": "a" * 64,
+                },
+                {
+                    "instance_id": "avatar-right",
+                    "profile_id": DEFAULTS[1],
+                    "candidate_profile_sha256": "b" * 64,
+                },
             ],
         }
         module = SimpleNamespace(
@@ -555,7 +3001,14 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         self.assertEqual(carrier_input.call_count, 2)
         self.assertIs(launch.call_args.args[2], payload)
         self.assertEqual(launch.call_args.args[3], expected_identity)
-        validate_report.assert_called_once_with(report, payload, DEFAULTS, expected_identity)
+        self.assertEqual(launch.call_args.args[4], CARRIER_AVATAR_RECORDS)
+        validate_report.assert_called_once_with(
+            report,
+            payload,
+            DEFAULTS,
+            expected_identity,
+            CARRIER_AVATAR_RECORDS,
+        )
         publish.assert_called_once_with(self.root / "report.json", report)
 
     def test_carrier_profile_mismatch_and_postflight_change_fail_before_publication(self) -> None:
@@ -564,8 +3017,16 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
             "schema": carrier.SCHEMA,
             "boundary": carrier.BOUNDARY,
             "instances": [
-                {"instance_id": "avatar-left"},
-                {"instance_id": "avatar-right"},
+                {
+                    "instance_id": "avatar-left",
+                    "profile_id": DEFAULTS[0],
+                    "candidate_profile_sha256": "a" * 64,
+                },
+                {
+                    "instance_id": "avatar-right",
+                    "profile_id": DEFAULTS[1],
+                    "candidate_profile_sha256": "b" * 64,
+                },
             ],
         }
         module = SimpleNamespace(
@@ -600,6 +3061,96 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                     None,
                     self.root / "report.json",
                     self.root / "carrier.json",
+                )
+        publish.assert_not_called()
+
+    def test_semantic_pose_command_postflight_change_fails_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        carrier_value = {
+            "schema": carrier.SCHEMA,
+            "boundary": carrier.BOUNDARY,
+            "instances": deepcopy(CARRIER_AVATAR_RECORDS),
+        }
+        module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        validated = (module, carrier_value, payload, DEFAULTS, ("avatar-left", "avatar-right"))
+        command_value = {"command": "initial"}
+        changed_command = {"command": "mutated-after-launch"}
+        command_identity = {"sha256": "a" * 64}
+        semantic_payload = {"rules": [], "identity_frame": {}}
+        command_results = [
+            (semantic_command, command_value, command_identity, semantic_payload),
+            (semantic_command, changed_command, command_identity, semantic_payload),
+        ]
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, validated]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=command_results),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "semantic pose command.*changed during"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    self.root / "command.json",
+                )
+        publish.assert_not_called()
+
+    def test_semantic_contact_command_postflight_change_fails_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        validated = (carrier_module, carrier_value, payload, profile_ids, tuple(record["instance_id"] for record in records))
+        command_value = {"command": "pose"}
+        command_identity = {"sha256": "p" * 64}
+        semantic_payload = {"rules": []}
+        contact_value, contact_identity = _contact_command_fixture()
+        changed_contact = deepcopy(contact_value)
+        changed_contact["interaction"]["kind"] = "changed-contact"
+        changed_contact_identity = {"sha256": "d" * 64}
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[validated, validated]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[(None, projection_value, projection_identity), (None, projection_value, projection_identity)]),
+            patch.object(
+                smoke,
+                "_validated_semantic_pose_command",
+                side_effect=[
+                    (semantic_command, command_value, command_identity, semantic_payload),
+                    (semantic_command, command_value, command_identity, semantic_payload),
+                ],
+            ),
+            patch.object(
+                smoke,
+                "_validated_semantic_contact_command",
+                side_effect=[
+                    (None, contact_value, contact_identity),
+                    (None, changed_contact, changed_contact_identity),
+                ],
+            ),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "semantic contact command.*changed during"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    self.root / "pose.json",
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                    self.root / "contact.json",
                 )
         publish.assert_not_called()
 
@@ -664,6 +3215,325 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
                 "experiment_instance_ids": ["avatar-left", "avatar-right"],
             },
         )
+        self.assertEqual(
+            report["carrier_avatar_bindings"],
+            smoke._expected_carrier_avatar_bindings(
+                [
+                    {
+                        "instance_id": "avatar-left",
+                        "profile_id": DEFAULTS[0],
+                        "candidate_profile_sha256": report["profiles"][0]["candidate_profile_sha256"],
+                    },
+                    {
+                        "instance_id": "avatar-right",
+                        "profile_id": DEFAULTS[1],
+                        "candidate_profile_sha256": report["profiles"][1]["candidate_profile_sha256"],
+                    },
+                ]
+            ),
+        )
+
+    def test_real_semantic_pose_command_injects_to_both_carrier_bound_avatars(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-command-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            command_path = root / "command.json"
+            carrier_value = carrier.build_carrier(GALLERY, DEFAULTS, ("avatar-left", "avatar-right"))
+            carrier.write_carrier(carrier_path, carrier_value)
+            command_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(command_path, command_value)
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                command_path,
+            )
+        self.assertEqual(report["semantic_pose_command_identity"], semantic_command.command_identity(command_value))
+        self.assertEqual(report["semantic_pose_targets"], command_value["targets"])
+        self.assertEqual(report["semantic_pose_frame"], command_value["identity_frame"])
+        self.assertEqual(
+            [profile["semantic_pose_injection"]["target"]["instance_id"] for profile in report["profiles"]],
+            ["avatar-left", "avatar-right"],
+        )
+        for profile in report["profiles"]:
+            injection = profile["semantic_pose_injection"]
+            self.assertEqual(
+                [record["selector"] for record in injection["rule_readback"]],
+                [smoke._command_selector(rule) for rule in command_value["rules"]],
+            )
+            self.assertEqual(len({record["runtime_bone_id"] for record in injection["rule_readback"]}), smoke.BONE_COUNT)
+            self.assertEqual(injection["rules_observed"], smoke.BONE_COUNT)
+            self.assertEqual(injection["local_pose_matches_command"], smoke.BONE_COUNT)
+            self.assertEqual(injection["global_pose_matches_published"], smoke.BONE_COUNT)
+            self.assertEqual(injection["skin_matrices_match_published"], smoke.BONE_COUNT)
+            self.assertTrue(injection["applied"])
+
+    def test_real_projection_and_semantic_pose_command_share_exact_identity(self) -> None:
+        if not REAL_CLI.is_file() or not os.access(REAL_CLI, os.X_OK):
+            self.skipTest("debug Creature Kernel CLI unavailable for the real projection path")
+        with tempfile.TemporaryDirectory(prefix="ck-godot-projection-semantic-pose-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            projection_path = root / "projection.json"
+            command_path = root / "command.json"
+            carrier_value = carrier.build_carrier(GALLERY, DEFAULTS, ("projection-left", "projection-right"))
+            carrier.write_carrier(carrier_path, carrier_value)
+            projection_value = projection.build_projection(
+                GALLERY,
+                carrier_path,
+                cli_path=REAL_CLI,
+            )
+            projection.write_projection(projection_path, projection_value)
+            command_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(command_path, command_value)
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                command_path,
+                projection_path,
+                REAL_CLI,
+            )
+        self.assertEqual(report["validated_ck_projection"], projection.projection_identity(projection_value))
+        self.assertEqual(
+            [profile["ck_projection_binding"] for profile in report["profiles"]],
+            smoke._projection_bindings(projection_value),
+        )
+        self.assertTrue(all(profile["semantic_pose_injection"]["applied"] for profile in report["profiles"]))
+
+    def test_real_semantic_contact_command_produces_bounded_runtime_response(self) -> None:
+        if not smoke.CONTACT_COMMAND_MODULE_PATH.is_file():
+            self.skipTest("disposable semantic contact command module unavailable")
+        if not REAL_CLI.is_file() or not os.access(REAL_CLI, os.X_OK):
+            self.skipTest("debug Creature Kernel CLI unavailable for the real contact path")
+        contact = load_module(
+            "disposable_semantic_contact_command_for_skeletal_tests",
+            smoke.CONTACT_COMMAND_MODULE_PATH,
+        )
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-contact-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            pose_path = root / "pose.json"
+            projection_path = root / "projection.json"
+            contact_path = root / "contact.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, DEFAULTS, ("contact-actuator", "contact-response")),
+            )
+            pose_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(pose_path, pose_value)
+            projection_value = projection.build_projection(GALLERY, carrier_path, cli_path=REAL_CLI)
+            projection.write_projection(projection_path, projection_value)
+            contact_value = contact.build_contact_command(GALLERY, carrier_path, pose_path)
+            contact.write_contact_command(contact_path, contact_value)
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                pose_path,
+                projection_path,
+                REAL_CLI,
+                contact_path,
+            )
+        self.assertEqual(report["scope_flags"], smoke.CONTACT_REPORT_FLAGS)
+        self.assertEqual(report["boundary"], smoke.CONTACT_REPORT_BOUNDARY)
+        self.assertEqual(report["coordinate_rule"]["scope"], smoke.CONTACT_REPORT_BOUNDARY)
+        self.assertNotIn("coordinate_mapping", report)
+        self.assertEqual(report["semantic_contact"]["phase_order"], smoke.CONTACT_PHASE_ORDER)
+        self.assertNotIn("contact_events", report["semantic_contact"])
+        self.assertEqual(
+            set(report["semantic_contact"]["solver_impulses"][0]),
+            {"runtime_derived", "target_indices", "shape_indices", "impulse_magnitude", "contact_samples"},
+        )
+        self.assertEqual(
+            set(report["semantic_contact"]["response"]),
+            {"target_index", "shape_index", "normal", "snapshots", "normal_velocity_delta", "normal_displacement", "displacement"},
+        )
+        self.assertEqual(
+            set(report["semantic_contact"]["response"]["snapshots"]),
+            {"initial", "onset", "contact", "final"},
+        )
+
+    def test_real_semantic_contact_deforms_and_recovers_smooth_forearm_surface(self) -> None:
+        if not smoke.CONTACT_COMMAND_MODULE_PATH.is_file():
+            self.skipTest("disposable semantic contact command module unavailable")
+        if not REAL_CLI.is_file() or not os.access(REAL_CLI, os.X_OK):
+            self.skipTest("debug Creature Kernel CLI unavailable for the real deformation path")
+        contact = load_module(
+            "disposable_semantic_contact_command_for_deformation_tests",
+            smoke.CONTACT_COMMAND_MODULE_PATH,
+        )
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-deformation-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            pose_path = root / "pose.json"
+            projection_path = root / "projection.json"
+            contact_path = root / "contact.json"
+            captures_path = root / "deformation-captures"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, DEFAULTS, ("deformation-actuator", "deformation-response")),
+            )
+            pose_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(pose_path, pose_value)
+            projection_value = projection.build_projection(GALLERY, carrier_path, cli_path=REAL_CLI)
+            projection.write_projection(projection_path, projection_value)
+            contact_value = contact.build_contact_command(GALLERY, carrier_path, pose_path)
+            contact.write_contact_command(contact_path, contact_value)
+
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                pose_path,
+                projection_path,
+                REAL_CLI,
+                contact_path,
+                captures_path,
+            )
+
+            self.assertEqual(report["scope_flags"], smoke.DEFORMATION_REPORT_FLAGS)
+            self.assertEqual(report["boundary"], smoke.DEFORMATION_REPORT_BOUNDARY)
+            deformation = report["semantic_deformation"]
+            self.assertEqual(deformation["surface"]["kind"], smoke.DEFORMATION_SURFACE_KIND)
+            self.assertAlmostEqual(
+                deformation["drive"]["normalized_peak_depth"],
+                smoke.DEFORMATION_NORMALIZED_PEAK_DEPTH,
+                delta=smoke.TOLERANCE,
+            )
+            self.assertEqual(
+                deformation["states"]["reference"]["vertices"],
+                deformation["states"]["recovered"]["vertices"],
+            )
+            self.assertEqual(
+                {path.name for path in captures_path.iterdir()},
+                set(smoke.DEFORMATION_CAPTURE_NAMES),
+            )
+            for record in deformation["captures"]:
+                capture = captures_path / record["file_name"]
+                data = capture.read_bytes()
+                self.assertEqual(hashlib.sha256(data).hexdigest(), record["sha256"])
+                self.assertEqual(str(len(data)), record["byte_count_decimal"])
+                self.assertEqual(record["width"], smoke.DEFORMATION_CAPTURE_WIDTH)
+                self.assertEqual(record["height"], smoke.DEFORMATION_CAPTURE_HEIGHT)
+
+    def test_real_command_mode_does_not_read_shared_pose_file_after_injection(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-no-fallback-") as temporary:
+            root = Path(temporary)
+            gallery = root / "gallery"
+            shutil.copytree(GALLERY, gallery)
+            carrier_path = root / "carrier.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(gallery, DEFAULTS, ("no-fallback-left", "no-fallback-right")),
+            )
+            carrier_module, carrier_value, payload, profile_ids, _instance_ids = smoke._validated_carrier_input(
+                gallery,
+                carrier_path,
+            )
+            command_value = semantic_command.build_command(gallery, carrier_path)
+            command_identity = semantic_command.command_identity(command_value)
+            semantic_payload = semantic_command.semantic_payload(command_value)
+            carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+            carrier_records = smoke._carrier_avatar_records(carrier_value)
+            (gallery / semantic_command.POSE_FILE).unlink()
+            stdout, stderr, returncode, report = smoke._launch_godot(
+                gallery,
+                profile_ids,
+                payload,
+                carrier_identity,
+                carrier_records,
+                command_value,
+                command_identity,
+                semantic_payload,
+            )
+        self.assertEqual(returncode, 0, f"stdout={stdout!r}; stderr={stderr!r}")
+        self.assertIsNotNone(report)
+        smoke._validate_report(
+            report,
+            payload,
+            profile_ids,
+            carrier_identity,
+            carrier_records,
+            command_value,
+            command_identity,
+        )
+
+    def test_real_empty_semantic_arguments_fail_closed_without_file_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-semantic-pose-empty-arguments-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, DEFAULTS, ("empty-left", "empty-right")),
+            )
+            carrier_module, carrier_value, payload, profile_ids, _instance_ids = smoke._validated_carrier_input(
+                GALLERY,
+                carrier_path,
+            )
+            carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+            carrier_records = smoke._carrier_avatar_records(carrier_value)
+            empty_serializer = SimpleNamespace(_canonical_json=lambda _value: b"\n")
+            with (
+                patch.object(smoke, "_load_command_module", return_value=empty_serializer),
+                self.assertRaisesRegex(smoke.SmokeError, "semantic pose command is not the canonical injected JSON text"),
+            ):
+                smoke._launch_godot(
+                    GALLERY,
+                    profile_ids,
+                    payload,
+                    carrier_identity,
+                    carrier_records,
+                    {},
+                    {},
+                    {},
+                )
+
+    def test_command_mode_rerun_is_deterministic_and_keeps_repository_clean(self) -> None:
+        with _temporary_directory_with_repository_cleanliness_guard(
+            self, prefix="ck-godot-semantic-pose-command-repeat-"
+        ) as root:
+            carrier_path = root / "carrier.json"
+            command_path = root / "command.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, ALTERNATE, ("alternate-left", "alternate-right")),
+            )
+            semantic_command.write_command(command_path, semantic_command.build_command(GALLERY, carrier_path))
+            first_path = root / "first.json"
+            second_path = root / "second.json"
+            first = smoke.run_skeletal_pose_smoke(GALLERY, None, first_path, carrier_path, command_path)
+            second = smoke.run_skeletal_pose_smoke(GALLERY, None, second_path, carrier_path, command_path)
+            self.assertEqual(first, second)
+            self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
+
+    def test_real_alternate_carrier_pair_binds_in_carrier_order(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-alternate-carrier-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, ALTERNATE, ("alternate-left", "alternate-right")),
+            )
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+            )
+        self.assertEqual(report["profile_ids"], list(ALTERNATE))
+        self.assertEqual(
+            [binding["instance_id"] for binding in report["carrier_avatar_bindings"]],
+            ["alternate-left", "alternate-right"],
+        )
+        self.assertEqual(
+            [binding["profile_id"] for binding in report["carrier_avatar_bindings"]],
+            list(ALTERNATE),
+        )
 
     def test_real_godot_rejects_noncanonical_carrier_byte_count(self) -> None:
         _, payload = smoke.neutral_smoke.preflight(GALLERY, DEFAULTS)
@@ -675,6 +3545,7 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
                 DEFAULTS,
                 payload,
                 invalid_identity,
+                CARRIER_AVATAR_RECORDS,
             )
 
     def test_real_default_pair_produces_skeleton_skin_pose_and_proxy_evidence(self) -> None:
@@ -709,27 +3580,31 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
                         smoke._launch_godot(gallery, DEFAULTS, payload)
 
     def test_real_rerun_is_deterministic_and_does_not_pollute_repository_or_cache(self) -> None:
-        before_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
-        before_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
-        before_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        with tempfile.TemporaryDirectory(prefix="ck-godot-skeletal-pose-deterministic-") as temporary:
-            root = Path(temporary)
+        with _temporary_directory_with_repository_cleanliness_guard(
+            self, prefix="ck-godot-skeletal-pose-deterministic-"
+        ) as root:
             first_path = root / "first.json"
             second_path = root / "second.json"
             first = smoke.run_skeletal_pose_smoke(GALLERY, DEFAULTS, first_path)
             second = smoke.run_skeletal_pose_smoke(GALLERY, DEFAULTS, second_path)
             self.assertEqual(first, second)
             self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
-        after_godot_dirs = {path for path in REPOSITORY_ROOT.rglob(".godot") if path.is_dir()}
-        after_python_cache_dirs = {path for path in REPOSITORY_ROOT.rglob("__pycache__") if path.is_dir()}
-        after_status = subprocess.run(
-            ["git", "status", "--short", "--", str(EXPERIMENT)], capture_output=True, text=True, check=True
-        ).stdout
-        self.assertEqual(before_godot_dirs, after_godot_dirs)
-        self.assertEqual(before_python_cache_dirs, after_python_cache_dirs)
-        self.assertEqual(before_status, after_status)
+
+    def test_real_carrier_rerun_is_deterministic_and_does_not_pollute_repository_or_cache(self) -> None:
+        with _temporary_directory_with_repository_cleanliness_guard(
+            self, prefix="ck-godot-skeletal-pose-carrier-deterministic-"
+        ) as root:
+            carrier_path = root / "carrier.json"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(GALLERY, DEFAULTS, ("repeat-left", "repeat-right")),
+            )
+            first_path = root / "first.json"
+            second_path = root / "second.json"
+            first = smoke.run_skeletal_pose_smoke(GALLERY, None, first_path, carrier_path)
+            second = smoke.run_skeletal_pose_smoke(GALLERY, None, second_path, carrier_path)
+            self.assertEqual(first, second)
+            self.assertEqual(first_path.read_bytes(), second_path.read_bytes())
 
 
 if __name__ == "__main__":

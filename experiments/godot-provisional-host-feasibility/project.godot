@@ -11,6 +11,10 @@ run/main_scene=""
 window/size/viewport_width=64
 window/size/viewport_height=64
 
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
