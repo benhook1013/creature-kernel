@@ -274,7 +274,14 @@ semantic provenance; raw lexical provenance is outside the projection. This
 operation does not expand dependencies or modules, apply basis/unit or
 quaternion semantics, produce claims, snapshots, or serialization, or activate
 the resolver. `frame_preparation` is internal implementation detail, so no
-record-level admission bypass is public.
+record-level admission bypass is public. The provisional runtime-input handoff
+then transports a non-empty, caller-ordered collection of unique `instance_id`
+and already prepared single-source pairs in memory. It retains no raw source
+bytes and defines no package, resolver snapshot, profile, serialization, or
+host-adapter contract. `inspect-runtime-input` is its thin debug CLI: every
+source must pass the existing single-source preparation operation, one
+invocation accepts at most 64 pairs, `-` may select stdin at most once, and the
+output is compact machine-oriented inspection JSON.
 
 The resolver runs the following ordered phases inside one operation-result
 envelope:

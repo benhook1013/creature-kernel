@@ -164,6 +164,19 @@ the canonical owner of the active runway, and the required reading order in
   not live contact rendering, deformed collision, realistic tissue, production
   topology, performance, package/adapter/R3 evidence, permanent Godot/Jolt
   selection, or the human checkpoint.
+- A parallel direct-prerequisite worktree is
+  `/home/ben/src/creature-kernel-worktrees/engine-neutral-runtime-input` on
+  branch `codex/engine-neutral-runtime-input`. At this handover snapshot its
+  committed Rust slice adds a provisional in-memory prepared-source transport
+  that retains caller order for uniquely identified, already prepared
+  single-source projections; it retains no raw source bytes. The thin
+  `inspect-runtime-input` CLI accepts repeated
+  `--instance <id> --source <path>` pairs, permits `-` for stdin at most once,
+  accepts at most 64 pairs per invocation, and emits compact machine-oriented
+  JSON with per-instance summaries or fail-closed diagnostics. Every source
+  must pass the existing single-source preparation operation. This remains
+  debug/transport instrumentation only, not a stable wire contract, runtime
+  package, resolver snapshot, profile, adapter, or Readiness 3 activation.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition
