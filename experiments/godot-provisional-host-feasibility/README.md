@@ -490,12 +490,12 @@ fresh predecessor lineage, canonical publication, strict field validation,
 tampering and mutation rejection, and command identity. Focused real contact
 integration passed in 182.453s; the focused no-display file has 16 expected display
 skips when its attended renderer path is unavailable.
-The 17-test disposable CK projection suite covers exact producer and transport
+The 19-test disposable CK projection suite covers exact producer and transport
 identity, private CLI/source snapshot binding, bounded subprocess output, fresh
 source/carrier/gallery/executable revalidation, deterministic publication,
 mutation rejection, and both frozen
 profile pairs against the native Rust CLI.
-The full Godot experiment suite currently contains 160 tests with 29 skips.
+The full Godot experiment suite currently contains 162 tests with 29 skips.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites

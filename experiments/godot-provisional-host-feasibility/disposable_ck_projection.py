@@ -780,11 +780,31 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
         raise ProjectionError(f"could not create private projection staging directory: {type(exc).__name__}: {exc}") from exc
     with staging as temporary:
         staging_directory = Path(temporary)
-        staged_cli_path, producer_identity = _validated_cli_producer(
-            carrier_module,
-            original_cli_path,
-            staging_directory=staging_directory,
-        )
+        cli_snapshot_root = staging_directory / "cli-snapshots"
+        try:
+            cli_snapshot_root.mkdir(mode=0o700)
+        except OSError as exc:
+            raise ProjectionError(f"could not create private CLI staging directory: {cli_snapshot_root}") from exc
+        staged_cli_paths = []
+        producer_identity = None
+        for index in range(2):
+            invocation_staging_directory = cli_snapshot_root / f"invocation-{index}"
+            try:
+                invocation_staging_directory.mkdir(mode=0o700)
+            except OSError as exc:
+                raise ProjectionError(
+                    f"could not create private CLI invocation staging directory: {invocation_staging_directory}"
+                ) from exc
+            staged_cli_path, snapshot_identity = _validated_cli_producer(
+                carrier_module,
+                original_cli_path,
+                staging_directory=invocation_staging_directory,
+            )
+            if producer_identity is None:
+                producer_identity = snapshot_identity
+            elif not _exact_equal(producer_identity, snapshot_identity):
+                raise ProjectionError("Rust CLI executable changed while private snapshots were being created")
+            staged_cli_paths.append(staged_cli_path)
         initial_state = _validated_carrier_state(carrier_module, gallery, carrier_path, "initial")
         carrier_value = initial_state["carrier_value"]
         carrier_bytes = initial_state["carrier_bytes"]
@@ -807,7 +827,7 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
             profile_id: _source_bytes(carrier_module, gallery, profile_id)
             for profile_id in profile_ids
         }
-        source_snapshot_directory = staging_directory / SOURCE_DIR
+        source_snapshot_directory = staging_directory / "source-snapshots"
         try:
             source_snapshot_directory.mkdir(mode=0o700)
         except OSError as exc:
@@ -822,7 +842,7 @@ def build_projection(gallery: Path, carrier_path: Path, *, cli_path: Path | None
             if not isinstance(profile, dict) or not isinstance(instances[index], dict):
                 raise ProjectionError(f"validated carrier profile {index} is not an object")
             source_bytes = source_bytes_by_profile[profile_id]
-            inspection = _run_inspection(staged_cli_path, source_snapshot_paths[profile_id])
+            inspection = _run_inspection(staged_cli_paths[index], source_snapshot_paths[profile_id])
             source = _source_record(source_bytes, profile_id, inspection)
             artifacts = _validate_artifacts(profile.get("artifacts"), profile_id, carrier_module, f"profile {profile_id}.artifacts")
             avatars.append(

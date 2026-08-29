@@ -70,9 +70,9 @@ artifact identities, records bounded successful `inspect-structure` evidence,
 and is freshly rebuilt before launch and again before report publication. Its
 embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
-The focused projection suite passed 17 tests with 1 expected skip, and the
+The focused projection suite passed 19 tests with 1 expected skip, and the
 focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
-display skips; the full Godot experiment suite contains 160 tests with 29
+display skips; the full Godot experiment suite contains 162 tests with 29
 skips. The corrected final evidence is one bounded paired runtime run using
 one exact 512x512 X11 `gl_compatibility` trial environment with official
 Godot 4.7.2 on Ubuntu

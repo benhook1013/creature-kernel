@@ -287,6 +287,55 @@ class DisposableCKProjectionTests(unittest.TestCase):
         ):
             projection._validated_cli_producer(carrier, bounded_cli)
 
+    def test_each_inspection_has_an_independent_cli_snapshot(self) -> None:
+        marker_path = self.root / "inspection-count"
+        replacement_cli_path = self.root / "replacement-cli"
+        cli_paths_path = self.root / "cli-paths"
+        inspections = {profile_id: rust_inspection(profile_id) for profile_id in PROFILE_IDS}
+        cli_body = (
+            "import json\n"
+            "import os\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"inspections = {inspections!r}\n"
+            f"marker = Path({str(marker_path)!r})\n"
+            f"replacement_cli = Path({str(replacement_cli_path)!r})\n"
+            f"cli_paths = Path({str(cli_paths_path)!r})\n"
+            "with cli_paths.open('a', encoding='utf-8') as handle:\n"
+            "    handle.write(f'{sys.argv[0]}\\n')\n"
+            "count = int(marker.read_text(encoding='utf-8')) if marker.exists() else 0\n"
+            "if count == 0:\n"
+            "    replacement_cli.write_text('#!/bin/sh\\nexit 97\\n', encoding='utf-8')\n"
+            "    replacement_cli.chmod(0o700)\n"
+            "    os.replace(replacement_cli, Path(sys.argv[0]))\n"
+            "marker.write_text(str(count + 1), encoding='utf-8')\n"
+            "print(json.dumps(inspections[Path(sys.argv[-1]).stem]))\n"
+        )
+        self.cli_path = self._write_executable("attacking-cli", cli_body)
+
+        with (
+            patch.object(projection, "_load_carrier_module", return_value=carrier),
+            patch.object(carrier, "validate_carrier", side_effect=self.static_validator),
+        ):
+            value = projection.build_projection(self.gallery, self.carrier_path, cli_path=self.cli_path)
+
+        cli_bytes = f"#!{sys.executable}\n{cli_body}".encode()
+        self.assertEqual(marker_path.read_text(encoding="utf-8"), "2")
+        staged_cli_paths = cli_paths_path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(staged_cli_paths), 2)
+        self.assertEqual(len(set(staged_cli_paths)), 2)
+        self.assertTrue(all(not Path(path).exists() for path in staged_cli_paths))
+        self.assertEqual(value["producer_identity"]["sha256"], hashlib.sha256(cli_bytes).hexdigest())
+        self.assertEqual(value["producer_identity"]["bytes"], len(cli_bytes))
+
+    def test_cli_basename_sources_does_not_collide_with_private_source_staging(self) -> None:
+        self.cli_path = self._write_executable("sources", valid_cli_body())
+
+        value = self.build()
+
+        self.assertEqual(value["producer_identity"]["operation"], projection.RUST_OPERATION)
+        self.assertEqual([avatar["profile_id"] for avatar in value["avatars"]], list(PROFILE_IDS))
+
     def test_private_snapshots_bind_cli_and_source_during_path_replacement(self) -> None:
         inspections = {profile_id: rust_inspection(profile_id) for profile_id in PROFILE_IDS}
         original_source_paths = {
