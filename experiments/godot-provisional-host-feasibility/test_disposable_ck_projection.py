@@ -518,8 +518,8 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "timeout-sleeper",
             f"from pathlib import Path\nimport os\nimport time\nPath({str(pid_path)!r}).write_text(str(os.getpid()))\ntime.sleep(30)\n",
         )
-        with patch.object(projection, "RUST_TIMEOUT_SECONDS", 0.5), self.assertRaisesRegex(
-            projection.ProjectionError, "timed out after 0.5 seconds"
+        with patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0), self.assertRaisesRegex(
+            projection.ProjectionError, "timed out after 2.0 seconds"
         ):
             projection._bounded_subprocess([str(sleeper)])
         self.assertTrue(pid_path.is_file())

@@ -46,7 +46,9 @@ the canonical owner of the active runway, and the required reading order in
   worktree is
   `/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` on
   branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`.
-  The current per-avatar runtime identity candidate passes
+  Proposed/provisional per-avatar, semantic pose/contact, and runtime
+  experiment evidence only: the current per-avatar runtime identity candidate
+  passes
   ordered `instance_id`/`profile_id`/`candidate_profile_sha256` records into
   Godot, binds them to deterministic runtime roots, and reads exact metadata
   back. Python rejects missing, duplicate, reordered, swapped, mismatched, or
@@ -125,7 +127,8 @@ the canonical owner of the active runway, and the required reading order in
   preparation of the direct Rust and engine-neutral package prerequisites; no
   new direction is introduced here.
 
-  The current deformation slice adds a smooth open forearm sleeve,
+  Proposed/provisional deformation and render/collision coherence evidence only:
+  the current deformation slice adds a smooth open forearm sleeve,
   actual-contact-driven localized falloff to a fixed five-percent-of-radius
   depth, exact release recovery, independent Python reconstruction, and three
   screened fixed-view static-replay captures of runtime read-back states, not

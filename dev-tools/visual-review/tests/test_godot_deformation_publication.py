@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+from io import BytesIO
 import json
 import struct
 import sys
@@ -9,6 +10,8 @@ import tempfile
 import unittest
 import zlib
 from pathlib import Path
+
+from PIL import Image
 
 
 HERE = Path(__file__).resolve().parents[1]
@@ -136,6 +139,15 @@ class GodotDeformationPublicationTests(unittest.TestCase):
         record["byte_count_decimal"] = str(len(data))
         self.report.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
 
+    def _png_with_transparent_only_change(self) -> bytes:
+        with Image.open(BytesIO((self.captures / "peak.png").read_bytes())) as image:
+            rgba = image.convert("RGBA")
+            red, green, blue, _alpha = rgba.getpixel((0, 0))
+            rgba.putpixel((0, 0), (red, green, blue, 0))
+            output = BytesIO()
+            rgba.save(output, format="PNG")
+            return output.getvalue()
+
     def test_four_claim_report_publishes_one_stable_three_state_group(self) -> None:
         summary = publisher.publish_godot_deformation(self.reviews, self.report, self.captures)
         session = Path(summary["session"])
@@ -217,6 +229,15 @@ class GodotDeformationPublicationTests(unittest.TestCase):
         ):
             publisher.publish_godot_deformation(self.reviews, self.report, self.captures, review_id="trivial-difference")
         self.assertFalse((self.reviews / "trivial-difference").exists())
+
+    def test_transparent_only_peak_difference_is_rejected(self) -> None:
+        self._replace_capture("peak.png", self._png_with_transparent_only_change())
+        with self.assertRaisesRegex(
+            publisher.GodotDeformationPublishError,
+            r"Godot deformation capture peak\.png must be fully opaque for RGB comparison",
+        ):
+            publisher.publish_godot_deformation(self.reviews, self.report, self.captures, review_id="transparent-only")
+        self.assertFalse((self.reviews / "transparent-only").exists())
 
     def test_peak_difference_above_bound_is_rejected(self) -> None:
         self._replace_capture(

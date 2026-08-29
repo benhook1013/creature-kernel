@@ -37,7 +37,9 @@ the stable structural review remains
 
 The active worktree is
 `/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` on
-branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`. The current
+branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`.
+Proposed/provisional per-avatar, semantic pose/contact, and runtime experiment
+evidence only: the current
 per-avatar runtime identity candidate passes ordered
 `instance_id`/`profile_id`/`candidate_profile_sha256` records into Godot, binds
 them to deterministic runtime roots, and reads exact metadata back. Python
@@ -117,7 +119,8 @@ checkpoint. The next direct prerequisite already recorded in this runway is
 preparation of the direct Rust and engine-neutral package prerequisites; no
 new direction is introduced here.
 
-The current deformation slice adds a deterministic smooth open forearm sleeve
+Proposed/provisional deformation and render/collision coherence evidence only:
+the current deformation slice adds a deterministic smooth open forearm sleeve
 to the response body, drives a localized spatial falloff from the retained
 runtime contact sample to a fixed five-percent-of-radius peak depth, and
 restores the exact reference vertices after release. The rigid capsule remains
