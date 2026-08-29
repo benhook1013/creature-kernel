@@ -110,7 +110,7 @@ fn help_response(arguments: &[String]) -> Option<Value> {
             "description": "Prepare repeated explicit source instances and inspect the provisional ordered runtime-input handoff (provisional CLI cap: 64 pairs per invocation; not a core/package contract).",
             "options": [
                 {"flag": "--instance <id>", "description": "Set one non-empty instance ID; repeat each instance/source pair in caller order."},
-                {"flag": "--source <path>", "description": "Read that instance's body document from a file (use '-' for stdin)."},
+                {"flag": "--source <path>", "description": "Read that instance's body document from a file (use '-' for stdin at most once)."},
                 {"flag": "--help", "description": "Show this structured help response."}
             ]
         }),
@@ -760,6 +760,12 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains("provisional CLI cap: 64 pairs")
+        );
+        assert!(
+            value["help"]["options"][1]["description"]
+                .as_str()
+                .unwrap()
+                .contains("stdin at most once")
         );
     }
 

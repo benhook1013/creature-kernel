@@ -10,6 +10,7 @@ import math
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -737,6 +738,25 @@ def _tamper_onset_vertex_and_metrics(report: dict) -> None:
     _recompute_coherence_metrics(report, "contact_onset")
 
 
+def _runtime_input_inspection_fixture(profile_id: str) -> dict[str, object]:
+    return {
+        "format": projection.RUST_FORMAT,
+        "operation": projection.RUST_OPERATION,
+        "stage": "runtime-input",
+        "status": "success",
+        "processing_complete": True,
+        "diagnostics_complete": True,
+        "diagnostics": [],
+        "source": {
+            "document": f"fixture.{profile_id}",
+            "namespace": "fixture",
+        },
+        "prepared_basis": deepcopy(projection.EXPECTED_PREPARED_BASIS),
+        "prepared_counts": {name: 0 for name in projection.PREPARED_COUNT_KEYS},
+        "structural_counts": {name: 0 for name in projection.STRUCTURAL_COUNT_KEYS},
+    }
+
+
 def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tuple[dict, dict, dict, list[dict], tuple[str, str]]:
     projected_payload = deepcopy(payload)
     for profile in projected_payload["profiles"]:
@@ -820,7 +840,7 @@ def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tup
                     "document": f"fixture.{record['profile_id']}",
                     "namespace": "fixture",
                 },
-                "rust_inspection": {},
+                "runtime_input_inspection": _runtime_input_inspection_fixture(record["profile_id"]),
                 "artifacts": deepcopy(profile["artifacts"]),
                 "metrics": deepcopy(profile["metrics"]),
             }
@@ -844,6 +864,55 @@ def _projection_fixture(payload: dict, carrier_value: dict | None = None) -> tup
         "avatars": projection_body["avatars"],
     }
     return projection_value, identity, carrier_value, records, DEFAULTS
+
+
+def _package_manifest_fixture(projection_value: dict, projection_identity: dict) -> tuple[dict, SimpleNamespace]:
+    package_module = SimpleNamespace(
+        SCHEMA="creature-kernel.disposable-ck-directory-payload.v1",
+        BOUNDARY="experiment_local_directory_payload_evidence_only",
+        METRICS_FILE="metrics.json",
+        MAX_FILE_BYTES=32 * 1024 * 1024,
+        _canonical_json=lambda value: (
+            json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+        ).encode("utf-8"),
+        _parse_json_bytes=lambda _data, label: (_ for _ in ()).throw(AssertionError(label)),
+    )
+    package_avatars = []
+    for index, projection_avatar in enumerate(projection_value["avatars"]):
+        package_avatar = deepcopy(projection_avatar)
+        package_avatar["ordinal"] = index
+        package_avatar["source"]["path"] = f"avatars/{index}/source.json"
+        package_avatar["artifacts"] = [
+            {
+                **artifact,
+                "path": f"avatars/{index}/{Path(artifact['path']).name}",
+            }
+            for artifact in projection_avatar["artifacts"]
+        ]
+        package_avatar["metrics"] = {
+            "path": f"avatars/{index}/metrics.json",
+            "sha256": "m" * 64,
+            "bytes": 8,
+        }
+        package_avatars.append(package_avatar)
+    manifest = {
+        "schema": package_module.SCHEMA,
+        "boundary": package_module.BOUNDARY,
+        "manifest_identity": {
+            "scope": "canonical_transport_manifest_body_only_not_provenance",
+            "sha256": "n" * 64,
+            "bytes": 1,
+        },
+        "projection_identity": deepcopy(projection_identity),
+        "avatars": package_avatars,
+    }
+    package_module._parse_json_bytes = lambda _data, label: next(
+        avatar["metrics"]
+        for avatar in projection_value["avatars"]
+        if avatar["profile_id"] in label
+    )
+    package_module.validate_package = lambda _path: deepcopy(manifest)
+    return manifest, package_module
 
 
 def _skeletal_validation_fixture() -> tuple[dict, dict]:
@@ -1430,6 +1499,43 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         self.assertNotEqual(before["launcher"], after["launcher"])
         for key in ("project", "script", "executable"):
             self.assertEqual(before[key], after[key])
+
+    def test_runtime_paired_identities_carry_the_same_package_record(self) -> None:
+        _payload, cpu_report, _command, contact_identity, _captures = _deformation_report_fixture()
+        _unused_payload, rigid_report = _skeletal_validation_fixture()
+        package_record = {
+            "schema": "creature-kernel.disposable-ck-directory-payload.v1",
+            "boundary": "experiment_local_directory_payload_evidence_only",
+            "manifest_identity": {"scope": "manifest", "sha256": "m" * 64, "bytes": 1},
+            "projection_identity": {"scope": "projection", "sha256": "k" * 64, "bytes": 1},
+            "avatar_records": [
+                {"ordinal": index, **record}
+                for index, record in enumerate(CARRIER_AVATAR_RECORDS)
+            ],
+        }
+        for child in (cpu_report, rigid_report):
+            child["validated_gallery"] = {"manifest_sha256": "g" * 64}
+            child["validated_carrier"] = {"sha256": "c" * 64}
+            child["validated_ck_projection"] = {"sha256": "k" * 64}
+            child["semantic_pose_command_identity"] = {"sha256": "p" * 64}
+            child["semantic_contact"] = {"command_identity": deepcopy(contact_identity)}
+            child["validated_ck_package"] = deepcopy(package_record)
+        launch_identity = {
+            "project": {"sha256": "a" * 64, "byte_count_decimal": "1"},
+            "script": {"sha256": "b" * 64, "byte_count_decimal": "2"},
+            "launcher": {"sha256": "l" * 64, "byte_count_decimal": "3"},
+            "executable": {"sha256": "d" * 64, "byte_count_decimal": "4"},
+        }
+        paired = smoke._runtime_paired_identities(cpu_report, rigid_report, launch_identity)
+        self.assertEqual(paired["validated_ck_package"], package_record)
+
+        rigid_report.pop("validated_ck_package")
+        with self.assertRaisesRegex(smoke.SmokeError, "package identity presence"):
+            smoke._runtime_paired_identities(cpu_report, rigid_report, launch_identity)
+        rigid_report["validated_ck_package"] = deepcopy(package_record)
+        rigid_report["validated_ck_package"]["avatar_records"][0]["instance_id"] = "other"
+        with self.assertRaisesRegex(smoke.SmokeError, "validated_ck_package record"):
+            smoke._runtime_paired_identities(cpu_report, rigid_report, launch_identity)
 
     def test_runtime_evaluation_launches_matched_modes_and_publishes_one_pair(self) -> None:
         payload, deformation_base_report, _fixture_command, _fixture_identity, _fixture_captures = _deformation_report_fixture()
@@ -2373,6 +2479,73 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                     self.root / "creature-kernel",
                 )
 
+    def test_ck_projection_fixture_uses_compact_ordered_runtime_input_summaries(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, _identity, _carrier_value, records, _profile_ids = _projection_fixture(payload)
+
+        self.assertEqual(projection_value["schema"], "creature-kernel.disposable-ck-rust-projection.v2")
+        self.assertEqual(
+            [avatar["instance_id"] for avatar in projection_value["avatars"]],
+            [record["instance_id"] for record in records],
+        )
+        for avatar, record in zip(projection_value["avatars"], records):
+            evidence = avatar["runtime_input_inspection"]
+            self.assertEqual(
+                set(evidence),
+                {
+                    "format",
+                    "operation",
+                    "stage",
+                    "status",
+                    "processing_complete",
+                    "diagnostics_complete",
+                    "diagnostics",
+                    "source",
+                    "prepared_basis",
+                    "prepared_counts",
+                    "structural_counts",
+                },
+            )
+            self.assertEqual(evidence["operation"], "inspect-runtime-input")
+            self.assertEqual(evidence["stage"], "runtime-input")
+            self.assertEqual(evidence["source"], {"document": f"fixture.{record['profile_id']}", "namespace": "fixture"})
+            self.assertEqual(evidence["prepared_basis"], projection.EXPECTED_PREPARED_BASIS)
+            self.assertEqual(set(evidence["prepared_counts"]), set(projection.PREPARED_COUNT_KEYS))
+            self.assertEqual(set(evidence["structural_counts"]), set(projection.STRUCTURAL_COUNT_KEYS))
+
+        mutations = {
+            "v1 projection schema": lambda value: value.__setitem__(
+                "schema", "creature-kernel.disposable-ck-rust-projection.v1"
+            ),
+            "old rust evidence field": lambda value: value["avatars"][0].__setitem__(
+                "rust_inspection", value["avatars"][0].pop("runtime_input_inspection")
+            ),
+            "wrong instance ID": lambda value: value["avatars"][0].__setitem__("instance_id", "avatar-other"),
+            "wrong instance order": lambda value: value["avatars"].reverse(),
+            "source mismatch": lambda value: value["avatars"][0]["runtime_input_inspection"]["source"].__setitem__(
+                "document", "fixture.other"
+            ),
+            "malformed basis": lambda value: value["avatars"][0]["runtime_input_inspection"]["prepared_basis"].__setitem__(
+                "up", "+z"
+            ),
+            "missing count": lambda value: value["avatars"][0]["runtime_input_inspection"]["prepared_counts"].pop("parts"),
+            "extra count": lambda value: value["avatars"][0]["runtime_input_inspection"]["structural_counts"].__setitem__(
+                "unexpected", 0
+            ),
+            "negative count": lambda value: value["avatars"][0]["runtime_input_inspection"]["prepared_counts"].__setitem__(
+                "parts", -1
+            ),
+            "fractional count": lambda value: value["avatars"][0]["runtime_input_inspection"]["structural_counts"].__setitem__(
+                "parts", 0.5
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                mutated = deepcopy(projection_value)
+                mutate(mutated)
+                with self.assertRaises(projection.ProjectionError):
+                    projection._validate_projection_shape(mutated)
+
     def test_report_rejects_projection_fields_without_projection_mode(self) -> None:
         payload, report = _skeletal_validation_fixture()
         report["validated_ck_projection"] = {"unexpected": True}
@@ -2395,6 +2568,454 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         report["profiles"][0]["ck_projection_binding"]["source"]["bytes"] = 2
         with self.assertRaisesRegex(smoke.SmokeError, "CK projection binding is invalid"):
             smoke._validate_report(report, payload, DEFAULTS, projection=projection_value, projection_identity=identity)
+
+    def test_package_projection_identity_order_and_runtime_evidence_are_bound(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, projection_identity, _carrier_value, _records, _profile_ids = _projection_fixture(payload)
+        manifest, package_module = _package_manifest_fixture(projection_value, projection_identity)
+        package_carrier_module = SimpleNamespace(
+            _read_regular_file=lambda _path, _maximum, _label: b"metrics\n",
+        )
+        with (
+            patch.object(smoke, "_load_package_module", return_value=package_module),
+            patch.object(smoke, "_load_carrier_module", return_value=package_carrier_module),
+            patch.object(smoke, "_package_file_bytes", return_value=b"metrics\n"),
+        ):
+            _module, loaded_manifest, package_record = smoke._validated_ck_package_input(
+                self.root / "package",
+                self.root,
+                projection_value,
+                projection_identity,
+            )
+        self.assertEqual(loaded_manifest, manifest)
+        self.assertEqual(
+            set(package_record),
+            {"schema", "boundary", "manifest_identity", "projection_identity", "avatar_records"},
+        )
+        self.assertEqual(
+            package_record["avatar_records"],
+            [
+                {
+                    "ordinal": index,
+                    "instance_id": avatar["instance_id"],
+                    "profile_id": avatar["profile_id"],
+                    "candidate_profile_sha256": avatar["candidate_profile_sha256"],
+                }
+                for index, avatar in enumerate(projection_value["avatars"])
+            ],
+        )
+
+        reordered = deepcopy(manifest)
+        reordered["avatars"].reverse()
+        package_module.validate_package = lambda _path: reordered
+        with (
+            patch.object(smoke, "_load_package_module", return_value=package_module),
+            patch.object(smoke, "_load_carrier_module", return_value=package_carrier_module),
+            patch.object(smoke, "_package_file_bytes", return_value=b"metrics\n"),
+            self.assertRaisesRegex(smoke.SmokeError, "identity/order"),
+        ):
+            smoke._validated_ck_package_input(
+                self.root / "package",
+                self.root,
+                projection_value,
+                projection_identity,
+            )
+
+    def test_package_gallery_metrics_read_failure_becomes_smoke_error(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, projection_identity, _carrier_value, _records, _profile_ids = _projection_fixture(payload)
+        manifest, package_module = _package_manifest_fixture(projection_value, projection_identity)
+
+        def fail_read(_path: Path, _maximum: int, label: str) -> bytes:
+            raise carrier.CarrierError(f"read denied for {label}")
+
+        package_carrier_module = SimpleNamespace(_read_regular_file=fail_read)
+        with (
+            patch.object(smoke, "_load_package_module", return_value=package_module),
+            patch.object(smoke, "_load_carrier_module", return_value=package_carrier_module),
+            patch.object(smoke, "_package_file_bytes", return_value=b"metrics\n"),
+        ):
+            with self.assertRaisesRegex(
+                smoke.SmokeError,
+                r"gallery compact_broad_short_limb_large_head metrics could not be read during CK package validation: CarrierError: read denied",
+            ):
+                smoke._validated_ck_package_input(
+                    self.root / "package",
+                    self.root,
+                    projection_value,
+                    projection_identity,
+                )
+
+    def test_package_report_record_is_exact_and_must_match(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, projection_identity, _carrier_value, _records, _profile_ids = _projection_fixture(payload)
+        manifest, package_module = _package_manifest_fixture(projection_value, projection_identity)
+        with patch.object(smoke, "_load_package_module", return_value=package_module):
+            expected = smoke._ck_package_report_identity(manifest)
+        report["validated_ck_package"] = deepcopy(expected)
+        smoke._validate_report(report, payload, DEFAULTS, validated_ck_package=expected)
+
+        mismatched = deepcopy(expected)
+        mismatched["avatar_records"][1]["instance_id"] = "avatar-mismatch"
+        with self.assertRaisesRegex(smoke.SmokeError, "validated_ck_package"):
+            smoke._validate_ck_package_report_identity(mismatched, expected, True)
+        with self.assertRaisesRegex(smoke.SmokeError, "record is missing"):
+            smoke._validate_ck_package_report_identity(None, expected, False)
+
+    def test_package_mode_requires_complete_predecessors_and_parser_option(self) -> None:
+        parsed = smoke._parser().parse_args(
+            ["--gallery", str(self.root), "--report", str(self.root / "report.json"), "--package", str(self.root / "package")]
+        )
+        self.assertEqual(parsed.package_path, self.root / "package")
+        complete = {
+            "carrier_path": self.root / "carrier.json",
+            "command_path": self.root / "pose.json",
+            "projection_path": self.root / "projection.json",
+            "projection_cli_path": self.root / "creature-kernel",
+        }
+        for missing in complete:
+            with self.subTest(missing=missing):
+                arguments = {key: value for key, value in complete.items() if key != missing}
+                with self.assertRaisesRegex(smoke.SmokeError, "package mode requires"):
+                    smoke.run_skeletal_pose_smoke(
+                        self.root,
+                        None,
+                        self.root / "report.json",
+                        package_path=self.root / "package",
+                        **arguments,
+                    )
+
+    def test_package_no_contact_orchestration_passes_projection_cli_to_launch(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_identity = smoke._carrier_identity(carrier_value, carrier_module)
+        command = {"pose": "fixture"}
+        command_identity = {"sha256": "p" * 64}
+        semantic_payload = {"rules": []}
+        manifest, package_module = _package_manifest_fixture(projection_value, projection_identity)
+        carrier_result = (
+            carrier_module,
+            carrier_value,
+            payload,
+            profile_ids,
+            tuple(record["instance_id"] for record in records),
+        )
+        projection_result = (None, projection_value, projection_identity)
+        pose_result = (semantic_command, command, command_identity, semantic_payload)
+        package_result = (package_module, manifest, {"package": "fixture"})
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[carrier_result, carrier_result]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[projection_result, projection_result]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=[pose_result, pose_result]),
+            patch.object(smoke, "_validated_ck_package_input", side_effect=[package_result, package_result]),
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)) as launch,
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            result = smoke.run_skeletal_pose_smoke(
+                self.root,
+                None,
+                self.root / "report.json",
+                self.root / "carrier.json",
+                self.root / "pose.json",
+                self.root / "projection.json",
+                self.root / "creature-kernel",
+                package_path=self.root / "package",
+            )
+        self.assertIs(result, report)
+        self.assertEqual(launch.call_args.kwargs["projection_cli_path"], self.root / "creature-kernel")
+        self.assertNotIn("semantic_contact_command", launch.call_args.kwargs)
+        self.assertEqual(launch.call_args.kwargs["package_path"], self.root / "package")
+        self.assertEqual(launch.call_args.kwargs["package_manifest"], manifest)
+        publish.assert_called_once_with(self.root / "report.json", report)
+
+    def test_package_transport_argv_omits_gallery_and_projection_source(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        projection_value, projection_identity, _carrier_value, records, profile_ids = _projection_fixture(payload)
+        manifest, package_module = _package_manifest_fixture(projection_value, projection_identity)
+        command = {"command": "fixture"}
+        command_identity = {"sha256": "c" * 64}
+        semantic_payload = {"rules": []}
+        serializer = lambda value: (
+            json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+        ).encode("utf-8")
+        command_module = SimpleNamespace(_canonical_json=serializer)
+        carrier_identity = deepcopy(CARRIER_IDENTITY)
+        with tempfile.TemporaryDirectory(prefix="ck-godot-package-args-") as temporary:
+            root = Path(temporary)
+            project_file = root / "project.godot"
+            script_file = root / "skeletal_pose_smoke.gd"
+            launcher = root / "godot-launcher"
+            project_file.write_text("[application]\n", encoding="utf-8")
+            script_file.write_text("extends SceneTree\n", encoding="utf-8")
+            launcher.write_text("", encoding="utf-8")
+            launcher.chmod(0o755)
+            package_root = root / "package"
+            staged_package_root = root / "staged-package"
+            gallery_path = root / "source-gallery"
+            with (
+                patch.object(smoke.neutral_smoke, "PROJECT_FILE", project_file),
+                patch.object(smoke, "GODOT_SCRIPT", script_file),
+                patch.object(smoke.neutral_smoke, "LAUNCHER", launcher),
+                patch.object(smoke.neutral_smoke, "_resolve_pinned_binary", return_value=launcher),
+                patch.object(smoke, "_load_package_module", return_value=package_module),
+                patch.object(smoke, "_load_command_module", return_value=command_module),
+                patch.object(
+                    smoke,
+                    "_stage_validated_ck_package",
+                    return_value=(staged_package_root, manifest),
+                ),
+                patch.object(smoke.neutral_smoke, "_read_report", return_value={}),
+                patch.object(smoke.neutral_smoke, "_has_godot_error_diagnostics", return_value=False),
+                patch.dict(os.environ, {smoke.VISIBLE_GODOT_OPT_IN: "1"}),
+                patch.object(subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run,
+            ):
+                smoke._launch_godot(
+                    gallery_path,
+                    profile_ids,
+                    payload,
+                    carrier_identity,
+                    records,
+                    command,
+                    command_identity,
+                    semantic_payload,
+                    projection_value,
+                    projection_identity,
+                    projection_cli_path=root / "creature-kernel",
+                    package_path=package_root,
+                    package_manifest=manifest,
+                )
+        launch_argv = run.call_args.args[0]
+        self.assertNotIn("--gallery", launch_argv)
+        self.assertNotIn(str(gallery_path), launch_argv)
+        self.assertIn("--ck-projection-json", launch_argv)
+        self.assertIn("--ck-projection-identity-json", launch_argv)
+        self.assertEqual(launch_argv[launch_argv.index("--ck-package-root") + 1], str(staged_package_root))
+        manifest_json = launch_argv[launch_argv.index("--ck-package-manifest-json") + 1]
+        self.assertEqual(manifest_json, serializer(manifest).decode("utf-8").removesuffix("\n"))
+        self.assertFalse(manifest_json.endswith("\n"))
+
+    def test_package_staging_failure_removes_private_staged_tree(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        package_manifest = {"manifest": "fixture"}
+        serializer = lambda value: (
+            json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+        ).encode("utf-8")
+        package_module = SimpleNamespace(
+            MANIFEST_FILE="manifest.json",
+            _canonical_json=serializer,
+            _manifest_file_records=lambda _value: {"payload.txt": {}},
+            _make_layout=lambda _root: None,
+            _write_new_file=lambda path, data, _label: path.write_bytes(data),
+            validate_package=lambda _path: {"manifest": "changed"},
+        )
+        staged_paths: list[Path] = []
+        original_stage = smoke._stage_validated_ck_package
+
+        def stage(*args):
+            staged_paths.append(args[2])
+            return original_stage(*args)
+
+        with tempfile.TemporaryDirectory(prefix="ck-godot-package-stage-failure-") as temporary:
+            root = Path(temporary)
+            project_file = root / "project.godot"
+            script_file = root / "skeletal_pose_smoke.gd"
+            launcher = root / "godot-launcher"
+            project_file.write_text("[application]\n", encoding="utf-8")
+            script_file.write_text("extends SceneTree\n", encoding="utf-8")
+            launcher.write_text("", encoding="utf-8")
+            launcher.chmod(0o755)
+            with (
+                patch.object(smoke.neutral_smoke, "PROJECT_FILE", project_file),
+                patch.object(smoke, "GODOT_SCRIPT", script_file),
+                patch.object(smoke.neutral_smoke, "LAUNCHER", launcher),
+                patch.object(smoke.neutral_smoke, "_resolve_pinned_binary", return_value=launcher),
+                patch.object(smoke, "_load_package_module", return_value=package_module),
+                patch.object(smoke, "_package_file_bytes", return_value=b"payload\n"),
+                patch.object(smoke, "_stage_validated_ck_package", side_effect=stage),
+                patch.dict(os.environ, {smoke.VISIBLE_GODOT_OPT_IN: "1"}),
+                patch.object(subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run,
+            ):
+                with self.assertRaisesRegex(
+                    smoke.SmokeError,
+                    "staged CK package validation does not match the already validated package",
+                ):
+                    smoke._launch_godot(
+                        self.root,
+                        DEFAULTS,
+                        payload,
+                        CARRIER_IDENTITY,
+                        CARRIER_AVATAR_RECORDS,
+                        {"pose": "fixture"},
+                        {"sha256": "p" * 64},
+                        {"rules": []},
+                        {"projection": "fixture"},
+                        {"sha256": "x" * 64},
+                        projection_cli_path=root / "creature-kernel",
+                        package_path=root / "package",
+                        package_manifest=package_manifest,
+                    )
+            self.assertEqual(len(staged_paths), 1)
+            self.assertFalse(staged_paths[0].exists())
+            run.assert_not_called()
+
+    def test_package_launcher_failure_removes_private_staged_tree(self) -> None:
+        payload, _report = _skeletal_validation_fixture()
+        package_manifest = {"manifest": "fixture"}
+        staged_paths: list[Path] = []
+
+        def stage(_package_path, _manifest, staging_root):
+            staged_paths.append(staging_root)
+            staging_root.mkdir()
+            (staging_root / "sentinel").write_bytes(b"staged\n")
+            return staging_root, package_manifest
+
+        serializer = lambda value: (
+            json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+        ).encode("utf-8")
+        package_module = SimpleNamespace(_canonical_json=serializer)
+        command_module = SimpleNamespace(_canonical_json=serializer)
+        projection_module = SimpleNamespace(_canonical_json=serializer)
+
+        def fail_launcher(command, **_kwargs):
+            self.assertTrue(staged_paths[0].is_dir())
+            self.assertIn(str(staged_paths[0]), command)
+            raise OSError("launcher unavailable")
+
+        with tempfile.TemporaryDirectory(prefix="ck-godot-package-launch-failure-") as temporary:
+            root = Path(temporary)
+            project_file = root / "project.godot"
+            script_file = root / "skeletal_pose_smoke.gd"
+            launcher = root / "godot-launcher"
+            project_file.write_text("[application]\n", encoding="utf-8")
+            script_file.write_text("extends SceneTree\n", encoding="utf-8")
+            launcher.write_text("", encoding="utf-8")
+            launcher.chmod(0o755)
+            with (
+                patch.object(smoke.neutral_smoke, "PROJECT_FILE", project_file),
+                patch.object(smoke, "GODOT_SCRIPT", script_file),
+                patch.object(smoke.neutral_smoke, "LAUNCHER", launcher),
+                patch.object(smoke.neutral_smoke, "_resolve_pinned_binary", return_value=launcher),
+                patch.object(smoke, "_load_package_module", return_value=package_module),
+                patch.object(smoke, "_load_command_module", return_value=command_module),
+                patch.object(smoke, "_load_projection_module", return_value=projection_module),
+                patch.object(smoke, "_stage_validated_ck_package", side_effect=stage),
+                patch.dict(os.environ, {smoke.VISIBLE_GODOT_OPT_IN: "1"}),
+                patch.object(subprocess, "run", side_effect=fail_launcher) as run,
+            ):
+                with self.assertRaisesRegex(smoke.SmokeError, "Godot launcher invocation failed: OSError: launcher unavailable"):
+                    smoke._launch_godot(
+                        self.root,
+                        DEFAULTS,
+                        payload,
+                        CARRIER_IDENTITY,
+                        CARRIER_AVATAR_RECORDS,
+                        {"pose": "fixture"},
+                        {"sha256": "p" * 64},
+                        {"rules": []},
+                        {"projection": "fixture"},
+                        {"sha256": "x" * 64},
+                        projection_cli_path=root / "creature-kernel",
+                        package_path=root / "package",
+                        package_manifest=package_manifest,
+                    )
+            self.assertEqual(len(staged_paths), 1)
+            self.assertFalse(staged_paths[0].exists())
+            run.assert_called_once()
+
+    def test_staged_package_copies_exact_manifest_inventory_and_revalidates(self) -> None:
+        files = {
+            "avatars/0/source.json": b"source-zero\n",
+            "avatars/0/artifact.bin": b"artifact-zero\n",
+            "avatars/0/metrics.json": b"metrics-zero\n",
+            "avatars/1/source.json": b"source-one\n",
+            "avatars/1/artifact.bin": b"artifact-one\n",
+            "avatars/1/metrics.json": b"metrics-one\n",
+        }
+        manifest = {
+            "avatars": [
+                {
+                    "source": {"path": "avatars/0/source.json"},
+                    "artifacts": [{"path": "avatars/0/artifact.bin"}],
+                    "metrics": {"path": "avatars/0/metrics.json"},
+                },
+                {
+                    "source": {"path": "avatars/1/source.json"},
+                    "artifacts": [{"path": "avatars/1/artifact.bin"}],
+                    "metrics": {"path": "avatars/1/metrics.json"},
+                },
+            ]
+        }
+        serializer = lambda value: (
+            json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+        ).encode("utf-8")
+        package_module = SimpleNamespace(
+            MANIFEST_FILE="manifest.json",
+            _canonical_json=serializer,
+            _manifest_file_records=lambda value: {
+                item["path"]: item
+                for avatar in value["avatars"]
+                for item in (avatar["source"], *avatar["artifacts"], avatar["metrics"])
+            },
+        )
+
+        def make_layout(root: Path) -> None:
+            for relative in ("avatars", "avatars/0", "avatars/1"):
+                (root / relative).mkdir(parents=True, exist_ok=True)
+
+        def write_new_file(path: Path, data: bytes, _label: str) -> None:
+            path.write_bytes(data)
+
+        validated_paths: list[Path] = []
+
+        def validate_package(path: Path) -> dict:
+            validated_paths.append(path)
+            expected = set(files) | {"manifest.json"}
+            actual = {
+                str(item.relative_to(path))
+                for item in path.rglob("*")
+                if item.is_file()
+            }
+            self.assertEqual(actual, expected)
+            for relative, data in files.items():
+                self.assertEqual((path / relative).read_bytes(), data)
+            self.assertEqual((path / "manifest.json").read_bytes(), serializer(manifest))
+            return deepcopy(manifest)
+
+        package_module._make_layout = make_layout
+        package_module._write_new_file = write_new_file
+        package_module.validate_package = validate_package
+        package_root = self.root / "package"
+        package_root.mkdir()
+        staged_root = self.root / "staged-package"
+        with (
+            patch.object(smoke, "_load_package_module", return_value=package_module),
+            patch.object(
+                smoke,
+                "_package_file_bytes",
+                side_effect=lambda _module, root, relative, _label: (
+                    self.assertEqual(root, package_root),
+                    files[relative],
+                )[1],
+            ) as read_file,
+        ):
+            result_root, result_manifest = smoke._stage_validated_ck_package(
+                package_root,
+                manifest,
+                staged_root,
+            )
+
+        self.assertEqual(result_root, staged_root)
+        self.assertEqual(result_manifest, manifest)
+        self.assertEqual(validated_paths, [staged_root])
+        self.assertEqual(read_file.call_count, len(files))
+        self.assertTrue(stat.S_ISDIR(staged_root.stat().st_mode))
+        self.assertEqual(stat.S_IMODE(staged_root.stat().st_mode), 0o700)
 
     def test_projection_postflight_change_fails_before_publication(self) -> None:
         payload, report = _skeletal_validation_fixture()
@@ -2424,6 +3045,60 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
                     self.root / "projection.json",
                     self.root / "creature-kernel",
                 )
+        publish.assert_not_called()
+
+    def test_package_postflight_change_fails_before_publication(self) -> None:
+        payload, report = _skeletal_validation_fixture()
+        projection_value, projection_identity, carrier_value, records, profile_ids = _projection_fixture(payload)
+        carrier_module = SimpleNamespace(
+            SCHEMA=carrier.SCHEMA,
+            BOUNDARY=carrier.BOUNDARY,
+            _canonical_json=carrier._canonical_json,
+        )
+        carrier_result = (
+            carrier_module,
+            carrier_value,
+            payload,
+            profile_ids,
+            tuple(record["instance_id"] for record in records),
+        )
+        command = {"pose": "fixture"}
+        command_identity = {"sha256": "p" * 64}
+        pose_result = (semantic_command, command, command_identity, {"rules": []})
+        manifest, package_module = _package_manifest_fixture(projection_value, projection_identity)
+        changed_manifest = deepcopy(manifest)
+        changed_manifest["manifest_identity"]["sha256"] = "o" * 64
+        with patch.object(smoke, "_load_package_module", return_value=package_module):
+            package_identity = smoke._ck_package_report_identity(manifest)
+        changed_package_identity = deepcopy(package_identity)
+        changed_package_identity["manifest_identity"]["sha256"] = "o" * 64
+        with (
+            patch.object(smoke, "_validated_carrier_input", side_effect=[carrier_result, carrier_result]),
+            patch.object(smoke, "_validated_projection_input", side_effect=[
+                (None, projection_value, projection_identity),
+                (None, projection_value, projection_identity),
+            ]),
+            patch.object(smoke, "_validated_semantic_pose_command", side_effect=[pose_result, pose_result]),
+            patch.object(smoke, "_validated_ck_package_input", side_effect=[
+                (package_module, manifest, package_identity),
+                (package_module, changed_manifest, changed_package_identity),
+            ]) as validate_package,
+            patch.object(smoke, "_launch_godot", return_value=("", "", 0, report)),
+            patch.object(smoke, "_validate_report"),
+            patch.object(smoke.neutral_smoke, "_publish_report") as publish,
+        ):
+            with self.assertRaisesRegex(smoke.SmokeError, "CK package changed"):
+                smoke.run_skeletal_pose_smoke(
+                    self.root,
+                    None,
+                    self.root / "report.json",
+                    self.root / "carrier.json",
+                    self.root / "pose.json",
+                    self.root / "projection.json",
+                    self.root / "creature-kernel",
+                    package_path=self.root / "package",
+                )
+        self.assertEqual(validate_package.call_count, 2)
         publish.assert_not_called()
 
     def test_projection_and_semantic_command_transport_uses_exact_json_arguments(self) -> None:
@@ -3302,6 +3977,156 @@ class SkeletalPoseSmokeIntegrationTests(unittest.TestCase):
             smoke._projection_bindings(projection_value),
         )
         self.assertTrue(all(profile["semantic_pose_injection"]["applied"] for profile in report["profiles"]))
+
+    def test_real_package_mode_preserves_pose_contact_deformation_and_coherence(self) -> None:
+        if not REAL_CLI.is_file() or not os.access(REAL_CLI, os.X_OK):
+            self.skipTest("debug Creature Kernel CLI unavailable for the real package path")
+        if not smoke.PACKAGE_MODULE_PATH.is_file():
+            self.skipTest("disposable CK package module unavailable")
+        if not smoke.CONTACT_COMMAND_MODULE_PATH.is_file():
+            self.skipTest("disposable semantic contact command module unavailable")
+        contact = load_module(
+            "disposable_semantic_contact_command_for_package_tests",
+            smoke.CONTACT_COMMAND_MODULE_PATH,
+        )
+        package_module = smoke._load_package_module()
+        with tempfile.TemporaryDirectory(prefix="ck-godot-package-contact-deformation-") as temporary:
+            root = Path(temporary)
+            carrier_path = root / "carrier.json"
+            pose_path = root / "pose.json"
+            projection_path = root / "projection.json"
+            package_path = root / "package"
+            contact_path = root / "contact.json"
+            captures_path = root / "deformation-captures"
+            carrier_value = carrier.build_carrier(
+                GALLERY,
+                DEFAULTS,
+                ("package-actuator", "package-response"),
+            )
+            carrier.write_carrier(carrier_path, carrier_value)
+            pose_value = semantic_command.build_command(GALLERY, carrier_path)
+            semantic_command.write_command(pose_path, pose_value)
+            projection_value = projection.build_projection(GALLERY, carrier_path, cli_path=REAL_CLI)
+            projection.write_projection(projection_path, projection_value)
+            package_manifest = package_module.build_package(
+                GALLERY,
+                carrier_path,
+                projection_path,
+                package_path,
+                cli_path=REAL_CLI,
+            )
+            contact_value = contact.build_contact_command(GALLERY, carrier_path, pose_path)
+            contact.write_contact_command(contact_path, contact_value)
+            report = smoke.run_skeletal_pose_smoke(
+                GALLERY,
+                None,
+                root / "report.json",
+                carrier_path,
+                pose_path,
+                projection_path,
+                REAL_CLI,
+                contact_path,
+                captures_path,
+                package_path=package_path,
+            )
+        package_record = report["validated_ck_package"]
+        self.assertEqual(
+            set(package_record),
+            {"schema", "boundary", "manifest_identity", "projection_identity", "avatar_records"},
+        )
+        self.assertEqual(package_record["manifest_identity"], package_manifest["manifest_identity"])
+        self.assertEqual(package_record["projection_identity"], package_manifest["projection_identity"])
+        self.assertEqual(
+            package_record["avatar_records"],
+            [
+                {
+                    "ordinal": avatar["ordinal"],
+                    "instance_id": avatar["instance_id"],
+                    "profile_id": avatar["profile_id"],
+                    "candidate_profile_sha256": avatar["candidate_profile_sha256"],
+                }
+                for avatar in package_manifest["avatars"]
+            ],
+        )
+        self.assertTrue(all(profile["semantic_pose_injection"]["applied"] for profile in report["profiles"]))
+        self.assertEqual(report["scope_flags"], smoke.DEFORMATION_REPORT_FLAGS)
+        self.assertEqual(report["boundary"], smoke.DEFORMATION_REPORT_BOUNDARY)
+        self.assertEqual(
+            report["semantic_deformation"]["states"]["reference"]["vertices"],
+            report["semantic_deformation"]["states"]["recovered"]["vertices"],
+        )
+        self.assertEqual(
+            report["semantic_render_collision_coherence"]["collision_geometry_drift"]["maximum_geometry_drift"],
+            0.0,
+        )
+
+    def test_real_package_mode_hides_gallery_only_during_godot_launch(self) -> None:
+        if not REAL_CLI.is_file() or not os.access(REAL_CLI, os.X_OK):
+            self.skipTest("debug Creature Kernel CLI unavailable for the real package path")
+        if not smoke.PACKAGE_MODULE_PATH.is_file():
+            self.skipTest("disposable CK package module unavailable")
+        with tempfile.TemporaryDirectory(prefix="ck-godot-package-no-gallery-during-launch-") as temporary:
+            root = Path(temporary)
+            gallery = root / "gallery"
+            shutil.copytree(GALLERY, gallery)
+            carrier_path = root / "carrier.json"
+            pose_path = root / "pose.json"
+            projection_path = root / "projection.json"
+            package_path = root / "package"
+            carrier.write_carrier(
+                carrier_path,
+                carrier.build_carrier(gallery, DEFAULTS, ("package-no-gallery-left", "package-no-gallery-right")),
+            )
+            pose_value = semantic_command.build_command(gallery, carrier_path)
+            semantic_command.write_command(pose_path, pose_value)
+            projection_value = projection.build_projection(gallery, carrier_path, cli_path=REAL_CLI)
+            projection.write_projection(projection_path, projection_value)
+            package_module = smoke._load_package_module()
+            package_manifest = package_module.build_package(
+                gallery,
+                carrier_path,
+                projection_path,
+                package_path,
+                cli_path=REAL_CLI,
+            )
+            original_run = subprocess.run
+            launch_observed = False
+            hidden_gallery = root / "gallery-hidden-during-launch"
+
+            def run_with_gallery_unavailable(*args, **kwargs):
+                nonlocal launch_observed
+                command = args[0]
+                if "--ck-package-root" not in command:
+                    return original_run(*args, **kwargs)
+                launch_observed = True
+                self.assertNotIn("--gallery", command)
+                self.assertNotIn(str(gallery), command)
+                staged_package = Path(command[command.index("--ck-package-root") + 1])
+                self.assertNotEqual(staged_package, package_path)
+                self.assertTrue(staged_package.is_dir())
+                gallery.rename(hidden_gallery)
+                try:
+                    return original_run(*args, **kwargs)
+                finally:
+                    hidden_gallery.rename(gallery)
+
+            with patch.object(smoke.subprocess, "run", side_effect=run_with_gallery_unavailable):
+                report = smoke.run_skeletal_pose_smoke(
+                    gallery,
+                    None,
+                    root / "report.json",
+                    carrier_path,
+                    pose_path,
+                    projection_path,
+                    REAL_CLI,
+                    package_path=package_path,
+                )
+            self.assertTrue(launch_observed)
+            self.assertTrue(gallery.is_dir(), "postflight package lineage validation needs the restored gallery")
+            self.assertEqual(
+                report["validated_ck_package"]["manifest_identity"],
+                package_manifest["manifest_identity"],
+            )
 
     def test_real_semantic_contact_command_produces_bounded_runtime_response(self) -> None:
         if not smoke.CONTACT_COMMAND_MODULE_PATH.is_file():

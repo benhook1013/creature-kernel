@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-29
+Status date: 2026-08-30
 
 ## Phase
 
@@ -31,13 +31,20 @@ final-readiness cycle, keep it advisory and non-gating, avoid pushing while
 hosted reviews hold an immutable head, and run bounded follow-up cycles until
 findings taper. Creature Kernel's limits are independent of FireMUD.
 
+PR #119 merged as squash commit `ee48881d3029dad599a7a2ccc70172c10713a812`
+and retained the bounded deformation/coherence evidence described below. PR
+#120 merged as squash commit `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`
+after both CI lanes passed and the committed-diff CodeRabbit CLI review found
+no issues; hosted review was rate-limited and therefore non-gating.
+
 The visual-review systemd service is active from `/home/ben/src/creature-kernel`;
 the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 
-The active worktree is
-`/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` on
-branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`.
+The active direct-prerequisite worktree is
+`/home/ben/src/creature-kernel-worktrees/godot-runtime-input-projection` on
+branch `codex/godot-runtime-input-projection`, based on merged `main` at
+`12d193f`.
 Proposed/provisional per-avatar, semantic pose/contact, and runtime experiment
 evidence only: the current
 per-avatar runtime identity candidate passes ordered
@@ -68,14 +75,15 @@ The provisional disposable CK/Rust-backed projection over the same two ordered
 avatars is also implemented. It requires an explicit absolute native
 executable, binds
 that executable's digest/size and the exact source, carrier, gallery, pose and
-artifact identities, records bounded successful `inspect-structure` evidence,
+artifact identities, records bounded successful `inspect-runtime-input` evidence,
 and is freshly rebuilt before launch and again before report publication. Its
 embedded identity is explicitly transport-only. This remains experiment-local
 evidence—not a durable package schema, R3 activation, adapter, or host lock-in.
-The focused projection suite passed 19 tests with 1 expected skip, and the
-focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
-display skips; the full Godot experiment suite contains 162 tests with 29
-skips. The corrected final evidence is one bounded paired runtime run using
+The focused projection suite passed 20 tests with 1 expected skip, and the
+focused `test_skeletal_pose_smoke.py` suite passed 86 tests with 18 expected
+display skips; the main consolidated Godot experiment suite contains 202
+tests with 31 expected skips. The corrected final evidence is one bounded
+paired runtime run using
 one exact 512x512 X11 `gl_compatibility` trial environment with official
 Godot 4.7.2 on Ubuntu
 22.04.5 LTS under WSL; `runner_os_uname_release` records the runner kernel as
@@ -119,17 +127,47 @@ checkpoint. The next direct prerequisite already recorded in this runway is
 preparation of the direct Rust and engine-neutral package prerequisites; no
 new direction is introduced here.
 
-The current direct Rust prerequisite slice is in
-`/home/ben/src/creature-kernel-worktrees/engine-neutral-runtime-input` on
-branch `codex/engine-neutral-runtime-input`. Its provisional CLI-local in-memory handoff
-transports a non-empty, caller-ordered collection of unique `instance_id` and
-already prepared single-source pairs; it retains no raw source bytes. The thin
-`inspect-runtime-input` debug CLI requires every source to complete the existing
-single-source preparation operation, emits compact machine-oriented JSON,
-accepts at most 64 pairs per invocation, and permits `-` for stdin at most once.
-This is provisional prepared-source transport and debug
-instrumentation only—not a stable wire contract, runtime package, resolver
-snapshot, profile, adapter, or Readiness 3 activation.
+PR #120 completed the direct Rust prerequisite with a provisional CLI-local
+ordered prepared-source handoff and `inspect-runtime-input` debug command. The
+experiment projection now uses schema v2 and replaces
+two `inspect-structure` calls with one exact ordered two-avatar
+`inspect-runtime-input` call. Python and Godot validate compact per-avatar
+source, prepared-basis, prepared-count, and structural-count evidence while
+retaining carrier/gallery/artifact lineage and fail-closed publication. Before
+the package slice, this projection integration suite passed 170 tests with 29
+expected display skips.
+This remains experiment-local prepared-source/projection evidence—not a stable
+wire contract, runtime package, package loader, resolver snapshot, profile,
+adapter, or Readiness 3 activation.
+
+The package slice adds a disposable directory payload for
+the same two ordered avatars: exactly two source documents, plus seven
+load-time files per avatar (`metrics.json`, `neutral.ply`, `posed.ply`,
+`skeleton.json`, `weights.json`, `proxies-neutral.json`, and
+`proxies-posed.json`). Its fixture sources require `source.dependencies` to be
+exactly `[]`; this is not a general dependency-closure claim. Build performs
+fresh gallery/carrier/projection/native-CLI lineage checks, copies exact bytes,
+revalidates after copying, and publishes the manifest last. Offline validation
+needs only the payload and checks canonical manifest bytes, exact inventory,
+safe paths, regular non-symlink files, sizes, and hashes.
+
+In package mode, Godot receives the package root and manifest plus the existing
+validated carrier, projection, injected semantic-pose, and optional
+semantic-contact inputs, but no gallery path. It constructs both avatars from
+package bytes and emits `validated_ck_package` evidence for Python to
+cross-validate. Non-package gallery-backed paths remain preserved. On
+2026-08-30, the one real package-backed producer-to-Godot integration test
+passed under private Xvfb in 226.084 seconds initially and again in 232.186
+seconds after review fixes (single-run observations, not benchmarks or
+performance claims). It built from the existing
+generated gallery, staged and revalidated a private package, made the original
+gallery unavailable during the actual Godot subprocess, and still preserved
+the tested pose/contact/deformation/coherence path. This proves bounded
+disposable package consumer isolation only. It remains experiment-local,
+reaches no named human visual checkpoint, and establishes no stable package,
+wire, adapter, Readiness 3, or engine choice, and no general dependency
+closure. The full consolidated no-display rerun also passed: 202 tests with 31
+expected skips.
 
 Proposed/provisional deformation and render/collision coherence evidence only:
 The current deformation slice adds a deterministic smooth open forearm sleeve

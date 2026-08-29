@@ -1,6 +1,6 @@
 # Current operational handover
 
-Snapshot: 2026-08-29 NZST
+Snapshot: 2026-08-30 NZST
 
 This is a concise operational handoff for continuing the current runway in the
 Codex app. It is not a new authority owner: `docs/project/status.md` remains
@@ -9,12 +9,12 @@ the canonical owner of the active runway, and the required reading order in
 
 ## Where to continue
 
-- Primary checkout: `/home/ben/src/creature-kernel` — PR #118 merged at
-  2026-08-28T11:16:00Z as squash commit
-  `790f0a499f837c86ed36b9248af3b87a7f8b5955`; all three final-head CI lanes
-  passed. Hosted CodeRabbit's five findings and CLI's one finding were fixed,
-  all five hosted conversations were resolved, and automatic review remained
-  disabled. Primary `main` and `origin/main` were fast-forwarded and clean.
+- Primary checkout: `/home/ben/src/creature-kernel` — PR #120 merged at
+  2026-08-29T10:51:22Z as squash commit
+  `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`. Documentation and Rust CI passed;
+  committed-diff CodeRabbit CLI review found no issues, while hosted review was
+  rate-limited and non-gating. Primary `main` and `origin/main` were
+  fast-forwarded and clean.
 - [PR #115](https://github.com/benhook1013/creature-kernel/pull/115) recorded the
   provisional Godot runway and CodeRabbit configuration. CodeRabbit installation
   and repository configuration are live. A hosted full review of commit
@@ -42,10 +42,10 @@ the canonical owner of the active runway, and the required reading order in
   `790f0a499f837c86ed36b9248af3b87a7f8b5955`; all three final-head CI lanes
   passed. Hosted CodeRabbit's five findings and CLI's one finding were fixed,
   all five hosted conversations were resolved, and automatic review remained
-  disabled. The active implementation
-  worktree is
-  `/home/ben/src/creature-kernel-worktrees/godot-feasibility-runtime-path` on
-  branch `codex/godot-feasibility-runtime-path`, based on `790f0a4`.
+  disabled. The active direct-prerequisite worktree is
+  `/home/ben/src/creature-kernel-worktrees/godot-runtime-input-projection` on
+  branch `codex/godot-runtime-input-projection`, based on merged `main` at
+  `12d193f`.
   Proposed/provisional per-avatar, semantic pose/contact, and runtime
   experiment evidence only: the current per-avatar runtime identity candidate
   passes
@@ -76,14 +76,15 @@ the canonical owner of the active runway, and the required reading order in
   claim. A provisional disposable CK/Rust-backed projection over
   the same two ordered avatars is now implemented. It requires an explicit
   absolute native executable, binds producer/source/carrier/gallery/pose/
-  artifact identities, records bounded successful `inspect-structure`
+  artifact identities, records bounded successful `inspect-runtime-input`
   evidence, and is freshly rebuilt before launch and report publication. Its
   identity is transport-only; this remains experiment evidence, not a durable
   package schema, R3 activation, adapter, or host lock-in. The focused
-  projection suite passed 19 tests with 1 expected skip, and the
-  focused `test_skeletal_pose_smoke.py` suite passed 68 tests with 16 expected
-  display skips; the full Godot experiment suite contains 162 tests with 29
-  skips. The corrected final evidence is one bounded paired runtime run using
+  projection suite passed 20 tests with 1 expected skip, and the
+  focused `test_skeletal_pose_smoke.py` suite passed 86 tests with 18 expected
+  display skips; the main consolidated Godot experiment suite contains 202
+  tests with 31 expected skips. The corrected final evidence is one bounded
+  paired runtime run using
   one exact 512x512 X11 `gl_compatibility` trial environment with official
   Godot 4.7.2 on Ubuntu
   22.04.5 LTS under WSL; `runner_os_uname_release` records the runner kernel as
@@ -164,19 +165,39 @@ the canonical owner of the active runway, and the required reading order in
   not live contact rendering, deformed collision, realistic tissue, production
   topology, performance, package/adapter/R3 evidence, permanent Godot/Jolt
   selection, or the human checkpoint.
-- A parallel direct-prerequisite worktree is
-  `/home/ben/src/creature-kernel-worktrees/engine-neutral-runtime-input` on
-  branch `codex/engine-neutral-runtime-input`. At this handover snapshot its
-  committed Rust slice adds a provisional CLI-local in-memory prepared-source transport
-  that retains caller order for uniquely identified, already prepared
-  single-source projections; it retains no raw source bytes. The thin
-  `inspect-runtime-input` CLI accepts repeated
-  `--instance <id> --source <path>` pairs, permits `-` for stdin at most once,
-  accepts at most 64 pairs per invocation, and emits compact machine-oriented
-  JSON with per-instance summaries or fail-closed diagnostics. Every source
-  must pass the existing single-source preparation operation. This remains
-  debug/transport instrumentation only, not a stable wire contract, runtime
-  package, resolver snapshot, profile, adapter, or Readiness 3 activation.
+- PR #120 merged the provisional CLI-local ordered prepared-source handoff and
+  `inspect-runtime-input` command. The active worktree migrates the disposable
+  projection to schema v2 and one exact ordered two-avatar invocation, with
+  compact per-avatar source, prepared-basis, prepared-count, and
+  structural-count evidence validated by both Python and Godot. Its predecessor
+  projection suite passed 170 tests with 29 expected display skips. This remains
+  experiment-local evidence, not a stable wire contract, runtime package,
+  package loader, resolver snapshot, profile, adapter, or Readiness 3
+  activation.
+- The package slice adds a disposable directory payload:
+  exactly two source documents and seven load-time files per avatar
+  (`metrics.json`, `neutral.ply`, `posed.ply`, `skeleton.json`, `weights.json`,
+  `proxies-neutral.json`, and `proxies-posed.json`). Its fixture sources require
+  `source.dependencies` to be exactly `[]`; that is not a general dependency-
+  closure claim. Build revalidates gallery/carrier/projection/native-CLI
+  lineage before and after copying; offline validation checks only the payload's
+  canonical manifest, exact inventory, safe paths, regular non-symlink files,
+  sizes, and hashes. Package mode sends Godot the package root/manifest plus
+  the existing carrier, projection, injected pose, and optional contact inputs,
+  but no gallery path; Godot constructs both avatars from package bytes and
+  emits `validated_ck_package` evidence. Non-package paths remain preserved.
+  On 2026-08-30, the one real package-backed producer-to-Godot integration
+  test passed under private Xvfb in 226.084 seconds initially and again in
+  232.186 seconds after review fixes (single-run observations, not benchmarks
+  or performance claims). It built from the
+  existing generated gallery, staged and revalidated a private package, made
+  the original gallery unavailable during the actual Godot subprocess, and
+  still preserved the tested pose/contact/deformation/coherence path. This
+  proves bounded disposable package consumer isolation only. It remains
+  experiment-local, reaches no named human visual checkpoint, and establishes
+  no stable package, wire, adapter, Readiness 3, or engine choice, and no
+  general dependency closure. The full consolidated no-display rerun also
+  passed: 202 tests with 31 expected skips.
 - [PR #113](https://github.com/benhook1013/creature-kernel/pull/113) merged to
   `main` as squash commit `eb89245da137e54cc85f9cd564fbcdd6c45eac66` on
   2026-08-25. All three CI lanes passed before its merge. Ben's disposition

@@ -161,8 +161,8 @@ closed unless an operator explicitly opts into an attended visible run:
 To exercise the next engine-neutral-shaped serialized input boundary, first
 build a disposable carrier from two freshly validated profiles. The serialized
 carrier contains no Godot version, coordinate mapping, host translation, or
-adapter field. This experiment-local builder still reuses the existing Godot
-structural-projection preflight, so the result does not prove a general package
+adapter field. This experiment-local builder still reuses the existing
+structural gallery preflight, so the result does not prove a general package
 producer or consumer. Its instance IDs are local to this experiment; its schema
 and hashes are evidence bookkeeping, not a runtime package format, committed
 artifact identity, adapter contract, or compatibility promise:
@@ -385,16 +385,15 @@ native CLI executable:
       --projection /absolute/path/to/disposable-ck-rust-projection.json \
       --cli /absolute/path/to/target/debug/creature-kernel
 
-The builder runs `inspect-structure` once for each of the two ordered source
-profiles, records its bounded success summary plus source and artifact lineage,
+The builder makes one ordered CLI call containing the two explicit
+instance/source pairs for `inspect-runtime-input`. It records one compact
+per-avatar runtime-input summary alongside the source and artifact lineage,
 and binds the executable SHA-256, byte count, operation, and format. It checks
-the Rust output envelope, structural contract/basis/profile identities, source
-identity, collection shapes, and summary cardinalities before compacting the
-evidence. It deliberately does not duplicate every Rust graph-member semantic
-inside Python: the exact hash-bound CK executable remains the structural
-validator. The builder rechecks the carrier, gallery sources, and executable
-after inspection; validation also requires an exact fresh rebuild. Publication
-is canonical JSON and does not overwrite an existing output.
+the Rust output envelope, exact instance IDs, source identity, prepared basis,
+and bounded prepared/structural count maps before compacting the evidence. The
+builder rechecks the carrier, gallery sources, and executable after inspection;
+validation also requires an exact fresh rebuild. Publication is canonical JSON
+and does not overwrite an existing output.
 
 The skeletal runner accepts the projection only with its paired explicit
 `--ck-cli /absolute/path/to/target/debug/creature-kernel` input. It performs the
@@ -403,10 +402,91 @@ success report; supplying either argument without the other fails closed.
 
 This provisional projection is transport and evidence bookkeeping
 for this experiment only
-(`creature-kernel.disposable-ck-rust-projection.v1`, boundary
+(`creature-kernel.disposable-ck-rust-projection.v2`, boundary
 `experiment_local_ck_projection_evidence_only`). It does not generate geometry
 or define a durable CK package, artifact/build identity, adapter, host contract,
 compatibility promise, Readiness 3 activation, or engine selection.
+
+## Disposable CK directory payload
+
+The package slice adds a disposable directory payload for
+the same two ordered avatars. Its manifest is
+`creature-kernel.disposable-ck-directory-payload.v1` with an
+`experiment_local_directory_payload_evidence_only` boundary. The exact tree
+contains `manifest.json`, exactly two source documents
+(`avatars/0/source.json` and `avatars/1/source.json`), and seven load-time files
+per avatar: `metrics.json`, `neutral.ply`, `posed.ply`, `skeleton.json`,
+`weights.json`, `proxies-neutral.json`, and `proxies-posed.json`. These fixtures
+require `source.dependencies` to be exactly `[]`; that is a fixture precondition
+for copying source bytes, not a general dependency-closure result.
+
+Build freshly validates the gallery, carrier, projection, and explicit native
+Rust CLI, copies the exact bytes, revalidates the inputs after copying, and
+publishes the manifest last. Offline package validation requires none of those
+source inputs: it checks canonical manifest bytes, the exact directory
+inventory, safe relative paths, regular non-symlink files, byte counts, and
+SHA-256 identities. The package-only validator therefore remains an integrity
+check for this disposable payload, not a package or wire contract.
+
+Build the payload through the documented launcher:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/disposable_ck_package.py \
+      build \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --output /absolute/path/to/disposable-ck-package \
+      --cli /absolute/path/to/target/debug/creature-kernel
+
+Validate only the copied payload, without the gallery, carrier, projection, or
+CLI being available:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/disposable_ck_package.py \
+      validate \
+      --package /absolute/path/to/disposable-ck-package
+
+Run the package-backed skeletal/contact/deformation probe with the pinned
+visible-Godot launcher:
+
+    CK_CURRENT_FORM_SURFACE_TMPDIR=/tmp \
+      xvfb-run -a env CK_ALLOW_VISIBLE_GODOT=1 \
+      experiments/current-form-surface-preview/surface_preview_launcher.sh \
+      experiments/godot-provisional-host-feasibility/run_skeletal_pose_smoke.py \
+      --gallery /absolute/path/to/completed-gallery \
+      --carrier /absolute/path/to/disposable-avatar-carrier.json \
+      --command /absolute/path/to/disposable-semantic-pose-command.json \
+      --projection /absolute/path/to/disposable-ck-rust-projection.json \
+      --ck-cli /absolute/path/to/target/debug/creature-kernel \
+      --contact-command /absolute/path/to/disposable-semantic-contact-command.json \
+      --package /absolute/path/to/disposable-ck-package \
+      --report /absolute/path/to/package-runtime-report.json \
+      --deformation-captures /absolute/path/to/not-yet-existing-package-captures
+
+In package mode, the runner sends Godot the package root and manifest plus the
+existing validated carrier, CK projection, injected semantic-pose payload, and
+optional semantic-contact inputs; it does not send a gallery path to Godot.
+Godot reads both avatars from package bytes, constructs their runtime objects,
+and emits `validated_ck_package` evidence that Python validates against the
+package and fresh predecessor lineage. Non-package paths remain gallery-backed
+and unchanged. On 2026-08-30, the one real package-backed producer-to-Godot
+integration test passed under private Xvfb in 226.084 seconds initially and
+again in 232.186 seconds after review fixes (single-run observations, not
+benchmarks or performance claims). It built from
+the existing generated gallery, staged and revalidated a private package, made
+the original gallery unavailable during the actual Godot subprocess, and
+still preserved the tested pose/contact/deformation/coherence path. This
+proves bounded disposable package consumer isolation only. It remains
+experiment-local, reaches no named human visual checkpoint, and establishes
+no stable package, wire, adapter, Readiness 3, or engine choice, and no
+general dependency closure.
+
+This is no stable package or wire format, adapter contract, Readiness 3 result,
+or engine choice. It also makes no general dependency-closure claim and does
+not activate a runtime package, adapter, or host contract.
 
 On a Linux or WSL host with `xvfb-run` available, use a virtual display to
 exercise the same real-renderer path without opening a window. Set the existing
@@ -471,8 +551,8 @@ The disposable carrier suite contains 15 tests covering exact shape,
 deterministic canonical publication, strict bounded loading, both frozen profile
 pairs, instance identity, tampering and mixed-lineage rejection, and payload
 reconstruction, including deterministic symlink-swap read and publication
-regressions. The `test_skeletal_pose_smoke.py` focused result contains 68 tests
-with 16 expected display skips, covering both frozen profile pairs, complete
+regressions. The `test_skeletal_pose_smoke.py` focused result contains 86 tests
+with 18 expected display skips, covering both frozen profile pairs, complete
 `Skeleton3D`/`Skin` binding evidence, malformed and
 tampered inputs and reports, deterministic reruns, carrier load-through with
 one-to-one runtime-root read-back, real-process rejection of noncanonical
@@ -490,12 +570,23 @@ fresh predecessor lineage, canonical publication, strict field validation,
 tampering and mutation rejection, and command identity. Focused real contact
 integration passed in 182.453s; the focused no-display file has 16 expected display
 skips when its attended renderer path is unavailable.
-The 19-test disposable CK projection suite covers exact producer and transport
+The 20-test disposable CK projection suite covers exact producer and transport
 identity, private CLI/source snapshot binding, bounded subprocess output, fresh
 source/carrier/gallery/executable revalidation, deterministic publication,
 mutation rejection, and both frozen
 profile pairs against the native Rust CLI.
-The full Godot experiment suite currently contains 162 tests with 29 skips.
+The full consolidated no-display Godot experiment suite passed 202 tests with
+31 expected skips. The 2026-08-30 package-backed producer-to-Godot integration
+test passed under private Xvfb in 226.084 seconds initially and again in
+232.186 seconds after review fixes (single-run observations, not benchmarks or
+performance claims) after building from the
+existing generated gallery, staging and revalidating a private package, and
+making the original gallery unavailable during the actual Godot subprocess;
+the tested pose/contact/deformation/coherence path remained preserved. This
+proves bounded disposable package consumer isolation only. It remains
+experiment-local, reaches no named human visual checkpoint, and establishes
+no stable package, wire, adapter, Readiness 3, or engine choice, and no
+general dependency closure.
 Skeletal-pose integration additionally requires
 an active X11 display and `CK_ALLOW_VISIBLE_GODOT=1` to mark an attended run;
 otherwise those visible integration cases are skipped. All Godot probe suites
