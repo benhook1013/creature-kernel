@@ -131,11 +131,15 @@ def _file_identity(path: Path, maximum: int, where: str, *, repository_path: boo
     reference = _resolve_file(path, where)
     try:
         with common.open_source_reference(reference, where) as stream:
-            size = os.fstat(stream.fileno()).st_size
-            if size > maximum:
+            initial_size = os.fstat(stream.fileno()).st_size
+            if initial_size > maximum:
                 _fail(f"{where} exceeds the bounded size")
             digest = hashlib.sha256()
-            while chunk := stream.read(1024 * 1024):
+            size = 0
+            while chunk := stream.read(min(1024 * 1024, maximum - size + 1)):
+                size += len(chunk)
+                if size > maximum:
+                    _fail(f"{where} exceeds the bounded size")
                 digest.update(chunk)
     except SuccessorAnatomyGalleryError:
         raise

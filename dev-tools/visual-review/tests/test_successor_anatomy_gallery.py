@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import io
 import json
 import stat
 import subprocess
@@ -255,6 +256,31 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
     def test_sampling_below_the_known_four_profile_floor_is_rejected(self) -> None:
         with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "between 56 and 96"):
             self._run_gallery("successor-anatomy-low-resolution", samples=20)
+
+    def test_file_identity_rejects_growth_after_initial_size_check(self) -> None:
+        identity_path = self.root / "identity-source"
+        identity_path.write_bytes(b"")
+
+        class GrowingStream(io.BytesIO):
+            def __init__(self, data: bytes, descriptor: int) -> None:
+                super().__init__(data)
+                self._descriptor = descriptor
+
+            def fileno(self) -> int:
+                return self._descriptor
+
+        with identity_path.open("rb") as initial, GrowingStream(b"12345", initial.fileno()) as growing, patch.object(
+            adapter.common,
+            "open_source_reference",
+            return_value=growing,
+        ):
+            with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "exceeds the bounded size"):
+                adapter._file_identity(
+                    identity_path,
+                    4,
+                    "growing identity source",
+                    repository_path=False,
+                )
 
     def test_pinning_survives_original_path_replacement_and_propagates_digest(self) -> None:
         original_path = self.root / "creature-kernel"
