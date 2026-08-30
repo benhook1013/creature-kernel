@@ -69,7 +69,7 @@ passed CI and one hosted-plus-CLI cycle; hosted reported 6 findings and CLI
 reported 25. Follow-up head `301d41340b4886cf2ff3db7067412a590b1fc844`
 integrates the verified correctness and coverage fixes. Its documentation and
 visual-review CI passed, Rust CI found one formatting-only mismatch, the hosted
-request was rate-limited, and CLI reported 9 suggestions. The current local
+request was rate-limited, and CLI reported 9 suggestions. The current
 follow-up applies the exact Rust formatting, closes one browser-side missing-owner
 validation gap, and adds direct-process cleanup coverage; the other CLI items
 have explicit evidence-based dispositions. A fresh immutable-head CI and
