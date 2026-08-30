@@ -2,14 +2,24 @@
 
 Status: Operational inbox; 19 open observations
 
-Record only unexpected, evidenced operational friction that is recurring or
-likely to save future retries or work rounds. The main thread is the default
-writer; a delegated thread writes only with exclusive inbox ownership and
-otherwise returns a concise observation candidate. Resolve or promote entries
-during a purposeful tooling/instruction improvement round, then remove them;
-Git preserves the history.
+This inbox records only unexpected, evidenced operational friction that is
+recurring, reusable, or likely to save future retries or work rounds. Every
+worker reports qualifying friction with its category, exact error, attempt
+count, workaround, and known-versus-inferred cause. A subagent returns an
+`AI observation candidate` unless it has explicitly exclusive inbox ownership;
+the main thread searches narrowly, deduplicates against existing entries, and
+is the default writer. The main thread records a durable recurring pattern
+before the work round closes and reports an existing match as a recurrence
+rather than duplicating it.
 
-Copyable entry:
+Ordinary work does not read this inbox. During an intentional tooling or
+instruction-maintenance round, resolve, promote, or remove entries
+deliberately. Close repeated issues with a concrete bounded repository
+wrapper, preflight, active-instruction, or other tool fix when available;
+restating an observation is not closure. Git preserves the history of removed
+entries.
+
+Copyable entry scaffold:
 
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where

@@ -13,6 +13,83 @@ governs what resumes next.
 
 ## Active runway
 
+This section is the sole current continuation source for the repository. Later
+status sections are reference history or task-specific state only; they may
+preserve evidence but do not redefine current continuation.
+
+### Current destination
+
+The current destination is convincing simplified/stylized anatomy across
+exactly four fixed source profiles:
+
+- `compact_broad_short_limb_large_head`
+- `tall_narrow_long_legged`
+- `slender_long_limb`
+- `stocky_broad_chested`
+
+This is a human visual anatomy checkpoint. Appraisal should cover a readable,
+intentional neck; distinct torso, waist, and pelvis masses; shoulder and hip
+transitions; tapered limbs; and a simplified muzzle and paws/feet.
+
+The checkpoint is not photorealistic anatomy, detailed hands/faces/tissue,
+current Godot mechanics, or a permanent backend.
+
+### Bounded research input
+
+The bounded morphology research input consists of one inventory and exactly two
+provisional pilot dossiers:
+
+- axial/upper-root assembly;
+- pelvic-to-planted-hind-paw.
+
+See the [provisional morphology inventory and pilot dossiers](../research/morphology-knowledge-inventory-and-pilot-dossiers.md).
+This input is research guidance only. It is not schema, roadmap, architecture,
+or executable truth.
+
+### Current candidate and expected live target
+
+The expected active branch/PR is `codex/post-godot-runway` / draft PR #122,
+but that branch, PR head, and PR state must be verified live before they are
+treated as current. The current local candidate includes torso transition work
+and a four-profile anatomy-gallery adapter under review, together with a lean
+AI-control-plane rewrite that must be presented to Ben before merge.
+
+### Immediate continuation
+
+Continue in this order:
+
+1. Complete, validate, and present the AI-control-plane rewrite to Ben; do not
+   merge it under autonomous runway authority.
+2. Resolve verified torso and gallery reviewer findings.
+3. Validate and push the coherent head.
+4. Launch hosted and CLI review against that immutable head.
+5. Implement neck/head/muzzle/shoulder local composition.
+6. Implement the remaining limb, paw, and form work as evidence directs.
+7. Publish one four-profile gallery.
+
+### Evidence and scope
+
+The four profiles should use shared operations; no per-profile or per-fixture
+patches are part of this destination. Keep anatomy observations scoped to the
+candidate being appraised and keep research, implementation evidence, and
+project state distinct. Any change that crosses a retained-human boundary is a
+stop-and-present decision, not autonomous continuation.
+
+Stop before merging the first PR head that actually reaches the human anatomy
+checkpoint. Present that candidate to Ben for visual appraisal.
+AI visual appraisal remains inactive until discussed with Ben; technical
+metrics and internal mechanics must not substitute for the human checkpoint.
+
+Do not reactivate Godot mechanics, permanent engine/backend selection, the
+body-dossier framework or schema, detailed realism or tissue, or unrelated
+historical runway tasks without an explicit trigger or retained-human
+direction.
+
+This section remains the sole continuation source; later status sections are
+reference history or task-specific state only.
+
+## Historical runway record
+
 Execution state: the shared-pose structural embodiment gallery reached its
 named human checkpoint and PR #114 merged as squash commit
 `577b336e0dd007dca6c6e05669f54d4c98291f17` on 2026-08-25. PR #115 then merged
@@ -30,8 +107,7 @@ is to launch hosted and committed-diff CLI review in parallel as one
 final-readiness cycle, avoid pushing while hosted reviews hold an immutable
 head, and treat hosted finding taper as the merge gate. Individual findings
 remain subject to verification and disposition; CLI review supports the hosted
-cycles but cannot replace them. Creature Kernel's limits are independent of
-FireMUD.
+cycles but cannot replace them.
 
 PR `#119` merged as squash commit `ee48881d3029dad599a7a2ccc70172c10713a812`
 and retained the bounded deformation/coherence evidence described below.
@@ -1826,7 +1902,7 @@ slice does not activate Readiness 3.
 The meaning and enforcement details of an exact dependency revision remain a
 nonblocking obligation before external authored dependencies activate.
 
-## Current round and work state
+## Historical round and work state
 
 - Rounds 0–5 are integrated history: governance, product boundary, semantic
   source/identity/operation proposals, compile/runtime boundary, first-proof
@@ -1905,7 +1981,7 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   shell, parser/bootstrap+fixtures, semantic resolver/in-memory snapshot, and exploratory geometry respectively. The disposable Python
   discovery host remains distinct from the accepted production platform.
 
-## Active work
+## Historical active-work record
 
 - Advance direct Rust source-preparation and engine-neutral runtime-package
   prerequisites toward the bounded Godot feasibility checkpoint. Keep the

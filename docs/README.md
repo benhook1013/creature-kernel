@@ -8,22 +8,34 @@ rationale, evidence, and status.
 
 ## Reading order
 
-1. [Project overview](../README.md)
-2. [Vision and scope](product/vision-and-scope.md)
-3. [Requirements](product/requirements.md)
-4. [Architecture index](architecture/README.md)
-5. [Current project status](project/status.md)
-6. Any relevant specifications, decision records, research questions, experiments, and
-   [developer workflows](developer-workflows/README.md)
+For ordinary work, read only this index and the [Active runway](project/status.md#active-runway).
+That short path is sufficient orientation; reading the full product,
+requirements, architecture, or project-status history is not a default
+requirement. Then read only the canonical material relevant to the task:
+
+- [Product vision and scope](product/vision-and-scope.md) and
+  [requirements](product/requirements.md) for outcomes and user-visible
+  obligations.
+- [Specifications](../spec/README.md) for normative formats, semantics,
+  identifiers, and compatibility.
+- [Architecture](architecture/README.md) for target boundaries and invariants.
+- [Decision records](decisions/README.md) when a consequential choice or DR
+  action is in scope.
+- [Research](research/README.md) or [experiments](../experiments/README.md)
+  when evidence or an open question is in scope.
+- [Developer workflows](developer-workflows/README.md) when a conditional
+  contributor or review procedure is in scope.
+
+Read broader history only when the task depends on it. The root
+[contributor instructions](../AGENTS.md) route the same conditional reading
+rules for autonomous work.
 
 The [foundation record](FOUNDATION.md) preserves the founding conversation. It is
 historical context rather than the canonical owner of current contracts. This
-authority map and its process operate under Accepted DR-0001 Revision 5.
-DR-0001 Revision 6 is Proposed transition guidance with Ben's workflow
-direction approved and current review complete; formal acceptance remains
-pending Ben's disposition. The
+authority map operates under Accepted DR-0001 Revision 5. DR-0001 Revision 6
+is Proposed transition guidance and formal acceptance remains pending. The
 accepted baseline applies to governance only; linked product, specification,
-and architecture proposals remain provisional and require Ben's disposition.
+and architecture proposals remain provisional.
 
 ## Authority map
 
