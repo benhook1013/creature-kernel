@@ -349,15 +349,16 @@ triggers.
 
 The current diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. The producer/profile identities remain
-unchanged: producer v11 with `authored_foot_profile` v1. The successor region
-identity is also unchanged; the current successor is v9 with region id
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13`.
+unchanged: producer v11 with `authored_foot_profile` v1. The current successor
+region id is
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14`.
 It contains four authored arm-profile routes plus two authored leg-profile
 routes. The shared elbow seam is exact and upper-arm-owned; the leg routes
 retain the thigh-owned knee and shin-owned hock, and each foot route is exactly
 `hock -> metatarsal midpoint -> pad -> pad-toe midpoint -> toe`, with the hock
 shin-owned and the other four stations foot-owned. Foot routes consume full
-lateral/up/forward radii, outer caps, and four spans. There is no
+lateral/up/forward radii, outer caps, and four spans. Hand-paw routes also
+retain source-derived outward/up/forward station volumes. There is no
 successor arm root bridge, old underarm support, or duplicate legacy leg mass.
 Exactly four temporary thigh-root/hip bridges remain, one root bridge and one
 hip transition per side. Station tuning does not vary per side or variant.
@@ -473,7 +474,7 @@ The producer v11 authored leg profile is checked as two exact bilateral
 five-station routes with `thigh/thigh/thigh/shin/shin` ownership and 30
 indexed lateral/up/forward radii. The guide and successor retain those exact
 projected controls and anisotropic leg-profile segment fields. The successor
-v9 sidecar and v12 region claims are checked against the guide and
+v9 sidecar and v14 region claims are checked against the guide and
 metrics, including the current rounded-superellipse axial profile operation.
 The retained producer envelope remains the exact consumed evidence, and every
 successor PLY is parsed and checked for finite values, valid indices, one

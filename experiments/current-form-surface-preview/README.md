@@ -14,10 +14,11 @@ in `/tmp` and must not be committed.
 The integrated candidate is producer v11 with `authored_foot_profile` v1:
 153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
 current diagnostic target is baseline preview format v3, regional guide v11,
-and successor preview v9. Producer v11, `authored_foot_profile` v1, and the
-successor region/profile identity
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13`
-are unchanged. The exact foot route is `hock -> metatarsal midpoint -> pad ->
+and successor preview v9. Producer v11 and `authored_foot_profile` v1 remain
+the source identities. The current successor region/profile identity is
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14`
+after adding source-derived full-volume stations to the shared hand-paw sweep.
+The exact foot route is `hock -> metatarsal midpoint -> pad ->
 pad-toe midpoint -> toe`: the hock is shin-owned, the other four stations are
 foot-owned, and the route carries full lateral/up/forward radii, outer caps,
 four spans, and exact producer/guide/successor lineage and cross-binding.
@@ -226,15 +227,16 @@ variants. The projection preserves branched route lineage: a vertical
 neck/cranium route from `neck-collar` through `cranium-crown`, and a forward
 muzzle route from `cranium-mid` through `muzzle-tip`; centres, radii, endpoints,
 thicknesses, and fixed axes come from each private guide. The successor
-hand/foot boundary consumes
-ordered hand attachment/paw sweeps and shin-to-foot digitigrade chains,
-including the shin-owned hock seam and foot-owned metatarsal, pad, and toe
-controls. The successor
+hand/foot boundary consumes ordered hand attachment/paw sweeps and shin-to-foot
+digitigrade chains. Each hand-paw station retains the shared outward route plus
+its source-derived outward/up/forward volume, while the foot chain retains the
+shin-owned hock seam and foot-owned metatarsal, pad, and toe controls. The
+successor
 tail boundary consumes six source-owned tail elements (root source,
 attachment, collar mass, tip source, extension, and cap); baseline fields
 remain an explicit bridge only for two thigh root connectors and two hip
 transitions. The successor v9 region
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13`
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14`
 uses four authored arm-profile routes plus two authored leg-profile routes.
 The authored leg routes retain the thigh-owned knee and shin-owned hock, and
 each foot route is exactly `hock -> metatarsal midpoint -> pad -> pad-toe midpoint

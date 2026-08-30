@@ -49,7 +49,7 @@ FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14"
 TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
 _HEAD_NECK_PROFILE_OPERATION = "authored-head-neck-branched-route-profile-v1"
 _ARM_PROFILE_OPERATION = "authored-arm-profile-route-v1"
@@ -113,15 +113,15 @@ class _ProfileSection:
     transverse_axes: tuple[tuple[float, float, float], tuple[float, float, float]]
     transverse_radii: tuple[float, float]
     path_length: float
-    # Only the successor torso profile populates this optional triple.  The
-    # generic limb/head/tail sweeps retain their existing two-radius profile.
-    # The first value is lateral, the second is +forward/anterior, and the
-    # third is -forward/posterior.
+    # Only the successor torso profile populates this asymmetric cardinal
+    # triple: lateral, +forward/anterior, and -forward/posterior. Other routes
+    # leave it unset even when they populate the generic station-volume fields
+    # below.
     torso_cardinal_radii: tuple[float, float, float] | None = None
     axial_position: float | None = None
     # Generic station-volume extension.  Head/neck route stations retain the
-    # authored radius along their route tangent here; ordinary two-radius
-    # sweeps leave it unset and therefore retain their existing evaluator.
+    # authored radius along their route tangent here; full-volume authored
+    # routes and hand paws may retain all three source-derived radii below.
     tangent_radius: float | None = None
     source_section_index: int | None = None
     station_volume_axes: tuple[
@@ -2786,6 +2786,11 @@ def _validate_extremity_sweeps(
             _fail(f"{side} hand paw must have four stations and two outer caps")
         outward = _vec3(hand.axes.lateral, f"{side}.hand-paw.outward-axis") * (-1.0 if side == "left" else 1.0)
         outward = _unit(outward, f"{side}.hand-paw.outward-axis")
+        expected_station_axes = (
+            tuple(float(value) for value in outward),
+            tuple(float(value) for value in hand.axes.up),
+            tuple(float(value) for value in hand.axes.forward),
+        )
         for index, (section, control) in enumerate(zip(paw.sweep.sections, _HAND_PAW_PROFILE)):
             expected_center = _vec3(hand.paw_center, f"{side}.paw-center") + float(control[0]) * float(hand.paw_radii[0]) * outward
             if not np.array_equal(_vec3(section.center, f"{side}.hand-paw.section[{index}]"), expected_center):
@@ -2797,6 +2802,15 @@ def _validate_extremity_sweeps(
                 _fail(f"{side} hand paw path must point outward, never reverse")
             if section.transverse_axes != (tuple(float(value) for value in hand.axes.up), tuple(float(value) for value in hand.axes.forward)):
                 _fail(f"{side} hand paw must use guide up/forward transverse axes")
+            if section.station_volume_axes != expected_station_axes:
+                _fail(f"{side} hand paw station {index} lost its source-derived volume axes")
+            expected_station_radii = (
+                float(hand.paw_radii[0]),
+                float(hand.paw_radii[1]) * float(control[1]),
+                float(hand.paw_radii[2]) * float(control[2]),
+            )
+            if section.station_volume_radii != expected_station_radii:
+                _fail(f"{side} hand paw station {index} lost its source-derived volume radii")
         hand_center = np.asarray(hand.paw_center, dtype=np.float64).reshape(1, 3)
         if float(_profile_sweep_field(hand_center, paw.sweep)[0]) > 0.0:
             _fail(f"{side} hand paw must contain its exact guide paw center")
@@ -2948,6 +2962,11 @@ def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
     paw_radii = _vec3(paw.paw_radii, f"{side}.hand-paw.radii")
     _finite_positive(tuple(float(value) for value in paw_radii), f"{side}.hand-paw.radii")
     axial_radius = float(paw_radii[0])
+    station_axes = (
+        tuple(float(value) for value in outward),
+        tuple(float(value) for value in up),
+        tuple(float(value) for value in forward),
+    )
     sections: list[_ProfileSection] = []
     path_length = 0.0
     for index, (offset, up_scale, forward_scale) in enumerate(_HAND_PAW_PROFILE):
@@ -2962,6 +2981,8 @@ def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
             tuple(float(value) for value in outward),
             (tuple(float(value) for value in up), tuple(float(value) for value in forward)),
             radii, path_length,
+            station_volume_axes=station_axes,
+            station_volume_radii=(axial_radius, radii[0], radii[1]),
         ))
     ordered = tuple(sections)
     caps = (

@@ -47,10 +47,10 @@ class SurfacePreviewTestWrapperTests(unittest.TestCase):
                 self.assertNotIn("Ran ", result.stdout + result.stderr)
 
     def test_rejects_excess_arguments_before_unittest(self) -> None:
-        result, python_invoked = self.run_wrapper("test_surface_preview.py", "extra")
+        result, python_invoked = self.run_wrapper("test_surface_preview.py", "test_one", "extra")
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertFalse(python_invoked, result.stderr)
-        self.assertIn("provide at most one", result.stderr)
+        self.assertIn("provide at most one test filename pattern and one test method pattern", result.stderr)
         self.assertNotIn("Ran ", result.stdout + result.stderr)
 
     def test_rejects_selector_that_matches_no_test_files(self) -> None:

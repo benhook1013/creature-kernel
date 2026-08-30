@@ -1011,6 +1011,32 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                             section.transverse_axes,
                             (tuple(hand.axes.up), tuple(hand.axes.forward)),
                         )
+                        self.assertEqual(
+                            section.station_volume_axes,
+                            (tuple(outward), tuple(hand.axes.up), tuple(hand.axes.forward)),
+                        )
+                        self.assertEqual(
+                            section.station_volume_radii,
+                            (
+                                hand.paw_radii[0],
+                                hand.paw_radii[1] * control[1],
+                                hand.paw_radii[2] * control[2],
+                            ),
+                        )
+                    stripped = replace(
+                        item.sweep,
+                        sections=tuple(
+                            replace(section, station_volume_axes=None, station_volume_radii=None)
+                            for section in item.sweep.sections
+                        ),
+                    )
+                    start = np.asarray(item.sweep.sections[0].center, dtype=np.float64)
+                    station_probe = (start - 0.8 * hand.paw_radii[0] * outward).reshape(1, 3)
+                    self.assertLess(float(successor._profile_sweep_field(station_probe, item.sweep)[0]), 0.0)
+                    self.assertGreater(float(successor._profile_sweep_field(station_probe, stripped)[0]), 0.0)
+                    full_lower, full_upper = successor._profile_sweep_bounds(item.sweep)
+                    self.assertTrue(np.all(station_probe[0] >= full_lower))
+                    self.assertTrue(np.all(station_probe[0] <= full_upper))
                     paw_center = np.asarray(hand.paw_center).reshape(1, 3)
                     self.assertLess(float(successor._profile_sweep_field(paw_center, item.sweep)[0]), 0.0)
                 forearm_end = np.asarray(arm.sweep.sections[-1].center).reshape(1, 3)
