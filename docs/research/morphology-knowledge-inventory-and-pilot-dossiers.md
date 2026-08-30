@@ -1,0 +1,172 @@
+# Provisional morphology-knowledge inventory and pilot dossiers
+
+Status: Provisional research input
+
+This record prepares the current anatomy-focused implementation work after the
+bounded Godot feasibility checkpoint was dispositioned. It is deliberately small: a source-backed
+inventory of functional coverage and exactly two pilot dossiers. It is not a
+schema, roadmap, architecture, supported-morphology promise, or executable
+truth.
+
+## Evidence posture
+
+### Source-backed observations
+
+The following open references are used for broad orientation only:
+
+- [Jones et al., mammalian thoracolumbar regionalization](https://pmc.ncbi.nlm.nih.gov/articles/PMC6240174/)
+  supports treating the axial chain as regionally differentiated rather than
+  as one uniform rod.
+- [Lewis et al., human pelvis structure and function during gait](https://pmc.ncbi.nlm.nih.gov/articles/PMC5545133/)
+  supports keeping pelvic structure and locomotor function visible when
+  considering the trunk-to-limb transition.
+- [Stark et al., a 3D musculoskeletal model of the dog](https://pmc.ncbi.nlm.nih.gov/articles/PMC8166944/)
+  supports distinguishing connected masses, attachments, and articulated
+  segments in a locomotor body model.
+- [Chi and Roth, scaling and limb posture including digitigrady](https://pmc.ncbi.nlm.nih.gov/articles/PMC2894873/)
+  supports relating body scaling to limb posture and keeping a digitigrade
+  chain distinct from a straight uniform limb.
+- [Barr, *Superquadrics and Angle-Preserving Transformations*](https://authors.library.caltech.edu/records/rtr62-f2882)
+  supports a compact parametric vocabulary for oriented, rounded, non-circular
+  masses and useful transformations.
+
+These sources support broad regionalization, mass/attachment distinction,
+gait/load relationship, digitigrade chain reasoning, and a compact parametric
+mass vocabulary. They do not prescribe this project's hybrid biped, its
+ratios, its geometry algorithm, or its future contracts. The existing
+[procedural-surface references](references.md) remain available for surface
+method questions; they do not supply anatomy facts here.
+
+### Current implementation observation and procedural inference
+
+The current prototype already has enough stations and controls for this
+research slice. The observed bottleneck is mass hierarchy, non-uniform section
+progression, and overly uniform or global blending: those behaviours erase the
+neck, waist, axilla, and groin, and inflate branch junctions. This is an
+implementation observation, not a source-backed anatomy claim.
+
+The following are procedural inferences for the two dossiers, not normative
+geometry rules:
+
+- Prefer primary oriented, non-circular masses over a collection of spherical
+  blobs.
+- Route sections along curved anatomical paths where the assembly bends; do
+  not assume every segment is a straight centerline.
+- Control transition envelopes locally so shoulder, hip, neck, waist, axilla,
+  and groin boundaries can remain legible.
+- Preserve deliberate constrictions and negative spaces instead of allowing a
+  global blend to fill them.
+- Vary correlated per-profile relationships—mass widths, section progression,
+  limb lengths, joint placement, and contact dimensions—rather than applying
+  isotropic scale to one base body.
+
+## Functional morphology-knowledge inventory
+
+This is research coverage, not a data model or a required object hierarchy.
+Optionality is part of the questions to cover: distinguish the required body
+core from optional modules without deciding how either is represented.
+
+| Coverage area | Minimum implementation-facing attention |
+| --- | --- |
+| Axial chain | Regional progression through torso, neck, and head; preserve readable changes in section and orientation. |
+| Head, cranium, muzzle, and jaw | Keep the head mass distinct from the torso and retain a simplified muzzle/jaw read. |
+| Neck | Test visibility, narrowing, and connectedness between head and thorax. |
+| Thorax/ribcage | Treat the chest as a broad oriented mass with a distinct shoulder-facing surface. |
+| Abdominal/lumbar bridge | Preserve a non-uniform bridge and a possible waist rather than a single bean-like trunk. |
+| Pelvis | Keep a distinct load-bearing/root mass with readable continuation into each hip. |
+| Shoulder and hip transitions | Inspect attachment roots and negative spaces; avoid beads, melted roots, and inflated junctions. |
+| Upper- and lower-limb chains and joints | Preserve differentiated segment lengths, bends, taper, and joint placement. |
+| Simplified hand/foot paws and contact planes | Keep a terminal paw mass and a deliberate contact plane; detailed digits are out of scope. |
+| Optional ears and tail/root | Check presence, absence, and simple style variation as optional modules; do not expand the pilot count. |
+
+## Frozen profiles and expectations
+
+These four names are frozen for comparative anatomy inspection in this lane;
+they do not freeze numeric ratios or activate support:
+
+- `compact_broad_short_limb_large_head`: broad, compressed body read; short
+  limbs and a large head must not collapse the neck or turn the torso into a
+  rounded rectangle.
+- `tall_narrow_long_legged`: narrow, elongated body read; long legs must keep
+  articulated joints and planted contact rather than becoming hoses.
+- `slender_long_limb`: slender, long-limbed read; correlated taper and joint
+  spacing must remain visible without a fragile chain of beads.
+- `stocky_broad_chested`: heavy, broad-chested read; chest, pelvis, and hip
+  roots must stay distinct instead of becoming one inflated mass.
+
+Across all four, expect readable neck/head separation, intentional torso and
+pelvis masses, shoulder/hip transitions, tapered limbs, and simplified muzzle
+and paws/feet. Differences must be morphological relationships, not only
+uniform scale.
+
+## Selected pilot dossiers
+
+Exactly two dossiers are selected. Each is a bounded research input for the
+four-profile anatomy checkpoint, not a contract or an acceptance test.
+
+### 1. Axial and upper-root assembly
+
+**Scope.** A linked assembly of neck, ribcage, abdominal/lumbar bridge, and
+pelvis as distinct masses. Include enough of the shoulder and axilla transition
+to test whether the neck remains visible and whether the upper roots remain
+connected without a swollen branch junction.
+
+**Question.** Can the current controls produce a coherent axial hierarchy with
+non-uniform section progression and preserved neck, waist, and axilla space?
+
+**Procedure.** Inspect front, side, and three-quarter views for mass order,
+curved section routes, local transition envelopes, and the negative spaces
+around the neck and shoulder roots. Exercise each frozen profile through the
+same operations. Record where a local change repairs a transition and where a
+global blend changes unrelated regions.
+
+**Expected evidence.** The head should not appear planted on the torso; the
+neck should remain a visible connector; ribcage, abdominal bridge, and pelvis
+should read as related but distinct; and shoulder/axilla transitions should
+not erase the intended constriction.
+
+### 2. Pelvic-to-planted-hind-paw assembly
+
+**Scope.** A connected hind-limb chain of pelvis, hip, thigh, knee, shin, hock,
+metatarsal, pad, toe, and contact plane. Keep the chain simplified and
+stylized, while retaining the digitigrade bend and a readable planted terminal
+surface.
+
+**Question.** Can the pelvis-to-paw chain express correlated proportions,
+joint bends, taper, and load/contact intent without degenerating into a hose
+with spherical joints or a club-shaped paw?
+
+**Procedure.** Exercise the same chain across all four frozen profiles. Inspect
+side and three-quarter views for hip-root separation, knee/hock placement,
+metatarsal continuation, paw orientation, and contact-plane stability. Check
+that changing leg length or body build does not isotropically enlarge every
+segment or erase the bend sequence.
+
+**Expected evidence.** Pelvis and hip should remain identifiable; thigh, knee,
+shin, hock, and metatarsal should read as a connected articulated progression;
+the pad/toe should meet a deliberate contact plane; and profile differences
+should alter relationships rather than only scale.
+
+## Failure signatures to retain
+
+Treat these as observations to record against the candidate under inspection,
+not as anatomy prescriptions:
+
+- lost neck or head planted on torso;
+- rounded-rectangle or bean-like torso or pelvis;
+- shoulder or hip beads, or melted roots;
+- hose-like limbs;
+- joint beads;
+- spherical or club-like paws;
+- ring seams;
+- success in only one view;
+- four profiles differing only by uniform scale.
+
+## Scope boundary
+
+The lane covers simplified stylized anatomy for implementation-facing
+inspection. It excludes detailed muscle, hands, face, tissue, species
+taxonomy, and claims of executable anatomical truth. Any future geometry,
+schema, supported-family, or architecture decision must be made by its
+canonical owner and supported by appropriate evidence; this document does not
+make that decision.

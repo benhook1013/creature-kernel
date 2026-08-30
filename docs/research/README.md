@@ -14,6 +14,9 @@ hypotheses, references, and research context.
   Engine 5.8, and Bevy 0.19. Godot is recorded as a provisional first
   feasibility candidate only; RQ-062 remains open pending the bounded trial.
 - [Reference index](references.md)
+- [Provisional morphology-knowledge inventory and pilot dossiers](morphology-knowledge-inventory-and-pilot-dossiers.md) — research-only
+  inventory and exactly two selected anatomy pilots for the four-profile
+  checkpoint.
 - [Visual-quality evaluation protocol](visual-quality-evaluation.md)
 - [First surface experiment design](first-surface-experiment-design.md) — a
   Proposed, neutral evidence design; EXP-0001 is not registered and no

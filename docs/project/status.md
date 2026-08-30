@@ -133,11 +133,12 @@ current / `105477587` maximum bytes for rigid; process RSS and GPU memory were
 not measured.
 
 This is one bounded run, not a broad benchmark, product/runtime budget, or
-permanent Godot/Jolt engine choice. The direct timing/fallback slice is
-complete. The bounded Godot feasibility checkpoint remains the governing human
-checkpoint. The next direct prerequisite already recorded in this runway is
-preparation of the direct Rust and engine-neutral package prerequisites; no
-new direction is introduced here.
+permanent Godot/Jolt engine choice. The direct timing/fallback slice was
+complete at this point in the runway. The bounded Godot feasibility checkpoint
+then remained the governing human checkpoint, and the next direct prerequisite
+was preparation of the direct Rust and engine-neutral package prerequisites.
+The active-runway section above records the later package completion and
+checkpoint disposition.
 
 PR #120 completed the direct Rust prerequisite with a provisional CLI-local
 ordered prepared-source handoff and `inspect-runtime-input` debug command. The
@@ -260,14 +261,16 @@ simplified/stylized anatomy across the four fixed profiles: a readable,
 intentional neck, torso and pelvis masses, shoulder/hip transitions, tapered
 limbs, and a simplified muzzle and paws/feet. This is not a photorealistic
 anatomy, detailed-hands/faces/tissue, or current Godot-mechanics claim.
-Immediately before implementation of that later anatomy checkpoint—not now—
-activate the public morphology-knowledge lane by creating a provisional
-source-backed and reference-safe inventory of functional assemblies,
-fine-grained subparts, and optional modules, then pilot only one or two dossiers
-under the already recorded research procedure. This does not decide inventory
-contents, a schema, file layout, filenames, an executable representation, or
-supported new morphology. No broader risk-and-activation map is planned;
-checkpoint-specific evidence remains the governing approach.
+The provisional morphology-knowledge lane is now activated as research input
+for the current anatomy checkpoint. The [morphology-knowledge
+inventory and pilot dossiers](../research/morphology-knowledge-inventory-and-pilot-dossiers.md)
+records the required functional coverage and exactly two selected pilots:
+axial and upper-root assembly, and pelvic-to-planted-hind-paw assembly. It does
+not create a schema, roadmap, architecture, supported morphology promise, or
+executable truth. Ben's direction to continue dispositioned the bounded Godot
+feasibility checkpoint; implementation now proceeds toward the already named
+four-profile anatomy checkpoint. All retained-human boundaries remain
+unchanged.
 
 The active runway remains fail-closed: stop for main-thread reevaluation if the
 engine-neutral boundary, semantic pose/contact mapping, render/collision

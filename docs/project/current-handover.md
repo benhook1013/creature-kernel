@@ -127,11 +127,11 @@ the canonical owner of the active runway, and the required reading order in
   not measured.
 
   This is one bounded run, not a broad benchmark, product/runtime budget, or
-  permanent Godot/Jolt engine choice. The direct timing/fallback slice is
-  complete. The bounded Godot feasibility checkpoint remains the governing human
-  checkpoint. The next direct prerequisite already recorded in this runway is
-  preparation of the direct Rust and engine-neutral package prerequisites; no
-  new direction is introduced here.
+  permanent Godot/Jolt engine choice. The direct timing/fallback slice was
+  complete at this point in the runway. The package-backed slice later completed
+  the bounded Godot feasibility work, and Ben's direction to continue
+  dispositioned that checkpoint. The current governing human destination is the
+  four-profile simplified-anatomy checkpoint recorded below.
 
   Proposed/provisional deformation and render/collision coherence evidence only:
   the current deformation slice adds a smooth open forearm sleeve,
@@ -262,20 +262,18 @@ The post-Readiness-3 adapter gate remains explicit. The main thread advances
 direct Rust/package prerequisites and stops before any retained-human Readiness 3
 or adapter-activation decision.
 
-After the bounded Godot mechanics/feasibility checkpoint is completed or
-dispositioned, the next model-facing human checkpoint is convincing
+The bounded Godot mechanics/feasibility checkpoint is now dispositioned. The
+current model-facing human checkpoint is convincing
 simplified/stylized anatomy across the four fixed profiles: a readable,
 intentional neck, torso and pelvis masses, shoulder/hip transitions, tapered
 limbs, and a simplified muzzle and paws/feet. This is not a photorealistic
 anatomy, detailed-hands/faces/tissue, or current Godot-mechanics claim.
-Immediately before implementation of that later anatomy checkpoint—not now—
-activate the public morphology-knowledge lane by creating a provisional
-source-backed and reference-safe inventory of functional assemblies,
-fine-grained subparts, and optional modules, then pilot only one or two dossiers
-under the already recorded research procedure. This does not decide inventory
-contents, a schema, file layout, filenames, an executable representation, or
-supported new morphology. No broader risk-and-activation map is planned;
-checkpoint-specific evidence remains the governing approach.
+The public morphology-knowledge lane is active through the provisional
+[inventory and two pilot dossiers](../research/morphology-knowledge-inventory-and-pilot-dossiers.md).
+That research input does not decide a schema, file layout, executable
+representation, or supported new morphology. Implementation is proceeding
+toward the named checkpoint; checkpoint-specific evidence remains the
+governing approach.
 
 Ben's qualified 2026-08-25 visual appraisal is that the shared-pose structural
 result "looks good". The only confusion was that the `POSED SKIN + SKELETON`
