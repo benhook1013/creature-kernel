@@ -625,9 +625,12 @@ def _observe_unreaped_exit(process: subprocess.Popen[bytes]) -> int | None:
 
 
 def _stop_process(
-    process: subprocess.Popen[bytes], *, process_group_id: int | None = None
+    process: subprocess.Popen[bytes],
+    *,
+    process_group_id: int | None = None,
+    graceful: bool = True,
 ) -> None:
-    """Stop the process or retained group before reaping the direct leader."""
+    """Stop the process or retained group, then reap the direct leader."""
     if os.name == "posix":
         if process_group_id is not None:
             try:
@@ -636,7 +639,8 @@ def _stop_process(
                 pass
             # Keep the leader unreaped so its PID/PGID remains an anchor for
             # the final group signal. Popen.poll()/wait() must not run here.
-            time.sleep(PROCESS_GRACE_SECONDS)
+            if graceful:
+                time.sleep(PROCESS_GRACE_SECONDS)
             try:
                 os.killpg(process_group_id, signal.SIGKILL)
             except OSError:
@@ -648,7 +652,8 @@ def _stop_process(
                 os.kill(process.pid, signal.SIGTERM)
             except OSError:
                 pass
-            time.sleep(PROCESS_GRACE_SECONDS)
+            if graceful:
+                time.sleep(PROCESS_GRACE_SECONDS)
             try:
                 os.kill(process.pid, signal.SIGKILL)
             except OSError:
@@ -660,10 +665,11 @@ def _stop_process(
             process.terminate()
         except OSError:
             pass
-        try:
-            process.wait(timeout=PROCESS_GRACE_SECONDS)
-        except subprocess.TimeoutExpired:
-            pass
+        if graceful:
+            try:
+                process.wait(timeout=PROCESS_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                pass
         try:
             process.kill()
         except OSError:
@@ -702,22 +708,24 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
             process_group_id = candidate
     stopped = False
     leader_exit_observed = False
+    leader_return_code: int | None = None
 
-    def stop_process() -> None:
+    def stop_process(*, graceful: bool = True) -> None:
         nonlocal stopped
         if stopped:
             return
         stopped = True
-        _stop_process(process, process_group_id=process_group_id)
+        _stop_process(process, process_group_id=process_group_id, graceful=graceful)
 
     def observe_leader_exit() -> None:
-        nonlocal leader_exit_observed
+        nonlocal leader_exit_observed, leader_return_code
         if stopped or leader_exit_observed:
             return
         return_code = _observe_unreaped_exit(process)
         if return_code is None:
             return
         leader_exit_observed = True
+        leader_return_code = return_code
         if return_code != 0:
             # waitid(WNOWAIT) leaves the direct leader waitable, so the
             # retained group is signalled before _stop_process reaps it.
@@ -779,10 +787,26 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
-        try:
-            return_code = process.wait(timeout=remaining)
-        except subprocess.TimeoutExpired as exc:
-            raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds") from exc
+        if leader_return_code is None:
+            try:
+                return_code = process.wait(timeout=remaining)
+            except subprocess.TimeoutExpired as exc:
+                raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds") from exc
+        else:
+            # On POSIX, waitid(WNOWAIT) captured the leader's true status while
+            # leaving it waitable. Signal the retained private group before
+            # _stop_process reaps the leader and releases its PGID anchor.
+            return_code = leader_return_code
+        # Preserve the direct child's completed status, then terminate any
+        # surviving process in its private session before returning the
+        # captured output.  This prevents a generator grandchild from
+        # mutating a validated snapshot during the caller's post-inspection
+        # rechecks.
+        # The leader is already known to have exited, so descendants cannot
+        # benefit from the failure-path grace interval. Signal the retained
+        # group and reap immediately while its unreaped leader still anchors
+        # the PGID.
+        stop_process(graceful=False)
         return return_code, bytes(buffers["stdout"]), bytes(buffers["stderr"])
     except BaseException:
         stop_process()

@@ -3514,19 +3514,148 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             print("parent-exited")
         """), encoding="utf-8")
         marker = self.directory / "child-marker.txt"
-        stdout, stderr, returncode = publisher._run_bounded(
-            [sys.executable, str(parent), str(child), str(marker)],
-            timeout=1.0,
-            label="successful parent fixture",
-        )
+        with patch.object(publisher, "_stop_process", wraps=publisher._stop_process) as stop_process:
+            stdout, stderr, returncode = publisher._run_bounded(
+                [sys.executable, str(parent), str(child), str(marker)],
+                timeout=1.0,
+                label="successful parent fixture",
+            )
         self.assertEqual(returncode, 0)
         self.assertEqual(stdout, b"parent-exited\n")
         self.assertEqual(stderr, b"")
+        self.assertTrue(stop_process.call_args.kwargs["success_cleanup"])
         # Give a surviving child enough time to perform its write.  A private
         # process-group cleanup should have terminated it before this point.
         import time
         time.sleep(0.35)
         self.assertFalse(marker.exists())
+
+    @unittest.skipUnless(
+        os.name == "posix" and sys.platform.startswith("linux") and Path("/proc").is_dir(),
+        "unreaped leader inspection requires Linux /proc",
+    )
+    def test_run_bounded_signals_descendant_before_reaping_nonzero_leader(self) -> None:
+        ready = self.directory / "ordering-child-ready.txt"
+        marker = self.directory / "ordering-child-marker.txt"
+        child = self.directory / "ordering-child.py"
+        child.write_text(textwrap.dedent("""
+            import os, pathlib, signal, sys, time
+
+            leader_pid = int(sys.argv[1])
+            ready_path = pathlib.Path(sys.argv[2])
+            marker_path = pathlib.Path(sys.argv[3])
+
+            def record_leader_state(_signum, _frame):
+                try:
+                    stat_line = pathlib.Path(f"/proc/{leader_pid}/stat").read_text(encoding="ascii")
+                    leader_state = stat_line.rsplit(")", 1)[1].split()[0]
+                except FileNotFoundError:
+                    leader_state = "missing"
+                marker_path.write_text(leader_state, encoding="ascii")
+                raise SystemExit(0)
+
+            signal.signal(signal.SIGTERM, record_leader_state)
+            ready_path.write_text("ready", encoding="ascii")
+            while True:
+                time.sleep(1)
+        """), encoding="utf-8")
+        parent = self.directory / "ordering-parent.py"
+        parent.write_text(textwrap.dedent("""
+            import os, pathlib, subprocess, sys, time
+
+            child = subprocess.Popen(
+                [sys.executable, sys.argv[1], str(os.getpid()), sys.argv[2], sys.argv[3]],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            ready_path = pathlib.Path(sys.argv[2])
+            deadline = time.monotonic() + 1.0
+            while not ready_path.is_file() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            if not ready_path.is_file():
+                raise SystemExit("descendant did not become ready")
+            raise SystemExit(23)
+        """), encoding="utf-8")
+
+        observed_leader_states: list[str] = []
+        original_killpg = publisher.os.killpg
+
+        def observe_then_kill(process_group_id: int, signum: int) -> None:
+            if signum == publisher.signal.SIGTERM:
+                stat_line = Path(f"/proc/{process_group_id}/stat").read_text(encoding="ascii")
+                observed_leader_states.append(stat_line.rsplit(")", 1)[1].split()[0])
+            original_killpg(process_group_id, signum)
+
+        with patch.object(publisher.os, "killpg", side_effect=observe_then_kill):
+            stdout, stderr, returncode = publisher._run_bounded(
+                [sys.executable, str(parent), str(child), str(ready), str(marker)],
+                timeout=1.0,
+                label="ordering parent fixture",
+            )
+
+        self.assertEqual((stdout, stderr, returncode), (b"", b"", 23))
+        self.assertEqual(observed_leader_states, ["Z"])
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_success_cleanup_kills_group_before_wait_without_grace(self) -> None:
+        events: list[tuple[str, object, object]] = []
+
+        class Process:
+            pid = 12345
+
+            def wait(self, *, timeout: float) -> None:
+                events.append(("wait", timeout, None))
+
+        def record_killpg(process_group_id: int, signum: int) -> None:
+            events.append(("killpg", process_group_id, signum))
+
+        def record_sleep(seconds: float) -> None:
+            events.append(("sleep", seconds, None))
+
+        with patch.object(publisher.os, "killpg", side_effect=record_killpg), patch.object(
+            publisher.time, "sleep", side_effect=record_sleep
+        ):
+            publisher._stop_process(Process(), process_group_id=12345, success_cleanup=True)
+
+        self.assertEqual(
+            events,
+            [
+                ("killpg", 12345, publisher.signal.SIGTERM),
+                ("killpg", 12345, publisher.signal.SIGKILL),
+                ("wait", publisher.PROCESS_GRACE_SECONDS, None),
+            ],
+        )
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_timeout_error_cleanup_retains_grace_before_final_kill_and_wait(self) -> None:
+        events: list[tuple[str, object, object]] = []
+
+        class Process:
+            pid = 12345
+
+            def wait(self, *, timeout: float) -> None:
+                events.append(("wait", timeout, None))
+
+        def record_killpg(process_group_id: int, signum: int) -> None:
+            events.append(("killpg", process_group_id, signum))
+
+        def record_sleep(seconds: float) -> None:
+            events.append(("sleep", seconds, None))
+
+        with patch.object(publisher.os, "killpg", side_effect=record_killpg), patch.object(
+            publisher.time, "sleep", side_effect=record_sleep
+        ):
+            publisher._stop_process(Process(), process_group_id=12345)
+
+        self.assertEqual(
+            events,
+            [
+                ("killpg", 12345, publisher.signal.SIGTERM),
+                ("sleep", publisher.PROCESS_GRACE_SECONDS, None),
+                ("killpg", 12345, publisher.signal.SIGKILL),
+                ("wait", publisher.PROCESS_GRACE_SECONDS, None),
+            ],
+        )
 
     def test_bundle_root_symlink_is_rejected_before_manifest_access(self) -> None:
         real_bundle = self.directory / "real-bundle"
@@ -3593,6 +3722,36 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 for line in text.splitlines()
             )
 
+        def replace_assignment(text: str, name: str, replacement: str) -> str:
+            lines: list[str] = []
+            skipping = False
+            closing_delimiter: str | None = None
+            for line in text.splitlines():
+                if not skipping and (
+                    line.startswith(f"{name} =")
+                    or line.startswith(f"{name}:")
+                ):
+                    skipping = True
+                    assignment_rhs = line.split("=", 1)[1].strip() if "=" in line else ""
+                    closing_delimiter = {
+                        "(": ")",
+                        "[": "]",
+                        "{": "}",
+                    }.get(assignment_rhs)
+                    continue
+                if skipping:
+                    if closing_delimiter is not None and line.strip() == closing_delimiter:
+                        skipping = False
+                        closing_delimiter = None
+                        continue
+                    if not line.strip() or not line[0].isspace():
+                        skipping = False
+                        closing_delimiter = None
+                    else:
+                        continue
+                lines.append(line)
+            return "\n".join(lines) + "\n" + replacement.rstrip("\n") + "\n"
+
         if mode == "missing-source":
             staged_source_path.write_text(source, encoding="utf-8")
             staged_source_path.unlink()
@@ -3643,35 +3802,98 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     lines.append(line)
                 source = "\n".join(lines) + "\n"
             elif mode == "non-literal-required":
-                source += f"\n{required_name} = str(())\n"
+                source = replace_assignment(source, required_name, f"{required_name} = str(())")
             elif mode == "wrong-type-required":
-                source += f"\n{required_name} = 7\n"
+                source = replace_assignment(source, required_name, f"{required_name} = 7")
             elif mode == "wrong-shape-required":
-                source += f"\n{required_name} = ((5.0, 6.0),)\n"
+                source = replace_assignment(source, required_name, f"{required_name} = ((5.0, 6.0),)")
+            elif mode == "duplicate-required-assignment":
+                source += "\nSUCCESSOR_REGION_ID = 'duplicate-successor-region-id'\n"
+            elif mode == "augmented-required-assignment":
+                source = replace_assignment(
+                    source,
+                    "SUCCESSOR_REGION_ID",
+                    "SUCCESSOR_REGION_ID += 'unsupported-successor-region-id'",
+                )
+            elif mode == "chained-required-assignment":
+                source = replace_assignment(
+                    source,
+                    "SUCCESSOR_REGION_ID",
+                    "SUCCESSOR_REGION_ID = _CHAINED_SUCCESSOR_REGION_ID = 'unsupported-successor-region-id'",
+                )
             elif mode == "duplicate-hand-name":
-                source += "\n_HAND_PAW_SECTION_NAMES = ('hand-paw-base', 'hand-paw-base', 'hand-paw-knuckle', 'hand-paw-tip')\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_SECTION_NAMES",
+                    "_HAND_PAW_SECTION_NAMES = ('hand-paw-base', 'hand-paw-base', 'hand-paw-knuckle', 'hand-paw-tip')",
+                )
             elif mode == "non-monotonic-hand-profile":
-                source += "\n_HAND_PAW_PROFILE = ((-0.15, 0.62, 0.66), (-0.55, 1.00, 1.00), (0.35, 0.92, 1.05), (0.78, 0.55, 0.60))\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-0.15, 0.62, 0.66), (-0.55, 1.00, 1.00), (0.35, 0.92, 1.05), (0.78, 0.55, 0.60))",
+                )
             elif mode == "accepted-hand-offset-boundary":
-                source += "\n_HAND_PAW_PROFILE = ((-0.98, 0.62, 0.66), (-0.95, 1.00, 1.00), (0.95, 0.92, 1.05), (0.98, 0.55, 0.60))\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-0.98, 0.62, 0.66), (-0.95, 1.00, 1.00), (0.95, 0.92, 1.05), (0.98, 0.55, 0.60))",
+                )
             elif mode == "all-positive-hand-offsets":
-                source += "\n_HAND_PAW_PROFILE = ((0.10, 0.62, 0.66), (0.20, 1.00, 1.00), (0.95, 0.92, 1.05), (0.98, 0.55, 0.60))\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((0.10, 0.62, 0.66), (0.20, 1.00, 1.00), (0.95, 0.92, 1.05), (0.98, 0.55, 0.60))",
+                )
             elif mode == "all-negative-hand-offsets":
-                source += "\n_HAND_PAW_PROFILE = ((-0.98, 0.62, 0.66), (-0.95, 1.00, 1.00), (-0.20, 0.92, 1.05), (-0.10, 0.55, 0.60))\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-0.98, 0.62, 0.66), (-0.95, 1.00, 1.00), (-0.20, 0.92, 1.05), (-0.10, 0.55, 0.60))",
+                )
             elif mode == "positive-one-hand-offset":
-                source += "\n_HAND_PAW_PROFILE = ((1.0, 0.62, 0.66), (1.01, 1.00, 1.00), (1.02, 0.92, 1.05), (1.03, 0.55, 0.60))\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((1.0, 0.62, 0.66), (1.01, 1.00, 1.00), (1.02, 0.92, 1.05), (1.03, 0.55, 0.60))",
+                )
             elif mode == "negative-one-hand-offset":
-                source += "\n_HAND_PAW_PROFILE = ((-1.0, 0.62, 0.66), (-0.99, 1.00, 1.00), (-0.98, 0.92, 1.05), (-0.97, 0.55, 0.60))\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-1.0, 0.62, 0.66), (-0.99, 1.00, 1.00), (-0.98, 0.92, 1.05), (-0.97, 0.55, 0.60))",
+                )
             elif mode == "nonfinite-hand-offset":
-                source += "\n_HAND_PAW_PROFILE = ((1e309, 0.62, 0.66), (0.95, 1.00, 1.00), (0.96, 0.92, 1.05), (0.97, 0.55, 0.60))\n"
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((1e309, 0.62, 0.66), (0.95, 1.00, 1.00), (0.96, 0.92, 1.05), (0.97, 0.55, 0.60))",
+                )
             elif mode == "zero-socket-pelvis-weight":
-                source += "\n_HIP_ROOT_SOCKET_PELVIS_WEIGHT = 0.0\n"
+                source = replace_assignment(source, "_HIP_ROOT_SOCKET_PELVIS_WEIGHT", "_HIP_ROOT_SOCKET_PELVIS_WEIGHT = 0.0")
             elif mode == "duplicate-foot-name":
-                source += "\n_FOOT_PROFILE_SECTION_NAMES = ('hock', 'metatarsal-midpoint', 'pad', 'pad', 'toe')\n"
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_SECTION_NAMES",
+                    "_FOOT_PROFILE_SECTION_NAMES = ('hock', 'metatarsal-midpoint', 'pad', 'pad', 'toe')",
+                )
             elif mode == "wrong-foot-owner-roles":
-                source += "\n_FOOT_PROFILE_OWNER_ROLES = ('shin', 7, 'foot', 'foot', 'foot')\n"
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_OWNER_ROLES",
+                    "_FOOT_PROFILE_OWNER_ROLES = ('shin', 7, 'foot', 'foot', 'foot')",
+                )
             elif mode == "foot-parity":
-                source += "\n_FOOT_PROFILE_SECTION_NAMES = ('hock-renamed', 'metatarsal-renamed', 'pad-renamed', 'pad-toe-renamed', 'toe-renamed')\n_FOOT_PROFILE_OWNER_ROLES = ('shin-owned', 'foot-owned', 'foot-owned', 'foot-owned', 'foot-owned')\n"
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_SECTION_NAMES",
+                    "_FOOT_PROFILE_SECTION_NAMES = ('hock-renamed', 'metatarsal-renamed', 'pad-renamed', 'pad-toe-renamed', 'toe-renamed')",
+                )
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_OWNER_ROLES",
+                    "_FOOT_PROFILE_OWNER_ROLES = ('shin-owned', 'foot-owned', 'foot-owned', 'foot-owned', 'foot-owned')",
+                )
             elif mode == "annotated-literal":
                 if not has_assignment(source, required_name):
                     source += f"\n{required_name} = (5, 6, 7)\n"
@@ -3695,6 +3917,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "non-literal-required",
             "wrong-type-required",
             "wrong-shape-required",
+            "duplicate-required-assignment",
+            "augmented-required-assignment",
+            "chained-required-assignment",
             "duplicate-hand-name",
             "non-monotonic-hand-profile",
             "all-positive-hand-offsets",
@@ -3733,6 +3958,21 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if expected_missing_constant is not None:
                     self.assertIn(
                         f"successor contract owner does not define {expected_missing_constant}",
+                        completed.stderr,
+                    )
+                if mode == "duplicate-required-assignment":
+                    self.assertIn(
+                        "successor contract owner defines duplicate SUCCESSOR_REGION_ID",
+                        completed.stderr,
+                    )
+                if mode == "augmented-required-assignment":
+                    self.assertIn(
+                        "successor contract owner uses unsupported top-level augmented assignment write for SUCCESSOR_REGION_ID",
+                        completed.stderr,
+                    )
+                if mode == "chained-required-assignment":
+                    self.assertIn(
+                        "successor contract owner uses unsupported top-level chained assignment write for SUCCESSOR_REGION_ID",
                         completed.stderr,
                     )
                 if mode == "zero-socket-pelvis-weight":

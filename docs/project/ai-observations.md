@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 27 open observations
+Status: Operational inbox; 28 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -26,8 +26,12 @@ Copyable entry scaffold:
   - Observation: what happened and where
   - Expected pattern: what should happen instead
 
+- `2026-08-31 09:27 NZST`: Parallel Cargo validation contended on the shared target lock
+  - Observation: A bounded Rust finding worker ran Cargo validation while another repository task shared the default target directory and waited on Cargo's build-directory lock. The checks completed, but parallel orchestration did not provide parallel build progress.
+  - Expected pattern: Serialize Cargo validation that shares the repository target directory, or assign an explicit isolated `CARGO_TARGET_DIR` when concurrent builds materially shorten the round and the additional disk cost is justified.
+
 - `2026-08-31 07:56 NZST`: Independent evidence reviews duplicated an unassigned broad suite on a changing worktree
-  - Observation: Two fresh evidence-only hand/paw reviewers independently launched the same full `test_successor_surface_preview.py` suite even though their assigned deliverable was static/adversarial review and consolidated broad validation remained main-thread work. Process inspection exposed both CPU-heavy runs before the main thread redirected each reviewer to stop only its own suite. One reviewer also reported a non-reproducible stale-import `NameError` while implementation edits changed the shared worktree beneath its run, so that partial evidence was discarded. A later stable post-fix reviewer stayed within its allowed focused selector, but that selector still exceeded the intended cheap-check boundary and was stopped without a result after the already-completed main-thread focused pass supplied the evidence.
+  - Observation: Two fresh evidence-only hand/paw reviewers independently launched the same full `test_successor_surface_preview.py` suite even though their assigned deliverable was static/adversarial review and consolidated broad validation remained main-thread work. Process inspection exposed both CPU-heavy runs before the main thread redirected each reviewer to stop only its own suite. One reviewer also reported a non-reproducible stale-import `NameError` while implementation edits changed the shared worktree beneath its run, so that partial evidence was discarded. A later stable post-fix reviewer stayed within its allowed focused selector, but that selector still exceeded the intended cheap-check boundary and was stopped without a result after the already-completed main-thread focused pass supplied the evidence. A structural-profile finding worker later started a broader suite beyond its completed focused and module checks; the main thread interrupted it and retained only the completed scoped evidence.
   - Expected pattern: Evidence-only review prompts should explicitly prohibit broad suites unless that reviewer owns a named validation lane; reviewers may run narrowly targeted checks only against a stable snapshot, while the main thread assigns each expensive consolidated suite once after overlapping writes finish.
 
 - `2026-08-31 06:35 NZST`: Launcher-selected environment does not imply repository module discovery
@@ -35,7 +39,7 @@ Copyable entry scaffold:
   - Expected pattern: Use unittest discovery/file entrypoints for repository tests, or set a deliberately resolved `PYTHONPATH`/import path for a necessary inline probe; do not assume launcher selection implies repository module discovery.
 
 - `2026-08-31 04:22 NZST`: Focused test selectors were guessed instead of resolved
-  - Observation: Ten focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; seven wrapper calls were rejected with `matched no test files`, `method selector ... matched no tests`, or because the current-form `test.sh` could not discover `dev-tools/visual-review/tests`, one raw-launcher call reported `Ran 0 tests`, one guessed compound-selector call ran zero tests, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved. The implementation worker then correctly switched to direct `surface_preview_launcher.sh` discovery. Another independent reviewer repeated the visual-review wrapper/discovery-scope mistake before switching routes.
+  - Observation: Ten focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; seven wrapper calls were rejected with `matched no test files`, `method selector ... matched no tests`, or because the current-form `test.sh` could not discover `dev-tools/visual-review/tests`, one raw-launcher call reported `Ran 0 tests`, one guessed compound-selector call ran zero tests, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved. The implementation worker then correctly switched to direct `surface_preview_launcher.sh` discovery. Another independent reviewer repeated the visual-review wrapper/discovery-scope mistake before switching routes. Three later publisher workers added four failed routing attempts—one incorrect launcher path, one mistyped unittest class selector, and two wrapper/discovery mismatches—before using exact pinned-launcher discovery.
   - Expected pattern: Before invoking a focused wrapper test, resolve the exact file and `def test_...` name with a narrow `rg`, then run one validated selector shape; use the documented launcher directly when the target lives outside the wrapper's discovery tree.
 
 - `2026-08-31 00:43 NZST`: Pointwise smooth-field audit misclassified an explicit transition volume
@@ -47,7 +51,7 @@ Copyable entry scaffold:
   - Expected pattern: Before replacing or promoting a frozen fixture or its source path, enumerate every reader plus independently pinned IDs, hashes, inventories, generator defaults, and publication contracts. Preserve completed historical consumers with an explicit immutable fixture/compatibility route instead of silently reusing the active default.
 
 - `2026-08-31 00:07 NZST`: Direct system-Python publication suites hit `renameat2` `EINVAL`
-  - Observation: One worker ran `test_provisional_form_publication.py` and `test_surface_preview_publication.py` directly with system `python3`; seven session-install cases then failed in `publish.py:_rename_noreplace` with `OSError: [Errno 22] Invalid argument`. The same complete suites had passed in the main thread through `experiments/current-form-surface-preview/surface_preview_launcher.sh` (28/28 and 42/42 with one expected skip). Each direct full-suite route was attempted once; focused non-install tests passed, and the exact host-level cause beyond the route/environment difference remains inferred.
+  - Observation: One worker ran `test_provisional_form_publication.py` and `test_surface_preview_publication.py` directly with system `python3`; seven session-install cases then failed in `publish.py:_rename_noreplace` with `OSError: [Errno 22] Invalid argument`. The same complete suites had passed in the main thread through `experiments/current-form-surface-preview/surface_preview_launcher.sh` (28/28 and 42/42 with one expected skip). Each direct full-suite route was attempted once; focused non-install tests passed, and the exact host-level cause beyond the route/environment difference remains inferred. A later publisher cleanup worker repeated the direct route and reproduced the same `renameat2` `EINVAL` pattern before switching to pinned-launcher discovery.
   - Expected pattern: Run these integrated visual-review publication suites through `surface_preview_launcher.sh`; do not substitute direct system Python after a launcher-backed pass or treat direct-route `renameat2` failures as product regressions without an independent syscall reproduction.
 
 - `2026-08-30 23:26 NZST`: Production-resolution successor builds provide no progress signal
@@ -103,7 +107,7 @@ Copyable entry scaffold:
   - Expected pattern: Use the wrapper's file-level selector and run the complete matched file; do not pass a unittest class or method name to this entrypoint.
 
 - `2026-08-29 16:25 NZST`: Security preflight used an unsuitable Python runtime
-  - Observation: A delegated security preflight first used system Python, which lacked `tomllib` and `tomli`; the bundled fallback then exposed Windows-path incompatibility before the review changed route. A later reviewer again used Python 3.10 lacking both `tomllib` and `tomli`, so the preflight was unavailable.
+  - Observation: A delegated security preflight first used system Python, which lacked `tomllib` and `tomli`; the bundled fallback then exposed Windows-path incompatibility before the review changed route. Two later reviewers again used Python 3.10 lacking both `tomllib` and `tomli`, so those preflights were unavailable.
   - Expected pattern: Use the repository's documented native WSL validation or security entrypoint when available, and validate one interpreter invocation before launching the full check.
 
 - `2026-08-29 17:22 NZST`: Godot API dumps polluted the selected project path
@@ -123,8 +127,8 @@ Copyable entry scaffold:
   - Expected pattern: When a long-running session disappears, inspect live processes and the exact output target before retrying; terminate only the verified orphan process, then publish any retry to a fresh temporary path.
 
 - `2026-08-29 23:10 NZST`: Bounded subprocess cleanup ignored descendants
-  - Observation: A projection-tool review found that timeout and final cleanup killed only the direct child, allowing a descendant that inherited pipes or resources to outlive the bounded command.
-  - Expected pattern: On POSIX, launch bounded subprocesses in a dedicated session/process group, terminate that exact group on every exit path, and regression-test a descendant rather than only the direct child.
+  - Observation: A projection-tool review found that timeout and final cleanup killed only the direct child, allowing a descendant that inherited pipes or resources to outlive the bounded command. A later hosted review found the same lifecycle gap on successful leader exit in both the projection and surface publisher: each could reap the leader before terminating a surviving private-group descendant, weakening snapshot integrity and releasing the PGID anchor before the final signal. The first safe success-path correction then imposed the full 0.5-second grace on every successful publisher child and increased the 61-test suite from roughly 54 seconds to 331.289 seconds; immediate success-path escalation restored it to 63 tests in 51.994 seconds while timeout/error cleanup retained the grace period.
+  - Expected pattern: On POSIX, launch bounded subprocesses in a dedicated session/process group, observe leader status without reaping, terminate that exact group on every exit path, and reap only after the final signal. Regression-test a descendant rather than only the direct child; use immediate escalation for leftover descendants after successful leader exit and retain grace only for timeout/error cleanup.
 
 - `2026-08-30 00:04 NZST`: Diagnostic output pipeline masked a failing test status
   - Observation: A focused unittest command piped output through `tail` without enabling pipeline failure propagation; the test reported one failure while the shell command incorrectly returned exit code zero.

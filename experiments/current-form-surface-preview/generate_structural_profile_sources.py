@@ -926,7 +926,7 @@ def main(argv: list[str] | None = None) -> int:
             else _default_source(candidate_path)
         )
         if args.check:
-            with tempfile.TemporaryDirectory(prefix="ck-structural-profile-check-", dir="/tmp") as temporary:
+            with tempfile.TemporaryDirectory(prefix="ck-structural-profile-check-") as temporary:
                 manifest = write_sources(
                     candidate_path,
                     source_path,

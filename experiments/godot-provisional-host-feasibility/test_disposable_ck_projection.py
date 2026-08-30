@@ -667,13 +667,169 @@ class DisposableCKProjectionTests(unittest.TestCase):
         sleep.assert_called_once_with(projection.PROCESS_GRACE_SECONDS)
         self.assertEqual(process.method_calls, [call.wait(timeout=projection.PROCESS_GRACE_SECONDS)])
 
-    def test_bounded_subprocess_does_not_signal_group_after_success(self) -> None:
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_bounded_subprocess_cleans_private_group_before_reaping_success(self) -> None:
         successful = self._write_executable("successful", "print('ok')\n")
-        with patch.object(projection.os, "killpg") as killpg:
+        events = []
+        real_popen = projection.subprocess.Popen
+
+        def launch(*args, **kwargs):
+            process = real_popen(*args, **kwargs)
+            original_wait = process.wait
+
+            def record_wait(*, timeout=None):
+                events.append(("wait", timeout))
+                return original_wait(timeout=timeout)
+
+            process.wait = record_wait
+            return process
+
+        def record_signal(pgid, signum):
+            events.append(("killpg", pgid, signum))
+
+        with (
+            patch.object(projection.subprocess, "Popen", side_effect=launch),
+            patch.object(projection.os, "killpg", side_effect=record_signal) as killpg,
+            patch.object(projection.time, "sleep") as sleep,
+        ):
             result = projection._bounded_subprocess([str(successful)])
 
         self.assertEqual(result, (0, b"ok\n", b""))
-        killpg.assert_not_called()
+        self.assertEqual(
+            [call.args[1] for call in killpg.call_args_list],
+            [projection.signal.SIGTERM, projection.signal.SIGKILL],
+        )
+        self.assertEqual(
+            [event[0] for event in events],
+            ["killpg", "killpg", "wait"],
+        )
+        self.assertLess(
+            events.index(("killpg", events[0][1], projection.signal.SIGKILL)),
+            events.index(("wait", projection.PROCESS_GRACE_SECONDS)),
+        )
+        sleep.assert_not_called()
+
+    @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant cleanup requires Linux /proc process state")
+    def test_success_cleanup_kills_pipe_closing_descendant_before_snapshot_recheck(self) -> None:
+        source_paths = []
+        retained_source_bytes = []
+        for profile_id in PROFILE_IDS:
+            source_path = self.root / f"{profile_id}.json"
+            source_bytes = (self.gallery / projection.SOURCE_DIR / source_path.name).read_bytes()
+            source_path.write_bytes(source_bytes)
+            source_path.chmod(0o400)
+            source_paths.append(source_path)
+            retained_source_bytes.append(source_bytes)
+        instance_sources = list(zip(INSTANCE_IDS, source_paths))
+        result = runtime_input_result(instance_sources)
+        pid_path = self.root / "success-descendant.pid"
+        ready_path = self.root / "success-descendant.ready"
+        closed_path = self.root / "success-descendant.closed"
+        release_path = self.root / "success-descendant.release"
+        mutated_path = self.root / "success-descendant.mutated"
+        descendant_body = (
+            "from pathlib import Path\n"
+            "import os\n"
+            "import time\n"
+            f"snapshot = Path({str(source_paths[0])!r})\n"
+            f"ready = Path({str(ready_path)!r})\n"
+            f"closed = Path({str(closed_path)!r})\n"
+            f"release = Path({str(release_path)!r})\n"
+            f"mutated = Path({str(mutated_path)!r})\n"
+            "ready.write_text('ready')\n"
+            "os.close(1)\n"
+            "os.close(2)\n"
+            "closed.write_text('closed')\n"
+            "while not release.exists():\n"
+            "    time.sleep(0.005)\n"
+            "os.chmod(snapshot, 0o600)\n"
+            "snapshot.write_text('mutated\\n', encoding='utf-8')\n"
+            "mutated.write_text('mutated')\n"
+            "time.sleep(30)\n"
+        )
+        cli_body = (
+            "import json\n"
+            "import os\n"
+            "from pathlib import Path\n"
+            "import subprocess\n"
+            "import sys\n"
+            "import time\n"
+            f"descendant_body = {descendant_body!r}\n"
+            f"result = {result!r}\n"
+            f"pid_path = Path({str(pid_path)!r})\n"
+            f"ready_path = Path({str(ready_path)!r})\n"
+            f"closed_path = Path({str(closed_path)!r})\n"
+            "if sys.argv[1] != 'inspect-runtime-input' or len(sys.argv) != 10:\n"
+            "    raise SystemExit('unexpected inspect-runtime-input arguments')\n"
+            "descendant = subprocess.Popen([sys.executable, '-c', descendant_body])\n"
+            "pid_path.write_text(str(descendant.pid))\n"
+            "deadline = time.monotonic() + 2.0\n"
+            "while not ready_path.exists() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.005)\n"
+            "while not closed_path.exists() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.005)\n"
+            "if not ready_path.exists() or not closed_path.exists():\n"
+            "    raise SystemExit('descendant did not close its pipes')\n"
+            "sys.stdout.write(json.dumps(result) + '\\n')\n"
+            "sys.stdout.flush()\n"
+            "os.close(1)\n"
+            "os.close(2)\n"
+        )
+        self.cli_path = self._write_executable("success-descendant-cli", cli_body)
+        original_recheck = projection._recheck_private_source_snapshots
+
+        def release_then_recheck(carrier_module, instance_source_pairs, source_bytes):
+            release_path.write_text("release", encoding="utf-8")
+            deadline = projection.time.monotonic() + 2.0
+            while not mutated_path.exists() and projection.time.monotonic() < deadline:
+                if pid_path.is_file() and not descendant_is_live(int(pid_path.read_text(encoding="utf-8"))):
+                    break
+                projection.time.sleep(0.005)
+            return original_recheck(
+                carrier_module,
+                instance_source_pairs,
+                source_bytes,
+            )
+
+        def cleanup_descendant():
+            if not pid_path.is_file():
+                return
+            try:
+                descendant_pid = int(pid_path.read_text(encoding="utf-8"))
+                descendant_pgid = os.getpgid(descendant_pid)
+                if descendant_pgid in {os.getpid(), os.getpgrp()}:
+                    return
+                os.killpg(descendant_pgid, projection.signal.SIGKILL)
+            except (OSError, ValueError):
+                pass
+
+        try:
+            with (
+                patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0),
+                patch.object(projection, "PROCESS_GRACE_SECONDS", 0.05),
+                patch.object(
+                    projection,
+                    "_recheck_private_source_snapshots",
+                    side_effect=release_then_recheck,
+                ),
+            ):
+                evidence = projection._run_runtime_input_inspection(
+                    self.cli_path,
+                    instance_sources,
+                    carrier_module=carrier,
+                    retained_source_bytes=tuple(retained_source_bytes),
+                )
+
+            self.assertEqual([item["source"] for item in evidence], [item["source"] for item in result["instances"]])
+            self.assertTrue(ready_path.is_file(), "descendant did not start")
+            self.assertTrue(closed_path.is_file(), "descendant did not close its pipes")
+            self.assertTrue(release_path.is_file(), "caller did not reach snapshot recheck")
+            self.assertFalse(mutated_path.exists(), "descendant mutated a snapshot after successful cleanup")
+            descendant_pid = int(pid_path.read_text(encoding="utf-8"))
+            self.assertFalse(descendant_is_live(descendant_pid), "success cleanup left descendant alive")
+            self.assertEqual(source_paths[0].read_bytes(), retained_source_bytes[0])
+        finally:
+            cleanup_descendant()
 
     @unittest.skipUnless(
         os.name == "posix" and hasattr(projection.os, "waitid") and hasattr(projection.os, "WNOWAIT"),

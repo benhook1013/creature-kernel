@@ -357,6 +357,36 @@ def _successor_source_path() -> Path:
     )
 
 
+def _successor_contract_names_in_target(target: ast.expr) -> set[str]:
+    if isinstance(target, ast.Name) and target.id in _SUCCESSOR_CONTRACT_NAMES:
+        return {target.id}
+    if isinstance(target, (ast.List, ast.Tuple)):
+        names: set[str] = set()
+        for element in target.elts:
+            names.update(_successor_contract_names_in_target(element))
+        return names
+    if isinstance(target, ast.Starred):
+        return _successor_contract_names_in_target(target.value)
+    return set()
+
+
+def _reject_unsupported_successor_contract_write(
+    form: str, targets: list[ast.expr]
+) -> None:
+    names = sorted(
+        {
+            name
+            for target in targets
+            for name in _successor_contract_names_in_target(target)
+        }
+    )
+    if names:
+        raise SurfacePreviewPublishError(
+            f"successor contract owner uses unsupported top-level {form} write for "
+            f"{', '.join(names)}"
+        )
+
+
 def _read_successor_contract() -> dict[str, Any]:
     """Read all required immutable contract literals from the source owner."""
 
@@ -372,6 +402,7 @@ def _read_successor_contract() -> dict[str, Any]:
         filename=str(successor_path),
     )
     values: dict[str, Any] = {}
+    assigned_contract_names: set[str] = set()
     for statement in source_tree.body:
         if isinstance(statement, ast.ClassDef) and statement.name == "_ProfileSweep":
             for field in statement.body:
@@ -379,22 +410,32 @@ def _read_successor_contract() -> dict[str, Any]:
                     continue
                 if not isinstance(field.target, ast.Name) or field.target.id != "profile_operation":
                     continue
+                contract_name = "_PROFILE_SWEEP_DEFAULT_OPERATION"
+                if contract_name in assigned_contract_names:
+                    raise SurfacePreviewPublishError(
+                        f"successor contract owner defines duplicate {contract_name}"
+                    )
+                assigned_contract_names.add(contract_name)
                 if field.value is None:
                     raise SurfacePreviewPublishError(
-                        "successor contract owner has no literal _PROFILE_SWEEP_DEFAULT_OPERATION"
+                        f"successor contract owner has no literal {contract_name}"
                     )
                 try:
-                    values["_PROFILE_SWEEP_DEFAULT_OPERATION"] = ast.literal_eval(field.value)
+                    values[contract_name] = ast.literal_eval(field.value)
                 except (ValueError, TypeError) as exc:
                     raise SurfacePreviewPublishError(
-                        "successor contract owner has a non-literal _PROFILE_SWEEP_DEFAULT_OPERATION"
+                        f"successor contract owner has a non-literal {contract_name}"
                     ) from exc
             continue
         if isinstance(statement, ast.Assign):
             if len(statement.targets) != 1:
+                _reject_unsupported_successor_contract_write("chained assignment", statement.targets)
                 continue
             target = statement.targets[0]
             value = statement.value
+        elif isinstance(statement, ast.AugAssign):
+            _reject_unsupported_successor_contract_write("augmented assignment", [statement.target])
+            continue
         elif isinstance(statement, ast.AnnAssign):
             if statement.value is None or statement.simple != 1:
                 continue
@@ -403,12 +444,19 @@ def _read_successor_contract() -> dict[str, Any]:
         else:
             continue
         if isinstance(target, ast.Name) and target.id in _SUCCESSOR_CONTRACT_NAMES:
+            if target.id in assigned_contract_names:
+                raise SurfacePreviewPublishError(
+                    f"successor contract owner defines duplicate {target.id}"
+                )
+            assigned_contract_names.add(target.id)
             try:
                 values[target.id] = ast.literal_eval(value)
             except (ValueError, TypeError) as exc:
                 raise SurfacePreviewPublishError(
                     f"successor contract owner has a non-literal {target.id}"
                 ) from exc
+        else:
+            _reject_unsupported_successor_contract_write("assignment", [target])
     for name in _SUCCESSOR_CONTRACT_NAMES:
         if name not in values:
             raise SurfacePreviewPublishError(f"successor contract owner does not define {name}")
@@ -787,33 +835,83 @@ def default_successor_generator() -> Path:
     )
 
 
-def _stop_process(process: subprocess.Popen[bytes], *, process_group_id: int | None = None) -> None:
-    if os.name == "posix" and process_group_id is not None:
+def _stop_process(
+    process: subprocess.Popen[bytes],
+    *,
+    process_group_id: int | None = None,
+    success_cleanup: bool = False,
+) -> None:
+    if os.name == "posix":
+        if process_group_id is not None:
+            try:
+                os.killpg(process_group_id, signal.SIGTERM)
+            except OSError:
+                pass
+            # Keep the direct leader unreaped so its PID/PGID remains an
+            # anchor for the final group signal.
+            if not success_cleanup:
+                time.sleep(PROCESS_GRACE_SECONDS)
+            try:
+                os.killpg(process_group_id, signal.SIGKILL)
+            except OSError:
+                pass
+        else:
+            try:
+                os.kill(process.pid, signal.SIGTERM)
+            except OSError:
+                pass
+            if not success_cleanup:
+                time.sleep(PROCESS_GRACE_SECONDS)
+            try:
+                os.kill(process.pid, signal.SIGKILL)
+            except OSError:
+                pass
+    else:
         try:
-            os.killpg(process_group_id, signal.SIGTERM)
+            process.terminate()
+        except OSError:
+            pass
+        if not success_cleanup:
+            try:
+                process.wait(timeout=PROCESS_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                pass
+        try:
+            process.kill()
         except OSError:
             pass
     try:
-        process.terminate()
-    except OSError:
-        pass
-    try:
         process.wait(timeout=PROCESS_GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        pass
-    if os.name == "posix" and process_group_id is not None:
+    except subprocess.TimeoutExpired as exc:  # pragma: no cover - defensive after SIGKILL
+        raise SurfacePreviewPublishError(f"process group did not terminate") from exc
+
+
+def _observe_unreaped_exit(process: subprocess.Popen[bytes]) -> int | None:
+    """Observe a POSIX leader exit without consuming its waitable status."""
+    if os.name != "posix":
+        return None
+    try:
+        waitid = os.waitid
+        options = os.WEXITED | os.WNOHANG | os.WNOWAIT
+    except AttributeError as exc:
+        raise SurfacePreviewPublishError(
+            "waitid(WNOWAIT) is unavailable for private process-group cleanup"
+        ) from exc
+    while True:
         try:
-            os.killpg(process_group_id, signal.SIGKILL)
-        except OSError:
-            pass
-    try:
-        process.kill()
-    except OSError:
-        pass
-    try:
-        process.wait(timeout=PROCESS_GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        pass
+            result = waitid(os.P_PID, process.pid, options)
+        except InterruptedError:
+            continue
+        except (ChildProcessError, OSError) as exc:
+            raise SurfacePreviewPublishError(
+                "waitid(WNOWAIT) failed during private process-group cleanup"
+            ) from exc
+        break
+    if result is None or result.si_pid == 0:
+        return None
+    if result.si_code == getattr(os, "CLD_EXITED", 1):
+        return result.si_status
+    return -result.si_status
 
 
 def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[bytes, bytes, int]:
@@ -853,18 +951,31 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
     for stream, _, _, _ in streams.values():
         selector.register(stream, selectors.EVENT_READ)
     failure: SurfacePreviewPublishError | None = None
+    stopped = False
+
+    def stop_process(*, success_cleanup: bool = False) -> None:
+        nonlocal stopped
+        if stopped:
+            return
+        stopped = True
+        _stop_process(
+            process,
+            process_group_id=process_group_id,
+            success_cleanup=success_cleanup,
+        )
+
     try:
         deadline = time.monotonic() + timeout
         while selector.get_map():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 failure = SurfacePreviewPublishError(f"{label} timed out after {timeout:g}s")
-                _stop_process(process, process_group_id=process_group_id)
+                stop_process()
                 break
             events = selector.select(remaining)
             if not events:
                 failure = SurfacePreviewPublishError(f"{label} timed out after {timeout:g}s")
-                _stop_process(process, process_group_id=process_group_id)
+                stop_process()
                 break
             for key, _ in events:
                 stream = key.fileobj
@@ -879,23 +990,37 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
                     failure = SurfacePreviewPublishError(
                         f"{label} {stream_name} exceeded {limit} bytes"
                     )
-                    _stop_process(process, process_group_id=process_group_id)
+                    stop_process()
                     break
                 buffer.extend(chunk)
             if failure is not None:
                 break
         if failure is not None:
             raise failure
-        try:
-            returncode = process.wait(timeout=PROCESS_GRACE_SECONDS)
-        except subprocess.TimeoutExpired as exc:
-            _stop_process(process, process_group_id=process_group_id)
-            raise SurfacePreviewPublishError(f"{label} did not exit") from exc
+        if os.name == "posix":
+            returncode: int | None = None
+            wait_deadline = time.monotonic() + PROCESS_GRACE_SECONDS
+            while returncode is None:
+                returncode = _observe_unreaped_exit(process)
+                if returncode is not None:
+                    break
+                remaining = wait_deadline - time.monotonic()
+                if remaining <= 0:
+                    stop_process()
+                    raise SurfacePreviewPublishError(f"{label} did not exit")
+                time.sleep(min(0.01, remaining))
+        else:
+            try:
+                returncode = process.wait(timeout=PROCESS_GRACE_SECONDS)
+            except subprocess.TimeoutExpired as exc:
+                stop_process()
+                raise SurfacePreviewPublishError(f"{label} did not exit") from exc
         # Preserve the direct child's completed status, then terminate any
         # surviving process in its private session before returning the
         # captured output.  This prevents a generator grandchild from
         # mutating a validated bundle during publication.
-        _stop_process(process, process_group_id=process_group_id)
+        stop_process(success_cleanup=True)
+        assert returncode is not None
         return bytes(streams[stdout_fd][1]), bytes(streams[stderr_fd][1]), returncode
     finally:
         selector.close()
@@ -904,8 +1029,8 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
                 stream.close()
             except OSError:
                 pass
-        if process.poll() is None:
-            _stop_process(process, process_group_id=process_group_id)
+        if not stopped:
+            stop_process()
 
 
 def _read_json(path: Path, limit: int, where: str) -> dict[str, Any]:

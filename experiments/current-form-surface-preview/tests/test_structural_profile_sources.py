@@ -607,6 +607,42 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("generated 5 structural profile sources", result.stdout)
 
+    def test_check_mode_uses_configured_temp_root_and_cleans_staging(self) -> None:
+        configured_root = self.root / "configured-temp-root"
+        configured_root.mkdir()
+        original_temporary_directory = tempfile.TemporaryDirectory
+        observed: dict[str, Path] = {}
+
+        def capture_temporary_directory(*args: object, **kwargs: object):
+            temporary = original_temporary_directory(*args, **kwargs)
+            observed["path"] = Path(temporary.name)
+            return temporary
+
+        with patch.dict(
+            os.environ,
+            {"TMPDIR": str(configured_root), "TEMP": str(configured_root), "TMP": str(configured_root)},
+        ), patch.object(tempfile, "tempdir", None), patch.object(
+            generator.tempfile,
+            "TemporaryDirectory",
+            side_effect=capture_temporary_directory,
+        ):
+            output = io.StringIO()
+            with redirect_stdout(output):
+                status = generator.main(
+                    [
+                        "--candidate",
+                        str(self.candidate_path),
+                        "--source",
+                        str(self.source_path),
+                        "--check",
+                    ]
+                )
+
+        self.assertEqual(status, 0, output.getvalue())
+        self.assertEqual(observed["path"].parent, configured_root)
+        self.assertFalse(observed["path"].exists())
+        self.assertEqual(list(configured_root.iterdir()), [])
+
     def test_explicit_historical_check_mode_uses_archived_fixture_bundle(self) -> None:
         result = subprocess.run(
             [
