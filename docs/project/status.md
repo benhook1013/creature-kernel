@@ -58,27 +58,25 @@ or executable truth.
 ### Current candidate and expected live target
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
-Remote PR #122 head `dd366575548db9ed6011ced5431827ad07cecb7a` passed all
-three CI lanes and completed one hosted-plus-committed-diff CLI cycle; hosted
-produced 6 findings and CLI produced 14. The current coherent follow-up
-integrates verified valid fixes for canonical unaccepted labels, timezone
-qualification, the forward-muzzle derived-center ordering guard, late-nonzero
-process-group cleanup before leader reap, successor bootstrap fail-closed
-behaviour, staged constant-removal fixture correctness, the exact browser
-diagnostic, symlink-test reachability, and argparse help wrapping. Dead
-root-bridge cleanup is deferred as non-gating maintainability. Reusing
-generator profile IDs is rejected because the local exact-five list
-intentionally acts as an independent oracle. A fresh pushed immutable head,
-CI, hosted-plus-CLI taper cycle, final live gallery, Ben appraisal, and explicit
-merge authorization remain outstanding. PR #122 remains draft and unmerged.
+Remote PR #122 head `3826a6448b354f3e0e27e3a1bff0534751609aaa` passed all
+three CI lanes. Its hosted pass completed with two findings and committed-diff
+CLI with six. The next review-fix head integrates the valid items: deterministic
+late-nonzero regression handshake, module-local `os` test fakes, accurate
+handover ownership wording, AI-observation recurrence tracking, and fail-closed
+missing private generator methods paired with internal AttributeError propagation
+coverage and no-publication-side-effect regressions.
+Hosted redundant inward-clearance branches, CLI cargo-helper extraction,
+historical hash aliasing, support-radius deduplication, and repeated helper
+extraction are deferred or rejected as evidence-backed non-gating
+maintainability or independent-oracle preservation. A fresh immutable head,
+fresh CI plus hosted+CLI taper on that head, final live gallery, Ben appraisal,
+and explicit merge authorization remain outstanding. PR `#122` remains draft and
+unmerged.
 
 The candidate still targets the exact five ordered profiles above, with the
-standard neutral reference first. Consolidated verified validation: surface
-publication 53 with one expected opt-in skip; exact-five anatomy 24;
-provisional publication 29; structural profile sources 17; Godot projection
-34 with one expected skip; focused muzzle checks passed, including all-variant
-deterministic output; and documentation, whitespace, diff, and cargo fmt
-checks pass.
+standard neutral reference first. Consolidated verified validation: successor
+anatomy gallery 28; Godot projection 34 with one expected skip; documentation,
+whitespace, and diff checks pass; and prior current-head CI is green.
 
 ### Immediate continuation
 

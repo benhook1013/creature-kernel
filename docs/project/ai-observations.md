@@ -26,8 +26,12 @@ Copyable entry scaffold:
   - Observation: what happened and where
   - Expected pattern: what should happen instead
 
+- `2026-08-31 06:35 NZST`: Launcher-selected environment does not imply repository module discovery
+  - Observation: A launcher-backed inline/stdin probe imported repository modules and failed before execution with `ModuleNotFoundError` because `surface_preview_launcher.sh` selects the pinned interpreter/environment but does not automatically add experiment or visual-review directories to `sys.path`.
+  - Expected pattern: Use unittest discovery/file entrypoints for repository tests, or set a deliberately resolved `PYTHONPATH`/import path for a necessary inline probe; do not assume launcher selection implies repository module discovery.
+
 - `2026-08-31 04:22 NZST`: Focused test selectors were guessed instead of resolved
-  - Observation: Seven focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; four wrapper calls were rejected with `matched no test files` or `method selector ... matched no tests`, one raw-launcher call reported `Ran 0 tests`, one guessed compound-selector call ran zero tests, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved.
+  - Observation: Eight focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; five wrapper calls were rejected with `matched no test files`, `method selector ... matched no tests`, or because the current-form `test.sh` could not discover `dev-tools/visual-review/tests`, one raw-launcher call reported `Ran 0 tests`, one guessed compound-selector call ran zero tests, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved. The implementation worker then correctly switched to direct `surface_preview_launcher.sh` discovery.
   - Expected pattern: Before invoking a focused wrapper test, resolve the exact file and `def test_...` name with a narrow `rg`, then run one validated selector shape; use the documented launcher directly when the target lives outside the wrapper's discovery tree.
 
 - `2026-08-31 00:43 NZST`: Pointwise smooth-field audit misclassified an explicit transition volume

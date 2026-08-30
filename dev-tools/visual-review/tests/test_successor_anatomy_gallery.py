@@ -215,6 +215,74 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unexpected profile-contract implementation failure"):
                 adapter._active_profile_contract()
 
+    def test_internal_profile_contract_attribute_error_is_not_masked(self) -> None:
+        def raise_internal(_mode: str) -> tuple[int, tuple[str, ...] | None]:
+            raise AttributeError("internal profile-contract implementation failure")
+
+        with patch.object(profile_generator, "_profile_contract", side_effect=raise_internal):
+            with self.assertRaises(AttributeError) as raised:
+                adapter._active_profile_contract()
+
+        self.assertIs(type(raised.exception), AttributeError)
+        self.assertEqual(str(raised.exception), "internal profile-contract implementation failure")
+
+    def test_missing_profile_contract_fails_closed_before_publication(self) -> None:
+        generator_values = vars(profile_generator).copy()
+        generator_values.pop("_profile_contract")
+        generator = SimpleNamespace(**generator_values)
+        reviews_root = self.root / "reviews"
+        reviews_root.mkdir()
+
+        with patch.object(adapter.profile_source_generator, "_module", generator), patch.object(
+            adapter, "publish_session"
+        ) as publish_session:
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "missing _profile_contract",
+            ):
+                adapter.publish_successor_anatomy_gallery(
+                    reviews_root,
+                    self.source_manifest,
+                    creature_kernel=self.creature_kernel,
+                )
+
+        publish_session.assert_not_called()
+        self.assertEqual(tuple(reviews_root.iterdir()), ())
+
+    def test_missing_tail_signature_fails_closed_before_publication(self) -> None:
+        generator_values = vars(profile_generator).copy()
+        generator_values.pop("_tail_signature")
+        generator = SimpleNamespace(**generator_values)
+        reviews_root = self.root / "reviews"
+        reviews_root.mkdir()
+
+        with patch.object(adapter.profile_source_generator, "_module", generator), patch.object(
+            adapter, "publish_session"
+        ) as publish_session:
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "missing _tail_signature",
+            ):
+                adapter.publish_successor_anatomy_gallery(
+                    reviews_root,
+                    self.source_manifest,
+                    creature_kernel=self.creature_kernel,
+                )
+
+        publish_session.assert_not_called()
+        self.assertEqual(tuple(reviews_root.iterdir()), ())
+
+    def test_internal_tail_signature_attribute_error_is_not_masked(self) -> None:
+        def raise_internal(_source_object: dict[str, object]) -> list[int]:
+            raise AttributeError("internal tail-signature implementation failure")
+
+        with patch.object(profile_generator, "_tail_signature", side_effect=raise_internal):
+            with self.assertRaises(AttributeError) as raised:
+                adapter._validate_source_manifest(self.source_manifest)
+
+        self.assertIs(type(raised.exception), AttributeError)
+        self.assertEqual(str(raised.exception), "internal tail-signature implementation failure")
+
     def test_generator_profile_order_drift_is_rejected(self) -> None:
         with patch.object(
             adapter.profile_source_generator,

@@ -253,7 +253,11 @@ def _active_profile_contract() -> tuple[str, tuple[str, ...]]:
     if loaded_constants["DEFAULT_GENERATION_MODE"] == historical_mode:
         _fail("successor anatomy publisher rejects the historical generation mode")
     try:
-        expected_count, expected_ids = generator._profile_contract(active_mode)
+        profile_contract = generator._profile_contract
+    except AttributeError as exc:
+        _fail(f"profile-source generator is missing _profile_contract: {exc}")
+    try:
+        expected_count, expected_ids = profile_contract(active_mode)
     except generator.ProfileGenerationError as exc:
         _fail(f"active profile generation mode is invalid: {exc}")
     if expected_count != 5 or tuple(expected_ids or ()) != active_ids:
@@ -639,9 +643,12 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
         if source_identity.get("document") != profile["document"] or source_identity.get("namespace") != base_namespace:
             _fail(f"{where}.file source identity does not match its profile record")
         try:
-            expected_tail_signature = list(profile_source_generator._tail_signature(source_object))
+            tail_signature = profile_source_generator._tail_signature
+        except AttributeError as exc:
+            _fail(f"{where}.file has an invalid generated source shape: missing _tail_signature: {exc}")
+        try:
+            expected_tail_signature = list(tail_signature(source_object))
         except (
-            AttributeError,
             IndexError,
             KeyError,
             TypeError,
