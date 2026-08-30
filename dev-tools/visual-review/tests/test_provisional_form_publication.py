@@ -1510,24 +1510,23 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                     prior_variant, f"v7 variant field on {prior_format}"
                 )
 
-    def test_v7_torso_profile_accepts_contiguous_owner_local_routes(self) -> None:
+    def test_v7_torso_profile_rejects_composed_space_cross_owner_inversion(self) -> None:
         payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
-        source_landmark = next(
+        upper_pelvis = next(
             landmark
             for landmark in payload["authored_landmarks"]
-            if landmark["role"] == "form_torso_profile_lower_abdomen"
+            if landmark["role"] == "form_torso_profile_upper_pelvis"
         )
-        source_landmark["position"][1] = -0.60
+        upper_pelvis["position"][1] = 0.95
         for variant in payload["variants"]:
-            variant["torso_profile"]["sections"][2]["position"][1] = -0.60
-
-        validated = common._validate_provisional_form_envelope(
-            payload, "owner-local torso route fixture"
-        )
-        self.assertEqual(
-            validated["authored_torso_profile"]["sections"][2]["name"],
-            "lower-abdomen",
-        )
+            variant["torso_profile"]["sections"][1]["position"][1] = 0.95
+        with self.assertRaisesRegex(
+            common.ValidationError,
+            r"authored_torso_profile\.sections landmarks must have strictly increasing composed body-space y",
+        ):
+            common._validate_provisional_form_envelope(
+                payload, "composed-space cross-owner torso route fixture"
+            )
 
     def test_unknown_and_malformed_payloads_fail_closed(self) -> None:
         cases = [
@@ -2572,16 +2571,16 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         valid_v7 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
         self.assertEqual(self.browser_form_errors(valid_v7), [])
 
-        owner_local_routes = copy.deepcopy(valid_v7)
-        source_landmark = next(
+        composed_inversion = copy.deepcopy(valid_v7)
+        upper_pelvis = next(
             landmark
-            for landmark in owner_local_routes["authored_landmarks"]
-            if landmark["role"] == "form_torso_profile_lower_abdomen"
+            for landmark in composed_inversion["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_upper_pelvis"
         )
-        source_landmark["position"][1] = -0.60
-        for variant in owner_local_routes["variants"]:
-            variant["torso_profile"]["sections"][2]["position"][1] = -0.60
-        self.assertEqual(self.browser_form_errors(owner_local_routes), [])
+        upper_pelvis["position"][1] = 0.95
+        for variant in composed_inversion["variants"]:
+            variant["torso_profile"]["sections"][1]["position"][1] = 0.95
+        self.assertTrue(self.browser_form_errors(composed_inversion))
 
         cases = []
         unknown_envelope_field = copy.deepcopy(valid_v7)

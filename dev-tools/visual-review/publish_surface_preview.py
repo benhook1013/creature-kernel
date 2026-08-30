@@ -4,8 +4,10 @@
 This is deliberately an adapter, not a surface renderer. It runs the current
 filled-form producer once, then the baseline and successor experiment
 generators in isolated temporary storage. Both bundles are validated against
-the same source and capture frame before four baseline/successor image pairs
-are published into the existing immutable image-review format. The result is
+the same source and fixed canvas/projection/layout frame before four
+baseline/successor image pairs are published into the existing immutable
+image-review format; successor capture bounds must contain the baseline bounds.
+The result is
 bounded technical and visual inspection evidence; it is not production
 geometry or acceptance evidence. A published gallery may serve as a named
 human checkpoint when the active runway explicitly identifies it as one.
@@ -51,43 +53,375 @@ class SurfacePreviewPublishError(RuntimeError):
     """A bounded, user-facing publication failure."""
 
 
-_SUCCESSOR_SOURCE_TREE: ast.Module | None = None
+_SUCCESSOR_CONTRACT_NAMES = (
+    "SUCCESSOR_REGION_ID",
+    "TORSO_PROFILE_OPERATION",
+    "_HEAD_NECK_PROFILE_OPERATION",
+    "_ARM_PROFILE_OPERATION",
+    "_LEG_PROFILE_OPERATION",
+    "_FOOT_PROFILE_OPERATION",
+    "_FOOT_PROFILE_SECTION_NAMES",
+    "_FOOT_PROFILE_OWNER_ROLES",
+    "_HAND_PAW_PROFILE",
+    "_HAND_PAW_SECTION_NAMES",
+    "_PROFILE_SWEEP_DEFAULT_OPERATION",
+    "_HIP_ROOT_PROFILE_OPERATION",
+    "_HIP_ROOT_BOUNDARY_SAMPLES",
+    "_HIP_ROOT_BOUNDARY_ITERATIONS",
+    "_HIP_ROOT_BOUNDARY_MAX_PARAMETER",
+    "_HIP_ROOT_SOCKET_FRACTION",
+    "_HIP_ROOT_CUP_REMAINING_FRACTION",
+    "_HIP_ROOT_PELVIS_SUPPORT_CAP",
+    "_HIP_ROOT_SOCKET_THIGH_WEIGHT",
+    "_HIP_ROOT_SOCKET_PELVIS_WEIGHT",
+    "_HIP_ROOT_CUP_THIGH_WEIGHT",
+    "_HIP_ROOT_CUP_PELVIS_WEIGHT",
+    "_HIP_ROOT_TANGENT_BLEND_FRACTION",
+    "_FORWARD_MUZZLE_COMPOSITION_OPERATION",
+    "_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES",
+    "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES",
+    "TORSO_SUPERELLIPSE_EXPONENT",
+)
+_MAX_SUCCESSOR_CONTRACT_NAMES = 32
+MAX_SUCCESSOR_SOURCE_BYTES = 512 * 1024
+_MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH = 512
+_MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH = 256
+_MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS = 4
+_MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS = 5
+_MAX_SUCCESSOR_CONTRACT_INDEX = 8
+_MAX_SUCCESSOR_CONTRACT_INTEGER = 4096
+_MAX_SUCCESSOR_CONTRACT_PARAMETER = 64.0
+_MAX_SUCCESSOR_CONTRACT_SCALE = 4.0
+_MAX_SUCCESSOR_CONTRACT_EXPONENT = 16.0
+_SUCCESSOR_CONTRACT_VALUES: dict[str, Any] = {}
+_SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR: str | None = None
 
 
-def _successor_literal(name: str) -> Any:
-    """Read one immutable contract literal from the successor source owner."""
+def _successor_contract_failure(name: str, expectation: str) -> SurfacePreviewPublishError:
+    return SurfacePreviewPublishError(
+        f"successor contract owner has invalid {name}: expected {expectation}"
+    )
 
-    global _SUCCESSOR_SOURCE_TREE
-    successor_path = (
+
+def _successor_contract_number(
+    name: str,
+    value: Any,
+    *,
+    lower: float | None = None,
+    upper: float | None = None,
+    strict_lower: bool = False,
+    strict_upper: bool = False,
+) -> float:
+    if type(value) not in {int, float}:
+        raise _successor_contract_failure(name, "a finite number")
+    try:
+        parsed = float(value)
+    except OverflowError as exc:
+        raise _successor_contract_failure(name, "a finite number") from exc
+    if not math.isfinite(parsed):
+        raise _successor_contract_failure(name, "a finite number")
+    if (
+        lower is not None
+        and (parsed <= lower if strict_lower else parsed < lower)
+    ) or (
+        upper is not None
+        and (parsed >= upper if strict_upper else parsed > upper)
+    ):
+        raise _successor_contract_failure(name, "a bounded finite number")
+    return parsed
+
+
+def _validate_successor_contract_value(name: str, value: Any) -> Any:
+    if name in {
+        "SUCCESSOR_REGION_ID",
+        "TORSO_PROFILE_OPERATION",
+        "_HEAD_NECK_PROFILE_OPERATION",
+        "_ARM_PROFILE_OPERATION",
+        "_LEG_PROFILE_OPERATION",
+        "_FOOT_PROFILE_OPERATION",
+        "_PROFILE_SWEEP_DEFAULT_OPERATION",
+        "_HIP_ROOT_PROFILE_OPERATION",
+        "_FORWARD_MUZZLE_COMPOSITION_OPERATION",
+    }:
+        if not isinstance(value, str) or not value or len(value) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH:
+            raise _successor_contract_failure(
+                name, f"a non-empty string of at most {_MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH} characters"
+            )
+        return value
+
+    if name == "_HAND_PAW_PROFILE":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS}-station tuple"
+            )
+        for station_index, station in enumerate(value):
+            if type(station) is not tuple or len(station) != 3:
+                raise _successor_contract_failure(
+                    name, f"three finite values at station {station_index}"
+                )
+            _successor_contract_number(
+                f"{name}[{station_index}][0]",
+                station[0],
+                lower=-_MAX_SUCCESSOR_CONTRACT_PARAMETER,
+                upper=_MAX_SUCCESSOR_CONTRACT_PARAMETER,
+            )
+            _successor_contract_number(
+                f"{name}[{station_index}][1]",
+                station[1],
+                lower=0.0,
+                upper=_MAX_SUCCESSOR_CONTRACT_SCALE,
+                strict_lower=True,
+            )
+            _successor_contract_number(
+                f"{name}[{station_index}][2]",
+                station[2],
+                lower=0.0,
+                upper=_MAX_SUCCESSOR_CONTRACT_SCALE,
+                strict_lower=True,
+            )
+        if any(
+            float(value[0]) >= float(next_value[0])
+            for value, next_value in zip(value, value[1:])
+        ):
+            raise _successor_contract_failure(name, "strictly increasing station offsets")
+        return value
+
+    if name == "_HAND_PAW_SECTION_NAMES":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS}-name tuple"
+            )
+        if any(
+            not isinstance(item, str)
+            or not item
+            or len(item) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH
+            for item in value
+        ):
+            raise _successor_contract_failure(name, "non-empty bounded station names")
+        if len(set(value)) != len(value):
+            raise _successor_contract_failure(name, "unique station names")
+        return value
+
+    if name == "_FOOT_PROFILE_SECTION_NAMES":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS}-name tuple"
+            )
+        if any(
+            not isinstance(item, str)
+            or not item
+            or len(item) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH
+            for item in value
+        ):
+            raise _successor_contract_failure(name, "non-empty bounded station names")
+        if len(set(value)) != len(value):
+            raise _successor_contract_failure(name, "unique station names")
+        return value
+
+    if name == "_FOOT_PROFILE_OWNER_ROLES":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS}-role tuple"
+            )
+        if any(
+            not isinstance(item, str)
+            or not item
+            or len(item) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH
+            for item in value
+        ):
+            raise _successor_contract_failure(name, "non-empty bounded owner roles")
+        return value
+
+    if name in {"_HIP_ROOT_BOUNDARY_SAMPLES", "_HIP_ROOT_BOUNDARY_ITERATIONS"}:
+        if type(value) is not int or not 1 <= value <= _MAX_SUCCESSOR_CONTRACT_INTEGER:
+            raise _successor_contract_failure(
+                name, f"an integer in [1, {_MAX_SUCCESSOR_CONTRACT_INTEGER}]"
+            )
+        return value
+
+    if name == "_HIP_ROOT_BOUNDARY_MAX_PARAMETER":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=_MAX_SUCCESSOR_CONTRACT_PARAMETER,
+            strict_lower=True,
+        )
+        return value
+
+    if name in {
+        "_HIP_ROOT_SOCKET_FRACTION",
+        "_HIP_ROOT_CUP_REMAINING_FRACTION",
+        "_HIP_ROOT_TANGENT_BLEND_FRACTION",
+    }:
+        _successor_contract_number(name, value, lower=0.0, upper=1.0, strict_lower=True, strict_upper=True)
+        return value
+
+    if name == "_HIP_ROOT_PELVIS_SUPPORT_CAP":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=_MAX_SUCCESSOR_CONTRACT_PARAMETER,
+            strict_lower=True,
+        )
+        return value
+
+    if name in {
+        "_HIP_ROOT_SOCKET_THIGH_WEIGHT",
+        "_HIP_ROOT_SOCKET_PELVIS_WEIGHT",
+        "_HIP_ROOT_CUP_THIGH_WEIGHT",
+        "_HIP_ROOT_CUP_PELVIS_WEIGHT",
+    }:
+        _successor_contract_number(name, value, lower=0.0, upper=1.0)
+        return value
+
+    if name in {
+        "_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES",
+        "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES",
+    }:
+        if (
+            type(value) is not tuple
+            or len(value) != 3
+            or any(
+                type(item) is not int or not 0 <= item < _MAX_SUCCESSOR_CONTRACT_INDEX
+                for item in value
+            )
+            or len(set(value)) != len(value)
+        ):
+            raise _successor_contract_failure(
+                name, "three distinct section indices in [0, 7]"
+            )
+        return value
+
+    if name == "TORSO_SUPERELLIPSE_EXPONENT":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=_MAX_SUCCESSOR_CONTRACT_EXPONENT,
+            strict_lower=True,
+        )
+        return value
+
+    raise _successor_contract_failure(name, "a recognized contract value")
+
+
+def _validate_successor_contract(values: dict[str, Any]) -> dict[str, Any]:
+    if len(_SUCCESSOR_CONTRACT_NAMES) > _MAX_SUCCESSOR_CONTRACT_NAMES:
+        raise SurfacePreviewPublishError("successor contract owner name list exceeds its bound")
+    if len(set(_SUCCESSOR_CONTRACT_NAMES)) != len(_SUCCESSOR_CONTRACT_NAMES):
+        raise SurfacePreviewPublishError("successor contract owner name list contains duplicates")
+    for name in _SUCCESSOR_CONTRACT_NAMES:
+        values[name] = _validate_successor_contract_value(name, values[name])
+
+    for left_name, right_name in (
+        ("_HIP_ROOT_SOCKET_THIGH_WEIGHT", "_HIP_ROOT_SOCKET_PELVIS_WEIGHT"),
+        ("_HIP_ROOT_CUP_THIGH_WEIGHT", "_HIP_ROOT_CUP_PELVIS_WEIGHT"),
+    ):
+        if not math.isclose(
+            float(values[left_name]) + float(values[right_name]),
+            1.0,
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        ):
+            raise _successor_contract_failure(
+                f"{left_name}+{right_name}", "weights summing to 1"
+            )
+    return values
+
+
+def _successor_source_path() -> Path:
+    return (
         Path(__file__).resolve().parents[2]
         / "experiments"
         / "current-form-surface-preview"
         / "successor_surface_preview.py"
     )
-    if _SUCCESSOR_SOURCE_TREE is None:
-        try:
-            _SUCCESSOR_SOURCE_TREE = ast.parse(
-                successor_path.read_text(encoding="utf-8"),
-                filename=str(successor_path),
-            )
-        except (OSError, SyntaxError, UnicodeError) as exc:
-            raise SurfacePreviewPublishError(
-                f"could not read successor contract owner: {exc}"
-            ) from exc
-    for statement in _SUCCESSOR_SOURCE_TREE.body:
-        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+
+
+def _read_successor_contract() -> dict[str, Any]:
+    """Read all required immutable contract literals from the source owner."""
+
+    successor_path = _successor_source_path()
+    with successor_path.open("rb") as source_stream:
+        source_bytes = source_stream.read(MAX_SUCCESSOR_SOURCE_BYTES + 1)
+    if len(source_bytes) > MAX_SUCCESSOR_SOURCE_BYTES:
+        raise SurfacePreviewPublishError(
+            f"successor contract owner source exceeds {MAX_SUCCESSOR_SOURCE_BYTES} bytes"
+        )
+    source_tree = ast.parse(
+        source_bytes.decode("utf-8"),
+        filename=str(successor_path),
+    )
+    values: dict[str, Any] = {}
+    for statement in source_tree.body:
+        if isinstance(statement, ast.ClassDef) and statement.name == "_ProfileSweep":
+            for field in statement.body:
+                if not isinstance(field, ast.AnnAssign) or field.simple != 1:
+                    continue
+                if not isinstance(field.target, ast.Name) or field.target.id != "profile_operation":
+                    continue
+                if field.value is None:
+                    raise SurfacePreviewPublishError(
+                        "successor contract owner has no literal _PROFILE_SWEEP_DEFAULT_OPERATION"
+                    )
+                try:
+                    values["_PROFILE_SWEEP_DEFAULT_OPERATION"] = ast.literal_eval(field.value)
+                except (ValueError, TypeError) as exc:
+                    raise SurfacePreviewPublishError(
+                        "successor contract owner has a non-literal _PROFILE_SWEEP_DEFAULT_OPERATION"
+                    ) from exc
             continue
-        target = statement.targets[0]
-        if isinstance(target, ast.Name) and target.id == name:
+        if isinstance(statement, ast.Assign):
+            if len(statement.targets) != 1:
+                continue
+            target = statement.targets[0]
+            value = statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            if statement.value is None or statement.simple != 1:
+                continue
+            target = statement.target
+            value = statement.value
+        else:
+            continue
+        if isinstance(target, ast.Name) and target.id in _SUCCESSOR_CONTRACT_NAMES:
             try:
-                return ast.literal_eval(statement.value)
+                values[target.id] = ast.literal_eval(value)
             except (ValueError, TypeError) as exc:
                 raise SurfacePreviewPublishError(
-                    f"successor contract owner has a non-literal {name}"
+                    f"successor contract owner has a non-literal {target.id}"
                 ) from exc
-    raise SurfacePreviewPublishError(
-        f"successor contract owner does not define {name}"
-    )
+    for name in _SUCCESSOR_CONTRACT_NAMES:
+        if name not in values:
+            raise SurfacePreviewPublishError(f"successor contract owner does not define {name}")
+    return _validate_successor_contract(values)
+
+
+def _bootstrap_successor_contract() -> tuple[dict[str, Any], str | None]:
+    """Capture a bounded import-time failure for reporting at publish time."""
+
+    try:
+        return _read_successor_contract(), None
+    except (OSError, SyntaxError, UnicodeError, RecursionError, SurfacePreviewPublishError) as exc:
+        detail = str(exc)
+        if len(detail) > _MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH:
+            detail = detail[:_MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH - 3] + "..."
+        return {}, f"successor contract bootstrap failed: {detail}"
+
+
+_SUCCESSOR_CONTRACT_VALUES, _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR = _bootstrap_successor_contract()
+
+
+def _successor_literal(name: str) -> Any:
+    """Return a previously bootstrapped successor contract literal, if available."""
+
+    return _SUCCESSOR_CONTRACT_VALUES.get(name)
+
+
+def _raise_if_successor_contract_bootstrap_failed() -> None:
+    if _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is not None:
+        raise SurfacePreviewPublishError(_SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR)
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v3"
@@ -97,6 +431,28 @@ SEMANTIC_SIDECAR_FORMAT = "creature-kernel.disposable-surface-preview-semantic-w
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
 SUCCESSOR_REGION_ID = _successor_literal("SUCCESSOR_REGION_ID")
+SUCCESSOR_TORSO_PROFILE_OPERATION = _successor_literal("TORSO_PROFILE_OPERATION")
+SUCCESSOR_HEAD_NECK_PROFILE_OPERATION = _successor_literal(
+    "_HEAD_NECK_PROFILE_OPERATION"
+)
+SUCCESSOR_ARM_PROFILE_OPERATION = _successor_literal("_ARM_PROFILE_OPERATION")
+SUCCESSOR_LEG_PROFILE_OPERATION = _successor_literal("_LEG_PROFILE_OPERATION")
+SUCCESSOR_FOOT_PROFILE_OPERATION = _successor_literal("_FOOT_PROFILE_OPERATION")
+SUCCESSOR_HAND_PAW_PROFILE_OPERATION = _successor_literal(
+    "_PROFILE_SWEEP_DEFAULT_OPERATION"
+)
+SUCCESSOR_FORWARD_MUZZLE_COMPOSITION_OPERATION = _successor_literal(
+    "_FORWARD_MUZZLE_COMPOSITION_OPERATION"
+)
+SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = _successor_literal(
+    "_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES"
+)
+SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES = _successor_literal(
+    "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES"
+)
+SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT = _successor_literal(
+    "TORSO_SUPERELLIPSE_EXPONENT"
+)
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
 AUTHORED_TORSO_PROFILE_SECTION_NAMES = (
@@ -1837,11 +2193,56 @@ def _validate_authored_torso_profile(
     if [key(item["owner"], item["role"]) for item in dimensions] != sorted(dimension_map, key=_identity_key_sort):
         raise SurfacePreviewPublishError("authored_dimensions do not use stable owner/role order")
 
+    producer_variants = producer_payload.get("variants")
+    if not isinstance(producer_variants, list) or len(producer_variants) != len(EXPECTED_VARIANTS):
+        raise SurfacePreviewPublishError("producer variants are not the canonical four variant records")
+    descriptor_reference_points: dict[str, list[int]] | None = None
+    for variant_index, raw_variant in enumerate(producer_variants):
+        variant_where = f"{where}.variants[{variant_index}]"
+        if not isinstance(raw_variant, dict) or not isinstance(raw_variant.get("descriptors"), list):
+            raise SurfacePreviewPublishError(f"{variant_where}.descriptors are invalid")
+        descriptors = raw_variant["descriptors"]
+        if len(descriptors) != EXPECTED_GUIDE_COUNTS["owners"]:
+            raise SurfacePreviewPublishError(f"{variant_where}.descriptors are invalid")
+        current_reference_points: dict[str, list[int]] = {}
+        for descriptor_index, raw_descriptor in enumerate(descriptors):
+            descriptor_where = f"{variant_where}.descriptors[{descriptor_index}]"
+            if not isinstance(raw_descriptor, dict) or not isinstance(raw_descriptor.get("address"), dict):
+                raise SurfacePreviewPublishError(f"{descriptor_where}.address is invalid")
+            descriptor_owner = _validate_address(raw_descriptor["address"], f"{descriptor_where}.address")
+            reference_point = raw_descriptor.get("reference_point")
+            if (
+                not isinstance(reference_point, list)
+                or len(reference_point) != 3
+                or any(
+                    type(component) is not int
+                    or not common.SIGNED_I64_MIN <= component <= common.SIGNED_I64_MAX
+                    for component in reference_point
+                )
+            ):
+                raise SurfacePreviewPublishError(
+                    f"{descriptor_where}.reference_point must be a signed-i64 body-space triple"
+                )
+            owner_key = _address_sort_key(descriptor_owner)
+            if owner_key in current_reference_points:
+                raise SurfacePreviewPublishError(f"{variant_where}.descriptors contain duplicate owners")
+            current_reference_points[owner_key] = list(reference_point)
+        if descriptor_reference_points is None:
+            descriptor_reference_points = current_reference_points
+        elif current_reference_points != descriptor_reference_points:
+            raise SurfacePreviewPublishError(
+                f"{variant_where}.descriptors do not preserve exact body-space placements"
+            )
+    if descriptor_reference_points is None:
+        raise SurfacePreviewPublishError("producer variants did not contain descriptors")
+
     raw_sections = profile["sections"]
     if not isinstance(raw_sections, list) or len(raw_sections) != 7:
         raise SurfacePreviewPublishError("authored_torso_profile.sections must contain exactly seven ordered sections")
     torso_lineage: list[dict[str, Any]] = []
-    previous_y: float | None = None
+    previous_owner_key: str | None = None
+    previous_local_y: float | None = None
+    previous_composed_y: float | None = None
     for index, (raw, name, owner_role) in enumerate(zip(raw_sections, AUTHORED_TORSO_PROFILE_SECTION_NAMES, AUTHORED_TORSO_PROFILE_OWNER_ROLES)):
         section_where = f"{where}.authored_torso_profile.sections[{index}]"
         if not isinstance(raw, dict) or set(raw) != {"name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"}:
@@ -1863,10 +2264,25 @@ def _validate_authored_torso_profile(
         expected_landmark_role = f"form_torso_profile_{name.replace('-', '_')}"
         if frame["owner"] != expected_owner or frame["role"] != AUTHORED_TORSO_PROFILE_FRAME_ROLE or landmark["owner"] != expected_owner or landmark["role"] != expected_landmark_role or landmark["frame"] != {"owner": expected_owner, "role": AUTHORED_TORSO_PROFILE_FRAME_ROLE}:
             raise SurfacePreviewPublishError(f"{section_where} does not bind its owner frame and axial landmark")
-        y = float(landmark["position"][1])
-        if previous_y is not None and y <= previous_y:
-            raise SurfacePreviewPublishError("authored torso profile axial landmarks are not strictly ordered")
-        previous_y = y
+        owner_key = _address_sort_key(expected_owner)
+        local_y = float(landmark["position"][1])
+        if owner_key == previous_owner_key and previous_local_y is not None and local_y <= previous_local_y:
+            raise SurfacePreviewPublishError(
+                "authored torso profile axial landmarks are not strictly ordered within each owner-local route"
+            )
+        reference_point = descriptor_reference_points.get(owner_key)
+        if reference_point is None:
+            raise SurfacePreviewPublishError(
+                f"{section_where} owner has no validated body-space placement"
+            )
+        composed_y = float(reference_point[1]) + local_y
+        if previous_composed_y is not None and composed_y <= previous_composed_y:
+            raise SurfacePreviewPublishError(
+                "authored torso profile axial landmarks are not strictly ordered in composed body-space y"
+            )
+        previous_owner_key = owner_key
+        previous_local_y = local_y
+        previous_composed_y = composed_y
         dimension_indices = raw["dimension_indices"]
         if not isinstance(dimension_indices, dict) or set(dimension_indices) != set(AUTHORED_TORSO_PROFILE_RADIUS_AXES):
             raise SurfacePreviewPublishError(f"{section_where}.dimension_indices is invalid")
@@ -2321,9 +2737,6 @@ def _validate_authored_torso_profile(
             })
         base_foot_lineage.append({"side": side_name, "hock_binding": expected_hock_binding, "sections": sections_lineage})
 
-    producer_variants = producer_payload.get("variants")
-    if not isinstance(producer_variants, list) or len(producer_variants) != len(EXPECTED_VARIANTS):
-        raise SurfacePreviewPublishError("producer variants are not the canonical four variant records")
     variant_bindings: dict[str, dict[str, Any]] = {}
     for raw_variant in producer_variants:
         if not isinstance(raw_variant, dict) or set(raw_variant) != {
@@ -4456,6 +4869,79 @@ def _validate_bundle(
     }
 
 
+def _validate_successor_capture_bounds(
+    successor_bounds: Any,
+    baseline_bounds: Any,
+) -> None:
+    """Require the successor capture box to contain the validated baseline box."""
+
+    def parse(value: Any, where: str) -> tuple[list[float], list[float]]:
+        if not isinstance(value, dict) or set(value) != {"min", "max"}:
+            raise SurfacePreviewPublishError(f"{where} is invalid")
+        lower = value["min"]
+        upper = value["max"]
+        if not isinstance(lower, list) or not isinstance(upper, list) or len(lower) != 3 or len(upper) != 3:
+            raise SurfacePreviewPublishError(f"{where} is not an ordered triple pair")
+        parsed_lower = [_finite_number(item, f"{where}.min[{index}]") for index, item in enumerate(lower)]
+        parsed_upper = [_finite_number(item, f"{where}.max[{index}]") for index, item in enumerate(upper)]
+        if any(lower_value >= upper_value for lower_value, upper_value in zip(parsed_lower, parsed_upper)):
+            raise SurfacePreviewPublishError(f"{where} is not an ordered triple pair")
+        return parsed_lower, parsed_upper
+
+    baseline_lower, baseline_upper = parse(baseline_bounds, "baseline shared_render_bounds")
+    successor_lower, successor_upper = parse(successor_bounds, "successor shared_render_bounds")
+    if any(
+        successor_lower[axis] > baseline_lower[axis]
+        or successor_upper[axis] < baseline_upper[axis]
+        for axis in range(3)
+    ):
+        raise SurfacePreviewPublishError(
+            "successor shared_render_bounds must contain baseline bounds"
+        )
+
+
+def _validate_complete_binding_pair(
+    baseline_binding: Any,
+    successor_binding: Any,
+    variant_id: str,
+) -> None:
+    """Allow only the successor capture bounds to differ from baseline binding."""
+
+    if not isinstance(baseline_binding, dict) or not isinstance(successor_binding, dict):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+    if set(baseline_binding) != set(successor_binding):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+    if any(
+        baseline_binding[key] != successor_binding[key]
+        for key in baseline_binding
+        if key != "capture"
+    ):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+    baseline_capture = baseline_binding.get("capture")
+    successor_capture = successor_binding.get("capture")
+    capture_keys = {"canvas", "projections", "layout", "shared_render_bounds"}
+    if (
+        not isinstance(baseline_capture, dict)
+        or not isinstance(successor_capture, dict)
+        or set(baseline_capture) != capture_keys
+        or set(successor_capture) != capture_keys
+        or any(
+            baseline_capture[key] != successor_capture[key]
+            for key in capture_keys
+            if key != "shared_render_bounds"
+        )
+    ):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+
+
 SUCCESSOR_EXTREMITY_ORDER = (
     "left-hand-attachment", "left-hand-paw", "left-foot",
     "right-hand-attachment", "right-hand-paw", "right-foot",
@@ -4481,16 +4967,10 @@ SUCCESSOR_LIMB_STATION_NAMES = (
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
 )
-SUCCESSOR_EXTREMITY_STATION_NAMES = (
-    ("hand-attachment-start", "hand-attachment-end"),
-    ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip"),
-    ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"),
-    ("hand-attachment-start", "hand-attachment-end"),
-    ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip"),
-    ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"),
-)
 SUCCESSOR_HAND_PAW_PROFILE = _successor_literal("_HAND_PAW_PROFILE")
 SUCCESSOR_HAND_PAW_SECTION_NAMES = _successor_literal("_HAND_PAW_SECTION_NAMES")
+SUCCESSOR_FOOT_PROFILE_SECTION_NAMES = _successor_literal("_FOOT_PROFILE_SECTION_NAMES")
+SUCCESSOR_FOOT_PROFILE_OWNER_ROLES = _successor_literal("_FOOT_PROFILE_OWNER_ROLES")
 SUCCESSOR_HIP_ROOT_PROFILE_OPERATION = _successor_literal("_HIP_ROOT_PROFILE_OPERATION")
 SUCCESSOR_HIP_ROOT_CONTROLS = {
     "boundary_samples": _successor_literal("_HIP_ROOT_BOUNDARY_SAMPLES"),
@@ -4505,6 +4985,14 @@ SUCCESSOR_HIP_ROOT_CONTROLS = {
     "cup_pelvis_weight": _successor_literal("_HIP_ROOT_CUP_PELVIS_WEIGHT"),
     "tangent_blend_fraction": _successor_literal("_HIP_ROOT_TANGENT_BLEND_FRACTION"),
 }
+SUCCESSOR_EXTREMITY_STATION_NAMES = (
+    ("hand-attachment-start", "hand-attachment-end"),
+    SUCCESSOR_HAND_PAW_SECTION_NAMES,
+    SUCCESSOR_FOOT_PROFILE_SECTION_NAMES,
+    ("hand-attachment-start", "hand-attachment-end"),
+    SUCCESSOR_HAND_PAW_SECTION_NAMES,
+    SUCCESSOR_FOOT_PROFILE_SECTION_NAMES,
+)
 SUCCESSOR_TAIL_SECTION_NAMES = (
     ("tail-root-source-start", "tail-root-source-end"),
     ("tail-root-attachment-start", "tail-root-attachment-end"),
@@ -4675,10 +5163,18 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
         }
         for connection in connections
     ]
-    cranium = sections[3]
-    muzzle_root = sections[5]
-    muzzle_mid = sections[6]
-    muzzle_tip = sections[7]
+    cranium_index, muzzle_root_index, muzzle_tip_index = (
+        SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+    )
+    muzzle_root_radius_index, muzzle_mid_radius_index, muzzle_tip_radius_index = (
+        SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES
+    )
+    cranium = sections[cranium_index]
+    muzzle_root = sections[muzzle_root_index]
+    muzzle_tip = sections[muzzle_tip_index]
+    muzzle_root_radius = sections[muzzle_root_radius_index]
+    muzzle_mid_radius = sections[muzzle_mid_radius_index]
+    muzzle_tip_radius = sections[muzzle_tip_radius_index]
     forward = axes["forward"]
     composition_root = [
         0.5 * (
@@ -4693,14 +5189,18 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
         for axis in range(3)
     ]
     muzzle_composition = {
-        "operation": "successor-local-forward-muzzle-envelope-v1",
+        "operation": SUCCESSOR_FORWARD_MUZZLE_COMPOSITION_OPERATION,
         "section_names": [
             "muzzle-composition-root",
             "muzzle-composition-mid",
             "muzzle-composition-tip",
         ],
-        "geometric_input_section_indices": [3, 5, 7],
-        "radius_donor_section_indices": [5, 6, 7],
+        "geometric_input_section_indices": list(
+            SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+        ),
+        "radius_donor_section_indices": list(
+            SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES
+        ),
         "center_derivation": [
             "midpoint(cranium-mid forward surface, muzzle-root center)",
             "midpoint(derived root, muzzle-tip center)",
@@ -4708,9 +5208,9 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
         ],
         "centers": [composition_root, composition_mid, muzzle_tip["center"]],
         "station_radii": [
-            muzzle_root["radii"],
-            muzzle_mid["radii"],
-            muzzle_tip["radii"],
+            muzzle_root_radius["radii"],
+            muzzle_mid_radius["radii"],
+            muzzle_tip_radius["radii"],
         ],
     }
     route_topology = []
@@ -4718,7 +5218,7 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
         route_sections = [sections[index] for index in indices]
         route_topology.append({
             "name": route_name,
-            "operation": "authored-head-neck-branched-route-profile-v1",
+            "operation": SUCCESSOR_HEAD_NECK_PROFILE_OPERATION,
             "section_indices": list(indices),
             "section_names": [section["name"] for section in route_sections],
             "connection_names": [connections[index]["name"] for index in connection_indices],
@@ -4732,7 +5232,7 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
         })
     return {
         "profile_format": AUTHORED_HEAD_NECK_PROFILE_FORMAT,
-        "operation": "authored-head-neck-branched-route-profile-v1",
+        "operation": SUCCESSOR_HEAD_NECK_PROFILE_OPERATION,
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
         "provenance": head["provenance"],
         "sections_consumed": len(sections),
@@ -4769,7 +5269,7 @@ def _expected_successor_arm_profile_metadata(guide: dict[str, Any]) -> dict[str,
         "format": AUTHORED_ARM_PROFILE_FORMAT,
         "source": "authored_arm_profile",
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "operation": "authored-arm-profile-route-v1",
+        "operation": SUCCESSOR_ARM_PROFILE_OPERATION,
         "topology": "two-routes-per-side-shared-upper-arm-elbow-seam",
         "route_order": [item["name"] for item in routes],
         "routes": routes,
@@ -4837,7 +5337,7 @@ def _expected_successor_leg_profile_metadata(guide: dict[str, Any]) -> dict[str,
         "source": "authored_leg_profile",
         "source_format": common.PROVISIONAL_FORM_FORMAT,
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "operation": "authored-leg-profile-route-v1",
+        "operation": SUCCESSOR_LEG_PROFILE_OPERATION,
         "topology": "one-five-station-route-per-side-thigh-knee-shin-hock",
         "route_order": [item["route"] for item in sides],
         "route_kinds": [item["route_kind"] for item in sides],
@@ -4856,6 +5356,8 @@ def _expected_successor_leg_profile_metadata(guide: dict[str, Any]) -> dict[str,
 def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str, Any]:
     """Re-derive the live v9 five-station authored foot route metadata."""
 
+    section_names = SUCCESSOR_FOOT_PROFILE_SECTION_NAMES
+    owner_roles = SUCCESSOR_FOOT_PROFILE_OWNER_ROLES
     profile = guide["controls"]["foot_profile"]
     leg_profile = guide["controls"]["leg_profile"]
     paws_by_key = {
@@ -4891,7 +5393,7 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
                     "variant_provenance": source["variant_provenance"],
                 }
             elif source is None:
-                inputs = ["hock", "pad"] if index == 1 else ["pad", "toe"]
+                inputs = [section_names[0], section_names[2]] if index == 1 else [section_names[2], section_names[4]]
                 lineage = {
                     "kind": "derived-guide-midpoint",
                     "inputs": inputs,
@@ -4908,7 +5410,7 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
                     "variant_provenance": source["variant_provenance"],
                 }
             stations.append({
-                "name": ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe")[index],
+                "name": section_names[index],
                 "section_index": index,
                 "source_section_index": [AUTHORED_FOOT_PROFILE_HOCK_SECTION_INDEX, 0, 0, 1, 1][index],
                 "owner": leg_hock["owner"] if index == 0 else side["sections"][0]["owner"],
@@ -4922,7 +5424,7 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
             "route_kind": "foot-profile",
             "station_count": 5,
             "source_section_indices": [int(item["source_section_index"]) for item in stations],
-            "owner_roles": ["shin", "foot", "foot", "foot", "foot"],
+            "owner_roles": list(owner_roles),
             "stations": stations,
         })
     return {
@@ -4930,12 +5432,12 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
         "source": "authored_foot_profile",
         "source_format": common.PROVISIONAL_FORM_FORMAT,
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "operation": "authored-foot-profile-route-v1",
+        "operation": SUCCESSOR_FOOT_PROFILE_OPERATION,
         "topology": "one-five-station-hock-to-toe-route-per-side",
         "route_order": [item["route"] for item in sides],
         "route_kinds": ["foot-profile", "foot-profile"],
-        "section_names": ["hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"],
-        "owner_roles": ["shin", "foot", "foot", "foot", "foot"],
+        "section_names": list(section_names),
+        "owner_roles": list(owner_roles),
         "route_station_count": 10,
         "authored_station_count": 4,
         "route_volume_radius_count": 30,
@@ -5000,7 +5502,7 @@ def _expected_successor_hand_paw_metadata(guide: dict[str, Any]) -> dict[str, An
         })
     return {
         "representation": "four-station-full-volume-hand-paw-sweeps",
-        "operation": "symmetric-ellipse",
+        "operation": SUCCESSOR_HAND_PAW_PROFILE_OPERATION,
         "route_order": [item["route"] for item in side_metadata],
         "route_kinds": [item["route_kind"] for item in side_metadata],
         "section_names": list(SUCCESSOR_HAND_PAW_SECTION_NAMES),
@@ -5033,6 +5535,7 @@ def _expected_successor_region_metadata(
     """
 
     controls = guide["controls"]
+    axes = controls["axes"]
     head = controls["head"]
     head_owner, neck_owner = head["owners"]
     head_neck = _expected_successor_head_neck_metadata(guide)
@@ -5121,10 +5624,14 @@ def _expected_successor_region_metadata(
             raise SurfacePreviewPublishError(f"validated regional guide lacks {side} extremity controls")
         hand_mass = hand["masses"][0]
         lateral_sign = -1.0 if side == "left" else 1.0
+        outward = [
+            lateral_sign * float(value)
+            for value in axes["lateral"]
+        ]
         hand_centers = [
             [
                 float(hand_mass["center"][axis])
-                + offset * float(hand_mass["radii"][0]) * lateral_sign
+                + offset * float(hand_mass["radii"][0]) * outward[axis]
                 for axis in range(3)
             ]
             for offset, _up_scale, _forward_scale in SUCCESSOR_HAND_PAW_PROFILE
@@ -5210,8 +5717,8 @@ def _expected_successor_region_metadata(
 
     metrics_region = {
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "torso_representation": "rounded-superellipse-axial-profile-sweep-v1",
-        "torso_profile_exponent": 3.0,
+        "torso_representation": SUCCESSOR_TORSO_PROFILE_OPERATION,
+        "torso_profile_exponent": SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT,
         "torso_sections_consumed": len(torso_controls),
         "torso_section_names": list(AUTHORED_TORSO_PROFILE_SECTION_NAMES),
         "torso_section_owner_keys": [item["owner"] for item in torso_controls],
@@ -5279,9 +5786,9 @@ def _expected_successor_region_metadata(
     }
     return {
         "torso": {
-            "representation": "rounded-superellipse-axial-profile-sweep-v1",
+            "representation": SUCCESSOR_TORSO_PROFILE_OPERATION,
             "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-            "superellipse_exponent": 3.0,
+            "superellipse_exponent": SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT,
             "sections_consumed": len(torso_controls),
             "section_names": list(AUTHORED_TORSO_PROFILE_SECTION_NAMES),
             "section_controls": torso_controls,
@@ -5628,7 +6135,7 @@ def _validate_successor_sidecar(
 
     capture = sidecar.get("capture")
     if not isinstance(capture, dict) or set(capture) != set(frame) or capture != frame:
-        raise SurfacePreviewPublishError("successor sidecar capture framing does not match baseline")
+        raise SurfacePreviewPublishError("successor sidecar capture framing does not match successor frame")
 
     torso = sidecar.get("torso")
     if not isinstance(torso, dict) or set(torso) != {"representation", "regional_guide_format", "superellipse_exponent", "sections_consumed", "section_names", "section_controls"}:
@@ -6020,9 +6527,14 @@ def _validate_successor_bundle(
     _validate_reference_scale(source.get("reference_scale"), "successor source.reference_scale")
 
     frame_keys = ("canvas", "projections", "layout", "shared_render_bounds")
+    if any(manifest.get(key) != baseline_manifest.get(key) for key in frame_keys[:3]):
+        raise SurfacePreviewPublishError(
+            "successor canvas, projections, and layout do not exactly match the validated baseline"
+        )
     frame = {key: manifest.get(key) for key in frame_keys}
-    if any(manifest.get(key) != baseline_manifest.get(key) for key in frame_keys):
-        raise SurfacePreviewPublishError("successor capture framing does not exactly match the validated baseline")
+    _validate_successor_capture_bounds(
+        frame["shared_render_bounds"], baseline_manifest.get("shared_render_bounds")
+    )
 
     baseline_generator = baseline_manifest.get("generator")
     if not isinstance(baseline_generator, dict) or type(baseline_generator.get("padding")) not in {int, float}:
@@ -6080,7 +6592,7 @@ def _validate_successor_bundle(
         "successor-consumer-sidecar",
         "guide-skin-composite-png",
     ]
-    expected_frame = {key: baseline_manifest[key] for key in frame_keys}
+    expected_frame = frame
     for index, variant in enumerate(variants):
         where = f"successor.variants[{index}]"
         if not isinstance(variant, dict) or set(variant) != {"id", "profile_id", "source_variant_sha256", "metrics", "inventory"}:
@@ -6245,6 +6757,7 @@ def publish_surface_preview(
 ) -> dict[str, Any]:
     """Run producer and both consumers in temp space and publish four pairs."""
 
+    _raise_if_successor_contract_bootstrap_failed()
     try:
         stable_id = validate_id(review_id, "review id")
     except ValidationError as exc:
@@ -6330,8 +6843,11 @@ def publish_surface_preview(
         if set(baseline_by_id) != set(EXPECTED_VARIANTS) or set(successor_by_id) != set(EXPECTED_VARIANTS):
             raise SurfacePreviewPublishError("published baseline and successor variants do not contain the exact canonical id set")
         for variant_id in EXPECTED_VARIANTS:
-            if baseline_by_id[variant_id].get("binding") != successor_by_id[variant_id].get("binding"):
-                raise SurfacePreviewPublishError(f"baseline and successor canonical binding disagree for {variant_id}")
+            _validate_complete_binding_pair(
+                baseline_by_id[variant_id].get("binding"),
+                successor_by_id[variant_id].get("binding"),
+                variant_id,
+            )
         variant_titles = {
             "neutral-v0": "Neutral",
             "broad-soft-v0": "Broad soft",
@@ -6400,7 +6916,7 @@ def publish_surface_preview(
             "schema_version": 1,
             "id": stable_id,
             "title": title,
-            "description": "Disposable baseline-versus-successor comparison using one source and one shared capture frame; publication itself is not production geometry or acceptance evidence.",
+            "description": "Disposable baseline-versus-successor comparison using one source and shared canvas/projection/layout framing, with successor capture bounds containing baseline bounds; publication itself is not production geometry or acceptance evidence.",
             "instructions": "For each variant, compare baseline first and successor second. Appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful differentiation between variants. This gallery records no acceptance decision.",
             "subject_context": {
                 "descriptor_snapshot": descriptor_snapshot,

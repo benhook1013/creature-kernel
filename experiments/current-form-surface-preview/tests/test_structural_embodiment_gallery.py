@@ -324,19 +324,26 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
             structure = make_structure(profile_id)
             structure_path = self.root / f"{profile_id}.json"
             structure_path.write_bytes(canonical(structure))
+            source_body = {
+                key: structure["graph"][key]
+                for key in (
+                    "modules", "parts", "joints", "sockets", "attachments",
+                    "landmarks", "dimensions", "frames", "regions",
+                    "capabilities", "fields",
+                )
+            }
+            source_body["dimensions"] = [
+                {"owner": address("part", "tail_root", ["tail"]), "role": "form_start_radius", "value": 2},
+                {"owner": address("part", "tail_root", ["tail"]), "role": "form_end_radius", "value": 1},
+                {"owner": address("part", "tail_tip", ["tail"]), "role": "form_start_radius", "value": 1},
+                {"owner": address("part", "tail_tip", ["tail"]), "role": "form_end_radius", "value": 1},
+            ]
             source_document_value = {
                 "source": {
                     "document": source_document(profile_id),
                     "namespace": base_source["namespace"],
                 },
-                "body": {
-                    key: structure["graph"][key]
-                    for key in (
-                        "modules", "parts", "joints", "sockets", "attachments",
-                        "landmarks", "dimensions", "frames", "regions",
-                        "capabilities", "fields",
-                    )
-                },
+                "body": source_body,
             }
             source_data = canonical(source_document_value) + b"\n"
             self.expected_source_data[profile_id] = source_data
@@ -348,7 +355,7 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
                 "file": source_path.name,
                 "id": profile_id,
                 "sha256": hashlib.sha256(source_data).hexdigest(),
-                "tail_signature": [],
+                "tail_signature": list(gallery.profile_source_generator.tail_signature(source_document_value)),
             })
             ply_path = self.root / f"{profile_id}.ply"
             ply_path.write_bytes(cylinder_ply(1.0 + index * 0.25))
@@ -765,6 +772,13 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         source_path.write_bytes(source_path.read_bytes() + b" ")
         with self.assertRaisesRegex(gallery.GalleryError, "does not match its manifest"):
             self.build("tampered-generated-source")
+
+    def test_generated_source_tail_signature_is_recomputed(self) -> None:
+        manifest = json.loads(self.source_manifest.read_text(encoding="utf-8"))
+        manifest["profiles"][0]["tail_signature"][1] += 1
+        self.source_manifest.write_bytes(canonical(manifest) + b"\n")
+        with self.assertRaisesRegex(gallery.GalleryError, "tail_signature does not match its source document"):
+            self.build("forged-tail-signature")
 
     def test_self_consistently_rehashed_generated_source_still_fails_closed(self) -> None:
         profile_id = gallery.FROZEN_PROFILE_IDS[0]

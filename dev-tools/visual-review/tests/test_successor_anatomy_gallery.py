@@ -160,6 +160,118 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                 )
         validate_manifest.assert_not_called()
 
+    def test_active_profile_contract_is_generator_owned_and_neutral_first(self) -> None:
+        generation_mode, profile_ids = adapter._active_profile_contract()
+        self.assertEqual(profile_ids, tuple(profile_generator.ACTIVE_PROFILE_IDS))
+        self.assertEqual(generation_mode, profile_generator.DEFAULT_GENERATION_MODE)
+        self.assertEqual(profile_ids[0], profile_generator.STANDARD_NEUTRAL_PROFILE_ID)
+        self.assertEqual(len(profile_ids), 5)
+
+    def test_generator_profile_order_drift_is_rejected(self) -> None:
+        with patch.object(
+            adapter.profile_source_generator,
+            "ACTIVE_PROFILE_IDS",
+            tuple(reversed(profile_generator.ACTIVE_PROFILE_IDS)),
+        ):
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "loaded generator active profile IDs drifted",
+            ):
+                adapter._validate_source_manifest(self.source_manifest)
+
+    def test_loaded_profile_ids_list_drift_is_rejected(self) -> None:
+        with patch.object(
+            adapter.profile_source_generator,
+            "ACTIVE_PROFILE_IDS",
+            list(profile_generator.ACTIVE_PROFILE_IDS),
+        ):
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "loaded generator active profile IDs drifted",
+            ):
+                adapter._validate_source_manifest(self.source_manifest)
+
+    def test_loaded_generation_constant_type_drift_is_rejected(self) -> None:
+        with patch.object(
+            adapter.profile_source_generator,
+            "DEFAULT_GENERATION_MODE",
+            [profile_generator.DEFAULT_GENERATION_MODE],
+        ):
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "loaded generator DEFAULT_GENERATION_MODE must be a non-empty string",
+            ):
+                adapter._validate_source_manifest(self.source_manifest)
+
+    def test_historical_generation_mode_is_rejected(self) -> None:
+        with patch.object(
+            adapter.profile_source_generator,
+            "DEFAULT_GENERATION_MODE",
+            profile_generator.HISTORICAL_GENERATION_MODE,
+        ):
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "loaded generator DEFAULT_GENERATION_MODE drifted",
+            ):
+                adapter._validate_source_manifest(self.source_manifest)
+
+    def test_active_generation_mode_is_forwarded_explicitly(self) -> None:
+        with patch.object(
+            adapter.profile_source_generator,
+            "generate_sources",
+            wraps=profile_generator.generate_sources,
+        ) as generate_sources:
+            adapter._validate_source_manifest(self.source_manifest)
+        self.assertEqual(
+            generate_sources.call_args.kwargs["mode"],
+            profile_generator.DEFAULT_GENERATION_MODE,
+        )
+
+    def test_profile_source_constant_reader_does_not_execute_source(self) -> None:
+        marker = self.root / "executed"
+        source_path = self.root / "generator.py"
+        source_path.write_text(
+            "ACTIVE_PROFILE_IDS = (\"standard_neutral_reference\",)\n"
+            f"open({str(marker)!r}, \"w\").write(\"executed\")\n",
+            encoding="utf-8",
+        )
+        with patch.object(adapter, "_profile_source_path", return_value=source_path):
+            values = adapter._read_profile_source_constants()
+        self.assertEqual(values["ACTIVE_PROFILE_IDS"], ("standard_neutral_reference",))
+        self.assertFalse(marker.exists())
+
+    def test_profile_source_constant_reader_bounds_oversized_stream(self) -> None:
+        class OversizedStream:
+            def __init__(self) -> None:
+                self.read_sizes: list[int] = []
+
+            def __enter__(self) -> "OversizedStream":
+                return self
+
+            def __exit__(self, *_args: object) -> None:
+                return None
+
+            def read(self, size: int = -1) -> bytes:
+                self.read_sizes.append(size)
+                return b"x" * (adapter._PROFILE_SOURCE_MAX_BYTES + 1)
+
+        stream = OversizedStream()
+
+        class SourcePath:
+            def open(self, mode: str) -> OversizedStream:
+                self.mode = mode
+                return stream
+
+        source_path = SourcePath()
+        with patch.object(adapter, "_profile_source_path", return_value=source_path):
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "exceeds the bounded source size",
+            ):
+                adapter._read_profile_source_constants()
+        self.assertEqual(stream.read_sizes, [adapter._PROFILE_SOURCE_MAX_BYTES + 1])
+        self.assertEqual(source_path.mode, "rb")
+
     def test_gallery_is_one_ordered_group_with_neutral_only_shared_bound_and_distinct_lineage(self) -> None:
         review = self._run_gallery("successor-anatomy-test")
         self.assertEqual(review["title"], adapter.TITLE)

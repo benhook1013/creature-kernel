@@ -83,6 +83,7 @@ DEFAULT_CAPTURE_PADDING = _baseline.DEFAULT_PADDING
 DEFAULT_SMOOTH_K = 0.10
 _FORWARD_MUZZLE_COMPOSITION_OPERATION = "successor-local-forward-muzzle-envelope-v1"
 _FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = (3, 5, 7)
+_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES = (5, 6, 7)
 MAX_SAMPLES = 96
 MAX_VOXELS = 96**3
 MAX_FIELD_VALUES = 16_000_000
@@ -1880,11 +1881,17 @@ def _make_forward_muzzle_composition_sweep(profile: Any) -> _ProfileSweep:
     up = _unit(_vec3(axes.up, "forward muzzle composition up axis"), "forward muzzle composition up axis")
     by_index = {int(section.section_index): section for section in profile.sections}
     cranium_index, muzzle_root_index, muzzle_tip_index = _FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+    root_radius_donor_index, mid_radius_donor_index, tip_radius_donor_index = (
+        _FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES
+    )
     try:
         cranium = by_index[cranium_index]
         muzzle_root = by_index[muzzle_root_index]
-        muzzle_mid = by_index[6]
         muzzle_tip = by_index[muzzle_tip_index]
+        radius_donors = tuple(
+            by_index[index]
+            for index in (root_radius_donor_index, mid_radius_donor_index, tip_radius_donor_index)
+        )
     except KeyError as exc:
         _fail(f"forward muzzle composition is missing authored section {exc.args[0]}")
 
@@ -1895,11 +1902,15 @@ def _make_forward_muzzle_composition_sweep(profile: Any) -> _ProfileSweep:
     )
     tip_center = _vec3(muzzle_tip.center, "forward muzzle composition tip center")
     mid_center = 0.5 * (root_center + tip_center)
-    sources = (("muzzle-composition-root", muzzle_root, root_center), ("muzzle-composition-mid", muzzle_mid, mid_center), ("muzzle-composition-tip", muzzle_tip, tip_center))
+    composition_centers = (
+        ("muzzle-composition-root", root_center),
+        ("muzzle-composition-mid", mid_center),
+        ("muzzle-composition-tip", tip_center),
+    )
     sections: list[_ProfileSection] = []
     path_length = 0.0
-    for index, (name, source, center) in enumerate(sources):
-        radii = tuple(float(value) for value in source.radii)
+    for index, ((name, center), radius_source) in enumerate(zip(composition_centers, radius_donors)):
+        radii = tuple(float(value) for value in radius_source.radii)
         _finite_positive(radii, f"{name}.authored-radii")
         if index:
             span = float(np.linalg.norm(center - _vec3(sections[-1].center, f"{name}.previous-center")))
@@ -1908,14 +1919,14 @@ def _make_forward_muzzle_composition_sweep(profile: Any) -> _ProfileSweep:
             path_length += span
         sections.append(_ProfileSection(
             name=name,
-            owner=source.owner,
+            owner=radius_source.owner,
             center=tuple(float(value) for value in center),
             tangent=tuple(float(value) for value in forward),
             transverse_axes=(tuple(float(value) for value in lateral), tuple(float(value) for value in up)),
             transverse_radii=(radii[0], radii[1]),
             path_length=path_length,
             tangent_radius=radii[2],
-            source_section_index=int(source.section_index),
+            source_section_index=int(radius_source.section_index),
         ))
     ordered = tuple(sections)
     caps = (
@@ -2030,7 +2041,7 @@ def _head_neck_route_json(item: _RegionalProfileSweep) -> dict[str, Any]:
                 "operation": _FORWARD_MUZZLE_COMPOSITION_OPERATION,
                 "section_names": list(derived.names),
                 "geometric_input_section_indices": list(_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES),
-                "radius_donor_section_indices": [int(section.source_section_index) for section in derived.sections],
+                "radius_donor_section_indices": list(_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES),
                 "center_derivation": [
                     "midpoint(cranium-mid forward surface, muzzle-root center)",
                     "midpoint(derived root, muzzle-tip center)",
@@ -3494,6 +3505,39 @@ def _point_to_segment_distance(point: Any, start: Any, end: Any) -> float:
     return float(np.linalg.norm(point_vector - (start_vector + t * axis)))
 
 
+def _connector_cage_context(
+    cage: Any,
+    boundary: tuple[float, float, float],
+    where: str,
+) -> Any:
+    """Independently select the cage ellipse at one connector root height."""
+
+    boundary_point = _vec3(boundary, f"{where} cage connector root")
+    shape = _baseline._torso_cage_shape(cage)
+    axial = float(boundary_point[1])
+    heights = shape["heights"]
+    if axial <= float(heights[0]):
+        section = cage.sections[0]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    elif axial >= float(heights[-1]):
+        section = cage.sections[-1]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    else:
+        sampled_center, sampled_lateral, sampled_depth = _baseline._torso_cage_sample_controls(shape, axial)
+        center = tuple(float(value) for value in np.asarray(sampled_center).reshape(3))
+        lateral_radius = float(np.asarray(sampled_lateral))
+        depth_radius = float(np.asarray(sampled_depth))
+    return _baseline._BoundaryConnectorContainment(
+        center=tuple(float(value) for value in center),
+        lateral_radius=float(lateral_radius),
+        depth_radius=float(depth_radius),
+    )
+
+
 def _compiled_limb_connector_path(
     guide: Any,
     limb: Any,
@@ -3506,14 +3550,11 @@ def _compiled_limb_connector_path(
     if limb.root_centerline is None:
         _fail(f"{where} root controls are incomplete")
     role = limb.owner.key[3]
-    if role == "upper_arm":
-        boundary_section = guide.torso_cage.upper_boundary
-    elif role == "thigh":
-        boundary_section = guide.torso_cage.lower_boundary
-    else:
+    if role not in {"upper_arm", "thigh"}:
         _fail(f"{where} root connector has no owning cage boundary")
+    boundary_section = _connector_cage_context(guide.torso_cage, path[0], where)
     inward_direction, clearance = _baseline._boundary_connector_inward_direction(
-        limb.root_centerline[0],
+        path[0],
         boundary_section,
         where,
     )

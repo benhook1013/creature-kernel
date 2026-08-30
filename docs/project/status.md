@@ -57,47 +57,50 @@ or executable truth.
 ### Current candidate and expected live target
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
-The remote head `f841157` completed its first hosted CodeRabbit cycle with 11
-actionable comments; valid local fixes are integrated but remain uncommitted
-and unpushed, so the remote head is frozen/stale and PR #122 remains unmerged.
-The fixes cover the positive-only smooth-union cap, fail-closed scalar
-direction-plus-clearance connectors, dead publisher declarations, owner-local
-negative-test isolation, and corrections to historical dossier wording,
-profile-count diagnostics, and tail wording. A broad focused check found that
-promoting the active five-profile fixture had broken the completed frozen
-four-profile structural gallery and publisher. The local repair preserves the
-exact-five active default and adds an explicit byte-bound historical mode with
-the archived origin/main candidate and source bytes.
+The prior pushed immutable head `8f2390b` completed CI, a second hosted
+CodeRabbit pass with 9 findings, and the committed-diff CLI review. The current
+local candidate is an uncommitted follow-up that integrates verified
+correctness fixes for bounded successor contract bootstrap and source-backed
+constants, hand outward-axis placement, successor-bounds containment, exact
+active profile identity/order, historical tail-signature recomputation,
+connector containment and interpolated root-height context,
+shoulder/smooth-union regressions, global torso ordering in composed body
+space, and related test/doc fixes. It remains unpushed, so PR #122 remains
+draft and unmerged.
 
-Local validation now passes: Rust workspace (74 CLI plus 368 core), baseline
-72, successor 82, provisional publication 28, surface publication 42 (one
-expected skip), active source 16, historical gallery 26, historical
-publication 25, historical evidence 12, successor anatomy gallery 14, and
-wrapper 6; docs, whitespace, and diff are clean. Five profiles × four
-variants (20 meshes) were freshly generated and all were finite, watertight,
-and one component. Body-mechanics audits found no confirmed current
-correctness defect in neck/head, hips/legs, hands/feet, tail, or whole-body
-topology. Shoulder findings were reduced independently to intentional
-transition/nested support and now have focused regression coverage.
-`body_extent_y` is verified non-successor-facing and is not a missing
-torso-height propagation.
+The candidate still targets the exact five ordered profiles above, with the
+standard neutral reference first. A measured route-interpolation cache showed
+about a 10% representative improvement; record that as a post-checkpoint
+performance follow-up, not active runway scope. Consolidated affected
+validation passes: baseline 73; successor 85 plus focused post-suite
+connector/muzzle parity checks; structural and historical suites 71; surface
+publication 52 with one expected opt-in skip; exact-five anatomy publication
+22; provisional/browser and connected publication checks 99 with one expected
+skip; and the complete provisional Godot host suite 207 with 31 expected
+skips plus 32 focused post-suite cleanup checks with one expected skip.
+Documentation, whitespace, and diff checks pass. Fresh hands-on
+publisher trials also passed one canonical 32-sample success path and
+fail-closed malformed-contract and non-containing-bounds paths without live
+publication.
 
 ### Immediate continuation
 
 Continue in this order:
 
-1. Commit and push one coherent immutable head.
+1. Commit and push one coherent fresh immutable head.
 2. Launch CI plus hosted and committed-diff CLI CodeRabbit review in parallel;
    resolve valid findings until hosted review tapers, without changing the
    reviewed remote head during each cycle.
 3. Publish a fresh live review ID for the exact five-profile gallery, with the
    standard neutral reference first, from the final candidate and verify its
    technical loading without using AI visual appraisal as a gate.
-4. Stop with PR #122 unmerged and present the checkpoint URL and completed
-   review state to Ben for visual appraisal. No visual acceptance has occurred.
-   Any later material fix that changes the displayed candidate requires a new
-   immutable review ID and renewed appraisal. Fresh review and CI, final
-   immutable live publication, and Ben's appraisal remain outstanding.
+4. Stop with PR #122 draft and unmerged and present the checkpoint URL and
+   completed review state to Ben for visual appraisal. No visual acceptance or
+   explicit merge permission has occurred. Any later material fix that changes
+   the displayed candidate requires a new immutable review ID and renewed
+   appraisal. The fresh immutable push, CI, hosted-plus-CLI taper cycle, final
+   live five-profile publication, Ben's appraisal, and explicit merge
+   permission remain outstanding.
 
 ### Evidence and scope
 

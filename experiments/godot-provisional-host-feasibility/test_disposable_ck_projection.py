@@ -10,8 +10,9 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 
 HERE = Path(__file__).resolve()
@@ -22,6 +23,7 @@ INSTANCE_IDS = ("avatar-left", "avatar-right")
 POSE_BYTES = b'{"pose_id":"shared-test-pose","rules":[]}\n'
 REAL_GALLERY = Path(os.environ.get("CK_GODOT_STRUCTURAL_GALLERY", "/tmp/ck-godot-structural-inputs/gallery"))
 REAL_CLI = HERE.parents[2] / "target" / "debug" / "creature-kernel"
+LINUX_PROC_STATUS_AVAILABLE = os.name == "posix" and Path("/proc/self/status").is_file()
 sys.dont_write_bytecode = True
 
 
@@ -32,6 +34,24 @@ def load_module(name: str, path: Path):
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def descendant_is_live(pid: int) -> bool:
+    if not LINUX_PROC_STATUS_AVAILABLE:
+        raise unittest.SkipTest("descendant liveness requires Linux /proc process state")
+    status_path = Path("/proc") / str(pid) / "status"
+    try:
+        with status_path.open("rb") as status_file:
+            status = status_file.read(4096)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    for line in status.splitlines():
+        if line.startswith(b"State:"):
+            fields = line.split()
+            return len(fields) < 2 or fields[1] not in {b"Z", b"X"}
+    return True
 
 
 smoke = load_module("run_structural_gallery_smoke_for_projection_tests", EXPERIMENT / "run_structural_gallery_smoke.py")
@@ -565,20 +585,196 @@ class DisposableCKProjectionTests(unittest.TestCase):
         with self.assertRaisesRegex(projection.ProjectionError, "stderr exceeds"):
             projection._bounded_subprocess([str(stderr_writer)])
 
-    def test_stop_process_only_kills_group_while_direct_child_is_live(self) -> None:
-        exited = Mock(pid=101)
-        exited.poll.return_value = 0
-        live = Mock(pid=202)
-        live.poll.return_value = None
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_stop_process_signals_retained_group_even_after_direct_child_exits(self) -> None:
+        events = []
+        exited = Mock(pid=101, returncode=None)
+        live = Mock(pid=202, returncode=None)
 
+        def record_wait(process_name):
+            def wait(*, timeout):
+                events.append((process_name, "wait", timeout))
+
+            return wait
+
+        exited.wait.side_effect = record_wait("exited")
+        live.wait.side_effect = record_wait("live")
+
+        def record_signal(pgid, signum):
+            events.append((pgid, "killpg", signum))
+
+        with patch.object(projection.os, "killpg", side_effect=record_signal) as killpg, patch.object(
+            projection.time, "sleep"
+        ) as sleep:
+            projection._stop_process(exited, process_group_id=303)
+            projection._stop_process(live, process_group_id=404)
+
+        self.assertEqual(
+            killpg.call_args_list,
+            [
+                call(303, projection.signal.SIGTERM),
+                call(303, projection.signal.SIGKILL),
+                call(404, projection.signal.SIGTERM),
+                call(404, projection.signal.SIGKILL),
+            ],
+        )
+        self.assertEqual(exited.wait.call_args_list, [call(timeout=projection.PROCESS_GRACE_SECONDS)])
+        self.assertEqual(live.wait.call_args_list, [call(timeout=projection.PROCESS_GRACE_SECONDS)])
+        self.assertEqual(sleep.call_args_list, [call(projection.PROCESS_GRACE_SECONDS)] * 2)
+        self.assertLess(
+            events.index((303, "killpg", projection.signal.SIGKILL)),
+            events.index(("exited", "wait", projection.PROCESS_GRACE_SECONDS)),
+        )
+        self.assertLess(
+            events.index((404, "killpg", projection.signal.SIGKILL)),
+            events.index(("live", "wait", projection.PROCESS_GRACE_SECONDS)),
+        )
+        exited.poll.assert_not_called()
+        live.poll.assert_not_called()
+
+    def test_stop_process_preserves_direct_process_semantics_without_group_signal(self) -> None:
+        process = Mock(pid=505, returncode=None)
+        with patch.object(projection.os, "name", "nt"), patch.object(projection.os, "killpg") as killpg:
+            projection._stop_process(process, process_group_id=606)
+
+        self.assertEqual(
+            process.method_calls,
+            [
+                call.terminate(),
+                call.wait(timeout=projection.PROCESS_GRACE_SECONDS),
+                call.kill(),
+                call.wait(timeout=projection.PROCESS_GRACE_SECONDS),
+            ],
+        )
+        killpg.assert_not_called()
+
+    def test_bounded_subprocess_does_not_signal_group_after_success(self) -> None:
+        successful = self._write_executable("successful", "print('ok')\n")
         with patch.object(projection.os, "killpg") as killpg:
-            projection._stop_process(exited)
-            projection._stop_process(live)
+            result = projection._bounded_subprocess([str(successful)])
 
-        killpg.assert_called_once_with(live.pid, projection.signal.SIGKILL)
-        exited.wait.assert_called_once_with(timeout=5)
-        live.wait.assert_called_once_with(timeout=5)
+        self.assertEqual(result, (0, b"ok\n", b""))
+        killpg.assert_not_called()
 
+    @unittest.skipUnless(
+        os.name == "posix" and hasattr(projection.os, "waitid") and hasattr(projection.os, "WNOWAIT"),
+        "non-reaping POSIX exit observation is unavailable",
+    )
+    def test_observe_unreaped_exit_uses_waitid_wnowait(self) -> None:
+        process = Mock(pid=707)
+        observed = Mock(
+            si_pid=707,
+            si_code=getattr(projection.os, "CLD_EXITED", 1),
+            si_status=23,
+        )
+        with patch.object(projection.os, "waitid", return_value=observed) as waitid:
+            self.assertEqual(projection._observe_unreaped_exit(process), 23)
+
+        waitid.assert_called_once_with(
+            projection.os.P_PID,
+            707,
+            projection.os.WEXITED | projection.os.WNOHANG | projection.os.WNOWAIT,
+        )
+
+    @unittest.skipUnless(
+        os.name == "posix" and hasattr(projection.os, "waitid") and hasattr(projection.os, "WNOWAIT"),
+        "non-reaping POSIX exit observation is unavailable",
+    )
+    def test_observe_unreaped_exit_retries_interrupted_waitid(self) -> None:
+        process = Mock(pid=708)
+        observed = Mock(
+            si_pid=708,
+            si_code=getattr(projection.os, "CLD_EXITED", 1),
+            si_status=0,
+        )
+        with patch.object(projection.os, "waitid", side_effect=[InterruptedError(), observed]) as waitid:
+            self.assertEqual(projection._observe_unreaped_exit(process), 0)
+
+        self.assertEqual(waitid.call_count, 2)
+        process.wait.assert_not_called()
+
+    def test_observe_unreaped_exit_reports_waitid_unavailability(self) -> None:
+        process = Mock(pid=709)
+        missing_variants = (
+            SimpleNamespace(name="posix"),
+            SimpleNamespace(name="posix", waitid=Mock(), WEXITED=1, WNOHANG=2),
+        )
+        for fake_os in missing_variants:
+            with self.subTest(fake_os=fake_os):
+                with patch.object(projection, "os", fake_os):
+                    with self.assertRaisesRegex(projection.ProjectionError, r"waitid\(WNOWAIT\) is unavailable"):
+                        projection._observe_unreaped_exit(process)
+        process.wait.assert_not_called()
+
+    @unittest.skipUnless(
+        os.name == "posix" and hasattr(projection.os, "waitid") and hasattr(projection.os, "WNOWAIT"),
+        "non-reaping POSIX exit observation is unavailable",
+    )
+    def test_observe_unreaped_exit_reports_waitid_failures(self) -> None:
+        process = Mock(pid=710)
+        for failure in (ChildProcessError("reaped elsewhere"), OSError("waitid failed")):
+            with self.subTest(failure=type(failure).__name__), patch.object(
+                projection.os, "waitid", side_effect=failure
+            ):
+                with self.assertRaisesRegex(projection.ProjectionError, r"waitid\(WNOWAIT\) failed"):
+                    projection._observe_unreaped_exit(process)
+        process.wait.assert_not_called()
+
+    @unittest.skipUnless(
+        os.name == "posix" and hasattr(projection.os, "waitid") and hasattr(projection.os, "WNOWAIT"),
+        "non-reaping POSIX exit observation is unavailable",
+    )
+    def test_waitid_failure_enters_one_shot_cleanup_before_reap(self) -> None:
+        events = []
+        process = Mock(pid=711, returncode=None)
+        process.stdout.closed = False
+        process.stderr.closed = False
+        process.stdout.fileno.return_value = 801
+        process.stderr.fileno.return_value = 802
+
+        def record_wait(*, timeout):
+            events.append(("wait", timeout))
+
+        process.wait.side_effect = record_wait
+        selector = Mock()
+        selector.get_map.return_value = {"pipes": object()}
+
+        def record_signal(pgid, signum):
+            events.append(("killpg", pgid, signum))
+
+        with (
+            patch.object(projection.subprocess, "Popen", return_value=process),
+            patch.object(projection.os, "getpgid", return_value=711),
+            patch.object(projection.os, "set_blocking"),
+            patch.object(projection.selectors, "DefaultSelector", return_value=selector),
+            patch.object(projection.os, "waitid", side_effect=OSError("waitid failed")) as waitid,
+            patch.object(projection.os, "killpg", side_effect=record_signal),
+            patch.object(projection.time, "sleep") as sleep,
+            patch.object(projection, "_stop_process", wraps=projection._stop_process) as stop_process,
+            self.assertRaisesRegex(projection.ProjectionError, r"waitid\(WNOWAIT\) failed"),
+        ):
+            projection._bounded_subprocess(["fixture-cli"])
+
+        waitid.assert_called_once_with(
+            projection.os.P_PID,
+            711,
+            projection.os.WEXITED | projection.os.WNOHANG | projection.os.WNOWAIT,
+        )
+        self.assertEqual(stop_process.call_count, 1)
+        self.assertEqual(
+            events,
+            [
+                ("killpg", 711, projection.signal.SIGTERM),
+                ("killpg", 711, projection.signal.SIGKILL),
+                ("wait", projection.PROCESS_GRACE_SECONDS),
+            ],
+        )
+        sleep.assert_called_once_with(projection.PROCESS_GRACE_SECONDS)
+        selector.close.assert_called_once_with()
+        process.stdout.close.assert_called_once_with()
+        process.stderr.close.assert_called_once_with()
+
+    @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant liveness requires Linux /proc process state")
     def test_bounded_subprocess_timeout_kills_and_waits_for_child(self) -> None:
         pid_path = self.root / "timeout-descendant.pid"
         ready_path = self.root / "timeout-descendant.ready"
@@ -600,22 +796,139 @@ class DisposableCKProjectionTests(unittest.TestCase):
             f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n"
             "time.sleep(30)\n",
         )
-        with patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0), self.assertRaisesRegex(
-            projection.ProjectionError, "timed out after 2.0 seconds"
+        with (
+            patch.object(projection, "RUST_TIMEOUT_SECONDS", 5.0),
+            patch.object(projection, "_stop_process", wraps=projection._stop_process) as stop_process,
+            self.assertRaisesRegex(projection.ProjectionError, "timed out after 5.0 seconds"),
         ):
             projection._bounded_subprocess([str(sleeper)])
+        self.assertEqual(stop_process.call_count, 1)
         self.assertTrue(ready_path.is_file(), "descendant did not start")
         self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
         descendant_pid = int(pid_path.read_text())
-        deadline = projection.time.monotonic() + 2.0
-        while projection.time.monotonic() < deadline:
+        cleanup_budget_seconds = 5.0
+        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
+        while projection.time.monotonic() < cleanup_deadline:
             try:
                 os.kill(descendant_pid, 0)
             except ProcessLookupError:
                 break
+            if not descendant_is_live(descendant_pid):
+                break
             projection.time.sleep(0.01)
         else:
             self.fail("descendant survived process-group cleanup")
+
+    @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant liveness requires Linux /proc process state")
+    def test_bounded_subprocess_timeout_kills_descendant_after_leader_exits(self) -> None:
+        pid_path = self.root / "early-exit-descendant.pid"
+        ready_path = self.root / "early-exit-descendant.ready"
+        descendant_body = (
+            "from pathlib import Path\n"
+            "import os\n"
+            "import time\n"
+            f"Path({str(ready_path)!r}).write_text('ready')\n"
+            "time.sleep(30)\n"
+        )
+        early_exit = self._write_executable(
+            "early-exit-sleeper",
+            "from pathlib import Path\n"
+            "import subprocess\n"
+            "import sys\n"
+            f"descendant = subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
+            f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n",
+        )
+        with patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0), self.assertRaisesRegex(
+            projection.ProjectionError, "timed out after 2.0 seconds"
+        ):
+            projection._bounded_subprocess([str(early_exit)])
+        self.assertTrue(ready_path.is_file(), "descendant did not start")
+        self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
+        descendant_pid = int(pid_path.read_text())
+        cleanup_budget_seconds = 5.0
+        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
+        while projection.time.monotonic() < cleanup_deadline:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            if not descendant_is_live(descendant_pid):
+                break
+            projection.time.sleep(0.01)
+        else:
+            self.fail("descendant survived process-group cleanup after leader exit")
+
+    @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant liveness requires Linux /proc process state")
+    def test_bounded_subprocess_nonzero_leader_kills_descendant_before_reap(self) -> None:
+        pid_path = self.root / "nonzero-descendant.pid"
+        ready_path = self.root / "nonzero-descendant.ready"
+        descendant_body = (
+            "from pathlib import Path\n"
+            "import time\n"
+            f"Path({str(ready_path)!r}).write_text('ready')\n"
+            "time.sleep(30)\n"
+        )
+        nonzero_exit = self._write_executable(
+            "nonzero-exit-sleeper",
+            "from pathlib import Path\n"
+            "import subprocess\n"
+            "import sys\n"
+            f"descendant = subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
+            f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n"
+            "raise SystemExit(23)\n",
+        )
+        events = []
+        real_waitid = projection.os.waitid
+        real_killpg = projection.os.killpg
+
+        def record_waitid(*args):
+            result = real_waitid(*args)
+            if result is not None and result.si_pid:
+                events.append(("waitid", result.si_status))
+            return result
+
+        def record_killpg(pgid, signum):
+            events.append(("killpg", pgid, signum))
+            return real_killpg(pgid, signum)
+
+        with (
+            patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0),
+            patch.object(projection, "PROCESS_GRACE_SECONDS", 0.05),
+            patch.object(projection.os, "waitid", side_effect=record_waitid),
+            patch.object(projection.os, "killpg", side_effect=record_killpg),
+        ):
+            result = projection._bounded_subprocess([str(nonzero_exit)])
+
+        self.assertEqual(result, (23, b"", b""))
+        self.assertTrue(ready_path.is_file(), "descendant did not start")
+        self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
+        descendant_pid = int(pid_path.read_text())
+        self.assertTrue(events and events[0] == ("waitid", 23))
+        self.assertEqual(
+            [event[2] for event in events if event[0] == "killpg"],
+            [projection.signal.SIGTERM, projection.signal.SIGKILL],
+        )
+        term_index = next(
+            index
+            for index, event in enumerate(events)
+            if event[0] == "killpg" and event[2] == projection.signal.SIGTERM
+        )
+        self.assertLess(
+            events.index(("waitid", 23)),
+            term_index,
+        )
+        cleanup_budget_seconds = 5.0
+        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
+        while projection.time.monotonic() < cleanup_deadline:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            if not descendant_is_live(descendant_pid):
+                break
+            projection.time.sleep(0.01)
+        else:
+            self.fail("descendant survived nonzero process-group cleanup")
 
     def test_subprocess_return_code_malformed_output_and_source_mutation_fail_closed(self) -> None:
         with self.assertRaisesRegex(projection.ProjectionError, "exited 7"):

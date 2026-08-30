@@ -453,6 +453,12 @@ def _validate_source_documents(
             raise _error(f"generated source {profile_id} does not match its manifest record")
         if source_data != expected_source_data[profile_id]:
             raise _error(f"generated source {profile_id} is not the exact output of the frozen candidate table")
+        try:
+            expected_tail_signature = list(profile_source_generator.tail_signature(source_value))
+        except profile_source_generator.ProfileGenerationError as exc:
+            raise _error(f"{where}.tail_signature cannot be recomputed") from exc
+        if raw["tail_signature"] != expected_tail_signature:
+            raise _error(f"{where}.tail_signature does not match its source document")
         if not isinstance(source_value.get("source"), dict):
             raise _error(f"generated source {profile_id}.source must be an object")
         source_identity = source_value["source"]

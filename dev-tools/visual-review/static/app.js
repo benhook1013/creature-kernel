@@ -1891,6 +1891,28 @@
     return { errors: errors, dimensionKeys: dimensionKeys, sourceSections: sourceSections };
   }
 
+  function formComposedTorsoProfileOrder(sourceSections, descriptorMap, namespace) {
+    if (!Array.isArray(sourceSections) || sourceSections.length !== PROVISIONAL_FORM_TORSO_SECTIONS.length) {
+      return null;
+    }
+    var composedY = [];
+    for (var index = 0; index < sourceSections.length; index += 1) {
+      var sourceSection = sourceSections[index];
+      var owner = formTorsoOwner(namespace, sourceSection.ownerRole);
+      var ownerRecord = descriptorMap[formAddressKey(owner)];
+      if (!ownerRecord || !ownerRecord.referencePointValid || !formFiniteVector(sourceSection.position, 3)) {
+        return null;
+      }
+      composedY.push(ownerRecord.referencePoint[1] + sourceSection.position[1]);
+    }
+    for (var orderIndex = 0; orderIndex < composedY.length - 1; orderIndex += 1) {
+      if (composedY[orderIndex] >= composedY[orderIndex + 1]) {
+        return "Authored torso sections landmarks must have strictly increasing composed body-space y.";
+      }
+    }
+    return null;
+  }
+
   function formTorsoProfileFactors(profileId, ownerRole) {
     if (profileId === "neutral-v0") { return { lateral: 1000, depth: 1000 }; }
     if (profileId === "broad-soft-v0" && (ownerRole === "pelvis" || ownerRole === "torso")) { return { lateral: 1200, depth: 1150 }; }
@@ -3217,6 +3239,16 @@
         errors.push("Every shoulder-control variant must contain exactly one left and one right upper_arm descriptor.");
       }
     });
+    if ((isV7 || isV8 || isV9 || isV10 || isV11) && torsoProfileResult.sourceSections.length === PROVISIONAL_FORM_TORSO_SECTIONS.length) {
+      variantDescriptorMaps.forEach(function (descriptorMap) {
+        var composedTorsoOrderError = formComposedTorsoProfileOrder(
+          torsoProfileResult.sourceSections,
+          descriptorMap,
+          payload.source.namespace
+        );
+        if (composedTorsoOrderError) { errors.push(composedTorsoOrderError); }
+      });
+    }
     if (hasAuthoredDimensions && (Object.keys(authoredDimensionKeys).length !== Object.keys(consumedDimensionKeys).length || Object.keys(authoredDimensionKeys).some(function (key) { return !consumedDimensionKeys[key]; }))) {
       errors.push((isV8 ? "v8" : isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimensions must equal the complete descriptor- and profile-consumed control set.");
     }

@@ -2300,6 +2300,68 @@ class SurfacePreviewTests(unittest.TestCase):
             self.assertEqual(surface_preview._field_owner_keys(hip_points, torso_field), (pelvis_key, pelvis_key))
             self.assertEqual(surface_preview._field_owner_keys(neck_point, torso_field), (torso_key,))
 
+    def test_in_span_limb_connectors_use_the_cage_section_at_each_path_root(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        _, descriptors, _ = form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        cage = guide.torso_cage
+
+        for side, role, axial in (
+            ("left", "thigh", 0.65),
+            ("right", "upper_arm", 1.40),
+        ):
+            with self.subTest(side=side, role=role):
+                index = next(
+                    index
+                    for index, limb in enumerate(guide.limb_guides)
+                    if limb.owner.key[1:] == ((side,), "part", role)
+                )
+                limb = guide.limb_guides[index]
+                direction = (-1.0, 0.0, 0.0) if side == "left" else (1.0, 0.0, 0.0)
+                anchor = surface_preview._torso_cage_boundary_anchor(cage, axial, direction)
+                root = (tuple(float(value) for value in anchor), limb.root_centerline[1])  # type: ignore[index]
+                changes = {"root_centerline": root}
+                if role == "thigh":
+                    hip_anchor = surface_preview._torso_cage_boundary_anchor(cage, axial - 0.10, direction)
+                    changes["hip_centerline"] = (tuple(float(value) for value in hip_anchor), limb.hip_centerline[1])  # type: ignore[index]
+                changed_limb = dataclasses.replace(limb, **changes)
+                changed_limbs = list(guide.limb_guides)
+                changed_limbs[index] = changed_limb
+                changed_guide = dataclasses.replace(guide, limb_guides=tuple(changed_limbs))
+
+                fields = surface_preview._compile_hybrid_guide(changed_guide)
+                connectors = [("root-bridge", "root_centerline", "root_thickness")]
+                if role == "thigh":
+                    connectors.append(("hip-transition", "hip_centerline", "hip_thickness"))
+                for recipe, path_name, profile_name in connectors:
+                    path = getattr(changed_limb, path_name)
+                    profile = getattr(changed_limb, profile_name)
+                    context = surface_preview._torso_cage_connector_context(cage, path[0], f"test.{side}.{role}.{recipe}")
+                    endpoint = cage.lower_boundary if role == "thigh" else cage.upper_boundary
+                    shape = surface_preview._torso_cage_shape(cage)
+                    sampled_center, sampled_lateral, sampled_depth = surface_preview._torso_cage_sample_controls(shape, path[0][1])
+                    self.assertNotEqual(context.center, endpoint.center)
+                    np.testing.assert_allclose(context.center, sampled_center, atol=1.0e-12)
+                    self.assertAlmostEqual(context.lateral_radius, float(np.asarray(sampled_lateral)), places=12)
+                    self.assertAlmostEqual(context.depth_radius, float(np.asarray(sampled_depth)), places=12)
+                    self.assertAlmostEqual(context.center[1], path[0][1], places=12)
+                    inward, containment = surface_preview._boundary_connector_inward_direction(
+                        path[0],
+                        context,
+                        f"test.{side}.{role}.{recipe}",
+                    )
+                    expected = surface_preview._embed_boundary_connector(
+                        path,
+                        profile,
+                        f"test.{side}.{role}.{recipe}",
+                        inward,
+                        containment,
+                    )
+                    field = next(item for item in fields if item.owner is changed_limb.owner and item.recipe == recipe)
+                    np.testing.assert_allclose(field.shape["from"], expected[0], atol=1.0e-12)
+                    self.assertIs(field.owner, limb.owner)
+                    self.assertAlmostEqual(float(field.shape["from"][1]), path[0][1], places=12)
+
     def test_embedded_branch_connectors_reduce_sampled_boundary_overshoot(self) -> None:
         form = surface_preview.validate_envelope(make_varied_payload())
         for _, descriptors, _ in form.variants:
@@ -2426,17 +2488,17 @@ class SurfacePreviewTests(unittest.TestCase):
                         )
                         thigh = next(item for item in descriptors if item.key[1:] == ((side,), "part", "thigh"))
                         section = guide.torso_cage.lower_boundary
-                        direction, containment = surface_preview._boundary_connector_inward_direction(
-                            next(item for item in guide.limb_guides if item.owner is thigh).root_centerline[0],  # type: ignore[index]
-                            section,
-                            f"generated.{profile_id}.{side}.thigh",
-                        )
                         for recipe in ("root-bridge", "hip-transition"):
                             bridge = next(item for item in fields if item.owner is thigh and item.recipe == recipe)
                             limb = next(item for item in guide.limb_guides if item.owner is thigh)
                             semantic_path = limb.root_centerline if recipe == "root-bridge" else limb.hip_centerline
                             semantic_profile = limb.root_thickness if recipe == "root-bridge" else limb.hip_thickness
                             assert semantic_path is not None and semantic_profile is not None
+                            direction, containment = surface_preview._boundary_connector_inward_direction(
+                                semantic_path[0],
+                                section,
+                                f"generated.{profile_id}.{side}.{recipe}",
+                            )
                             expected_path = surface_preview._embed_boundary_connector(
                                 semantic_path,
                                 semantic_profile,
@@ -2907,6 +2969,14 @@ class SurfacePreviewTests(unittest.TestCase):
             surface_preview._embed_boundary_connector(
                 path,
                 (0.2, 0.1),
+                "test.scalar-clearance-without-direction",
+                None,
+                1.0,
+            )
+        with self.assertRaisesRegex(surface_preview.PreviewError, "supplied boundary ellipse"):
+            surface_preview._embed_boundary_connector(
+                path,
+                (0.2, 0.1),
                 "test.scalar-clearance",
                 (1.0, 0.0, 0.0),
                 1.0,
@@ -2919,13 +2989,37 @@ class SurfacePreviewTests(unittest.TestCase):
                 (1.0, 0.0, 0.0),
                 0.2,
             )
-        with self.assertRaises(surface_preview.PreviewError):
+        with self.assertRaisesRegex(surface_preview.PreviewError, "supplied boundary ellipse"):
+            surface_preview._embed_boundary_connector(
+                ((-1.0, -0.45, 0.0), (-2.0, -2.0, 0.0)),
+                (0.2, 0.1),
+                "test.valid-clearance-without-direction",
+                None,
+                surface_preview._BoundaryConnectorContainment(
+                    center=(0.0, -0.45, 0.0),
+                    lateral_radius=1.0,
+                    depth_radius=1.0,
+                ),
+            )
+        with self.assertRaisesRegex(surface_preview.PreviewError, "supplied boundary ellipse"):
+            surface_preview._embed_boundary_connector(
+                path,
+                (0.2, 0.1),
+                "test.direction-without-clearance",
+                (1.0, 0.0, 0.0),
+                None,
+            )
+        with self.assertRaisesRegex(surface_preview.PreviewError, "supplied boundary clearance"):
             surface_preview._embed_boundary_connector(
                 path,
                 (0.2, 0.1),
                 "test",
                 (0.0, 0.0, 0.0),
-                1.0,
+                surface_preview._BoundaryConnectorContainment(
+                    center=(0.0, -0.45, 0.0),
+                    lateral_radius=1.0,
+                    depth_radius=1.0,
+                ),
             )
         form = surface_preview.validate_envelope(make_payload())
         guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])

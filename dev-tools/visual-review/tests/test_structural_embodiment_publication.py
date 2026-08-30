@@ -251,7 +251,7 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
                 "file": f"{profile_id}.json",
                 "id": profile_id,
                 "sha256": hashlib.sha256(source_data).hexdigest(),
-                "tail_signature": list(publisher.profile_source_generator._tail_signature(source_value)),
+                "tail_signature": list(publisher.profile_source_generator.tail_signature(source_value)),
             })
             (sources_dir / f"{profile_id}.json").write_bytes(source_data)
             inventory.append({"path": f"{publisher.SOURCES_DIR}/{profile_id}.json", **artifact(source_data)})
@@ -626,6 +626,18 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
         self.refresh_source_bindings()
         with self.assertRaises(publisher.StructuralEmbodimentPublishError):
             self.publish("invalid-tail-signature")
+
+        self.reset_case()
+        source_manifest_path = self.gallery / publisher.SOURCES_DIR / publisher.SOURCE_MANIFEST_FILE
+        source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+        source_manifest["profiles"][0]["tail_signature"][1] += 1
+        source_manifest_path.write_text(json.dumps(source_manifest, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+        self.refresh_source_bindings()
+        with self.assertRaisesRegex(
+            publisher.StructuralEmbodimentPublishError,
+            "tail_signature does not match its source document",
+        ):
+            self.publish("forged-tail-signature")
 
     def test_manifest_order_labels_and_path_traversal_are_rejected(self) -> None:
         value = self.manifest()

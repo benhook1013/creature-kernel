@@ -3301,6 +3301,41 @@ def _torso_cage_boundary_anchor(
     return center + np.asarray([dx / denominator, 0.0, dz / denominator])
 
 
+def _torso_cage_connector_context(
+    cage: _TorsoCage,
+    boundary: tuple[float, float, float],
+    where: str,
+) -> _BoundaryConnectorContainment:
+    """Return the cage ellipse at one semantic connector root height."""
+
+    boundary_point = np.asarray(boundary, dtype=np.float64)
+    if boundary_point.shape != (3,) or not np.all(np.isfinite(boundary_point)):
+        _fail(f"{where} cannot select a finite cage connector section")
+    shape = _torso_cage_shape(cage)
+    axial = float(boundary_point[1])
+    heights = shape["heights"]
+    if axial <= float(heights[0]):
+        section = cage.sections[0]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    elif axial >= float(heights[-1]):
+        section = cage.sections[-1]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    else:
+        sampled_center, sampled_lateral, sampled_depth = _torso_cage_sample_controls(shape, axial)
+        center = tuple(float(value) for value in np.asarray(sampled_center).reshape(3))
+        lateral_radius = float(np.asarray(sampled_lateral))
+        depth_radius = float(np.asarray(sampled_depth))
+    return _BoundaryConnectorContainment(
+        center=tuple(float(value) for value in center),
+        lateral_radius=float(lateral_radius),
+        depth_radius=float(depth_radius),
+    )
+
+
 _FIXED_GUIDE_AXES = _GuideAxes(
     lateral=(1.0, 0.0, 0.0),
     up=(0.0, 1.0, 0.0),
@@ -3433,6 +3468,10 @@ def _embed_boundary_connector(
     """
 
     _guide_profile(profile, f"{where}.profile")
+    if (inward_direction is None) != (inward_clearance is None):
+        _fail(f"{where} cannot embed within the supplied boundary ellipse")
+    if inward_clearance is not None and not isinstance(inward_clearance, _BoundaryConnectorContainment):
+        _fail(f"{where} cannot embed within the supplied boundary ellipse")
     boundary = np.asarray(path[0], dtype=np.float64)
     target = np.asarray(path[1], dtype=np.float64)
     direction = target - boundary
@@ -3582,7 +3621,7 @@ def _ellipse_support_is_certified(
 
 def _boundary_connector_inward_direction(
     boundary: tuple[float, float, float],
-    section: _TorsoCageSection,
+    section: _TorsoCageSection | _BoundaryConnectorContainment,
     where: str,
 ) -> tuple[tuple[float, float, float], _BoundaryConnectorContainment]:
     """Derive the transverse inward normal and exact cage-section context."""
@@ -6740,19 +6779,34 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             _fail(f"limb profile controls are invalid for {_key_text(limb.owner.key)}")
         if len(limb.sections) != 2:
             _fail(f"limb piecewise sections are invalid for {_key_text(limb.owner.key)}")
-        boundary_inward_direction = None
-        boundary_clearance = None
-        if limb.root_centerline is not None:
-            if desc.key[3] == "thigh":
-                boundary_section = torso_cage.lower_boundary
-            elif desc.key[3] == "upper_arm":
-                boundary_section = torso_cage.upper_boundary
-            else:
+        def add_boundary_connector(
+            recipe: str,
+            path: tuple[tuple[float, float, float], tuple[float, float, float]] | None,
+            profile: tuple[float, ...] | None,
+        ) -> None:
+            if path is None or profile is None:
+                _fail(f"{recipe} controls are incomplete for {_key_text(limb.owner.key)}")
+            if desc.key[3] not in {"thigh", "upper_arm"}:
                 _fail(f"limb root connector has no owning cage boundary for {_key_text(desc.key)}")
+            where = f"{_key_text(limb.owner.key)}.{recipe}"
+            boundary_context = _torso_cage_connector_context(torso_cage, path[0], where)
             boundary_inward_direction, boundary_clearance = _boundary_connector_inward_direction(
-                limb.root_centerline[0],
-                boundary_section,
-                f"{_key_text(limb.owner.key)}.root",
+                path[0],
+                boundary_context,
+                where,
+            )
+            add_path(
+                desc,
+                recipe,
+                _embed_boundary_connector(
+                    path,
+                    profile,
+                    where,
+                    boundary_inward_direction,
+                    boundary_clearance,
+                ),
+                profile,
+                "tapered-segment",
             )
         arm_side = next((item for item in guide.arm_profile.sides if item.side == desc.key[1][0]), None) if desc.key[3] in {"upper_arm", "forearm"} else None
         leg_side = next((item for item in guide.leg_profile.sides if item.side == desc.key[1][0]), None) if desc.key[3] in {"thigh", "shin"} else None
@@ -6777,34 +6831,10 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         else:
             for section in limb.sections:
                 add_path(desc, f"{limb.owner.key[3]}-{section.name}", section.centerline, section.thickness, section.path_kind)
-        if limb.root_centerline is not None:
-            add_path(
-                desc,
-                "root-bridge",
-                _embed_boundary_connector(
-                    limb.root_centerline,
-                    limb.root_thickness,
-                    f"{_key_text(limb.owner.key)}.root",
-                    boundary_inward_direction,
-                    boundary_clearance,
-                ),
-                limb.root_thickness,
-                "tapered-segment",
-            )  # type: ignore[arg-type]
-        if limb.hip_centerline is not None:
-            add_path(
-                desc,
-                "hip-transition",
-                _embed_boundary_connector(
-                    limb.hip_centerline,
-                    limb.hip_thickness,
-                    f"{_key_text(limb.owner.key)}.hip",
-                    boundary_inward_direction,
-                    boundary_clearance,
-                ),
-                limb.hip_thickness,
-                "tapered-segment",
-            )  # type: ignore[arg-type]
+        if limb.root_centerline is not None or limb.root_thickness is not None:
+            add_boundary_connector("root-bridge", limb.root_centerline, limb.root_thickness)
+        if limb.hip_centerline is not None or limb.hip_thickness is not None:
+            add_boundary_connector("hip-transition", limb.hip_centerline, limb.hip_thickness)
         if limb.joint is not None:
             if arm_side is None and leg_side is None and not math.isclose(limb.joint.radii[0], 0.70 * min(limb.joint.adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12):
                 _fail(f"joint radius is not derived from adjacent profiles for {_key_text(limb.owner.key)}")

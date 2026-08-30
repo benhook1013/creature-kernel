@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the five experiment-local structural source-profile candidates.
+"""Generate experiment-local structural source-profile candidates.
 
 The candidate JSON is the frozen data table.  This module contains one
 selector-driven transform and the fail-closed checks around it; profile IDs do
@@ -38,6 +38,13 @@ DEFAULT_GENERATION_MODE = "active-five-profile"
 HISTORICAL_GENERATION_MODE = "historical-structural-embodiment-v1"
 PROFILE_COUNT = 5
 STANDARD_NEUTRAL_PROFILE_ID = "standard_neutral_reference"
+ACTIVE_PROFILE_IDS = (
+    "standard_neutral_reference",
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+)
 HISTORICAL_PROFILE_IDS = (
     "compact_broad_short_limb_large_head",
     "tall_narrow_long_legged",
@@ -96,7 +103,7 @@ def canonical_source_bytes(value: Any) -> bytes:
 
 def _profile_contract(mode: str) -> tuple[int, tuple[str, ...] | None]:
     if mode == DEFAULT_GENERATION_MODE:
-        return PROFILE_COUNT, None
+        return PROFILE_COUNT, ACTIVE_PROFILE_IDS
     if mode == HISTORICAL_GENERATION_MODE:
         return len(HISTORICAL_PROFILE_IDS), HISTORICAL_PROFILE_IDS
     raise ProfileGenerationError(f"unsupported structural profile generation mode: {mode}")
@@ -556,6 +563,8 @@ def _validate_candidate(
                 raise ProfileGenerationError(f"profile {profile_id} has an unknown Part placement target {key}")
             _vector(vector, f"profile {profile_id}.part_placements.{key}")
     if expected_profile_ids is not None and tuple(profile_ids) != expected_profile_ids:
+        if mode == DEFAULT_GENERATION_MODE:
+            raise ProfileGenerationError("active mode requires the exact five-profile ID/order tuple")
         raise ProfileGenerationError("historical mode requires the exact frozen four-profile order")
     if mode == DEFAULT_GENERATION_MODE and profile_ids[0] != STANDARD_NEUTRAL_PROFILE_ID:
         raise ProfileGenerationError(
@@ -636,7 +645,8 @@ def _reference_edge_check(source: dict[str, Any], generated: dict[str, Any], tra
             raise ProfileGenerationError("reference edge squared length is not exact")
 
 
-def _tail_signature(source: dict[str, Any]) -> tuple[int, int, int, int, int]:
+def tail_signature(source: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    """Return the deterministic source-owned tail shape signature."""
     body = source["body"]
     tips = [item for item in body["parts"] if item["address"]["role"] == "tail_tip" and item["address"]["anchors"] == ["tail"]]
     if len(tips) != 1:
@@ -653,6 +663,10 @@ def _tail_signature(source: dict[str, Any]) -> tuple[int, int, int, int, int]:
     if any(key not in dimensions for key in keys):
         raise ProfileGenerationError("generated source is missing a tail taper dimension")
     return (abs(tip_translation[2]), *(dimensions[key] for key in keys))
+
+
+# Keep the historical private name available to existing experiment consumers.
+_tail_signature = tail_signature
 
 
 def _check_shared_pose_alignment(source: dict[str, Any], where: str) -> None:
@@ -742,7 +756,7 @@ def _generate_sources(
         tail_modules = [module for module in output["body"]["modules"] if module["module"] == "tail"]
         if len(tail_modules) != 1 or tail_modules[0]["presence"] != "present" or tail_modules[0]["root"] is None:
             raise ProfileGenerationError(f"profile {profile['id']} does not retain a present tail module")
-        tail_signatures.add(_tail_signature(output))
+        tail_signatures.add(tail_signature(output))
         outputs.append(output)
     if len(tail_signatures) < 2:
         raise ProfileGenerationError(f"the {expected_profile_count} present tails do not provide style contrast")
@@ -837,7 +851,7 @@ def write_sources(
                 "file": file_name,
                 "id": profile["id"],
                 "sha256": hashlib.sha256(data).hexdigest(),
-                "tail_signature": list(_tail_signature(output)),
+                "tail_signature": list(tail_signature(output)),
             })
         manifest = {
             "candidate_format": candidate["format"],

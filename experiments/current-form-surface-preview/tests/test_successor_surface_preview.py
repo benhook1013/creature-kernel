@@ -894,10 +894,14 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                         boundary_value = float(successor._loft_field(
                             boundary.reshape(1, 3), region.loft,
                         )[0])
+                        boundary_shoulder_value = float(successor._shoulder_sweep_field(
+                            boundary.reshape(1, 3), shoulder,
+                        )[0])
                         self.assertLessEqual(
                             boundary_value,
                             successor._SHOULDER_BOUNDARY_TOLERANCE,
                         )
+                        self.assertLess(boundary_shoulder_value, 0.0)
                         self.assertLess(
                             float(successor._loft_field(
                                 (boundary + 0.5 * (interior - boundary)).reshape(1, 3),
@@ -908,10 +912,14 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
 
                         route = arm_routes[f"{side.side}-upper-arm-route"]
                         socket = np.asarray(sections[3].center, dtype=np.float64)
+                        socket_shoulder_value = float(successor._shoulder_sweep_field(
+                            socket.reshape(1, 3), shoulder,
+                        )[0])
                         self.assertLessEqual(
                             float(successor._profile_sweep_field(socket.reshape(1, 3), route.sweep)[0]),
                             0.0,
                         )
+                        self.assertLess(socket_shoulder_value, 0.0)
 
                         axilla = np.asarray(side.axilla_anchor, dtype=np.float64).reshape(1, 3)
                         decomposed = [
@@ -1777,6 +1785,33 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         )
         self.assertAlmostEqual(float(actual[0]), value - smooth_k / 6.0, places=15)
 
+    def test_successor_smooth_union_keeps_uncapped_polynomial_for_non_positive_pairwise_minima(self) -> None:
+        smooth_k = successor.DEFAULT_SMOOTH_K
+
+        def polynomial_pair(left: float, right: float) -> float:
+            minimum = min(left, right)
+            difference = abs(left - right)
+            h = max(smooth_k - difference, 0.0)
+            return minimum - (h**3) / (6.0 * smooth_k * smooth_k)
+
+        cases = (
+            ("positive-zero", (0.025, 0.0)),
+            ("positive-negative", (0.025, -0.012)),
+            ("multi-fold", (0.025, 0.0, 0.012, -0.004)),
+        )
+        for name, values in cases:
+            with self.subTest(case=name):
+                expected = polynomial_pair(values[0], values[1])
+                self.assertLessEqual(min(values[0], values[1]), 0.0)
+                for value in values[2:]:
+                    self.assertLessEqual(min(expected, value), 0.0)
+                    expected = polynomial_pair(expected, value)
+                actual = successor._successor_smooth_union(
+                    [np.asarray((value,), dtype=np.float64) for value in values],
+                    smooth_k,
+                )
+                self.assertAlmostEqual(float(actual[0]), expected, places=15)
+
     def test_tail_validation_rejects_inventory_axes_controls_joins_and_malformed_baseline(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
@@ -2229,7 +2264,58 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 muzzle = next(item for item in region.head_neck_sweeps if item.recipe == "forward-muzzle")
                 self.assertEqual(len(muzzle.sweep.derived_sweeps), 1)
                 composition = muzzle.sweep.derived_sweeps[0]
+                expected_geometric_indices = (3, 5, 7)
+                expected_geometric_names = ("cranium-mid", "muzzle-root", "muzzle-tip")
+                expected_radius_donor_indices = (5, 6, 7)
+                expected_radius_donor_names = ("muzzle-root", "muzzle-mid", "muzzle-tip")
+                expected_composition_names = (
+                    "muzzle-composition-root",
+                    "muzzle-composition-mid",
+                    "muzzle-composition-tip",
+                )
+                self.assertEqual(
+                    tuple(profile.sections[index].name for index in expected_geometric_indices),
+                    expected_geometric_names,
+                )
+                self.assertEqual(
+                    tuple(profile.sections[index].name for index in expected_radius_donor_indices),
+                    expected_radius_donor_names,
+                )
+                self.assertEqual(
+                    tuple(section.source_section_index for section in composition.sections),
+                    expected_radius_donor_indices,
+                )
+                self.assertEqual(
+                    tuple(section.name for section in composition.sections),
+                    expected_composition_names,
+                )
                 forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
+                expected_root_center = 0.5 * (
+                    np.asarray(profile.sections[3].center, dtype=np.float64)
+                    + float(profile.sections[3].radii[2]) * forward
+                    + np.asarray(profile.sections[5].center, dtype=np.float64)
+                )
+                expected_mid_center = 0.5 * (
+                    expected_root_center + np.asarray(profile.sections[7].center, dtype=np.float64)
+                )
+                np.testing.assert_allclose(
+                    np.asarray(composition.sections[0].center, dtype=np.float64),
+                    expected_root_center,
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                np.testing.assert_allclose(
+                    np.asarray(composition.sections[1].center, dtype=np.float64),
+                    expected_mid_center,
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                np.testing.assert_allclose(
+                    np.asarray(composition.sections[2].center, dtype=np.float64),
+                    np.asarray(profile.sections[7].center, dtype=np.float64),
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
                 forward_progress = np.asarray([
                     float(np.dot(np.asarray(section.center, dtype=np.float64), forward))
                     for section in composition.sections
@@ -2262,12 +2348,56 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     forward_metadata["derived_compositions"][0]["geometric_input_section_indices"],
-                    [3, 5, 7],
+                    list(expected_geometric_indices),
                 )
                 self.assertEqual(
                     forward_metadata["derived_compositions"][0]["radius_donor_section_indices"],
-                    [5, 6, 7],
+                    list(expected_radius_donor_indices),
                 )
+
+    def test_forward_muzzle_radius_donors_drive_all_stations_independently_of_centers(self) -> None:
+        """Each donor binding must affect its own station without changing geometry inputs."""
+
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        profile = guide.head_guide.profile
+        geometric_indices = successor._FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+        donor_indices = (0, 1, 2)
+
+        with mock.patch.object(
+            successor,
+            "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES",
+            donor_indices,
+        ):
+            composition = successor._make_forward_muzzle_composition_sweep(profile)
+
+        forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
+        cranium = profile.sections[geometric_indices[0]]
+        muzzle_root = profile.sections[geometric_indices[1]]
+        muzzle_tip = profile.sections[geometric_indices[2]]
+        expected_centers = (
+            0.5 * (
+                np.asarray(cranium.center, dtype=np.float64)
+                + float(cranium.radii[2]) * forward
+                + np.asarray(muzzle_root.center, dtype=np.float64)
+            ),
+            0.5 * (
+                0.5 * (
+                    np.asarray(cranium.center, dtype=np.float64)
+                    + float(cranium.radii[2]) * forward
+                    + np.asarray(muzzle_root.center, dtype=np.float64)
+                )
+                + np.asarray(muzzle_tip.center, dtype=np.float64)
+            ),
+            np.asarray(muzzle_tip.center, dtype=np.float64),
+        )
+        for section, donor_index, expected_center in zip(composition.sections, donor_indices, expected_centers):
+            donor = profile.sections[donor_index]
+            np.testing.assert_array_equal(np.asarray(section.center), expected_center)
+            self.assertEqual(section.source_section_index, donor_index)
+            self.assertIs(section.owner, donor.owner)
+            self.assertEqual(section.transverse_radii, (donor.radii[0], donor.radii[1]))
+            self.assertEqual(section.tangent_radius, donor.radii[2])
 
     def test_profile_derived_composition_is_single_level_and_head_only(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -2816,6 +2946,86 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                             shape = baseline_by_slot[(side, role, recipe)].shape
                             self.assertEqual(tuple(shape["from"]), expected[0])
                             self.assertEqual(tuple(shape["to"]), expected[1])
+
+    def test_successor_reconstructs_in_span_connectors_independently(self) -> None:
+        form = self.form
+        _, descriptors, _ = form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        cage = guide.torso_cage
+
+        for side, role, axial in (
+            ("left", "thigh", 0.65),
+            ("right", "upper_arm", 1.40),
+        ):
+            with self.subTest(side=side, role=role):
+                index = next(
+                    index
+                    for index, limb in enumerate(guide.limb_guides)
+                    if limb.owner.key[1:] == ((side,), "part", role)
+                )
+                limb = guide.limb_guides[index]
+                direction = (-1.0, 0.0, 0.0) if side == "left" else (1.0, 0.0, 0.0)
+                root_anchor = surface_preview._torso_cage_boundary_anchor(cage, axial, direction)
+                changes = {
+                    "root_centerline": (
+                        tuple(float(value) for value in root_anchor),
+                        limb.root_centerline[1],
+                    ),
+                }
+                if role == "thigh":
+                    hip_anchor = surface_preview._torso_cage_boundary_anchor(cage, axial - 0.10, direction)
+                    changes["hip_centerline"] = (
+                        tuple(float(value) for value in hip_anchor),
+                        limb.hip_centerline[1],
+                    )
+                changed_limb = replace(limb, **changes)
+                changed_limbs = list(guide.limb_guides)
+                changed_limbs[index] = changed_limb
+                changed_guide = replace(guide, limb_guides=tuple(changed_limbs))
+
+                baseline = surface_preview._compile_hybrid_guide(changed_guide)
+                baseline_by_slot = {
+                    (field.owner.key[1][0], field.owner.key[3], field.recipe): field
+                    for field in baseline
+                    if field.recipe in {"root-bridge", "hip-transition"}
+                }
+                connectors = [("root_centerline", "root-bridge")]
+                if role == "thigh":
+                    connectors.append(("hip_centerline", "hip-transition"))
+                for attribute, recipe in connectors:
+                    path = getattr(changed_limb, attribute)
+                    profile = getattr(changed_limb, attribute.replace("centerline", "thickness"))
+                    expected = successor._compiled_limb_connector_path(
+                        changed_guide,
+                        changed_limb,
+                        path,
+                        profile,
+                        f"test.{side}.{role}.{recipe}",
+                    )
+                    shape = baseline_by_slot[(side, role, recipe)].shape
+                    self.assertEqual(tuple(shape["from"]), expected[0])
+                    self.assertEqual(tuple(shape["to"]), expected[1])
+                    self.assertAlmostEqual(float(expected[0][1]), float(path[0][1]), places=12)
+
+                region = successor.compile_successor_region(changed_guide, baseline)
+                self.assertEqual(region.bridge_fields, ())
+
+                drifted = list(baseline)
+                root_index = next(
+                    index
+                    for index, field in enumerate(drifted)
+                    if field.owner is changed_limb.owner and field.recipe == "root-bridge"
+                )
+                root_field = drifted[root_index]
+                drifted[root_index] = replace(
+                    root_field,
+                    shape={
+                        **root_field.shape,
+                        "from": tuple(value + (0.01 if axis == 0 else 0.0) for axis, value in enumerate(root_field.shape["from"])),
+                    },
+                )
+                with self.assertRaises(successor.SuccessorPreviewError):
+                    successor.compile_successor_region(changed_guide, tuple(drifted))
 
     def test_arm_root_validation_consumes_baseline_cage_normal_embedding(self) -> None:
         """A compact-like root span must retain the baseline compiled endpoint."""

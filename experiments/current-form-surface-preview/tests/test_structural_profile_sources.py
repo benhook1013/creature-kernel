@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import io
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,13 +25,7 @@ import generate_structural_profile_sources as generator  # noqa: E402
 import structural_atomic_publish  # noqa: E402
 
 
-PROFILE_IDS = [
-    "standard_neutral_reference",
-    "compact_broad_short_limb_large_head",
-    "tall_narrow_long_legged",
-    "slender_long_limb",
-    "stocky_broad_chested",
-]
+PROFILE_IDS = list(generator.ACTIVE_PROFILE_IDS)
 
 
 def address(role: str, anchors: list[str] | None = None, kind: str = "part") -> dict[str, object]:
@@ -107,6 +103,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
 
     def test_freezes_exactly_five_canonical_sources_with_lineage(self) -> None:
         self.assertEqual([profile["id"] for profile in self.candidate["profiles"]], PROFILE_IDS)
+        self.assertEqual(tuple(PROFILE_IDS), generator.ACTIVE_PROFILE_IDS)
         self.assertEqual(self.candidate_path.read_bytes(), generator.canonical_bytes(self.candidate))
         self.assertEqual(set(self.sources), set(PROFILE_IDS))
         manifest = json.loads((self.output_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -169,6 +166,18 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                 current_source,
                 mode=generator.HISTORICAL_GENERATION_MODE,
             )
+
+    def test_cli_help_is_mode_neutral_about_profile_count(self) -> None:
+        help_output = io.StringIO()
+        with self.assertRaises(SystemExit) as exit_info, redirect_stdout(help_output):
+            generator.main(["--help"])
+
+        self.assertEqual(exit_info.exception.code, 0)
+        rendered_help = help_output.getvalue().lower()
+        self.assertIn("--generation-mode", rendered_help)
+        self.assertIn("generate experiment-local structural source-profile candidates.", rendered_help)
+        self.assertNotIn("five experiment-local structural source-profile candidates", rendered_help)
+        self.assertNotIn("four experiment-local structural source-profile candidates", rendered_help)
 
     def test_actual_structure_and_provisional_form_cli_succeed_for_all_profiles(self) -> None:
         for profile_id in PROFILE_IDS:
@@ -339,11 +348,11 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         }
         self.assertEqual(len(placement_signatures), 4)
         self.assertEqual(len({generator.canonical_source_bytes(document) for document in self.sources.values()}), 5)
-        signatures = {generator._tail_signature(document) for document in self.sources.values()}
+        signatures = {generator.tail_signature(document) for document in self.sources.values()}
         self.assertGreaterEqual(len(signatures), 3)
-        self.assertEqual(generator._tail_signature(tall)[0], 1)
-        self.assertEqual(generator._tail_signature(compact)[0], 1)
-        self.assertNotEqual(generator._tail_signature(compact)[3] * generator._tail_signature(tall)[4], generator._tail_signature(tall)[3] * generator._tail_signature(compact)[4])
+        self.assertEqual(generator.tail_signature(tall)[0], 1)
+        self.assertEqual(generator.tail_signature(compact)[0], 1)
+        self.assertNotEqual(generator.tail_signature(compact)[3] * generator.tail_signature(tall)[4], generator.tail_signature(tall)[3] * generator.tail_signature(compact)[4])
 
     def test_rerun_is_byte_identical_and_invalid_targets_fail_closed(self) -> None:
         first = self.root / "first"
@@ -366,6 +375,19 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         unknown_target = copy.deepcopy(self.candidate)
         unknown_target["transform"]["placement_targets"].append("main|part||unknown")  # type: ignore[index]
         rejected(unknown_target, "unknown placement target")
+
+        unknown_profile = copy.deepcopy(self.candidate)
+        unknown_profile["profiles"][-1]["id"] = "unknown_profile"  # type: ignore[index]
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "active mode requires the exact five-profile ID/order tuple"):
+            generator.generate_sources(unknown_profile, copy.deepcopy(self.base))
+
+        reordered_profiles = copy.deepcopy(self.candidate)
+        reordered_profiles["profiles"][1], reordered_profiles["profiles"][2] = (  # type: ignore[index]
+            reordered_profiles["profiles"][2],
+            reordered_profiles["profiles"][1],
+        )
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "active mode requires the exact five-profile ID/order tuple"):
+            generator.generate_sources(reordered_profiles, copy.deepcopy(self.base))
 
         missing_target = copy.deepcopy(self.candidate)
         del missing_target["profiles"][0]["part_placements"]["main|part||head"]  # type: ignore[index]

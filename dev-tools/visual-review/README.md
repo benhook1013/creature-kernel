@@ -166,7 +166,7 @@ producer-consumer bindings, not new runtime or semantic contracts.
 
 The v11 producer contains 153 authored dimensions, 43 authored landmarks, and
 16 authored frames. The private regional guide is v11; the successor is v9
-with the unchanged region/profile version v12.
+with the unchanged region/profile version v16.
 
 The read-only browser page renders each variant in front (x/y), side (z/y),
 and top (x/z) filled SVG panels with shared bounds, physical display radii

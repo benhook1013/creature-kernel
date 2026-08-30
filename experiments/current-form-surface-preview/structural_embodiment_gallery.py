@@ -497,6 +497,12 @@ def _load_source_manifest(path: Path, candidate_table: dict[str, Any]) -> dict[s
         if reread != source_data:
             raise GalleryError(f"generated source {profile_id} changed during validation")
         source_root = _obj(source_value, f"generated source {profile_id}")
+        try:
+            expected_tail_signature = list(profile_source_generator.tail_signature(source_root))
+        except profile_source_generator.ProfileGenerationError as exc:
+            raise GalleryError(f"generated source {profile_id} tail signature cannot be recomputed") from exc
+        if record["tail_signature"] != expected_tail_signature:
+            raise GalleryError(f"generated source {profile_id} tail_signature does not match its source document")
         source_identity = _obj(source_root.get("source"), f"generated source {profile_id}.source")
         body = _obj(source_root.get("body"), f"generated source {profile_id}.body")
         if source_identity.get("document") != expected_document or source_identity.get("namespace") != base_source["namespace"]:

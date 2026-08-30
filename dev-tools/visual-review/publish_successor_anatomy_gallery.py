@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
+import importlib
 import json
 import math
 import os
@@ -39,7 +41,6 @@ EXPERIMENT_ROOT = Path(__file__).resolve().parents[2] / "experiments" / "current
 if str(EXPERIMENT_ROOT) not in sys.path:
     sys.path.insert(0, str(EXPERIMENT_ROOT))
 
-import generate_structural_profile_sources as profile_source_generator  # noqa: E402
 import successor_surface_preview as successor  # noqa: E402
 
 
@@ -48,13 +49,16 @@ class SuccessorAnatomyGalleryError(RuntimeError):
 
 
 SOURCE_MANIFEST_FORMAT = "creature-kernel.disposable-structural-profile-source-manifest.v1"
-PROFILE_IDS = (
-    "standard_neutral_reference",
-    "compact_broad_short_limb_large_head",
-    "tall_narrow_long_legged",
-    "slender_long_limb",
-    "stocky_broad_chested",
+_PROFILE_SOURCE_CONSTANT_NAMES = (
+    "ACTIVE_PROFILE_IDS",
+    "DEFAULT_GENERATION_MODE",
+    "HISTORICAL_GENERATION_MODE",
+    "STANDARD_NEUTRAL_PROFILE_ID",
 )
+_PROFILE_SOURCE_MAX_BYTES = 1_000_000
+_PROFILE_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_PROFILE_SOURCE_CONSTANTS: dict[str, Any] = {}
+_PROFILE_SOURCE_BOOTSTRAP_ERROR: str | None = None
 NEUTRAL_VARIANT_ID = "neutral-v0"
 REVIEW_ID = "successor-surface-anatomy-appraisal"
 TITLE = "Disposable successor-surface anatomy appraisal"
@@ -76,6 +80,187 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 IMPLEMENTATION_SOURCE_MAX_BYTES = 4_000_000
 PRODUCER_EXECUTABLE_MAX_BYTES = 256_000_000
 MIN_GALLERY_SAMPLES = successor.DEFAULT_SAMPLES
+
+
+def _profile_source_path() -> Path:
+    return EXPERIMENT_ROOT / "generate_structural_profile_sources.py"
+
+
+def _read_profile_source_constants() -> dict[str, Any]:
+    """Read generator-owned literal constants without executing its source."""
+
+    source_path = _profile_source_path()
+    try:
+        with source_path.open("rb") as source_stream:
+            source_bytes = source_stream.read(_PROFILE_SOURCE_MAX_BYTES + 1)
+    except OSError as exc:
+        raise SuccessorAnatomyGalleryError(
+            f"could not read profile-source generator: {exc}"
+        ) from exc
+    if len(source_bytes) > _PROFILE_SOURCE_MAX_BYTES:
+        raise SuccessorAnatomyGalleryError(
+            "profile-source generator exceeds the bounded source size"
+        )
+    try:
+        source_tree = ast.parse(
+            source_bytes.decode("utf-8"),
+            filename=str(source_path),
+        )
+    except (UnicodeDecodeError, SyntaxError, RecursionError) as exc:
+        raise SuccessorAnatomyGalleryError(
+            f"profile-source generator is not valid UTF-8 Python: {exc}"
+        ) from exc
+
+    values: dict[str, Any] = {}
+    for statement in source_tree.body:
+        if isinstance(statement, ast.Assign):
+            if len(statement.targets) != 1 or not isinstance(statement.targets[0], ast.Name):
+                continue
+            target = statement.targets[0]
+            value = statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            if statement.value is None or statement.simple != 1 or not isinstance(statement.target, ast.Name):
+                continue
+            target = statement.target
+            value = statement.value
+        else:
+            continue
+        if target.id not in _PROFILE_SOURCE_CONSTANT_NAMES:
+            continue
+        if target.id in values:
+            raise SuccessorAnatomyGalleryError(
+                f"profile-source generator defines duplicate {target.id}"
+            )
+        try:
+            values[target.id] = ast.literal_eval(value)
+        except (ValueError, TypeError, RecursionError) as exc:
+            raise SuccessorAnatomyGalleryError(
+                f"profile-source generator has a non-literal {target.id}"
+            ) from exc
+    return values
+
+
+def _validate_profile_source_constants(values: dict[str, Any]) -> dict[str, Any]:
+    missing = [name for name in _PROFILE_SOURCE_CONSTANT_NAMES if name not in values]
+    if missing:
+        raise SuccessorAnatomyGalleryError(
+            "profile-source generator does not define " + ", ".join(missing)
+        )
+    profile_ids = values["ACTIVE_PROFILE_IDS"]
+    if type(profile_ids) is not tuple or len(profile_ids) != 5:
+        raise SuccessorAnatomyGalleryError(
+            "profile-source generator active profile contract must contain exactly five IDs"
+        )
+    if (
+        any(type(profile_id) is not str or _PROFILE_ID_RE.fullmatch(profile_id) is None for profile_id in profile_ids)
+        or len(set(profile_ids)) != len(profile_ids)
+    ):
+        raise SuccessorAnatomyGalleryError(
+            "profile-source generator active profile contract contains invalid or duplicate IDs"
+        )
+    if profile_ids[0] != values["STANDARD_NEUTRAL_PROFILE_ID"]:
+        raise SuccessorAnatomyGalleryError(
+            "profile-source generator active profile contract is not neutral-first"
+        )
+    for name in ("DEFAULT_GENERATION_MODE", "HISTORICAL_GENERATION_MODE", "STANDARD_NEUTRAL_PROFILE_ID"):
+        if type(values[name]) is not str or not values[name]:
+            raise SuccessorAnatomyGalleryError(
+                f"profile-source generator {name} must be a non-empty string"
+            )
+    if values["DEFAULT_GENERATION_MODE"] == values["HISTORICAL_GENERATION_MODE"]:
+        raise SuccessorAnatomyGalleryError(
+            "profile-source generator active and historical generation modes must differ"
+        )
+    return values
+
+
+def _bootstrap_profile_source_constants() -> tuple[dict[str, Any], str | None]:
+    """Capture a bounded import-time failure for reporting at publish time."""
+
+    try:
+        return _validate_profile_source_constants(_read_profile_source_constants()), None
+    except SuccessorAnatomyGalleryError as exc:
+        return {}, f"profile-source generator bootstrap failed: {exc}"
+
+
+_PROFILE_SOURCE_CONSTANTS, _PROFILE_SOURCE_BOOTSTRAP_ERROR = _bootstrap_profile_source_constants()
+PROFILE_IDS = tuple(_PROFILE_SOURCE_CONSTANTS.get("ACTIVE_PROFILE_IDS", ()))
+
+
+class _LazyProfileSourceGenerator:
+    """Load the trusted generator only when an operation needs its functions."""
+
+    def __init__(self) -> None:
+        self._module: Any | None = None
+
+    def _load(self) -> Any:
+        if self._module is None:
+            try:
+                self._module = importlib.import_module("generate_structural_profile_sources")
+            except (ImportError, OSError, SyntaxError, UnicodeError) as exc:
+                _fail(f"could not load profile-source generator: {exc}")
+        return self._module
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._load(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "_module":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._load(), name, value)
+
+    def __delattr__(self, name: str) -> None:
+        if name == "_module":
+            object.__delattr__(self, name)
+        else:
+            delattr(self._load(), name)
+
+
+profile_source_generator = _LazyProfileSourceGenerator()
+
+
+def _raise_if_profile_source_bootstrap_failed() -> None:
+    if _PROFILE_SOURCE_BOOTSTRAP_ERROR is not None:
+        _fail(_PROFILE_SOURCE_BOOTSTRAP_ERROR)
+
+
+def _active_profile_contract() -> tuple[str, tuple[str, ...]]:
+    _raise_if_profile_source_bootstrap_failed()
+    active_mode = _PROFILE_SOURCE_CONSTANTS["DEFAULT_GENERATION_MODE"]
+    historical_mode = _PROFILE_SOURCE_CONSTANTS["HISTORICAL_GENERATION_MODE"]
+    active_ids = _PROFILE_SOURCE_CONSTANTS["ACTIVE_PROFILE_IDS"]
+    if tuple(PROFILE_IDS) != active_ids:
+        _fail("publisher active profile IDs drifted from the generator-owned contract")
+    generator = profile_source_generator._load()
+    loaded_constants = {
+        name: getattr(generator, name, None)
+        for name in _PROFILE_SOURCE_CONSTANT_NAMES
+    }
+    loaded_profile_ids = loaded_constants["ACTIVE_PROFILE_IDS"]
+    if type(loaded_profile_ids) is not tuple or loaded_profile_ids != active_ids:
+        _fail("loaded generator active profile IDs drifted from its source-owned contract")
+    for name in (
+        "DEFAULT_GENERATION_MODE",
+        "HISTORICAL_GENERATION_MODE",
+        "STANDARD_NEUTRAL_PROFILE_ID",
+    ):
+        loaded_value = loaded_constants[name]
+        if type(loaded_value) is not str or not loaded_value:
+            _fail(f"loaded generator {name} must be a non-empty string")
+        if loaded_value != _PROFILE_SOURCE_CONSTANTS[name]:
+            _fail(f"loaded generator {name} drifted from its source-owned contract")
+    if loaded_constants["DEFAULT_GENERATION_MODE"] == historical_mode:
+        _fail("successor anatomy publisher rejects the historical generation mode")
+    try:
+        expected_count, expected_ids = generator._profile_contract(active_mode)
+    except generator.ProfileGenerationError as exc:
+        _fail(f"active profile generation mode is invalid: {exc}")
+    if expected_count != 5 or tuple(expected_ids or ()) != active_ids:
+        _fail("active profile generation mode does not own the exact five-profile order")
+    if active_ids[0] != loaded_constants["STANDARD_NEUTRAL_PROFILE_ID"]:
+        _fail("active profile generation mode is not neutral-first")
+    return active_mode, active_ids
 
 
 @dataclass(frozen=True)
@@ -322,6 +507,7 @@ def _read_canonical_json(reference: common.SourceReference, where: str, *, sourc
 
 
 def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], bytes, list[tuple[dict[str, Any], common.SourceReference, dict[str, Any], bytes]]]:
+    generation_mode, profile_ids = _active_profile_contract()
     manifest_ref = _resolve_file(manifest_path, "source manifest")
     if manifest_ref.path.name != "manifest.json":
         _fail("source manifest must be named manifest.json")
@@ -377,22 +563,26 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
     ):
         _fail("source manifest base-source identity does not match the checked-in base source")
     try:
-        generated_sources = profile_source_generator.generate_sources(candidate, base_source)
+        generated_sources = profile_source_generator.generate_sources(
+            candidate,
+            base_source,
+            mode=generation_mode,
+        )
         generated_source_bytes = tuple(
             profile_source_generator.canonical_source_bytes(source) for source in generated_sources
         )
     except profile_source_generator.ProfileGenerationError as exc:
         _fail(f"checked-in candidate/base could not regenerate profile sources: {exc}")
-    if len(generated_source_bytes) != len(PROFILE_IDS):
+    if len(generated_source_bytes) != len(profile_ids):
         _fail("checked-in candidate/base generator did not produce exactly five profile documents")
 
     profiles = manifest_obj["profiles"]
-    if not isinstance(profiles, list) or len(profiles) != len(PROFILE_IDS):
+    if not isinstance(profiles, list) or len(profiles) != len(profile_ids):
         _fail("source manifest must contain exactly five profiles")
-    if [item.get("id") if isinstance(item, dict) else None for item in profiles] != list(PROFILE_IDS):
+    if [item.get("id") if isinstance(item, dict) else None for item in profiles] != list(profile_ids):
         _fail("source manifest profiles are not in the exact required order")
 
-    expected_entries = {"manifest.json", *(f"{profile_id}.json" for profile_id in PROFILE_IDS)}
+    expected_entries = {"manifest.json", *(f"{profile_id}.json" for profile_id in profile_ids)}
     try:
         common._reject_symlink_components(manifest_ref.path.parent, "source manifest directory")
         directory_info = manifest_ref.path.parent.lstat()
@@ -417,7 +607,7 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
         profile = _require_object(raw_profile, where)
         _require_fields(profile, {"bytes", "document", "file", "id", "sha256", "tail_signature"}, where)
         profile_id = profile["id"]
-        if profile_id != PROFILE_IDS[index]:
+        if profile_id != profile_ids[index]:
             _fail(f"{where}.id is not in the exact required order")
         expected_document = f"{base_document}__{profile_source_generator.SOURCE_DOCUMENT_SUFFIX}__{profile_id}"
         if profile["document"] != expected_document:
