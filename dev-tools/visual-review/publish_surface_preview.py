@@ -555,9 +555,11 @@ EXPECTED_GENERATOR_OWNERSHIP = (
 MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
 # The v9 successor manifest carries complete per-variant guide-derived leg/foot
-# metadata plus the compact exact component inventory. Keep the bound explicit
-# and tight; the existing hand-paw station payload leaves only a small margin.
-MAX_MANIFEST_BYTES = 400 * 1024
+# metadata plus the compact exact component inventory. The current hand-paw
+# payload serializes to 408,678 bytes; 420 KiB preserves the required 8 KiB
+# headroom while keeping the untrusted manifest cap finite and tight.
+MIN_MANIFEST_HEADROOM_BYTES = 8 * 1024
+MAX_MANIFEST_BYTES = 420 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_COMPONENT_BOUND_ABS = 100.0

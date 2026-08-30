@@ -58,25 +58,26 @@ or executable truth.
 ### Current candidate and expected live target
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
-Remote PR #122 head `3826a6448b354f3e0e27e3a1bff0534751609aaa` passed all
-three CI lanes. Its hosted pass completed with two findings and committed-diff
-CLI with six. The next review-fix head integrates the valid items: deterministic
-late-nonzero regression handshake, module-local `os` test fakes, accurate
-handover ownership wording, AI-observation recurrence tracking, and fail-closed
-missing private generator methods paired with internal AttributeError propagation
-coverage and no-publication-side-effect regressions.
-Hosted redundant inward-clearance branches, CLI cargo-helper extraction,
-historical hash aliasing, support-radius deduplication, and repeated helper
-extraction are deferred or rejected as evidence-backed non-gating
-maintainability or independent-oracle preservation. A fresh immutable head,
-fresh CI plus hosted+CLI taper on that head, final live gallery, Ben appraisal,
-and explicit merge authorization remain outstanding. PR `#122` remains draft and
-unmerged.
+Predecessor `3826a6448b354f3e0e27e3a1bff0534751609aaa` completed hosted (2) /
+committed-diff CLI (6); its valid gallery fail-closed fix is in `60e`.
+Remote PR #122 head `60e76ba15324b1d78a1ff50bf8184e462eb01fa` passed all three
+CI lanes. Its hosted request was rate-limited and committed-diff CLI completed
+with five findings. The next review-fix head integrates the valid 60e CLI and
+focused findings: AI-observation count/recurrences, the corrected successor
+contract-owner path in opt-in integration, a bounded manifest cap from 400 to
+420 KiB with explicit 8 KiB minimum and over-cap rejection plus current measured
+408,678-byte evidence, and precise but portable malformed-mesh/source-tamper
+assertions. The CLI local-variable rename and repeated support-radius
+deduplication are deferred as non-gating maintainability/semantic-risk items.
+A fresh pushed immutable head, CI, hosted+CLI taper, final live gallery, Ben
+appraisal, and explicit merge authorization remain outstanding. PR `#122`
+remains draft and unmerged.
 
 The candidate still targets the exact five ordered profiles above, with the
-standard neutral reference first. Consolidated verified validation: successor
-anatomy gallery 28; Godot projection 34 with one expected skip; documentation,
-whitespace, and diff checks pass; and prior current-head CI is green.
+standard neutral reference first. Consolidated verified validation: surface
+publication 54 with one skip; exact opt-in actual-generator integration 1 passed
+in about 187s; successor anatomy gallery 28; Godot projection 34 with one skip;
+documentation, whitespace, diff, and cargo fmt checks pass.
 
 ### Immediate continuation
 

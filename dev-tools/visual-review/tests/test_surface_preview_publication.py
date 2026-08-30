@@ -2383,7 +2383,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 input_path,
                 creature_kernel=creature_kernel,
                 generator=repository_root / "experiments/current-form-surface-preview/generate_surface_preview.py",
-                successor_generator=repository_root / "experiments/current-form-surface-preview/generate_successor_surface_preview.py",
+                successor_generator=repository_root / "experiments/current-form-surface-preview/successor_surface_preview.py",
                 review_id="actual-hand-paw-metadata",
             )
 
@@ -2406,7 +2406,22 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             self.assertEqual(sidecar_hand_paw["route_volume_radius_count"], 24)
         manifest_size = captured["manifest_size"]
         self.assertIsInstance(manifest_size, int)
-        self.assertGreaterEqual(publisher.MAX_MANIFEST_BYTES - manifest_size, 8 * 1024)
+        self.assertEqual(manifest_size, 408_678)
+        self.assertGreaterEqual(
+            publisher.MAX_MANIFEST_BYTES - manifest_size,
+            publisher.MIN_MANIFEST_HEADROOM_BYTES,
+        )
+
+    def test_manifest_cap_is_finite_and_rejects_bytes_over_the_bound(self) -> None:
+        self.assertEqual(publisher.MIN_MANIFEST_HEADROOM_BYTES, 8 * 1024)
+        self.assertEqual(publisher.MAX_MANIFEST_BYTES, 420 * 1024)
+        path = self.directory / "over-cap-manifest.json"
+        path.write_bytes(b"x" * (publisher.MAX_MANIFEST_BYTES + 1))
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError,
+            f"manifest exceeds {publisher.MAX_MANIFEST_BYTES} bytes",
+        ):
+            publisher._read_json(path, publisher.MAX_MANIFEST_BYTES, "manifest")
 
     def test_v7_authored_torso_profile_tampering_rejects_without_review_directory(self) -> None:
         cases = ("omission", "reorder", "owner", "provenance", "name", "radius", "stale-version", "descriptor-owner")

@@ -622,15 +622,27 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         }
         implementation = {"identity_sha256": "f" * 64, "files": {}}
         malformed_meshes = (
-            SimpleNamespace(render_components=(SimpleNamespace(bounds=None),)),
-            SimpleNamespace(
-                render_components=(
-                    SimpleNamespace(bounds=((0.0, 0.0, 0.0), (float("nan"), 1.0, 1.0))),
-                )
+            (
+                SimpleNamespace(render_components=(SimpleNamespace(bounds=None),)),
+                "standard_neutral_reference render component 0 bounds is not a valid three-dimensional bound:",
+                False,
             ),
-            SimpleNamespace(render_components=(SimpleNamespace(),)),
+            (
+                SimpleNamespace(
+                    render_components=(
+                        SimpleNamespace(bounds=((0.0, 0.0, 0.0), (float("nan"), 1.0, 1.0))),
+                    )
+                ),
+                "standard_neutral_reference render component 0 bounds is not finite and ordered",
+                True,
+            ),
+            (
+                SimpleNamespace(render_components=(SimpleNamespace(),)),
+                "standard_neutral_reference render component 0 is missing bounds",
+                True,
+            ),
         )
-        for mesh in malformed_meshes:
+        for mesh, expected_error, exact in malformed_meshes:
             with self.subTest(mesh=mesh), patch.object(
                 adapter,
                 "_shared_capture_bound",
@@ -638,7 +650,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             ), patch.object(adapter.successor, "build_variant", return_value=mesh), patch.object(
                 adapter.successor._baseline, "_render"
             ) as render:
-                with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "bounds|missing"):
+                with self.assertRaises(adapter.SuccessorAnatomyGalleryError) as raised:
                     adapter._build_review_manifest(
                         profiles,
                         source_manifest,
@@ -651,6 +663,10 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                         review_id="successor-anatomy-components",
                         title=adapter.TITLE,
                     )
+                if exact:
+                    self.assertEqual(str(raised.exception), expected_error)
+                else:
+                    self.assertTrue(str(raised.exception).startswith(expected_error))
                 render.assert_not_called()
 
     def test_manifest_order_path_profile_and_symlink_rejections(self) -> None:
@@ -687,8 +703,13 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         source = self.source_dir / f"{PROFILE_IDS[0]}.json"
         with source.open("ab") as stream:
             stream.write(b"tampered")
-        with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "canonical generated JSON|integrity metadata|not finite"):
+        with self.assertRaises(adapter.SuccessorAnatomyGalleryError) as raised:
             adapter._validate_source_manifest(self.source_manifest)
+        self.assertTrue(
+            str(raised.exception).startswith(
+                "source manifest.profiles[0].file is not finite UTF-8 JSON:"
+            )
+        )
 
     def test_profile_mutation_is_rejected_with_self_consistent_manifest_integrity(self) -> None:
         manifest = json.loads(self.source_manifest.read_text(encoding="utf-8"))

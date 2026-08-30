@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 25 open observations
+Status: Operational inbox; 26 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -31,7 +31,7 @@ Copyable entry scaffold:
   - Expected pattern: Use unittest discovery/file entrypoints for repository tests, or set a deliberately resolved `PYTHONPATH`/import path for a necessary inline probe; do not assume launcher selection implies repository module discovery.
 
 - `2026-08-31 04:22 NZST`: Focused test selectors were guessed instead of resolved
-  - Observation: Eight focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; five wrapper calls were rejected with `matched no test files`, `method selector ... matched no tests`, or because the current-form `test.sh` could not discover `dev-tools/visual-review/tests`, one raw-launcher call reported `Ran 0 tests`, one guessed compound-selector call ran zero tests, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved. The implementation worker then correctly switched to direct `surface_preview_launcher.sh` discovery.
+  - Observation: Ten focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; seven wrapper calls were rejected with `matched no test files`, `method selector ... matched no tests`, or because the current-form `test.sh` could not discover `dev-tools/visual-review/tests`, one raw-launcher call reported `Ran 0 tests`, one guessed compound-selector call ran zero tests, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved. The implementation worker then correctly switched to direct `surface_preview_launcher.sh` discovery. Another independent reviewer repeated the visual-review wrapper/discovery-scope mistake before switching routes.
   - Expected pattern: Before invoking a focused wrapper test, resolve the exact file and `def test_...` name with a narrow `rg`, then run one validated selector shape; use the documented launcher directly when the target lives outside the wrapper's discovery tree.
 
 - `2026-08-31 00:43 NZST`: Pointwise smooth-field audit misclassified an explicit transition volume
@@ -47,7 +47,7 @@ Copyable entry scaffold:
   - Expected pattern: Run these integrated visual-review publication suites through `surface_preview_launcher.sh`; do not substitute direct system Python after a launcher-backed pass or treat direct-route `renameat2` failures as product regressions without an independent syscall reproduction.
 
 - `2026-08-30 23:26 NZST`: Production-resolution successor builds provide no progress signal
-  - Observation: Two independent hands-on trials found that 56-sample successor mesh extraction and five-profile gallery publication can produce no output for roughly 24 seconds to several minutes per stage, making healthy CPU-bound work indistinguishable from a stalled process without an external process inspection. Replaying an existing gallery ID also rebuilt all five meshes for several minutes before the final no-replace check rejected it; the installed inventory and hashes remained unchanged. The same long-running no-progress behavior recurred during this review.
+  - Observation: Two independent hands-on trials found that 56-sample successor mesh extraction and five-profile gallery publication can produce no output for roughly 24 seconds to several minutes per stage, making healthy CPU-bound work indistinguishable from a stalled process without an external process inspection. Replaying an existing gallery ID also rebuilt all five meshes for several minutes before the final no-replace check rejected it; the installed inventory and hashes remained unchanged. The same long-running no-progress behavior recurred during this review, with one additional occurrence during the current opt-in integration run.
   - Expected pattern: Long-running successor generation and gallery publication should emit bounded stage/profile/variant progress to stderr without changing deterministic artifacts or machine-readable stdout. Publishers should reject an already-existing destination before expensive generation while retaining the atomic no-replace check at installation for race safety.
 
 - `2026-08-30 21:10 NZST`: Parallel subagent spawn batch partially succeeded before rejection
@@ -99,7 +99,7 @@ Copyable entry scaffold:
   - Expected pattern: Use the wrapper's file-level selector and run the complete matched file; do not pass a unittest class or method name to this entrypoint.
 
 - `2026-08-29 16:25 NZST`: Security preflight used an unsuitable Python runtime
-  - Observation: A delegated security preflight first used system Python, which lacked `tomllib` and `tomli`; the bundled fallback then exposed Windows-path incompatibility before the review changed route.
+  - Observation: A delegated security preflight first used system Python, which lacked `tomllib` and `tomli`; the bundled fallback then exposed Windows-path incompatibility before the review changed route. A later reviewer again used Python 3.10 lacking both `tomllib` and `tomli`, so the preflight was unavailable.
   - Expected pattern: Use the repository's documented native WSL validation or security entrypoint when available, and validate one interpreter invocation before launching the full check.
 
 - `2026-08-29 17:22 NZST`: Godot API dumps polluted the selected project path
