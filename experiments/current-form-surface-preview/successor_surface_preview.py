@@ -26,7 +26,7 @@ import os
 import shutil
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -81,6 +81,7 @@ DEFAULT_PADDING = 0.50
 # generator so the two consumers cannot silently drift apart.
 DEFAULT_CAPTURE_PADDING = _baseline.DEFAULT_PADDING
 DEFAULT_SMOOTH_K = 0.10
+_FORWARD_MUZZLE_COMPOSITION_OPERATION = "successor-local-forward-muzzle-envelope-v1"
 MAX_SAMPLES = 96
 MAX_VOXELS = 96**3
 MAX_FIELD_VALUES = 16_000_000
@@ -179,6 +180,9 @@ class _ProfileSweep:
     internal_transitions: tuple[_ProfileJointTransition, ...] = ()
     _validated: bool = field(default=False, compare=False, repr=False)
     profile_operation: str = "symmetric-ellipse"
+    # Successor-local composition primitives remain private derived geometry;
+    # authored route sections and their source records stay in ``sections``.
+    derived_sweeps: tuple[_ProfileSweep, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.internal_transitions:
@@ -527,6 +531,18 @@ def _frame_from_tangent(
 def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
     """Fail closed on malformed profile frames, spans, path lengths or caps."""
 
+    if type(sweep.derived_sweeps) is not tuple or len(sweep.derived_sweeps) > 1:
+        _fail("profile sweep must contain at most one bounded derived composition")
+    if sweep.derived_sweeps and sweep.profile_operation != _HEAD_NECK_PROFILE_OPERATION:
+        _fail("only a head/neck route may contain a derived composition")
+    for derived in sweep.derived_sweeps:
+        if not isinstance(derived, _ProfileSweep) or derived is sweep:
+            _fail("profile derived composition must be a distinct profile sweep")
+        if derived.derived_sweeps:
+            _fail("profile derived compositions cannot be nested")
+        if derived.profile_operation != _HEAD_NECK_PROFILE_OPERATION:
+            _fail("profile derived composition has an invalid operation")
+        _validate_profile_sweep(derived)
     if sweep._validated:
         return
     sections = sweep.sections
@@ -804,9 +820,27 @@ def _make_profile_sweep(guide: Any) -> _ProfileSweep:
             axial_position=axial_positions[index] if axial_positions[index] is not None else path_length,
         ))
     ordered = tuple(sections)
+    end_cap_radius = min(ordered[-1].cardinal_radii or ordered[-1].transverse_radii)
+    head = getattr(guide, "head_guide", None)
+    head_profile = getattr(head, "profile", None)
+    if head_profile is not None:
+        head_sections = tuple(getattr(head_profile, "sections", ()))
+        if head_sections:
+            neck_collar = head_sections[0]
+            collar_center = _vec3(neck_collar.center, "head/neck collar center")
+            center_gap = float(np.linalg.norm(collar_center - centers[-1]))
+            if not math.isfinite(center_gap) or center_gap <= _DEGENERATE_TOLERANCE:
+                _fail("successor torso/head composition has a degenerate neck-collar gap")
+            collar_radii = tuple(float(value) for value in neck_collar.radii)
+            _finite_positive(collar_radii, "head/neck collar radii")
+            # Keep the cap attached to the authored torso endpoint and let it
+            # overlap the lower half of the authored collar volume.  The
+            # upper collar/neck stations remain outside the torso so the neck
+            # can read without producing a pinched or disconnected root.
+            end_cap_radius = min(end_cap_radius, center_gap + 0.5 * collar_radii[1])
     caps = (
         _ProfileEndpointCap("start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent), ordered[0].transverse_axes, ordered[0].transverse_radii, min(ordered[0].cardinal_radii or ordered[0].transverse_radii)),
-        _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, min(ordered[-1].cardinal_radii or ordered[-1].transverse_radii)),
+        _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, end_cap_radius),
     )
     sweep = _ProfileSweep(ordered, caps, profile_operation=TORSO_PROFILE_OPERATION)
     _validate_profile_sweep(sweep)
@@ -1768,8 +1802,86 @@ def _make_authored_head_neck_route_sweep(
         ),
     )
     sweep = _ProfileSweep(ordered, caps, profile_operation=_HEAD_NECK_PROFILE_OPERATION)
+    if recipe == "forward-muzzle":
+        sweep = replace(
+            sweep,
+            derived_sweeps=(_make_forward_muzzle_composition_sweep(profile),),
+        )
     _validate_profile_sweep(sweep)
     return _RegionalProfileSweep(recipe, ordered[0].owner, sweep)
+
+
+def _make_forward_muzzle_composition_sweep(profile: Any) -> _ProfileSweep:
+    """Derive a longer, continuous muzzle envelope from authored stations.
+
+    The authored eight-station route remains the primary sweep.  This private
+    composition envelope uses only its cranium/muzzle centres and radii: its
+    root is the midpoint between the cranium's forward surface and the
+    authored muzzle root, its middle bisects that derived root and the
+    authored tip, and its tip remains at the authored tip centre.  The
+    existing authored tip cap therefore retains the terminal reach.  The
+    envelope is shared across variants without fixture coordinates or
+    profile-specific controls.
+    """
+
+    axes = profile.axes
+    forward = _unit(_vec3(axes.forward, "forward muzzle composition axis"), "forward muzzle composition axis")
+    lateral = _unit(_vec3(axes.lateral, "forward muzzle composition lateral axis"), "forward muzzle composition lateral axis")
+    up = _unit(_vec3(axes.up, "forward muzzle composition up axis"), "forward muzzle composition up axis")
+    by_index = {int(section.section_index): section for section in profile.sections}
+    try:
+        cranium = by_index[3]
+        muzzle_root = by_index[5]
+        muzzle_mid = by_index[6]
+        muzzle_tip = by_index[7]
+    except KeyError as exc:
+        _fail(f"forward muzzle composition is missing authored section {exc.args[0]}")
+
+    cranium_center = _vec3(cranium.center, "forward muzzle composition cranium center")
+    root_center = 0.5 * (
+        cranium_center + float(cranium.radii[2]) * forward
+        + _vec3(muzzle_root.center, "forward muzzle composition root center")
+    )
+    tip_center = _vec3(muzzle_tip.center, "forward muzzle composition tip center")
+    mid_center = 0.5 * (root_center + tip_center)
+    sources = (("muzzle-composition-root", muzzle_root, root_center), ("muzzle-composition-mid", muzzle_mid, mid_center), ("muzzle-composition-tip", muzzle_tip, tip_center))
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (name, source, center) in enumerate(sources):
+        radii = tuple(float(value) for value in source.radii)
+        _finite_positive(radii, f"{name}.authored-radii")
+        if index:
+            span = float(np.linalg.norm(center - _vec3(sections[-1].center, f"{name}.previous-center")))
+            if not math.isfinite(span) or span <= _DEGENERATE_TOLERANCE:
+                _fail(f"{name} follows a degenerate derived span")
+            path_length += span
+        sections.append(_ProfileSection(
+            name=name,
+            owner=source.owner,
+            center=tuple(float(value) for value in center),
+            tangent=tuple(float(value) for value in forward),
+            transverse_axes=(tuple(float(value) for value in lateral), tuple(float(value) for value in up)),
+            transverse_radii=(radii[0], radii[1]),
+            path_length=path_length,
+            tangent_radius=radii[2],
+            source_section_index=int(source.section_index),
+        ))
+    ordered = tuple(sections)
+    caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-value for value in forward),
+            ordered[0].transverse_axes, ordered[0].transverse_radii,
+            float(ordered[0].tangent_radius),
+        ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, tuple(float(value) for value in forward),
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii,
+            float(ordered[-1].tangent_radius),
+        ),
+    )
+    sweep = _ProfileSweep(ordered, caps, profile_operation=_HEAD_NECK_PROFILE_OPERATION)
+    _validate_profile_sweep(sweep)
+    return sweep
 
 
 def _make_head_neck_sweeps(guide: Any) -> tuple[_RegionalProfileSweep, ...]:
@@ -1862,6 +1974,22 @@ def _head_neck_route_json(item: _RegionalProfileSweep) -> dict[str, Any]:
         "station_radii": [full_radii(section) for section in item.sweep.sections],
         "endpoint_cap_count": len(item.sweep.endpoint_caps),
         "internal_transition_count": len(item.sweep.internal_transitions),
+        "derived_compositions": [
+            {
+                "operation": _FORWARD_MUZZLE_COMPOSITION_OPERATION,
+                "section_names": list(derived.names),
+                "geometric_input_section_indices": [3, 5, 7],
+                "radius_donor_section_indices": [int(section.source_section_index) for section in derived.sections],
+                "center_derivation": [
+                    "midpoint(cranium-mid forward surface, muzzle-root center)",
+                    "midpoint(derived root, muzzle-tip center)",
+                    "muzzle-tip center",
+                ],
+                "centers": [[float(value) for value in section.center] for section in derived.sections],
+                "station_radii": [full_radii(section) for section in derived.sections],
+            }
+            for derived in item.sweep.derived_sweeps
+        ],
     }
 
 
@@ -3637,6 +3765,7 @@ def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray
             if section.tangent_radius is not None or section.station_volume_radii is not None
         ),
     ]
+    values.extend(_profile_sweep_field(points, derived) for derived in sweep.derived_sweeps)
     return np.min(np.stack(values, axis=0), axis=0)
 
 
@@ -4106,6 +4235,10 @@ def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]
         extent = np.abs(outward) * cap.axial_radius + np.abs(first) * cap.transverse_radii[0] + np.abs(second) * cap.transverse_radii[1]
         lower.append(center - extent)
         upper.append(center + extent)
+    for derived in sweep.derived_sweeps:
+        derived_lower, derived_upper = _profile_sweep_bounds(derived)
+        lower.append(derived_lower)
+        upper.append(derived_upper)
     return np.min(np.stack(lower), axis=0), np.max(np.stack(upper), axis=0)
 
 

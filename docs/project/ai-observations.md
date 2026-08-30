@@ -104,4 +104,4 @@ Copyable entry scaffold:
 
 - `2026-08-30 14:43 NZST`: One deterministic mesh test consumed multiple foreground minutes
   - Observation: A focused successor test that performs eight 56-cubed mesh builds remained CPU-bound after 2m31s and was interrupted during its second build; the complete successor file later took 9m25s.
-  - Expected pattern: Reserve repeated full-resolution deterministic mesh construction for consolidated candidate validation, and use focused semantic or numerical regressions during active implementation unless the mesh result itself is under test.
+  - Expected pattern: Reserve repeated full-resolution deterministic mesh construction for consolidated candidate validation, and use explicit fully qualified semantic or numerical tests during active implementation; avoid broad selectors such as `-k all_variants` unless the mesh result itself is under test.

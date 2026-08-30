@@ -1726,6 +1726,89 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     without_value = float(successor._successor_region_field(representative, without_item, 0.10)[0])
                     self.assertGreater(abs(composed_value - without_value), 1.0e-8)
 
+    def test_head_neck_composition_exposes_neck_and_extends_forward_muzzle(self) -> None:
+        """Derived composition must expose the authored route without changing its records."""
+
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                profile = guide.head_guide.profile
+                region = successor.compile_successor_region(guide)
+
+                torso_top = np.asarray(region.loft.sections[-1].center, dtype=np.float64)
+                neck_collar = np.asarray(profile.sections[0].center, dtype=np.float64)
+                collar_gap = float(np.linalg.norm(neck_collar - torso_top))
+                self.assertGreater(collar_gap, successor._DEGENERATE_TOLERANCE)
+                neck_upper = np.asarray(profile.sections[1].center, dtype=np.float64)
+                self.assertGreater(region.loft.endpoint_caps[-1].axial_radius, collar_gap)
+                self.assertGreater(float(successor._loft_field(neck_upper.reshape(1, 3), region.loft)[0]), 0.0)
+
+                neck_connection = np.linspace(torso_top, neck_collar, 17)
+                self.assertTrue(np.all(
+                    successor._successor_region_field(neck_connection, region, successor.DEFAULT_SMOOTH_K) < 0.0
+                ))
+
+                muzzle = next(item for item in region.head_neck_sweeps if item.recipe == "forward-muzzle")
+                self.assertEqual(len(muzzle.sweep.derived_sweeps), 1)
+                composition = muzzle.sweep.derived_sweeps[0]
+                forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
+                forward_progress = np.asarray([
+                    float(np.dot(np.asarray(section.center, dtype=np.float64), forward))
+                    for section in composition.sections
+                ])
+                self.assertTrue(np.all(np.diff(forward_progress) > successor._DEGENERATE_TOLERANCE))
+                authored_tip = np.asarray(profile.sections[7].center, dtype=np.float64)
+                authored_tip_radius = float(profile.sections[7].radii[2])
+                self.assertEqual(forward_progress[-1], float(np.dot(authored_tip, forward)))
+                inside_authored_tip_cap = authored_tip + 0.75 * authored_tip_radius * forward
+                self.assertLess(
+                    float(successor._profile_sweep_field(
+                        inside_authored_tip_cap.reshape(1, 3), muzzle.sweep,
+                    )[0]),
+                    0.0,
+                )
+                beyond_authored_tip_cap = authored_tip + 1.25 * authored_tip_radius * forward
+                self.assertGreater(
+                    float(successor._profile_sweep_field(
+                        beyond_authored_tip_cap.reshape(1, 3), muzzle.sweep,
+                    )[0]),
+                    0.0,
+                )
+
+                route_metadata = successor._head_neck_metadata(region)["route_topology"]
+                forward_metadata = next(item for item in route_metadata if item["name"] == "forward-muzzle")
+                self.assertEqual(len(forward_metadata["derived_compositions"]), 1)
+                self.assertEqual(
+                    forward_metadata["derived_compositions"][0]["operation"],
+                    successor._FORWARD_MUZZLE_COMPOSITION_OPERATION,
+                )
+                self.assertEqual(
+                    forward_metadata["derived_compositions"][0]["geometric_input_section_indices"],
+                    [3, 5, 7],
+                )
+                self.assertEqual(
+                    forward_metadata["derived_compositions"][0]["radius_donor_section_indices"],
+                    [5, 6, 7],
+                )
+
+    def test_profile_derived_composition_is_single_level_and_head_only(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        region = successor.compile_successor_region(guide)
+        muzzle = next(item.sweep for item in region.head_neck_sweeps if item.recipe == "forward-muzzle")
+        composition = muzzle.derived_sweeps[0]
+
+        cases = (
+            replace(muzzle, derived_sweeps=(composition, composition)),
+            replace(region.loft, derived_sweeps=(composition,)),
+            replace(muzzle, derived_sweeps=(replace(composition, derived_sweeps=(composition,)),)),
+        )
+        for malformed in cases:
+            with self.subTest(operation=malformed.profile_operation), self.assertRaises(
+                successor.SuccessorPreviewError,
+            ):
+                successor._validate_profile_sweep(malformed)
+
     def test_authored_arm_routes_have_exact_shared_five_station_profile_and_elbow_ownership(self) -> None:
         expected_order = (
             "left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route",
