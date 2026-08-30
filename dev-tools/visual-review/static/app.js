@@ -1900,7 +1900,10 @@
       var sourceSection = sourceSections[index];
       var owner = formTorsoOwner(namespace, sourceSection.ownerRole);
       var ownerRecord = descriptorMap[formAddressKey(owner)];
-      if (!ownerRecord || !ownerRecord.referencePointValid || !formFiniteVector(sourceSection.position, 3)) {
+      if (!ownerRecord) {
+        return "Authored torso sections owner has no validated body-space placement.";
+      }
+      if (!ownerRecord.referencePointValid || !formFiniteVector(sourceSection.position, 3)) {
         return null;
       }
       composedY.push(ownerRecord.referencePoint[1] + sourceSection.position[1]);

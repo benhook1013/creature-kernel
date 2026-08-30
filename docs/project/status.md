@@ -66,22 +66,25 @@ root-height context, shoulder/smooth-union regressions, torso ordering in
 composed body space, bounded Godot subprocess cleanup, and related test/doc
 fixes. The docs-only review head `a25fb87e86b5160d5cd01e0b8bfd04998ee881fe`
 passed CI and one hosted-plus-CLI cycle; hosted reported 6 findings and CLI
-reported 25. The follow-up candidate integrates the verified correctness and
-coverage fixes, records explicit dispositions for non-correctness cleanup and
-performance suggestions, and requires a fresh immutable-head CI and review
-cycle. All earlier CodeRabbit conversations have evidence-based dispositions.
-PR #122 remains draft and unmerged.
+reported 25. Follow-up head `301d41340b4886cf2ff3db7067412a590b1fc844`
+integrates the verified correctness and coverage fixes. Its documentation and
+visual-review CI passed, Rust CI found one formatting-only mismatch, the hosted
+request was rate-limited, and CLI reported 9 suggestions. The current local
+follow-up applies the exact Rust formatting, closes one browser-side missing-owner
+validation gap, and adds direct-process cleanup coverage; the other CLI items
+have explicit evidence-based dispositions. A fresh immutable-head CI and
+hosted-plus-CLI cycle is still required. PR #122 remains draft and unmerged.
 
 The candidate still targets the exact five ordered profiles above, with the
 standard neutral reference first. A measured route-interpolation cache showed
 about a 10% representative improvement; record that as a post-checkpoint
 performance follow-up, not active runway scope. Consolidated affected
-validation passes: baseline 73; successor 85 plus focused post-suite
+validation passes: baseline 73; successor 86 plus focused post-suite
 connector/muzzle parity checks; structural and historical suites 71; surface
 publication 52 with one expected opt-in skip; exact-five anatomy publication
-22; provisional/browser and connected publication checks 99 with one expected
+24; provisional/browser and connected publication checks 99 with one expected
 skip; and the complete provisional Godot host suite 207 with 31 expected
-skips plus 32 focused post-suite cleanup checks with one expected skip.
+skips plus 33 focused post-suite cleanup checks with one expected skip.
 Documentation, whitespace, and diff checks pass. Fresh hands-on
 publisher trials also passed one canonical 32-sample success path and
 fail-closed malformed-contract and non-containing-bounds paths without live

@@ -648,6 +648,25 @@ class DisposableCKProjectionTests(unittest.TestCase):
         )
         killpg.assert_not_called()
 
+    @unittest.skipUnless(os.name == "posix", "direct POSIX process signalling is POSIX-specific")
+    def test_stop_process_signals_only_direct_pid_without_group(self) -> None:
+        process = Mock(pid=506, returncode=None)
+        with patch.object(projection.os, "name", "posix"), patch.object(projection.os, "kill") as kill, patch.object(
+            projection.os, "killpg"
+        ) as killpg, patch.object(projection.time, "sleep") as sleep:
+            projection._stop_process(process, process_group_id=None)
+
+        self.assertEqual(
+            kill.call_args_list,
+            [
+                call(process.pid, projection.signal.SIGTERM),
+                call(process.pid, projection.signal.SIGKILL),
+            ],
+        )
+        killpg.assert_not_called()
+        sleep.assert_called_once_with(projection.PROCESS_GRACE_SECONDS)
+        self.assertEqual(process.method_calls, [call.wait(timeout=projection.PROCESS_GRACE_SECONDS)])
+
     def test_bounded_subprocess_does_not_signal_group_after_success(self) -> None:
         successful = self._write_executable("successful", "print('ok')\n")
         with patch.object(projection.os, "killpg") as killpg:

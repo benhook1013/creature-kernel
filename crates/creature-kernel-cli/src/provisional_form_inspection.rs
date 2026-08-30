@@ -5692,17 +5692,10 @@ mod tests {
         let owner_local_sections = owner_local_positions["authored_torso_profile"]["sections"]
             .as_array()
             .unwrap();
-        assert_eq!(
-            owner_local_sections[1]["name"],
-            "upper-pelvis"
-        );
-        assert_eq!(
-            owner_local_sections[2]["name"],
-            "lower-abdomen"
-        );
-        let lower_abdomen_landmark_index = owner_local_sections[2]["landmark_index"]
-            .as_u64()
-            .unwrap() as usize;
+        assert_eq!(owner_local_sections[1]["name"], "upper-pelvis");
+        assert_eq!(owner_local_sections[2]["name"], "lower-abdomen");
+        let lower_abdomen_landmark_index =
+            owner_local_sections[2]["landmark_index"].as_u64().unwrap() as usize;
         assert_eq!(
             owner_local_positions["authored_landmarks"][lower_abdomen_landmark_index]["position"],
             json!([0.0, -0.9, 0.0])
