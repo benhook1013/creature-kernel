@@ -229,15 +229,16 @@ topology, realistic anatomy, contact response, localized deformation quality,
 runtime budgets, or a host/solver choice. No further cosmetic repair of that
 disposable candidate is planned.
 
-The current named human checkpoint is a bounded Godot feasibility result. After
-the direct Creature Kernel and package prerequisites are prepared, the eventual
-candidate must load an engine-neutral CK package into two independently
+The then-named human checkpoint was a bounded Godot feasibility result. Its
+candidate had to load an engine-neutral CK package into two independently
 identified generated avatars, inject a host-neutral semantic pose, establish
 semantic contact, show localized press/release deformation plus actual physical
 response, measure render/collision coherence with named hardware and frame
-evidence, and demonstrate a CPU baseline plus a useful fallback. The
+evidence, and demonstrate a CPU baseline plus a useful fallback. That work is
+now complete and dispositioned; the active-runway section above owns the current
+four-profile anatomy checkpoint. The
 [first host runtime evaluation](../research/first-host-runtime-evaluation.md)
-records the current evidence and unresolved trial questions.
+records the bounded evidence and unresolved trial questions.
 
 Ben flagged that the current lumpy surface may hide anything short of extreme
 deformation. The human-facing result therefore must make a moderate localized

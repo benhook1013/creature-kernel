@@ -39,11 +39,16 @@ method questions; they do not supply anatomy facts here.
 
 ### Current implementation observation and procedural inference
 
-The current prototype already has enough stations and controls for this
-research slice. The observed bottleneck is mass hierarchy, non-uniform section
-progression, and overly uniform or global blending: those behaviours erase the
-neck, waist, axilla, and groin, and inflate branch junctions. This is an
-implementation observation, not a source-backed anatomy claim.
+The bounded successor-v9 artifact
+`authored-form-expressivity-exact-field-components-checkpoint-v2` and Ben's
+scoped appraisal are recorded in [project status](../project/status.md). The
+artifact shows that the current stations and controls cover the required body
+regions while the resulting skin still loses the neck and reads as blocky
+through the torso and pelvis. The working implementation hypothesis is
+therefore that mass hierarchy, non-uniform section progression, and overly
+uniform or global blending are the immediate bottlenecks. This is a
+provisional implementation inference from that exact candidate, not a
+source-backed anatomy claim or proof that no further controls will be needed.
 
 The following are procedural inferences for the two dossiers, not normative
 geometry rules:
@@ -76,7 +81,7 @@ core from optional modules without deciding how either is represented.
 | Pelvis | Keep a distinct load-bearing/root mass with readable continuation into each hip. |
 | Shoulder and hip transitions | Inspect attachment roots and negative spaces; avoid beads, melted roots, and inflated junctions. |
 | Upper- and lower-limb chains and joints | Preserve differentiated segment lengths, bends, taper, and joint placement. |
-| Simplified hand/foot paws and contact planes | Keep a terminal paw mass and a deliberate contact plane; detailed digits are out of scope. |
+| Simplified hand/foot paws and placement planes | Keep a terminal paw mass and a deliberate static placement plane; detailed digits and runtime contact are out of scope. |
 | Optional ears and tail/root | Check presence, absence, and simple style variation as optional modules; do not expand the pilot count. |
 
 ## Frozen profiles and expectations
@@ -88,7 +93,8 @@ they do not freeze numeric ratios or activate support:
   limbs and a large head must not collapse the neck or turn the torso into a
   rounded rectangle.
 - `tall_narrow_long_legged`: narrow, elongated body read; long legs must keep
-  articulated joints and planted contact rather than becoming hoses.
+  articulated joints and deliberate static placement rather than becoming
+  hoses.
 - `slender_long_limb`: slender, long-limbed read; correlated taper and joint
   spacing must remain visible without a fragile chain of beads.
 - `stocky_broad_chested`: heavy, broad-chested read; chest, pelvis, and hip
@@ -128,24 +134,26 @@ not erase the intended constriction.
 ### 2. Pelvic-to-planted-hind-paw assembly
 
 **Scope.** A connected hind-limb chain of pelvis, hip, thigh, knee, shin, hock,
-metatarsal, pad, toe, and contact plane. Keep the chain simplified and
-stylized, while retaining the digitigrade bend and a readable planted terminal
-surface.
+metatarsal, pad, simplified toe terminal, and static placement plane. Keep the
+chain simplified and stylized, while retaining the digitigrade bend and a
+readable planted terminal surface. Detailed toes, load behaviour, runtime
+contact, and deformation are excluded.
 
 **Question.** Can the pelvis-to-paw chain express correlated proportions,
-joint bends, taper, and load/contact intent without degenerating into a hose
-with spherical joints or a club-shaped paw?
+joint bends, taper, and a deliberate planted silhouette without degenerating
+into a hose with spherical joints or a club-shaped paw?
 
 **Procedure.** Exercise the same chain across all four frozen profiles. Inspect
 side and three-quarter views for hip-root separation, knee/hock placement,
-metatarsal continuation, paw orientation, and contact-plane stability. Check
-that changing leg length or body build does not isotropically enlarge every
-segment or erase the bend sequence.
+metatarsal continuation, paw orientation, and consistency against the static
+placement plane. Check that changing leg length or body build does not
+isotropically enlarge every segment or erase the bend sequence.
 
 **Expected evidence.** Pelvis and hip should remain identifiable; thigh, knee,
 shin, hock, and metatarsal should read as a connected articulated progression;
-the pad/toe should meet a deliberate contact plane; and profile differences
-should alter relationships rather than only scale.
+the simplified paw terminal should align with a deliberate static placement
+plane; and profile differences should alter relationships rather than only
+scale.
 
 ## Failure signatures to retain
 

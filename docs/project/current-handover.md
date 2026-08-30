@@ -236,16 +236,17 @@ the canonical owner of the active runway, and the required reading order in
   retains useful plumbing and comparison evidence; it does not accept the
   disposable surface as a form-quality success.
 
-The current named human checkpoint is a bounded Godot feasibility result, not the
-completed structural gallery. After direct Rust and engine-neutral package
-prerequisites, the eventual candidate must load an engine-neutral CK package
-into two independently identified generated avatars, inject a host-neutral
-semantic pose, establish semantic contact, show localized press/release
-deformation plus actual physical response, measure render/collision coherence
-with named hardware and frame evidence, and demonstrate a CPU baseline plus a
-useful fallback. The
+The completed bounded Godot feasibility result replaced the structural gallery
+as the named checkpoint at this point in the runway. Its candidate had to load
+an engine-neutral CK package into two independently identified generated
+avatars, inject a host-neutral semantic pose, establish semantic contact, show
+localized press/release deformation plus actual physical response, measure
+render/collision coherence with named hardware and frame evidence, and
+demonstrate a CPU baseline plus a useful fallback. That work is now complete and
+dispositioned; the current named checkpoint is the four-profile anatomy result
+recorded in the Active runway. The
 [first host runtime evaluation](../research/first-host-runtime-evaluation.md)
-records the current evidence and unresolved trial questions.
+records the bounded evidence and unresolved trial questions.
 
 Ben flagged that the current lumpy surface may hide anything short of extreme
 deformation. The human-facing result must therefore make a moderate localized
@@ -587,9 +588,9 @@ anatomical skin; visual region readability therefore remains failed or
 inconclusive. These limitations are scoped to this disposable candidate, not
 canonical geometry prescriptions. No further cosmetic repair is planned.
 
-The former shared-pose structural embodiment gallery is predecessor evidence;
-the bounded Godot feasibility result defined near the top of this handover is
-the current checkpoint and is canonically governed by the Active runway. The
+The former shared-pose structural embodiment gallery and bounded Godot
+feasibility result are predecessor evidence; the current four-profile anatomy
+checkpoint is canonically governed by the Active runway. The
 structural gallery's frozen-profile, fail-closed artifact, human-judgment,
 candidate-scope, non-goal, and reevaluation boundaries remain historical
 without creating another surface-polish checkpoint.
