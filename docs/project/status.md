@@ -59,29 +59,28 @@ or executable truth.
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
 Remote PR #122 head is the immutable commit
-`13d6fae5a3d975e5efd19a1b84cb2156307ff3c8`; all three CI lanes are green and
-the preceding four hosted threads are resolved. Its current hosted review
+`252b740911427071b7e229dfdaeb2268eabba7a9`; all three CI lanes are green and
+the preceding six hosted threads are resolved. Its current hosted review
 completed with six findings and its committed-diff CLI review completed with
-nine findings. The locally integrated valid fixes cover bounded post-EOF child
-teardown, clean-workspace anatomy-gallery testing, positional historical source
-identity, direct use of the connector-clearance contract, and shared generated-
-profile test setup. The prior rate-limited CLI attempt on `dc1761e` produced no
-review result; it is not evidence of a finding-free pass. Invalid findings were
-rejected with evidence, including NZST date complaints, conflated v9-format and
-v16-region labels, producer-owned frozen-digest coupling, redundant parameter
-clamping, timeout skipping, and a proposed two-dimensional connector-span
-invariant contradicted by valid axial limb routes. The six current hosted
-threads remain unresolved pending a pushed fix commit and evidence replies. PR
-`#122` remains draft and unmerged. No hosted taper, final gallery, visual
-acceptance, or merge-readiness claim is made.
+seven low-severity findings. The locally integrated valid fixes cover regular
+non-symlink successor-source enforcement, durable baseline-guide test capture,
+pelvis-radius coverage, Python 3.13 zero-test diagnostics, production-matching
+connector-section tests, and distinct exited/live Godot process fixtures and
+release ordering. Ambiguous research wording and one shadowed callable local
+are clarified. Optional duplication, extra caching, type-hygiene, and sensitive
+process-helper refactors are deferred because they do not correct behavior. The
+six current hosted threads remain unresolved pending a pushed fix commit and
+evidence replies. PR `#122` remains draft and unmerged. No hosted taper, final
+gallery, visual acceptance, or merge-readiness claim is made.
 
 The candidate still targets the exact five ordered profiles above, with the
 standard neutral reference first. Current local review-fix evidence includes
-the surface publisher module (65 passed with 1 expected skip), both historical
-structural modules (28 passed each), the clean-workspace anatomy-gallery test
-(1 passed), and five exact successor connector/generated-profile tests (5
-passed). The preceding Rust, structural-profile, Godot, exact-five, gallery,
-profile, browser, and real-generator evidence remains.
+the surface publisher module (67 passed with 1 expected skip), Godot projection
+(35 passed with 1 expected skip), structural profiles (18 passed), wrapper
+tests (6 passed), and focused connector, tail-signature, and clean-workspace
+tests. Documentation validation, whitespace, diff, and formatting checks pass.
+The preceding Rust, historical structural, exact-five, gallery, profile,
+browser, and real-generator evidence remains.
 
 ### Immediate continuation
 
@@ -107,15 +106,15 @@ project state distinct. Any change that crosses a retained-human boundary is a
 stop-and-present decision, not autonomous continuation.
 
 The current evidence supports technical continuation only. The integrated
-hosted/CLI follow-up fixes pass the surface publisher module (65 with 1 expected
-skip), both historical structural modules (28 each), the clean-workspace
-anatomy-gallery test (1), and five focused successor connector/generated-
-profile tests. Prior Rust, structural-profile, Godot, exact-five, gallery,
-profile, browser, and real-generator evidence remains. The fix set is not yet
-pushed and the six hosted threads remain unresolved. This does not claim hosted
-taper, final gallery publication, visual quality, or merge readiness. All three
-CI lanes are green for remote head
-`13d6fae5a3d975e5efd19a1b84cb2156307ff3c8`.
+hosted/CLI follow-up fixes pass the surface publisher module (67 with 1 expected
+skip), Godot projection (35 with 1 expected skip), structural profiles (18),
+wrapper tests (6), and focused connector, tail-signature, and clean-workspace
+tests; documentation validation, whitespace, diff, and formatting checks also
+pass. Prior Rust, historical structural, exact-five, gallery, profile, browser,
+and real-generator evidence remains. The fix set is not yet pushed and the six
+hosted threads remain unresolved. This does not claim hosted taper, final
+gallery publication, visual quality, or merge readiness. All three CI lanes are
+green for remote head `252b740911427071b7e229dfdaeb2268eabba7a9`.
 
 A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
 treating the source-authored peak and axilla shoulder control landmarks as

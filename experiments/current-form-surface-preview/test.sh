@@ -71,11 +71,11 @@ if [[ -n "$METHOD_PATTERN" ]]; then
   TEST_STATUS="$?"
   set -e
   printf '%s\n' "$TEST_OUTPUT"
-  if [[ "$TEST_STATUS" -ne 0 ]]; then
-    exit "$TEST_STATUS"
-  fi
   if grep -q '^Ran 0 tests' <<<"$TEST_OUTPUT"; then
     error "method selector '$METHOD_PATTERN' matched no tests in '$TEST_PATTERN'"
+  fi
+  if [[ "$TEST_STATUS" -ne 0 ]]; then
+    exit "$TEST_STATUS"
   fi
   exit 0
 fi

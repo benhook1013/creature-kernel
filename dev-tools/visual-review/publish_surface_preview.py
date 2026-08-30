@@ -391,6 +391,10 @@ def _read_successor_contract() -> dict[str, Any]:
     """Read all required immutable contract literals from the source owner."""
 
     successor_path = _successor_source_path()
+    if successor_path.is_symlink() or not successor_path.is_file():
+        raise SurfacePreviewPublishError(
+            "successor contract owner source must be a regular non-symlink file"
+        )
     with successor_path.open("rb") as source_stream:
         source_bytes = source_stream.read(MAX_SUCCESSOR_SOURCE_BYTES + 1)
     if len(source_bytes) > MAX_SUCCESSOR_SOURCE_BYTES:

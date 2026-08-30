@@ -53,8 +53,8 @@ or proof that no further controls will be needed.
 The following are procedural inferences for the two dossiers, not normative
 geometry rules:
 
-- Prefer primary oriented, non-circular masses over a collection of spherical
-  blobs.
+- Prefer main masses with deliberate orientation and non-circular profiles
+  over a collection of spherical blobs.
 - Route sections along curved anatomical paths where the assembly bends; do
   not assume every segment is a straight centerline.
 - Control transition envelopes locally so shoulder, hip, neck, waist, axilla,
@@ -76,7 +76,7 @@ core from optional modules without deciding how either is represented.
 | Axial chain | Regional progression through torso, neck, and head; preserve readable changes in section and orientation. |
 | Head, cranium, muzzle, and jaw | Keep the head mass distinct from the torso and retain a simplified muzzle/jaw read. |
 | Neck | Test visibility, narrowing, and connectedness between head and thorax. |
-| Thorax/ribcage | Treat the chest as a broad oriented mass with a distinct shoulder-facing surface. |
+| Thorax/ribcage | Treat the chest as a broad mass with deliberate orientation and a distinct shoulder-facing surface. |
 | Abdominal/lumbar bridge | Preserve a non-uniform bridge and a possible waist rather than a single bean-like trunk. |
 | Pelvis | Keep a distinct load-bearing/root mass with readable continuation into each hip. |
 | Shoulder and hip transitions | Inspect attachment roots and negative spaces; avoid beads, melted roots, and inflated junctions. |

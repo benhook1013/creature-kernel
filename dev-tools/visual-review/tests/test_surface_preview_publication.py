@@ -1565,10 +1565,22 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         captured: dict[str, object] = {}
         validate_successor_bundle = publisher._validate_successor_bundle
 
-        def capture_successor_bundle(*args: object, **kwargs: object):
-            published, metadata = validate_successor_bundle(*args, **kwargs)
+        def capture_successor_bundle(
+            bundle: Path,
+            expected_source_sha256: str,
+            producer_payload: dict[str, object],
+            baseline_manifest: dict[str, object],
+            baseline_guides: dict[str, dict[str, object]],
+        ):
+            published, metadata = validate_successor_bundle(
+                bundle,
+                expected_source_sha256,
+                producer_payload,
+                baseline_manifest,
+                baseline_guides,
+            )
             captured["published"] = published
-            captured["baseline_guides"] = args[4]
+            captured["baseline_guides"] = baseline_guides
             return published, metadata
 
         with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(
@@ -4053,6 +4065,37 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         completed.stderr,
                     )
                 self.assertNotIn("Traceback", completed.stderr)
+
+    def test_successor_contract_rejects_symlink_source_before_open(self) -> None:
+        target = self.directory / "successor-target.py"
+        target.write_text("SUCCESSOR_REGION_ID = 'target'\n", encoding="utf-8")
+        source = self.directory / "successor-link.py"
+        source.symlink_to(target)
+        with patch.object(publisher, "_successor_source_path", return_value=source), patch.object(
+            Path, "open", side_effect=AssertionError("successor source was opened")
+        ) as open_mock:
+            with self.assertRaisesRegex(
+                publisher.SurfacePreviewPublishError,
+                "successor contract owner source must be a regular non-symlink file",
+            ):
+                publisher._read_successor_contract()
+        open_mock.assert_not_called()
+
+    def test_successor_contract_rejects_fifo_source_before_open(self) -> None:
+        source = self.directory / "successor-source.fifo"
+        os.mkfifo(source)
+        try:
+            with patch.object(publisher, "_successor_source_path", return_value=source), patch.object(
+                Path, "open", side_effect=AssertionError("successor source was opened")
+            ) as open_mock:
+                with self.assertRaisesRegex(
+                    publisher.SurfacePreviewPublishError,
+                    "successor contract owner source must be a regular non-symlink file",
+                ):
+                    publisher._read_successor_contract()
+            open_mock.assert_not_called()
+        finally:
+            source.unlink()
 
     def test_successor_contract_accepts_finite_hand_offset_below_one(self) -> None:
         staged_repository, _staged_publisher = self._stage_publisher_contract_source(

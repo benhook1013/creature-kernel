@@ -123,7 +123,7 @@ Copyable entry scaffold:
   - Expected pattern: After a late CodeRabbit CLI subscription failure, inspect saved findings and usage before retrying; do not assume a recoverable transport label means the review allowance was preserved.
 
 - `2026-08-29 20:52 NZST`: Broad multi-file review reads repeatedly exceeded useful output limits
-  - Observation: A delegated documentation review batched several large files into single inspection commands, repeatedly received truncated output, and had to repeat narrower reads before it could form evidence.
+  - Observation: A delegated documentation review batched several large files into single inspection commands, repeatedly received truncated output, and had to repeat narrower reads before it could form evidence. A later committed-diff finding triage worker repeated one broad multi-file read that exceeded the useful output limit before switching to narrow finding-specific sections.
   - Expected pattern: Bound review reads by one relevant section or a small related file set, then expand only around concrete matches; do not begin with broad concatenated document dumps.
 
 - `2026-08-29 21:38 NZST`: Lost Xvfb test session left a busy process alive

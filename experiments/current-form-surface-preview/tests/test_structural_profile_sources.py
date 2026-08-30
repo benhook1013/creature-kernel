@@ -297,6 +297,8 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             [0, 0.95, 0],
         )
         expected_radii = {
+            "form_torso_profile_lower_pelvis": (1500, 850, 600),
+            "form_torso_profile_upper_pelvis": (1350, 780, 560),
             "form_torso_profile_lower_abdomen": (1125, 680, 540),
             "form_torso_profile_waist_abdomen": (875, 500, 400),
             "form_torso_profile_upper_abdomen": (1225, 725, 560),

@@ -2491,22 +2491,28 @@ class SurfacePreviewTests(unittest.TestCase):
                             ["metatarsal", "paw-pad", "toe-box"],
                         )
                         thigh = next(item for item in descriptors if item.key[1:] == ((side,), "part", "thigh"))
-                        section = guide.torso_cage.lower_boundary
+                        torso_cage = guide.torso_cage
                         for recipe in ("root-bridge", "hip-transition"):
                             bridge = next(item for item in fields if item.owner is thigh and item.recipe == recipe)
                             limb = next(item for item in guide.limb_guides if item.owner is thigh)
                             semantic_path = limb.root_centerline if recipe == "root-bridge" else limb.hip_centerline
                             semantic_profile = limb.root_thickness if recipe == "root-bridge" else limb.hip_thickness
                             assert semantic_path is not None and semantic_profile is not None
+                            where = f"generated.{profile_id}.{side}.{recipe}"
+                            section = surface_preview._torso_cage_connector_context(
+                                torso_cage,
+                                semantic_path[0],
+                                where,
+                            )
                             direction, containment = surface_preview._boundary_connector_inward_direction(
                                 semantic_path[0],
                                 section,
-                                f"generated.{profile_id}.{side}.{recipe}",
+                                where,
                             )
                             expected_path = surface_preview._embed_boundary_connector(
                                 semantic_path,
                                 semantic_profile,
-                                f"generated.{profile_id}.{side}.{recipe}",
+                                where,
                                 direction,
                                 containment,
                             )
@@ -2519,7 +2525,7 @@ class SurfacePreviewTests(unittest.TestCase):
                                     section.lateral_radius,
                                     section.depth_radius,
                                     support,
-                                    f"generated.{profile_id}.{side}.{recipe}",
+                                    where,
                                 ),
                                 f"{profile_id}/{side}/{recipe} connector support escapes its selected cage section",
                             )

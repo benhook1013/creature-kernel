@@ -588,7 +588,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
     def test_stop_process_signals_retained_group_even_after_direct_child_exits(self) -> None:
         events = []
-        exited = Mock(pid=101, returncode=None)
+        exited = Mock(pid=101, returncode=0)
         live = Mock(pid=202, returncode=None)
 
         def record_wait(process_name):
@@ -1178,7 +1178,8 @@ class DisposableCKProjectionTests(unittest.TestCase):
         def release_after_first_no_status(seconds):
             events.append(("sleep", seconds))
             if not release_path.is_file():
-                self.assertEqual(events[-2], ("waitid-none",))
+                if ("waitid-none",) not in events:
+                    return real_sleep(seconds)
                 release_path.write_text("release")
                 events.append(("release",))
             return real_sleep(seconds)

@@ -643,11 +643,11 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
         if source_identity.get("document") != profile["document"] or source_identity.get("namespace") != base_namespace:
             _fail(f"{where}.file source identity does not match its profile record")
         try:
-            tail_signature = profile_source_generator._tail_signature
+            source_tail_signature = profile_source_generator._tail_signature
         except AttributeError as exc:
             _fail(f"{where}.file has an invalid generated source shape: missing _tail_signature: {exc}")
         try:
-            expected_tail_signature = list(tail_signature(source_object))
+            expected_tail_signature = list(source_tail_signature(source_object))
         except (
             IndexError,
             KeyError,
