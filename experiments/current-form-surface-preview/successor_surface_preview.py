@@ -49,7 +49,7 @@ FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13"
 TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
 _HEAD_NECK_PROFILE_OPERATION = "authored-head-neck-branched-route-profile-v1"
 _ARM_PROFILE_OPERATION = "authored-arm-profile-route-v1"
@@ -178,7 +178,9 @@ class _ProfileSweep:
     sections: tuple[_ProfileSection, ...]
     endpoint_caps: tuple[_ProfileEndpointCap, _ProfileEndpointCap]
     internal_transitions: tuple[_ProfileJointTransition, ...] = ()
-    _validated: bool = field(default=False, compare=False, repr=False)
+    # Validation is a private per-instance cache. Keep it out of ``__init__``
+    # so dataclasses.replace() cannot copy a trusted flag onto changed fields.
+    _validated: bool = field(default=False, init=False, compare=False, repr=False)
     profile_operation: str = "symmetric-ellipse"
     # Successor-local composition primitives remain private derived geometry;
     # authored route sections and their source records stay in ``sections``.
@@ -543,11 +545,6 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         if derived.profile_operation != _HEAD_NECK_PROFILE_OPERATION:
             _fail("profile derived composition has an invalid operation")
         _validate_profile_sweep(derived)
-    if sweep._validated:
-        return
-    sections = sweep.sections
-    if len(sections) < 2:
-        _fail("profile sweep requires at least two ordered sections")
     if sweep.profile_operation not in {
         "symmetric-ellipse",
         TORSO_PROFILE_OPERATION,
@@ -557,6 +554,11 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         _FOOT_PROFILE_OPERATION,
     }:
         _fail(f"profile sweep has unknown profile operation {sweep.profile_operation!r}")
+    if sweep._validated:
+        return
+    sections = sweep.sections
+    if len(sections) < 2:
+        _fail("profile sweep requires at least two ordered sections")
     is_head_neck_route = sweep.profile_operation == _HEAD_NECK_PROFILE_OPERATION
     is_authored_profile_route = sweep.profile_operation in {
         _ARM_PROFILE_OPERATION,
@@ -3449,14 +3451,20 @@ def _shape_preserving_slopes(path: np.ndarray, values: np.ndarray) -> np.ndarray
 
     path = np.asarray(path, dtype=np.float64)
     values = np.asarray(values, dtype=np.float64)
-    if path.ndim != 1 or values.shape != (path.size, 3) or path.size < 2:
-        _fail("torso profile interpolation controls have invalid dimensions")
+    if (
+        path.ndim != 1
+        or values.ndim != 2
+        or values.shape[0] != path.size
+        or values.shape[1] < 1
+        or path.size < 2
+    ):
+        _fail("profile interpolation controls have invalid dimensions")
     if not np.all(np.isfinite(path)) or not np.all(np.isfinite(values)) or np.any(np.diff(path) <= 0.0):
-        _fail("torso profile interpolation controls are invalid")
+        _fail("profile interpolation controls are invalid")
     spacing = np.diff(path)
     secants = np.diff(values, axis=0) / spacing[:, None]
     if not np.all(np.isfinite(secants)):
-        _fail("torso profile interpolation secants are not finite")
+        _fail("profile interpolation secants are not finite")
     slopes = np.zeros_like(values)
     if path.size == 2:
         slopes[0] = secants[0]
@@ -3465,10 +3473,15 @@ def _shape_preserving_slopes(path: np.ndarray, values: np.ndarray) -> np.ndarray
     for index in range(1, path.size - 1):
         previous = secants[index - 1]
         following = secants[index]
-        if np.all(previous * following > 0.0):
-            left_weight = 2.0 * spacing[index] + spacing[index - 1]
-            right_weight = spacing[index] + 2.0 * spacing[index - 1]
-            slopes[index] = (left_weight + right_weight) / (left_weight / previous + right_weight / following)
+        monotone = previous * following > 0.0
+        left_weight = 2.0 * spacing[index] + spacing[index - 1]
+        right_weight = spacing[index] + 2.0 * spacing[index - 1]
+        safe_previous = np.where(monotone, previous, 1.0)
+        safe_following = np.where(monotone, following, 1.0)
+        candidate = (left_weight + right_weight) / (
+            left_weight / safe_previous + right_weight / safe_following
+        )
+        slopes[index] = np.where(monotone, candidate, 0.0)
     first = ((2.0 * spacing[0] + spacing[1]) * secants[0] - spacing[0] * secants[1]) / (spacing[0] + spacing[1])
     first = np.where(first * secants[0] <= 0.0, 0.0, first)
     first = np.where(
@@ -3486,7 +3499,7 @@ def _shape_preserving_slopes(path: np.ndarray, values: np.ndarray) -> np.ndarray
     slopes[0] = first
     slopes[-1] = last
     if not np.all(np.isfinite(slopes)):
-        _fail("torso profile interpolation slopes are not finite")
+        _fail("profile interpolation slopes are not finite")
     return slopes
 
 
@@ -3653,7 +3666,37 @@ def _torso_profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.n
     return np.min(np.stack(values, axis=0), axis=0)
 
 
-def _profile_span_field(points: np.ndarray, left: _ProfileSection, right: _ProfileSection) -> np.ndarray:
+def _profile_span_radii(
+    left: _ProfileSection,
+    right: _ProfileSection,
+    t: np.ndarray,
+    route_interpolation: tuple[np.ndarray, np.ndarray, np.ndarray] | None,
+) -> np.ndarray:
+    """Sample one span's transverse radii without inventing route extrema."""
+
+    if route_interpolation is None:
+        result = (
+            (1.0 - t)[..., None] * np.asarray(left.transverse_radii, dtype=np.float64)
+            + t[..., None] * np.asarray(right.transverse_radii, dtype=np.float64)
+        )
+    else:
+        path, controls, slopes = route_interpolation
+        query = (
+            (1.0 - t) * float(left.path_length)
+            + t * float(right.path_length)
+        )
+        result = _shape_preserving_sample(path, controls, slopes, query)
+    if not np.all(np.isfinite(result)) or np.any(result <= 0.0):
+        _fail("profile span interpolation produced invalid radii")
+    return result
+
+
+def _profile_span_field(
+    points: np.ndarray,
+    left: _ProfileSection,
+    right: _ProfileSection,
+    route_interpolation: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+) -> np.ndarray:
     start = _vec3(left.center, "profile span start")
     end = _vec3(right.center, "profile span end")
     axis = end - start
@@ -3672,7 +3715,7 @@ def _profile_span_field(points: np.ndarray, left: _ProfileSection, right: _Profi
         second = np.broadcast_to(_vec3(left.transverse_axes[1], "profile span transverse axis"), points.shape)
     else:
         _, first, second = _interpolated_span_frame(left, right, t)
-    radii = (1.0 - t)[..., None] * np.asarray(left.transverse_radii, dtype=np.float64) + t[..., None] * np.asarray(right.transverse_radii, dtype=np.float64)
+    radii = _profile_span_radii(left, right, t, route_interpolation)
     offset = points - centre
     first_distance = np.sum(offset * first, axis=-1) / radii[..., 0]
     second_distance = np.sum(offset * second, axis=-1) / radii[..., 1]
@@ -3755,8 +3798,23 @@ def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray
     points = np.asarray(points, dtype=np.float64)
     if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
         _fail("profile sweep query points must be finite three-vectors")
+    route_interpolation = None
+    if sweep.profile_operation in {
+        _ARM_PROFILE_OPERATION,
+        _LEG_PROFILE_OPERATION,
+        _FOOT_PROFILE_OPERATION,
+    }:
+        path = np.asarray([section.path_length for section in sweep.sections], dtype=np.float64)
+        controls = np.asarray(
+            [section.transverse_radii for section in sweep.sections],
+            dtype=np.float64,
+        )
+        route_interpolation = (path, controls, _shape_preserving_slopes(path, controls))
     values = [
-        *(_profile_span_field(points, left, right) for left, right in zip(sweep.sections, sweep.sections[1:])),
+        *(
+            _profile_span_field(points, left, right, route_interpolation)
+            for left, right in zip(sweep.sections, sweep.sections[1:])
+        ),
         *(_profile_transition_field(points, transition) for transition in sweep.internal_transitions),
         *(_profile_cap_field(points, cap) for cap in sweep.endpoint_caps),
         *(

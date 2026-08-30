@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 20 open observations
+Status: Operational inbox; 18 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -58,10 +58,6 @@ Copyable entry scaffold:
   - Observation: An evidence mapper launched the 102-test and full Xvfb experiment suites while the main thread was editing the same worktree, producing stale parse and runtime failures while consuming the renderer needed for consolidated validation.
   - Expected pattern: Keep read-only mapping to static inspection unless broad validation is explicitly assigned; do not launch long tests against a mutable shared worktree, and leave integrated validation to the main thread.
 
-- `2026-08-29 02:14 NZST`: Native launcher repeatedly reported inherited Windows temp paths
-  - Observation: Two projection-tool runs through the repository launcher warned that inherited Windows `TEMP` and `TMP` paths were ignored before successfully selecting native Linux temporary storage.
-  - Expected pattern: Treat this known normalization as non-fatal, and prefer a launcher-side cleanup if the repeated warning continues to consume review attention; do not switch to bare system Python or Windows paths.
-
 - `2026-08-29 15:06 NZST`: Profile gallery fixture violated no-replace and lineage boundaries
   - Observation: A Godot deformation fixture run first pre-created the generator's output directory, which the no-replace publisher rejected; an earlier broad attempt also reused one successor bundle across profile-specific sources and failed lineage validation.
   - Expected pattern: Give generators an absent output path whose parent exists, and generate each profile's form, structure, successor, and bridge bundle from that profile's own source before composing the gallery.
@@ -101,7 +97,3 @@ Copyable entry scaffold:
 - `2026-08-30 00:25 NZST`: Mocked and skip-gated checks concealed a package consumer mismatch
   - Observation: Package unit tests mocked validation and process launch while the real Godot integration class was conditionally skipped, so the suite stayed green even though the producer's five-field source record was rejected by the consumer's three-field validator.
   - Expected pattern: For each new transport shape, keep a real producer-to-consumer scenario whose unavailable prerequisites are reported as missing coverage, and do not treat mocked transport checks as evidence of consumption compatibility.
-
-- `2026-08-30 14:43 NZST`: One deterministic mesh test consumed multiple foreground minutes
-  - Observation: A focused successor test that performs eight 56-cubed mesh builds remained CPU-bound after 2m31s and was interrupted during its second build; the complete successor file later took 9m25s.
-  - Expected pattern: Reserve repeated full-resolution deterministic mesh construction for consolidated candidate validation, and use explicit fully qualified semantic or numerical tests during active implementation; avoid broad selectors such as `-k all_variants` unless the mesh result itself is under test.

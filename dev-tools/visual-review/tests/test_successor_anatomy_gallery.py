@@ -71,6 +71,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
     ) -> dict[str, object]:
         published: dict[str, object] = {}
         events: list[tuple[str, str]] = []
+        (self.root / "reviews").mkdir(exist_ok=True)
 
         def fake_publish(_reviews_root: Path, manifest_path: Path, *, expected_sources=None):
             published["manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -151,6 +152,20 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             ],
         )
         return review  # type: ignore[return-value]
+
+    def test_missing_reviews_root_fails_before_source_or_render_work(self) -> None:
+        missing = self.root / "missing-reviews-root"
+        with patch.object(adapter, "_validate_source_manifest") as validate_manifest:
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "reviews root must already exist",
+            ):
+                adapter.publish_successor_anatomy_gallery(
+                    missing,
+                    self.source_manifest,
+                    creature_kernel=self.creature_kernel,
+                )
+        validate_manifest.assert_not_called()
 
     def test_gallery_is_one_ordered_group_with_neutral_only_shared_bound_and_distinct_lineage(self) -> None:
         review = self._run_gallery("successor-anatomy-test")

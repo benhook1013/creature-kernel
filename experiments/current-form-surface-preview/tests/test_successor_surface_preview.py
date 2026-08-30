@@ -473,6 +473,31 @@ def _foot_station_volume_signature(route: successor._ExtremitySweep, index: int)
 
 
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
+    def test_shape_preserving_slopes_are_componentwise_for_mixed_and_flat_controls(self) -> None:
+        path = np.asarray((0.0, 1.0, 3.0, 6.0), dtype=np.float64)
+        controls = np.asarray((
+            (1.0, 1.0, 1.0),
+            (2.0, 1.0, 0.5),
+            (4.0, 0.5, 0.5),
+            (5.0, 0.25, 1.0),
+        ), dtype=np.float64)
+        slopes = successor._shape_preserving_slopes(path, controls)
+        self.assertGreater(slopes[1, 0], 0.0)
+        self.assertGreater(slopes[2, 0], 0.0)
+        self.assertEqual(slopes[1, 1], 0.0)
+        self.assertLess(slopes[2, 1], 0.0)
+        self.assertEqual(slopes[1, 2], 0.0)
+        self.assertEqual(slopes[2, 2], 0.0)
+        for index in range(len(path) - 1):
+            samples = np.linspace(path[index], path[index + 1], 65)
+            interpolated = successor._shape_preserving_sample(
+                path, controls, slopes, samples
+            )
+            lower = np.minimum(controls[index], controls[index + 1])
+            upper = np.maximum(controls[index], controls[index + 1])
+            self.assertTrue(np.all(interpolated >= lower - 1.0e-12))
+            self.assertTrue(np.all(interpolated <= upper + 1.0e-12))
+
     def test_torso_profile_parameter_remap_is_finite_strictly_monotone_and_exact(self) -> None:
         exponents = (0.72, 0.82, 0.88, 0.90, 1.0, 1.12, 1.18, 1.28)
         samples = np.linspace(0.0, 1.0, 4097, dtype=np.float64)
@@ -1866,6 +1891,91 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             topologies.append(tuple(topology))
         self.assertEqual(len(set(topologies)), 1)
 
+    def test_authored_route_span_tapers_are_shape_preserving_exact_and_bounded(self) -> None:
+        expected_operations = {
+            successor._ARM_PROFILE_OPERATION,
+            successor._LEG_PROFILE_OPERATION,
+            successor._FOOT_PROFILE_OPERATION,
+        }
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            routes = (*region.arm_sweeps, *region.leg_sweeps, *region.foot_sweeps)
+            self.assertEqual(
+                {route.sweep.profile_operation for route in routes},
+                expected_operations,
+            )
+            for route in routes:
+                sweep = route.sweep
+                path = np.asarray(
+                    [section.path_length for section in sweep.sections],
+                    dtype=np.float64,
+                )
+                controls = np.asarray(
+                    [section.transverse_radii for section in sweep.sections],
+                    dtype=np.float64,
+                )
+                interpolation = (
+                    path,
+                    controls,
+                    successor._shape_preserving_slopes(path, controls),
+                )
+                for left, right in zip(sweep.sections, sweep.sections[1:]):
+                    with self.subTest(
+                        variant=variant_id,
+                        operation=sweep.profile_operation,
+                        left=left.name,
+                        right=right.name,
+                    ):
+                        t = np.linspace(0.0, 1.0, 17)
+                        radii = successor._profile_span_radii(
+                            left,
+                            right,
+                            t,
+                            interpolation,
+                        )
+                        np.testing.assert_allclose(
+                            radii[0], left.transverse_radii, rtol=0.0, atol=1.0e-12
+                        )
+                        np.testing.assert_allclose(
+                            radii[-1], right.transverse_radii, rtol=0.0, atol=1.0e-12
+                        )
+                        lower = np.minimum(left.transverse_radii, right.transverse_radii)
+                        upper = np.maximum(left.transverse_radii, right.transverse_radii)
+                        self.assertTrue(np.all(radii >= lower - 1.0e-12))
+                        self.assertTrue(np.all(radii <= upper + 1.0e-12))
+
+                        start = np.asarray(left.center, dtype=np.float64)
+                        end = np.asarray(right.center, dtype=np.float64)
+                        centers = start + t[:, None] * (end - start)
+                        np.testing.assert_allclose(
+                            successor._profile_span_field(
+                                centers,
+                                left,
+                                right,
+                                interpolation,
+                            ),
+                            -np.minimum(radii[:, 0], radii[:, 1]),
+                            rtol=0.0,
+                            atol=1.0e-12,
+                        )
+                for section in sweep.sections:
+                    self.assertIsNotNone(section.station_volume_axes)
+                    self.assertIsNotNone(section.station_volume_radii)
+                    station_axes = section.station_volume_axes or ()
+                    station_radii = section.station_volume_radii or ()
+                    center = np.asarray(section.center, dtype=np.float64)
+                    boundaries = np.asarray([
+                        center + float(radius) * np.asarray(axis, dtype=np.float64)
+                        for axis, radius in zip(station_axes, station_radii)
+                    ])
+                    np.testing.assert_allclose(
+                        successor._profile_station_volume_field(boundaries, section),
+                        0.0,
+                        rtol=0.0,
+                        atol=1.0e-12,
+                    )
+
     def test_authored_leg_routes_have_exact_topology_ownership_and_seams(self) -> None:
         expected_names = ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint")
         expected_roles = ("thigh", "thigh", "thigh", "shin", "shin")
@@ -3078,14 +3188,19 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
 
     def test_profile_sweep_rejects_malformed_frames_spans_radii_and_caps(self) -> None:
         valid = _test_profile_sweep()
+        successor._validate_profile_sweep(valid)
         cases = {
-            "duplicate-path": replace(valid, _validated=False, sections=tuple(replace(item, path_length=0.0) if index == 1 else item for index, item in enumerate(valid.sections))),
-            "degenerate-span": replace(valid, _validated=False, sections=tuple(replace(item, center=valid.sections[0].center) if index == 1 else item for index, item in enumerate(valid.sections))),
-            "bad-frame": replace(valid, _validated=False, sections=(replace(valid.sections[0], tangent=(0.0, 2.0, 0.0)),) + valid.sections[1:]),
-            "wrong-centerline-tangent": replace(valid, _validated=False, sections=(replace(valid.sections[0], tangent=(1.0, 0.0, 0.0)),) + valid.sections[1:]),
-            "non-orthogonal-frame": replace(valid, _validated=False, sections=(replace(valid.sections[0], transverse_axes=((2.0 ** -0.5, 0.0, 2.0 ** -0.5), valid.sections[0].transverse_axes[1])),) + valid.sections[1:]),
-            "bad-radii": replace(valid, _validated=False, sections=(replace(valid.sections[0], transverse_radii=(0.0, 0.5)),) + valid.sections[1:]),
-            "bad-cap": replace(valid, _validated=False, endpoint_caps=(replace(valid.endpoint_caps[0], axial_radius=0.0), valid.endpoint_caps[1])),
+            "unknown-operation-cached": replace(valid, profile_operation="unknown-operation"),
+            "allowed-operation-with-wrong-shape": replace(
+                valid, profile_operation=successor._ARM_PROFILE_OPERATION
+            ),
+            "duplicate-path": replace(valid, sections=tuple(replace(item, path_length=0.0) if index == 1 else item for index, item in enumerate(valid.sections))),
+            "degenerate-span": replace(valid, sections=tuple(replace(item, center=valid.sections[0].center) if index == 1 else item for index, item in enumerate(valid.sections))),
+            "bad-frame": replace(valid, sections=(replace(valid.sections[0], tangent=(0.0, 2.0, 0.0)),) + valid.sections[1:]),
+            "wrong-centerline-tangent": replace(valid, sections=(replace(valid.sections[0], tangent=(1.0, 0.0, 0.0)),) + valid.sections[1:]),
+            "non-orthogonal-frame": replace(valid, sections=(replace(valid.sections[0], transverse_axes=((2.0 ** -0.5, 0.0, 2.0 ** -0.5), valid.sections[0].transverse_axes[1])),) + valid.sections[1:]),
+            "bad-radii": replace(valid, sections=(replace(valid.sections[0], transverse_radii=(0.0, 0.5)),) + valid.sections[1:]),
+            "bad-cap": replace(valid, endpoint_caps=(replace(valid.endpoint_caps[0], axial_radius=0.0), valid.endpoint_caps[1])),
         }
         for name, malformed in cases.items():
             with self.subTest(name=name), self.assertRaises(successor.SuccessorPreviewError):

@@ -75,6 +75,12 @@ candidate being appraised and keep research, implementation evidence, and
 project state distinct. Any change that crosses a retained-human boundary is a
 stop-and-present decision, not autonomous continuation.
 
+A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
+treating the authored peak and axilla surface landmarks as separate sweep
+centrelines produced visible diamond-like shoulder protrusions across the four
+profiles. Do not revive that construction without a materially different
+surface representation and new evidence.
+
 Stop before merging the first PR head that actually reaches the human anatomy
 checkpoint. Present that candidate to Ben for visual appraisal.
 AI visual appraisal remains inactive until discussed with Ben; technical

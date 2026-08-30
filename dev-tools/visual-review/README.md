@@ -351,7 +351,7 @@ The current diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. The producer/profile identities remain
 unchanged: producer v11 with `authored_foot_profile` v1. The successor region
 identity is also unchanged; the current successor is v9 with region id
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`.
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13`.
 It contains four authored arm-profile routes plus two authored leg-profile
 routes. The shared elbow seam is exact and upper-arm-owned; the leg routes
 retain the thigh-owned knee and shin-owned hock, and each foot route is exactly

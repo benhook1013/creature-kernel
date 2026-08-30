@@ -858,6 +858,8 @@ def publish_successor_anatomy_gallery(
     review_id: str = REVIEW_ID,
     title: str = TITLE,
 ) -> dict[str, Any]:
+    if not reviews_root.is_dir():
+        _fail("reviews root must already exist as a directory")
     try:
         review_id = common.validate_id(review_id, "review id")
     except ValidationError as exc:
@@ -911,7 +913,7 @@ def publish_successor_anatomy_gallery(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", required=True, type=Path, help="existing or creatable visual-review root")
+    parser.add_argument("--root", required=True, type=Path, help="existing visual-review root")
     parser.add_argument("--source-manifest", required=True, type=Path, help="manifest.json from generate_structural_profile_sources.py")
     parser.add_argument("--creature-kernel", type=Path, default=None, help="creature-kernel executable (default: repository target/debug/creature-kernel)")
     parser.add_argument(

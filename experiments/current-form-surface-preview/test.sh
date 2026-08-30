@@ -16,11 +16,13 @@ LAUNCHER="$TEST_SCRIPT_DIR/surface_preview_launcher.sh"
 readonly LAUNCHER
 
 usage() {
-  printf 'Usage: %s [test*.py pattern]\n' "${BASH_SOURCE[0]}"
+  printf 'Usage: %s [test*.py pattern [test method pattern]]\n' "${BASH_SOURCE[0]}"
   printf '\n'
   printf 'Run the current-form surface-preview unittest suite through its pinned environment.\n'
   printf 'With one selector, run only matching test files (for example:\n'
   printf '  %s test_structural_gallery_evidence_probe.py\n' "${BASH_SOURCE[0]}"
+  printf 'With two selectors, also filter methods during focused development (for example:\n'
+  printf '  %s test_successor_surface_preview.py test_shoulder\n' "${BASH_SOURCE[0]}"
 }
 
 error() {
@@ -29,11 +31,11 @@ error() {
   exit 2
 }
 
-if [[ "$#" -gt 1 ]]; then
-  error 'provide at most one test filename or unittest discovery pattern'
+if [[ "$#" -gt 2 ]]; then
+  error 'provide at most one test filename pattern and one test method pattern'
 fi
 
-if [[ "$#" -eq 1 ]]; then
+if [[ "$#" -ge 1 ]]; then
   case "$1" in
     -h|--help)
       usage
@@ -53,9 +55,28 @@ else
   TEST_PATTERN='test*.py'
 fi
 
+METHOD_PATTERN="${2:-}"
+if [[ -n "$METHOD_PATTERN" && "$METHOD_PATTERN" != test* ]]; then
+  error "method selector '$METHOD_PATTERN' must begin with 'test'"
+fi
+
 if ! find "$TEST_DIR" -maxdepth 1 -type f -name "$TEST_PATTERN" -print -quit | grep -q .; then
   error "selector '$TEST_PATTERN' matched no test files"
 fi
 
 cd -- "$REPOSITORY_ROOT"
+if [[ -n "$METHOD_PATTERN" ]]; then
+  set +e
+  TEST_OUTPUT="$("$LAUNCHER" -m unittest discover -s "$TEST_DIR" -p "$TEST_PATTERN" -k "$METHOD_PATTERN" 2>&1)"
+  TEST_STATUS="$?"
+  set -e
+  printf '%s\n' "$TEST_OUTPUT"
+  if [[ "$TEST_STATUS" -ne 0 ]]; then
+    exit "$TEST_STATUS"
+  fi
+  if grep -q '^Ran 0 tests' <<<"$TEST_OUTPUT"; then
+    error "method selector '$METHOD_PATTERN' matched no tests in '$TEST_PATTERN'"
+  fi
+  exit 0
+fi
 exec "$LAUNCHER" -m unittest discover -s "$TEST_DIR" -p "$TEST_PATTERN"

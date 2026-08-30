@@ -16,7 +16,7 @@ The integrated candidate is producer v11 with `authored_foot_profile` v1:
 current diagnostic target is baseline preview format v3, regional guide v11,
 and successor preview v9. Producer v11, `authored_foot_profile` v1, and the
 successor region/profile identity
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13`
 are unchanged. The exact foot route is `hock -> metatarsal midpoint -> pad ->
 pad-toe midpoint -> toe`: the hock is shin-owned, the other four stations are
 foot-owned, and the route carries full lateral/up/forward radii, outer caps,
@@ -127,6 +127,9 @@ The successor separately consumes the authored arm profile as four routes
 (left/right upper arm and left/right forearm) and the authored leg profile as
 two bilateral five-station routes. Each route consumes all three authored
 lateral/up/forward radii; the shared elbow seam is exact and upper-arm-owned.
+Arm, leg, and foot span profiles sample their transverse radii with the same
+bounded shape-preserving interpolation used by the torso, retaining every
+authored station exactly without inventing intermediate extrema.
 The bilateral support curves remain
 `guide-only`; no successor arm root bridge or distal deltoid field is emitted,
 and no per-variant station tuning is used. The sidecar and manifest report the
@@ -231,7 +234,7 @@ tail boundary consumes six source-owned tail elements (root source,
 attachment, collar mass, tip source, extension, and cap); baseline fields
 remain an explicit bridge only for two thigh root connectors and two hip
 transitions. The successor v9 region
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v13`
 uses four authored arm-profile routes plus two authored leg-profile routes.
 The authored leg routes retain the thigh-owned knee and shin-owned hock, and
 each foot route is exactly `hock -> metatarsal midpoint -> pad -> pad-toe midpoint
@@ -463,8 +466,10 @@ Tests:
 experiments/current-form-surface-preview/test.sh
 ```
 
-Pass one `test*` filename or `test*` discovery pattern to run a focused
-subset; selectors must begin with `test` and must not contain `/`. The wrapper
+Pass one `test*` filename or `test*` discovery pattern to run a focused file
+subset. During active implementation, pass a second `test*` method pattern to
+filter that file further without triggering its mesh-heavy tests. Selectors
+must begin with `test`; filename selectors must not contain `/`. The wrapper
 resolves its own repository paths and always delegates
 interpreter selection, pinned dependency validation, and native temporary-root
 setup to `surface_preview_launcher.sh`; it never falls back to bare
