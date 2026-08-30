@@ -35,6 +35,16 @@ def load_module(name: str, filename: str):
 import common
 publisher = load_module("surface_preview_publisher", "publish_surface_preview.py")
 
+EXPECTED_HAND_PAW_PROFILE = (
+    (-0.55, 0.62, 0.66),
+    (-0.15, 1.00, 1.00),
+    (0.35, 0.92, 1.05),
+    (0.78, 0.55, 0.60),
+)
+EXPECTED_HAND_PAW_SECTION_NAMES = (
+    "hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip",
+)
+
 
 class SurfacePreviewPublicationTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -644,7 +654,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         path = self.directory / f"successor-generator-{mode}.py"
         script = textwrap.dedent("""
             #!/usr/bin/env python3
-            import hashlib, json, math, pathlib, sys, time
+            import copy, hashlib, json, math, pathlib, sys, time
 
             MODE = __MODE__
             PNG = __PNG__
@@ -662,6 +672,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             LIMB_ORDER = __LIMB_ORDER__
             LIMB_STATION_NAMES = __LIMB_STATION_NAMES__
             EXTREMITY_STATION_NAMES = __EXTREMITY_STATION_NAMES__
+            HAND_PAW_PROFILE = __HAND_PAW_PROFILE__
+            HAND_PAW_SECTION_NAMES = __HAND_PAW_SECTION_NAMES__
             TAIL_ORDER = __TAIL_ORDER__
             TAIL_KINDS = __TAIL_KINDS__
             TAIL_SECTION_NAMES = __TAIL_SECTION_NAMES__
@@ -828,6 +840,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     from_section = head_sections[connection_spec["from_section_index"]]
                     to_section = head_sections[connection_spec["to_section_index"]]
                     head_connections.append({"name": connection_spec["name"], "from_section_index": connection_spec["from_section_index"], "to_section_index": connection_spec["to_section_index"], "route": connection_spec["route"], "centerline": [from_section["center"], to_section["center"]], "thickness": [min(from_section["radii"].values()), min(to_section["radii"].values())]})
+                composition_root = [0.5 * (head_sections[3]["center"][axis] + head_sections[3]["radii"]["forward"] * (1.0 if axis == 2 else 0.0) + head_sections[5]["center"][axis]) for axis in range(3)]
+                composition_mid = [0.5 * (composition_root[axis] + head_sections[7]["center"][axis]) for axis in range(3)]
+                muzzle_composition = {"operation": "successor-local-forward-muzzle-envelope-v1", "section_names": ["muzzle-composition-root", "muzzle-composition-mid", "muzzle-composition-tip"], "geometric_input_section_indices": [3, 5, 7], "radius_donor_section_indices": [5, 6, 7], "center_derivation": ["midpoint(cranium-mid forward surface, muzzle-root center)", "midpoint(derived root, muzzle-tip center)", "muzzle-tip center"], "centers": [composition_root, composition_mid, head_sections[7]["center"]], "station_radii": [head_sections[index]["radii"] for index in (5, 6, 7)]}
                 head_neck = {
                     "profile_format": "creature-kernel.provisional-form-head-neck-profile.v1",
                     "operation": "authored-head-neck-branched-route-profile-v1",
@@ -838,8 +853,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "sections": head_sections,
                     "connections": head_connections,
                     "route_topology": [
-                        {"name": "vertical-neck-cranium", "operation": "authored-head-neck-branched-route-profile-v1", "section_indices": [0, 1, 2, 3, 4], "section_names": [head_sections[index]["name"] for index in (0, 1, 2, 3, 4)], "connection_names": [head_connections[index]["name"] for index in (0, 1, 2, 3)], "tangent_axis": "up", "transverse_axes": ["lateral", "forward"], "owner_keys": [head_sections[index]["owner"] for index in (0, 1, 2, 3, 4)], "station_radii": [head_sections[index]["radii"] for index in (0, 1, 2, 3, 4)], "endpoint_cap_count": 2, "internal_transition_count": 0},
-                        {"name": "forward-muzzle", "operation": "authored-head-neck-branched-route-profile-v1", "section_indices": [3, 5, 6, 7], "section_names": [head_sections[index]["name"] for index in (3, 5, 6, 7)], "connection_names": [head_connections[index]["name"] for index in (4, 5, 6)], "tangent_axis": "forward", "transverse_axes": ["lateral", "up"], "owner_keys": [head_sections[index]["owner"] for index in (3, 5, 6, 7)], "station_radii": [head_sections[index]["radii"] for index in (3, 5, 6, 7)], "endpoint_cap_count": 2, "internal_transition_count": 0},
+                        {"name": "vertical-neck-cranium", "operation": "authored-head-neck-branched-route-profile-v1", "section_indices": [0, 1, 2, 3, 4], "section_names": [head_sections[index]["name"] for index in (0, 1, 2, 3, 4)], "connection_names": [head_connections[index]["name"] for index in (0, 1, 2, 3)], "tangent_axis": "up", "transverse_axes": ["lateral", "forward"], "owner_keys": [head_sections[index]["owner"] for index in (0, 1, 2, 3, 4)], "station_radii": [head_sections[index]["radii"] for index in (0, 1, 2, 3, 4)], "endpoint_cap_count": 2, "internal_transition_count": 0, "derived_compositions": []},
+                        {"name": "forward-muzzle", "operation": "authored-head-neck-branched-route-profile-v1", "section_indices": [3, 5, 6, 7], "section_names": [head_sections[index]["name"] for index in (3, 5, 6, 7)], "connection_names": [head_connections[index]["name"] for index in (4, 5, 6)], "tangent_axis": "forward", "transverse_axes": ["lateral", "up"], "owner_keys": [head_sections[index]["owner"] for index in (3, 5, 6, 7)], "station_radii": [head_sections[index]["radii"] for index in (3, 5, 6, 7)], "endpoint_cap_count": 2, "internal_transition_count": 0, "derived_compositions": [muzzle_composition]},
                     ],
                 }
                 limb_owners = {(side, role): source_owner(descriptors, role, [side]) for side in ("left", "right") for role in ("upper_arm", "forearm", "thigh", "shin")}
@@ -940,6 +955,40 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 limb_internal_transition_counts = [0, 0, 0, 0, *[bend_count(points) for points in limb_centerlines]]
                 limbs = {"representation": "shared-guide-derived-authored-arm-and-leg-profile-routes", "sweeps_consumed": len(LIMB_ORDER), "sweep_order": list(LIMB_ORDER), "route_kinds": ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "leg-profile", "leg-profile"], "station_counts": [len(names) for names in LIMB_STATION_NAMES], "station_names": [list(names) for names in LIMB_STATION_NAMES], "section_owner_keys": limb_owner_keys, "station_owner_keys": limb_owner_keys, "endpoint_cap_counts": [2] * len(LIMB_ORDER), "arm_profile": arm_profile, "leg_profile": leg_profile, "foot_profile": foot_profile}
                 paw_owners = {(side, role): source_owner(descriptors, role, [side]) for side in ("left", "right") for role in ("hand", "foot")}
+                hand_paw_sides = []
+                for side in ("left", "right"):
+                    side_sign = -1.0 if side == "left" else 1.0
+                    hand_owner = paw_owners[(side, "hand")]
+                    stations = []
+                    for index, (offset, up_scale, forward_scale) in enumerate(HAND_PAW_PROFILE):
+                        stations.append({
+                            "name": HAND_PAW_SECTION_NAMES[index],
+                            "section_index": index,
+                            "owner": hand_owner,
+                            "center": [side_sign * 1.3 + offset * 0.5 * side_sign, -0.9, 0.0],
+                            "volume_axes": [[side_sign, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                            "volume_radii": [0.5, 0.5 * up_scale, 0.5 * forward_scale],
+                        })
+                    hand_paw_sides.append({
+                        "side": side,
+                        "route": f"{side}-hand-paw",
+                        "route_kind": "hand-paw",
+                        "station_count": len(stations),
+                        "owner_roles": ["hand"] * len(stations),
+                        "stations": stations,
+                    })
+                hand_paw = {
+                    "representation": "four-station-full-volume-hand-paw-sweeps",
+                    "operation": "symmetric-ellipse",
+                    "route_order": [item["route"] for item in hand_paw_sides],
+                    "route_kinds": [item["route_kind"] for item in hand_paw_sides],
+                    "section_names": list(HAND_PAW_SECTION_NAMES),
+                    "owner_roles": ["hand"] * len(HAND_PAW_SECTION_NAMES),
+                    "route_station_count": sum(item["station_count"] for item in hand_paw_sides),
+                    "route_volume_axis_count": sum(len(station["volume_axes"]) for item in hand_paw_sides for station in item["stations"]),
+                    "route_volume_radius_count": sum(len(station["volume_radii"]) for item in hand_paw_sides for station in item["stations"]),
+                    "sides": hand_paw_sides,
+                }
                 extremity_owner_keys = []
                 extremity_internal_transition_counts = []
                 for side in ("left", "right"):
@@ -956,7 +1005,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         [limb_owners[(side, "shin")]] + [paw_owners[(side, "foot")]] * 4,
                     ])
                     extremity_internal_transition_counts.extend([0, bend_count(hand_centers), bend_count(foot_centers)])
-                extremities = {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": len(EXTREMITY_ORDER), "sweep_order": list(EXTREMITY_ORDER), "sweep_kinds": list(EXTREMITY_KINDS), "station_counts": [len(names) for names in EXTREMITY_STATION_NAMES], "station_names": [list(names) for names in EXTREMITY_STATION_NAMES], "section_owner_keys": extremity_owner_keys, "endpoint_cap_counts": [2] * len(EXTREMITY_ORDER), "internal_transition_counts": extremity_internal_transition_counts}
+                extremities = {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": len(EXTREMITY_ORDER), "sweep_order": list(EXTREMITY_ORDER), "sweep_kinds": list(EXTREMITY_KINDS), "station_counts": [len(names) for names in EXTREMITY_STATION_NAMES], "station_names": [list(names) for names in EXTREMITY_STATION_NAMES], "section_owner_keys": extremity_owner_keys, "endpoint_cap_counts": [2] * len(EXTREMITY_ORDER), "internal_transition_counts": extremity_internal_transition_counts, "hand_paw": hand_paw}
                 limb_source_owner_keys = []
                 for section_owners in limbs["section_owner_keys"]:
                     sweep_sources = []
@@ -971,7 +1020,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 metrics_region = {
                     "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11",
                     "torso_representation": "rounded-superellipse-axial-profile-sweep-v1",
-                    "torso_profile_exponent": 4.0,
+                    "torso_profile_exponent": 3.0,
                     "torso_sections_consumed": len(torso_controls),
                     "torso_section_names": [item["name"] for item in torso_controls],
                     "torso_section_owner_keys": [item["owner"] for item in torso_controls],
@@ -987,6 +1036,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "arm_profile": arm_profile,
                     "leg_profile": leg_profile,
                     "foot_profile": foot_profile,
+                    "hand_paw": hand_paw,
                     "limb_representation": limbs["representation"],
                     "limb_sweeps_consumed": limbs["sweeps_consumed"],
                     "limb_sweep_order": limbs["sweep_order"],
@@ -1031,7 +1081,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "consumer_id": CONSUMER_ID,
                     "successor_region_id": REGION_ID,
                     "capture": frame,
-                    "torso": {"representation": "rounded-superellipse-axial-profile-sweep-v1", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "superellipse_exponent": 4.0, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
+                    "torso": {"representation": "rounded-superellipse-axial-profile-sweep-v1", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "superellipse_exponent": 3.0, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
                     "shoulders": {"representation": "authored-five-section-frame-aware-profile-sweeps", "sweeps_consumed": 2, "sweep_order": ["left-shoulder-envelope", "right-shoulder-envelope"], "section_counts": [5, 5], "section_names": [shoulder_section_names, shoulder_section_names]},
                     "head_neck": head_neck,
                     "limbs": limbs,
@@ -1088,6 +1138,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     sidecar["torso"] = {**sidecar["torso"], "section_controls": [*sidecar["torso"]["section_controls"][:2], {**sidecar["torso"]["section_controls"][2], "owner": pelvis_owner}, *sidecar["torso"]["section_controls"][3:]]}
                 elif MODE == "sidecar-torso-radius":
                     sidecar["torso"] = {**sidecar["torso"], "section_controls": [*sidecar["torso"]["section_controls"][:2], {**sidecar["torso"]["section_controls"][2], "lateral_radius": sidecar["torso"]["section_controls"][2]["lateral_radius"] + 0.01}, *sidecar["torso"]["section_controls"][3:]]}
+                elif MODE == "sidecar-torso-exponent":
+                    sidecar["torso"] = {**sidecar["torso"], "superellipse_exponent": 4.0}
                 elif MODE == "sidecar-head-section":
                     sections = list(sidecar["head_neck"]["sections"])
                     sections[0] = {**sections[0], "owner": head_owner}
@@ -1099,6 +1151,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 elif MODE == "sidecar-head-route-topology":
                     routes = list(sidecar["head_neck"]["route_topology"])
                     routes[0] = {**routes[0], "section_indices": [0, 1, 2, 4, 3]}
+                    sidecar["head_neck"] = {**sidecar["head_neck"], "route_topology": routes}
+                elif MODE == "sidecar-head-derived-composition":
+                    routes = copy.deepcopy(sidecar["head_neck"]["route_topology"])
+                    routes[1]["derived_compositions"][0]["centers"][0][0] += 0.1
                     sidecar["head_neck"] = {**sidecar["head_neck"], "route_topology": routes}
                 elif MODE == "sidecar-arm-route-order":
                     sidecar["limbs"] = {**sidecar["limbs"], "sweep_order": list(reversed(sidecar["limbs"]["sweep_order"]))}
@@ -1152,6 +1208,21 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     stations[2] = {**station, "lineage": lineage}
                     sides[0] = {**sides[0], "stations": stations}
                     sidecar["limbs"] = {**sidecar["limbs"], "foot_profile": {**profile, "sides": sides}}
+                elif MODE == "sidecar-hand-paw":
+                    hand_paw = {**sidecar["extremities"]["hand_paw"], "route_station_count": 7}
+                    sidecar["extremities"] = {**sidecar["extremities"], "hand_paw": hand_paw}
+                elif MODE.startswith("sidecar-hand-paw-"):
+                    hand_paw = copy.deepcopy(sidecar["extremities"]["hand_paw"])
+                    station = hand_paw["sides"][0]["stations"][0]
+                    if MODE == "sidecar-hand-paw-axis":
+                        station["volume_axes"][0][0] = -station["volume_axes"][0][0]
+                    elif MODE == "sidecar-hand-paw-center":
+                        station["center"][1] += 0.1
+                    elif MODE == "sidecar-hand-paw-radius":
+                        station["volume_radii"][2] += 0.1
+                    elif MODE == "sidecar-hand-paw-owner":
+                        station["owner"] = hand_paw["sides"][1]["stations"][0]["owner"]
+                    sidecar["extremities"] = {**sidecar["extremities"], "hand_paw": hand_paw}
                 (variant_dir / "successor.json").write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
                 metrics_file = dict(metrics)
                 if MODE == "metrics-disagreement":
@@ -1174,6 +1245,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     controls = list(metrics["successor_region"]["torso_section_controls"])
                     controls[0] = {**controls[0], "posterior_radius": controls[0]["posterior_radius"] + 0.01}
                     metrics_file["successor_region"] = {**metrics["successor_region"], "torso_section_controls": controls}
+                elif MODE == "metrics-torso-exponent":
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "torso_profile_exponent": 4.0}
                 elif MODE == "metrics-torso-owner":
                     owners = list(metrics["successor_region"]["torso_section_owner_keys"])
                     owners[2] = owners[0]
@@ -1194,6 +1267,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     foot_profile_metadata = dict(metrics["successor_region"]["foot_profile"])
                     foot_profile_metadata["route_order"] = list(reversed(foot_profile_metadata["route_order"]))
                     metrics_file["successor_region"] = {**metrics["successor_region"], "foot_profile": foot_profile_metadata}
+                elif MODE == "metrics-hand-paw":
+                    hand_paw = {**metrics["successor_region"]["hand_paw"], "route_station_count": 7}
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "hand_paw": hand_paw}
                 if MODE.startswith("component-"):
                     components = [dict(item) for item in component_visualization["components"]]
                     if MODE == "component-missing": components.pop()
@@ -1264,6 +1340,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__LIMB_ORDER__": repr(list(publisher.SUCCESSOR_LIMB_ORDER)),
             "__LIMB_STATION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_LIMB_STATION_NAMES]),
             "__EXTREMITY_STATION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_EXTREMITY_STATION_NAMES]),
+            "__HAND_PAW_PROFILE__": repr(list(EXPECTED_HAND_PAW_PROFILE)),
+            "__HAND_PAW_SECTION_NAMES__": repr(list(EXPECTED_HAND_PAW_SECTION_NAMES)),
             "__TAIL_ORDER__": repr(list(publisher.SUCCESSOR_TAIL_ORDER)),
             "__TAIL_KINDS__": repr(list(publisher.SUCCESSOR_TAIL_KINDS)),
             "__TAIL_SECTION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_TAIL_SECTION_NAMES]),
@@ -1951,6 +2029,61 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 )
         self.assertEqual(sorted(path.name for path in self.root.iterdir()), ["surface-test"])
 
+    def test_actual_generators_publish_hand_paw_metadata(self) -> None:
+        if os.environ.get("CK_RUN_SURFACE_PREVIEW_INTEGRATION") != "1":
+            self.skipTest(
+                "set CK_RUN_SURFACE_PREVIEW_INTEGRATION=1 after building target/debug/creature-kernel"
+            )
+        repository_root = HERE.parents[1]
+        creature_kernel = repository_root / "target/debug/creature-kernel"
+        if not creature_kernel.is_file() or not os.access(creature_kernel, os.X_OK):
+            self.skipTest("requires an executable target/debug/creature-kernel")
+        input_path = repository_root / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        captured: dict[str, object] = {}
+        validate_successor_bundle = publisher._validate_successor_bundle
+
+        def capture_successor_bundle(*args: object, **kwargs: object):
+            published, metadata = validate_successor_bundle(*args, **kwargs)
+            bundle = Path(args[0])
+            captured["published"] = published
+            captured["manifest_size"] = (bundle / publisher.SUCCESSOR_MANIFEST_NAME).stat().st_size
+            return published, metadata
+
+        with patch.object(publisher, "GENERATOR_TIMEOUT_SECONDS", 600.0), patch.object(
+            publisher,
+            "_validate_successor_bundle",
+            side_effect=capture_successor_bundle,
+        ):
+            result = publisher.publish_surface_preview(
+                self.root,
+                input_path,
+                creature_kernel=creature_kernel,
+                generator=repository_root / "experiments/current-form-surface-preview/generate_surface_preview.py",
+                successor_generator=repository_root / "experiments/current-form-surface-preview/generate_successor_surface_preview.py",
+                review_id="actual-hand-paw-metadata",
+            )
+
+        self.assertEqual(result["variants"], 4)
+        self.assertEqual(result["images"], 8)
+        review = json.loads((Path(result["session"]) / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(review["groups"]), len(common.PROVISIONAL_FORM_VARIANT_IDS))
+        self.assertTrue(all(len(group["items"]) == 2 for group in review["groups"]))
+        published = captured["published"]
+        self.assertIsInstance(published, list)
+        self.assertEqual(len(published), len(common.PROVISIONAL_FORM_VARIANT_IDS))
+        for item in published:
+            sidecar_hand_paw = item["sidecar"]["extremities"]["hand_paw"]
+            metrics_hand_paw = item["metrics"]["successor_region"]["hand_paw"]
+            self.assertEqual(sidecar_hand_paw, metrics_hand_paw)
+            self.assertEqual(sidecar_hand_paw["route_order"], ["left-hand-paw", "right-hand-paw"])
+            self.assertEqual(sidecar_hand_paw["section_names"], list(EXPECTED_HAND_PAW_SECTION_NAMES))
+            self.assertEqual(sidecar_hand_paw["route_station_count"], 8)
+            self.assertEqual(sidecar_hand_paw["route_volume_axis_count"], 24)
+            self.assertEqual(sidecar_hand_paw["route_volume_radius_count"], 24)
+        manifest_size = captured["manifest_size"]
+        self.assertIsInstance(manifest_size, int)
+        self.assertGreaterEqual(publisher.MAX_MANIFEST_BYTES - manifest_size, 8 * 1024)
+
     def test_v7_authored_torso_profile_tampering_rejects_without_review_directory(self) -> None:
         cases = ("omission", "reorder", "owner", "provenance", "name", "radius", "stale-version", "descriptor-owner")
         for index, case in enumerate(cases):
@@ -2257,16 +2390,46 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         )
                 self.assertFalse((self.root / review_id).exists())
 
+    def test_successor_hand_paw_metadata_rejects_metrics_and_sidecar_drift(self) -> None:
+        modes = (
+            "sidecar-hand-paw",
+            "sidecar-hand-paw-axis",
+            "sidecar-hand-paw-center",
+            "sidecar-hand-paw-radius",
+            "sidecar-hand-paw-owner",
+            "metrics-hand-paw",
+        )
+        for index, mode in enumerate(modes):
+            review_id = f"successor-hand-paw-tamper-{index}"
+            with self.subTest(mode=mode):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                    with self.assertRaisesRegex(
+                        publisher.SurfacePreviewPublishError,
+                        "does not match the validated guide",
+                    ):
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(),
+                            successor_generator=self._successor_generator(mode=mode),
+                            review_id=review_id,
+                        )
+                self.assertFalse((self.root / review_id).exists())
+
     def test_successor_torso_lineage_and_identity_tampering_reject_without_review_directory(self) -> None:
         modes = (
             "source-cross-variant",
             "scale-mismatch",
             "sidecar-torso-owner",
             "sidecar-torso-radius",
+            "sidecar-torso-exponent",
             "sidecar-head-section",
             "sidecar-head-connection",
             "sidecar-head-route-topology",
+            "sidecar-head-derived-composition",
             "metrics-torso-sidecar-disagreement",
+            "metrics-torso-exponent",
             "metrics-torso-owner",
             "metrics-head-cross-binding",
         )

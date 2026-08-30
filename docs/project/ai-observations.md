@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 18 open observations
+Status: Operational inbox; 19 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,10 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-08-30 18:18 NZST`: Dynamically composed visual-review IDs failed safe-slug admission
+  - Observation: Two independent anatomy-gallery hands-on trials each spent a failed first publication attempt on an invalid explicit review ID: one copied a dot-bearing `mktemp` suffix, while the other used a 68-character attack label beyond the 64-character bound. Both returned status 2 with the generic safe-slug error and required a corrected second attempt; neither failure installed a review directory.
+  - Expected pattern: Choose a separate 1–64 character lowercase safe slug using only letters, digits, `_`, or `-` before invoking a visual-review publisher; do not derive the review ID verbatim from a `mktemp` path or an unbounded scenario description.
 
 - `2026-08-28 19:40 NZST`: Batched `unlink` rejected multiple paths
   - Observation: A verified generated-cache cleanup used `find -exec unlink -- {} +`; GNU `unlink` rejected the second path with `extra operand`, and no file was removed on that attempt.

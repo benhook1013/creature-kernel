@@ -16,8 +16,9 @@ The integrated candidate is producer v11 with `authored_foot_profile` v1:
 current diagnostic target is baseline preview format v3, regional guide v11,
 and successor preview v9. Producer v11 and `authored_foot_profile` v1 remain
 the source identities. The current successor region/profile identity is
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14`
-after adding source-derived full-volume stations to the shared hand-paw sweep.
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15`
+after adding full-volume hand stations and source-control-preserving muzzle
+composition.
 The exact foot route is `hock -> metatarsal midpoint -> pad ->
 pad-toe midpoint -> toe`: the hock is shin-owned, the other four stations are
 foot-owned, and the route carries full lateral/up/forward radii, outer caps,
@@ -236,7 +237,7 @@ tail boundary consumes six source-owned tail elements (root source,
 attachment, collar mass, tip source, extension, and cap); baseline fields
 remain an explicit bridge only for two thigh root connectors and two hip
 transitions. The successor v9 region
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14`
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15`
 uses four authored arm-profile routes plus two authored leg-profile routes.
 The authored leg routes retain the thigh-owned knee and shin-owned hock, and
 each foot route is exactly `hock -> metatarsal midpoint -> pad -> pad-toe midpoint

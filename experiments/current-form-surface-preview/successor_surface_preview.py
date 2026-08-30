@@ -49,7 +49,7 @@ FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15"
 TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
 _HEAD_NECK_PROFILE_OPERATION = "authored-head-neck-branched-route-profile-v1"
 _ARM_PROFILE_OPERATION = "authored-arm-profile-route-v1"
@@ -3810,8 +3810,18 @@ def _profile_transition_field(points: np.ndarray, transition: _ProfileJointTrans
     return (np.sqrt(axial**2 + transverse_first**2 + transverse_second**2) - 1.0) * min(*transition.transverse_radii, transition.axial_radius)
 
 
-def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray:
-    """Evaluate finite tapered spans and oriented endpoint caps by minimum."""
+def _profile_sweep_field(
+    points: np.ndarray,
+    sweep: _ProfileSweep,
+    *,
+    include_station_volumes: bool = True,
+) -> np.ndarray:
+    """Evaluate finite tapered spans and oriented endpoint caps by minimum.
+
+    Derived head/muzzle compositions contribute only their synthetic spans and
+    caps. Their stations are interpolation controls, not additional authored
+    volumes that may mask the primary route's source-owned controls.
+    """
 
     if sweep.profile_operation == TORSO_PROFILE_OPERATION:
         return _torso_profile_sweep_field(points, sweep)
@@ -3838,13 +3848,17 @@ def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray
         ),
         *(_profile_transition_field(points, transition) for transition in sweep.internal_transitions),
         *(_profile_cap_field(points, cap) for cap in sweep.endpoint_caps),
-        *(
+    ]
+    if include_station_volumes:
+        values.extend(
             _profile_station_volume_field(points, section)
             for section in sweep.sections
             if section.tangent_radius is not None or section.station_volume_radii is not None
-        ),
-    ]
-    values.extend(_profile_sweep_field(points, derived) for derived in sweep.derived_sweeps)
+        )
+    values.extend(
+        _profile_sweep_field(points, derived, include_station_volumes=False)
+        for derived in sweep.derived_sweeps
+    )
     return np.min(np.stack(values, axis=0), axis=0)
 
 
@@ -4237,6 +4251,60 @@ def _foot_profile_metadata(region: SuccessorRegion) -> dict[str, Any]:
     }
 
 
+def _hand_paw_metadata(region: SuccessorRegion) -> dict[str, Any]:
+    """Serialize the exact compiled full-volume hand-paw station controls."""
+
+    routes = tuple(item for item in region.extremity_sweeps if item.kind == "hand-paw")
+    if tuple(item.name for item in routes) != ("left-hand-paw", "right-hand-paw"):
+        _fail("successor hand-paw metadata route order is unstable")
+    side_metadata: list[dict[str, Any]] = []
+    for route in routes:
+        if route.section_names != _HAND_PAW_SECTION_NAMES:
+            _fail(f"{route.side} hand-paw metadata station order is unstable")
+        station_metadata: list[dict[str, Any]] = []
+        for index, section in enumerate(route.sweep.sections):
+            axes = section.station_volume_axes
+            radii = section.station_volume_radii
+            if axes is None or radii is None:
+                _fail(f"{route.side} hand-paw metadata station {index} is missing its full volume")
+            station_metadata.append({
+                "name": section.name,
+                "section_index": index,
+                "owner": _baseline._address_json(section.owner.key),
+                "center": [float(value) for value in section.center],
+                "volume_axes": [[float(value) for value in axis] for axis in axes],
+                "volume_radii": [float(value) for value in radii],
+            })
+        side_metadata.append({
+            "side": route.side,
+            "route": route.name,
+            "route_kind": route.kind,
+            "station_count": len(route.sweep.sections),
+            "owner_roles": [section.owner.key[3] for section in route.sweep.sections],
+            "stations": station_metadata,
+        })
+    return {
+        "representation": "four-station-full-volume-hand-paw-sweeps",
+        "operation": routes[0].sweep.profile_operation,
+        "route_order": [item.name for item in routes],
+        "route_kinds": [item.kind for item in routes],
+        "section_names": list(_HAND_PAW_SECTION_NAMES),
+        "owner_roles": ["hand"] * len(_HAND_PAW_SECTION_NAMES),
+        "route_station_count": sum(len(item.sweep.sections) for item in routes),
+        "route_volume_axis_count": sum(
+            len(section.station_volume_axes or ())
+            for item in routes
+            for section in item.sweep.sections
+        ),
+        "route_volume_radius_count": sum(
+            len(section.station_volume_radii or ())
+            for item in routes
+            for section in item.sweep.sections
+        ),
+        "sides": side_metadata,
+    }
+
+
 def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]:
     profile_lower, profile_upper = _profile_sweep_bounds(region.loft)
     mins = [profile_lower]
@@ -4545,6 +4613,7 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "arm_profile": _arm_profile_metadata(region),
             "leg_profile": _leg_profile_metadata(region),
             "foot_profile": _foot_profile_metadata(region),
+            "hand_paw": _hand_paw_metadata(region),
             "limb_representation": "shared-guide-derived-authored-arm-and-leg-profile-routes",
             "limb_sweeps_consumed": len(region.limb_sweeps),
             "limb_sweep_order": [item.chain_name for item in region.limb_sweeps],
@@ -4801,6 +4870,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     ],
                     "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.extremity_sweeps],
                     "internal_transition_counts": [len(item.sweep.internal_transitions) for item in mesh.representation.extremity_sweeps],
+                    "hand_paw": mesh.metrics["successor_region"]["hand_paw"],
                 },
                 "tail": {
                     "representation": "shared-guide-derived-profile-sweep-elements",

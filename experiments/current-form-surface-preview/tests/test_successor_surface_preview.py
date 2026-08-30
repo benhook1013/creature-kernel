@@ -472,6 +472,48 @@ def _foot_station_volume_signature(route: successor._ExtremitySweep, index: int)
     ))
 
 
+def _mutate_hand_paw_radius(guide: object, side_index: int, axis: int = 2, factor: float = 1.37) -> object:
+    """Perturb one bilateral hand guide radius without changing the other hand."""
+
+    paws = list(guide.paw_guides)  # type: ignore[attr-defined]
+    side = ("left", "right")[side_index]
+    paw_index = next(
+        index for index, paw in enumerate(paws)
+        if paw.owner.key[1] == (side,) and paw.owner.key[3] == "hand"
+    )
+    paw = paws[paw_index]
+    assert paw.paw_radii is not None
+    radii = list(paw.paw_radii)
+    radii[axis] *= factor
+    paws[paw_index] = replace(paw, paw_radii=tuple(radii))
+    return replace(guide, paw_guides=tuple(paws))  # type: ignore[attr-defined]
+
+
+def _hand_paw_baseline_world_probes(route: successor._ExtremitySweep) -> np.ndarray:
+    """Derive fixed world-space probes from an unperturbed hand-paw route."""
+
+    probes = []
+    for section in route.sweep.sections:
+        center = np.asarray(section.center, dtype=np.float64)
+        axes = section.station_volume_axes
+        radii = section.station_volume_radii
+        assert axes is not None and radii is not None
+        for axis in range(3):
+            direction = np.asarray(axes[axis], dtype=np.float64)
+            for sign in (-1.0, 1.0):
+                probes.append(center + sign * 0.8 * float(radii[axis]) * direction)
+    return np.asarray(probes, dtype=np.float64)
+
+
+def _hand_paw_fixed_world_field_signature(
+    route: successor._ExtremitySweep,
+    probes: np.ndarray,
+) -> np.ndarray:
+    """Evaluate a route at fixed baseline-derived world-space probes only."""
+
+    return successor._profile_sweep_field(probes, route.sweep)
+
+
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
     def test_shape_preserving_slopes_are_componentwise_for_mixed_and_flat_controls(self) -> None:
         path = np.asarray((0.0, 1.0, 3.0, 6.0), dtype=np.float64)
@@ -1041,6 +1083,80 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     self.assertLess(float(successor._profile_sweep_field(paw_center, item.sweep)[0]), 0.0)
                 forearm_end = np.asarray(arm.sweep.sections[-1].center).reshape(1, 3)
                 self.assertLess(float(successor._profile_sweep_field(forearm_end, item.sweep)[0]), 0.0)
+
+    def test_hand_paw_metadata_retains_exact_compiled_full_volume_controls(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                metadata = successor._hand_paw_metadata(region)
+
+                self.assertEqual(metadata["representation"], "four-station-full-volume-hand-paw-sweeps")
+                self.assertEqual(metadata["operation"], region.hand_sweeps[1].sweep.profile_operation)
+                self.assertEqual(metadata["route_order"], ["left-hand-paw", "right-hand-paw"])
+                self.assertEqual(metadata["route_kinds"], ["hand-paw", "hand-paw"])
+                self.assertEqual(metadata["section_names"], list(successor._HAND_PAW_SECTION_NAMES))
+                self.assertEqual(metadata["owner_roles"], ["hand"] * 4)
+                self.assertEqual(metadata["route_station_count"], 8)
+                self.assertEqual(metadata["route_volume_axis_count"], 24)
+                self.assertEqual(metadata["route_volume_radius_count"], 24)
+                hand_routes = tuple(item for item in region.hand_sweeps if item.kind == "hand-paw")
+                for side_metadata, route in zip(metadata["sides"], hand_routes):
+                    self.assertEqual(side_metadata["side"], route.side)
+                    self.assertEqual(side_metadata["route"], route.name)
+                    self.assertEqual(side_metadata["route_kind"], route.kind)
+                    self.assertEqual(side_metadata["station_count"], 4)
+                    self.assertEqual(side_metadata["owner_roles"], ["hand"] * 4)
+                    for index, (station_metadata, section) in enumerate(zip(side_metadata["stations"], route.sweep.sections)):
+                        self.assertEqual(station_metadata["name"], section.name)
+                        self.assertEqual(station_metadata["section_index"], index)
+                        self.assertEqual(
+                            station_metadata["owner"],
+                            surface_preview._address_json(section.owner.key),
+                        )
+                        self.assertEqual(station_metadata["center"], list(section.center))
+                        self.assertEqual(
+                            station_metadata["volume_axes"],
+                            [list(axis) for axis in section.station_volume_axes],
+                        )
+                        self.assertEqual(station_metadata["volume_radii"], list(section.station_volume_radii))
+                mesh = successor.build_variant(self.form, descriptors, padding=0.5)
+                self.assertEqual(mesh.metrics["successor_region"]["hand_paw"], metadata)
+
+    def test_hand_paw_guide_radius_perturbation_is_one_sided_bilaterally(self) -> None:
+        guide = surface_preview._derive_hybrid_guides(self.form, self.form.variants[0][1])
+        baseline = {
+            item.side: item
+            for item in successor.compile_successor_region(guide).hand_sweeps
+            if item.kind == "hand-paw"
+        }
+        baseline_probes = {
+            side: _hand_paw_baseline_world_probes(route)
+            for side, route in baseline.items()
+        }
+        baseline_fields = {
+            side: _hand_paw_fixed_world_field_signature(route, baseline_probes[side])
+            for side, route in baseline.items()
+        }
+        for side_index, selected_side in enumerate(("left", "right")):
+            changed_guide = _mutate_hand_paw_radius(guide, side_index)
+            changed = {
+                item.side: item
+                for item in successor.compile_successor_region(changed_guide).hand_sweeps
+                if item.kind == "hand-paw"
+            }
+            other_side = "right" if selected_side == "left" else "left"
+            np.testing.assert_array_equal(
+                _hand_paw_fixed_world_field_signature(changed[other_side], baseline_probes[other_side]),
+                baseline_fields[other_side],
+            )
+            self.assertGreater(
+                float(np.max(np.abs(
+                    _hand_paw_fixed_world_field_signature(changed[selected_side], baseline_probes[selected_side])
+                    - baseline_fields[selected_side]
+                ))),
+                1.0e-8,
+            )
 
     def test_foot_sweeps_retain_exact_chain_controls_and_forward_contact_order(self) -> None:
         for _, descriptors, _ in self.form.variants:
@@ -1696,6 +1812,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
     def test_authored_station_radius_and_position_are_skin_driving(self) -> None:
         """A valid terminal radius and crown position must change route fields."""
 
+        derived_station_mask_observed = False
         for _, descriptors, _ in self.form.variants:
             guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
             profile = guide.head_guide.profile
@@ -1731,7 +1848,33 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
             radius_probe = (muzzle_tip + 0.75 * profile.sections[7].radii[2] * forward).reshape(1, 3)
             original_radius_value = successor._profile_sweep_field(radius_probe, original_routes["forward-muzzle"].sweep)
-            changed_radius_value = successor._profile_sweep_field(radius_probe, changed_radius_routes["forward-muzzle"].sweep)
+            changed_muzzle = changed_radius_routes["forward-muzzle"].sweep
+            changed_radius_value = successor._profile_sweep_field(radius_probe, changed_muzzle)
+            original_primary_only = replace(
+                original_routes["forward-muzzle"].sweep,
+                derived_sweeps=(),
+            )
+            primary_only = replace(changed_muzzle, derived_sweeps=())
+            self.assertGreater(
+                float(np.max(np.abs(
+                    successor._profile_sweep_field(radius_probe, original_primary_only)
+                    - successor._profile_sweep_field(radius_probe, primary_only)
+                ))),
+                1.0e-8,
+            )
+            derived = changed_muzzle.derived_sweeps[0]
+            expected_composition = np.minimum(
+                successor._profile_sweep_field(radius_probe, primary_only),
+                successor._profile_sweep_field(radius_probe, derived, include_station_volumes=False),
+            )
+            np.testing.assert_allclose(changed_radius_value, expected_composition, rtol=0.0, atol=1.0e-12)
+            composition_with_synthetic_station_volumes = np.minimum(
+                successor._profile_sweep_field(radius_probe, primary_only),
+                successor._profile_sweep_field(radius_probe, derived),
+            )
+            derived_station_mask_observed = derived_station_mask_observed or bool(np.max(np.abs(
+                expected_composition - composition_with_synthetic_station_volumes
+            )) > 1.0e-8)
             self.assertGreater(float(np.max(np.abs(original_radius_value - changed_radius_value))), 1.0e-8)
 
             position_guide = mutate_profile(4, center_delta=(0.18, 0.0, 0.0))
@@ -1742,6 +1885,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             original_position_value = successor._profile_sweep_field(crown_probe, original_routes["vertical-neck-cranium"].sweep)
             changed_position_value = successor._profile_sweep_field(crown_probe, changed_position_routes["vertical-neck-cranium"].sweep)
             self.assertGreater(float(np.max(np.abs(original_position_value - changed_position_value))), 1.0e-8)
+        self.assertTrue(derived_station_mask_observed)
 
     def test_head_neck_sweeps_are_consumed_by_components_and_composed_field(self) -> None:
         expected_recipes = {"vertical-neck-cranium", "forward-muzzle"}
@@ -2336,6 +2480,44 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
 
         with self.assertRaisesRegex(successor.SuccessorPreviewError, "hand guide axes"):
             successor.compile_successor_region(rotated_guide, baseline)
+
+    def test_extremity_validation_rejects_compiled_hand_volume_drift_and_incomplete_controls(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        limb_sweeps = successor._make_limb_sweeps(guide)
+        extremity_sweeps = successor._make_extremity_sweeps(guide, limb_sweeps)
+        hand_paw = next(item for item in extremity_sweeps if item.name == "left-hand-paw")
+        section = hand_paw.sweep.sections[2]
+        assert section.station_volume_axes is not None and section.station_volume_radii is not None
+        drifted_axes = (
+            section.station_volume_axes[1],
+            section.station_volume_axes[0],
+            section.station_volume_axes[2],
+        )
+        drifted_radii = tuple(
+            value + (0.1 if index == 2 else 0.0)
+            for index, value in enumerate(section.station_volume_radii)
+        )
+        cases = {
+            "axes-drift": replace(section, station_volume_axes=drifted_axes),
+            "radii-drift": replace(section, station_volume_radii=drifted_radii),
+            "axes-incomplete": replace(section, station_volume_axes=None),
+            "radii-incomplete": replace(section, station_volume_radii=None),
+        }
+        for name, malformed_section in cases.items():
+            malformed_sweep = replace(
+                hand_paw.sweep,
+                sections=hand_paw.sweep.sections[:2] + (malformed_section,) + hand_paw.sweep.sections[3:],
+            )
+            malformed_extremities = tuple(
+                replace(item, sweep=malformed_sweep) if item is hand_paw else item
+                for item in extremity_sweeps
+            )
+            with self.subTest(name=name), self.assertRaisesRegex(
+                successor.SuccessorPreviewError,
+                "source-derived volume",
+            ):
+                successor._validate_extremity_sweeps(guide, limb_sweeps, malformed_extremities)
 
     def test_extremity_rejects_metatarsal_endpoint_drift_from_pad(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -3013,6 +3195,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["extremities"]["station_counts"], [2, 4, 5, 2, 4, 5])
                 self.assertEqual(sidecar["extremities"]["endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
                 self.assertEqual(sidecar["extremities"]["internal_transition_counts"], [0, 0, 1, 0, 0, 1])
+                self.assertEqual(
+                    sidecar["extremities"]["hand_paw"],
+                    metrics_payload["successor_region"]["hand_paw"],
+                )
                 self.assertEqual(sidecar["tail"]["representation"], "shared-guide-derived-profile-sweep-elements")
                 self.assertEqual(sidecar["tail"]["elements_consumed"], 6)
                 self.assertEqual(
@@ -3068,6 +3254,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 metrics = {
                     "successor_region": {
                         "torso_section_controls": _serialized_torso_section_controls(region),
+                        "hand_paw": successor._hand_paw_metadata(region),
                         "tail_element_controls": [],
                         "tail_tip_shared_endpoint": {},
                     },
@@ -3121,6 +3308,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 metrics = {
                     "successor_region": {
                         "torso_section_controls": _serialized_torso_section_controls(region),
+                        "hand_paw": successor._hand_paw_metadata(region),
                         "tail_element_controls": [],
                         "tail_tip_shared_endpoint": {},
                     },

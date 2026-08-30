@@ -50,22 +50,26 @@ or executable truth.
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122,
 but that branch, PR head, and PR state must be verified live before they are
-treated as current. The current local candidate includes torso transition work
-and a four-profile anatomy-gallery adapter under review, together with a lean
-AI-control-plane rewrite that must be presented to Ben before merge.
+treated as current. The current local candidate combines the lean AI-control-
+plane rewrite and four-profile gallery adapter with shared torso transitions,
+neck/head/muzzle composition, tapered limb routes, and full-volume hand-paw
+stations. Final consolidated validation, immutable-head external review, and
+the live checkpoint publication remain outstanding. The remote PR head may
+lag this local candidate until those local gates complete.
 
 ### Immediate continuation
 
 Continue in this order:
 
-1. Complete, validate, and present the AI-control-plane rewrite to Ben; do not
-   merge it under autonomous runway authority.
-2. Resolve verified torso and gallery reviewer findings.
-3. Validate and push the coherent head.
-4. Launch hosted and CLI review against that immutable head.
-5. Implement neck/head/muzzle/shoulder local composition.
-6. Implement the remaining limb, paw, and form work as evidence directs.
-7. Publish one four-profile gallery.
+1. Complete consolidated local validation, hands-on trials, and current
+   risk-scaled review; resolve verified correctness findings.
+2. Commit and push one coherent immutable head, then launch CI plus hosted and
+   committed-diff CLI review in parallel without changing that remote head.
+3. Publish the exact four-profile gallery from that candidate and verify its
+   technical loading without using AI visual appraisal as a gate.
+4. Stop with PR #122 unmerged and present the checkpoint URL and completed
+   review state to Ben. Any later material fix that changes the displayed
+   candidate requires a new immutable review ID and renewed appraisal.
 
 ### Evidence and scope
 
@@ -76,10 +80,10 @@ project state distinct. Any change that crosses a retained-human boundary is a
 stop-and-present decision, not autonomous continuation.
 
 A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
-treating the authored peak and axilla surface landmarks as separate sweep
-centrelines produced visible diamond-like shoulder protrusions across the four
-profiles. Do not revive that construction without a materially different
-surface representation and new evidence.
+treating the source-authored peak and axilla shoulder control landmarks as
+separate sweep centrelines produced visible diamond-like shoulder protrusions
+across the four profiles. Do not revive that construction without a materially
+different surface representation and new evidence.
 
 Stop before merging the first PR head that actually reaches the human anatomy
 checkpoint. Present that candidate to Ben for visual appraisal.
@@ -360,11 +364,10 @@ engine-neutral boundary, semantic pose/contact mapping, render/collision
 coherence, physical-response interpretation, CPU fallback, or evidence budget
 cannot be made credible without a material architecture or engine commitment.
 
-Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-29 NZST) records the primary checkout, active runway worktree,
-merged PR state, and the current checkpoint/tooling state. It is a navigation
-aid rather than a new authority owner. PR #107 retains the exact consumed
-producer lineage in surface reviews while preserving the parked EXP-0002
+The [Codex app handover](current-handover.md) is a compact navigation aid; it
+records no project state and owns no continuation authority. Live branch, PR,
+CI, service, and checkpoint state must be verified separately. PR #107 retains
+the exact consumed producer lineage in surface reviews while preserving the parked EXP-0002
 closure; it intentionally made no displayed form-quality claim.
 
 The PR #113 immutable surface checkpoint ID was
@@ -562,9 +565,9 @@ shoulder/arm, pelvis/leg, and digitigrade foot transitions must read as
 controlled continuous skin rather than joined procedural masses. Do not use
 per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
-morphology family or production surface system. The current named checkpoint
-is the shared-pose structural embodiment gallery described in the Active
-runway above.
+morphology family or production surface system. The next checkpoint at that
+historical point was the shared-pose structural embodiment gallery; it has
+since been reached and is inactive.
 
 For that former checkpoint, retain the exact producer envelope used by
 the checkpoint or an integrity-bound authored-dimension, landmark, frame, and
@@ -1464,16 +1467,16 @@ the Readiness 3 activation boundary and does not claim geometry, mesh, surface,
 volume, anatomical quality, rigging, pose/animation, IK, deformation, physics,
 general transforms, resolver activation, or runtime evidence.
 
-Ben's 2026-08-15 direction authorizes an autonomous runway of small, internal,
-reversible preparatory PRs from this merged checkpoint toward a complete
-Readiness 3 successor candidate. Routine numeric/frame, provenance, resolver,
-snapshot, diagnostic, fixture, and test implementation may merge after its
-required focused checks and risk-scaled review. Stop before merging the
-transaction that claims Readiness 3 activation and ask Ben for its required
+Ben's 2026-08-15 direction historically authorized an autonomous runway of
+small, internal, reversible preparatory PRs from this merged checkpoint toward
+a complete Readiness 3 successor candidate. Those preparatory PRs could merge
+after their required focused checks and risk-scaled review. The historical
+instruction was to stop before merging the transaction that claims Readiness 3
+activation and ask Ben for its required
 explicit approval; also stop earlier if work reaches a genuinely useful
 rendered-form appraisal or another retained-human boundary. Preparatory merges
 do not accept a Proposed DR, freeze activation-gated constants, or activate
-Readiness 3.
+Readiness 3. This authorization is inactive under the current runway.
 
 The first runway slice adds a crate-private, fail-closed exact-dyadic arithmetic
 foundation for later typed comparisons. It decodes admitted finite binary64
@@ -1779,7 +1782,7 @@ experiment, and geometry gates are inactive.
 The prior Double-review findings and ten artifacts are preserved in the
 [decision registry](../decisions/registry.md) as stale historical evidence.
 The completed Batch 9 Double review examined the exact target commit
-`6cf17270fda2827756c24a8d0fb301bef358f` in two Sol medium passes: Review 01
+`6cf17270fda2827756c24a8d0fb301bef358f98f` in two Sol medium passes: Review 01
 used the contract/schema/determinism/security lens; Review 02 used the
 platform/failure/reversibility/publication lens.
 
@@ -1843,19 +1846,21 @@ Exact aggregate
 module-binding semantics and Readiness 3 activation remain gated; the phase-two
 development run remains non-authoritative and insufficient to choose
 strict/micro/stress. Readiness 1 and Readiness 2 remain active while Readiness 3
-and later transactions remain gated. The sole current retained-human
-checkpoint is the shared-pose structural embodiment gallery described in the
-Active runway section above. The former authored-form and earlier
+and later transactions remain gated. The retained-human checkpoint at that
+historical point was the shared-pose structural embodiment gallery. It has
+since been reached and is inactive. The former authored-form and earlier
 rendered-creature or primitive spatial-preview checkpoints are historical and
 inactive.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
 trade-off, or external-impact finding returns to Ben. No proposal is silently
-accepted. The four semantic-foundation acceptances authorize autonomous
-construction/review of the exact Readiness 3 successor candidate but do not
-activate Readiness 3; no later implementation/readiness gate activates while
-its own prerequisites or owning records remain Proposed.
+accepted. At that historical point, the four semantic-foundation acceptances
+authorized autonomous construction/review of the exact Readiness 3 successor
+candidate but did not activate Readiness 3; no later
+implementation/readiness gate activates while
+its own prerequisites or owning records remain Proposed. That historical
+authorization does not reactivate Readiness 3 under the current runway.
 Earlier Batch 8/9 and other
 review artifacts remain preserved as stale historical evidence.
 Do not activate the Readiness 3 resolver, adapters, or geometry work while
@@ -1968,7 +1973,7 @@ nonblocking obligation before external authored dependencies activate.
   requiring Ben's retained-human disposition before adapter profile/schema
   activation; it does not block the current preparatory Rust slices. The immediate-predecessor 9b96d18 review is stale; its findings were corrected. The 9c governance pass corrected two mechanical history-label issues and its technical pass found no findings / Ready for PR at High confidence.
   The completed Batch 9 Double review targeted
-  `6cf17270fda2827756c24a8d0fb301bef358f` and is stale for the revised records;
+  `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised records;
   it is evidence, not acceptance.
   See [Current review and future activation obligations](#current-review-and-future-activation-obligations).
   It does not
@@ -2077,8 +2082,9 @@ metadata. Current non-governance decisions and proposals include:
 
 The following section is preserved historical planning context from the earlier
 Readiness 3 preparation runway. It is inactive and must not be treated as the
-current next actions; the `Active runway` above and the [current operational
-handover](current-handover.md) govern current continuation.
+current next actions; the `Active runway` above alone governs current
+continuation. The [current operational handover](current-handover.md) is a
+navigation aid only.
 
 Ben authorized an autonomous runway on 2026-08-15 for small, internal,
 reversible preparation PRs. The latest relevant checkpoint is PR #65, “Add the

@@ -7129,7 +7129,7 @@ def _draw_guide_curve(
 
 
 def _draw_shoulder_frame(draw: ImageDraw.ImageDraw, frame: dict[str, Any], shoulder: _ShoulderFrame, colour: tuple[int, int, int]) -> None:
-    """Draw the skin-driving shoulder frame; old circular diagnostics are excluded."""
+    """Draw the guide-only shoulder control frame; old circular diagnostics are excluded."""
 
     _draw_guide_mass(draw, frame, shoulder.central_anchor, shoulder.central_profile + (shoulder.central_profile[0],), colour)
     for side in shoulder.sides:

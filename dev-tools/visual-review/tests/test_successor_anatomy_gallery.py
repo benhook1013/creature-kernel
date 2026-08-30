@@ -449,6 +449,68 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "canonical generated JSON|integrity metadata|not finite"):
             adapter._validate_source_manifest(self.source_manifest)
 
+    def test_profile_mutation_is_rejected_with_self_consistent_manifest_integrity(self) -> None:
+        manifest = json.loads(self.source_manifest.read_text(encoding="utf-8"))
+        profile = manifest["profiles"][0]
+        source_path = self.source_dir / profile["file"]
+        source = json.loads(source_path.read_text(encoding="utf-8"))
+        source["body"]["dimensions"][0]["value"] += 1
+        source_bytes = profile_generator.canonical_source_bytes(source)
+        source_path.write_bytes(source_bytes)
+        profile["bytes"] = len(source_bytes)
+        profile["sha256"] = hashlib.sha256(source_bytes).hexdigest()
+        profile["tail_signature"] = list(profile_generator._tail_signature(source))
+        self.source_manifest.write_bytes(profile_generator.canonical_bytes(manifest))
+
+        with self.assertRaisesRegex(
+            adapter.SuccessorAnatomyGalleryError,
+            "canonical checked-in candidate/base generator output",
+        ):
+            adapter._validate_source_manifest(self.source_manifest)
+
+    def test_candidate_internal_base_source_hash_must_match_checked_in_base(self) -> None:
+        candidate = json.loads(profile_generator.DEFAULT_CANDIDATE.read_text(encoding="utf-8"))
+        candidate["base_source"]["sha256"] = "0" * 64
+        candidate_path = self.root / "candidate-with-wrong-base-hash.json"
+        candidate_bytes = profile_generator.canonical_bytes(candidate)
+        candidate_path.write_bytes(candidate_bytes)
+        manifest = json.loads(self.source_manifest.read_text(encoding="utf-8"))
+        manifest["source"]["candidate_sha256"] = hashlib.sha256(candidate_bytes).hexdigest()
+        self.source_manifest.write_bytes(profile_generator.canonical_bytes(manifest))
+
+        with patch.object(adapter.profile_source_generator, "DEFAULT_CANDIDATE", candidate_path):
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "candidate base-source hash does not match",
+            ):
+                adapter._validate_source_manifest(self.source_manifest)
+
+    def test_image_identity_rejects_jpeg_bytes_named_png(self) -> None:
+        image_path = self.root / "jpeg-disguised-as-png.png"
+        adapter.successor._baseline.Image.new(
+            "RGB",
+            (adapter.EXPECTED_CANVAS["width"], adapter.EXPECTED_CANVAS["height"]),
+            (80, 90, 100),
+        ).save(image_path, format="JPEG")
+        profile = adapter._ProfileInput(
+            profile_id=PROFILE_IDS[0],
+            source_document="source-document",
+            source_namespace="source-namespace",
+            source_sha256="a" * 64,
+            form=object(),
+            descriptors=(),
+            producer_envelope_sha256="b" * 64,
+            producer_variant_sha256="c" * 64,
+        )
+
+        with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "actual PNG image"):
+            adapter._image_identity(
+                image_path,
+                profile,
+                {},
+                {"identity_sha256": "d" * 64},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

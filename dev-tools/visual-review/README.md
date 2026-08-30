@@ -337,21 +337,18 @@ current CI lanes passed, but remains unmerged pending Ben's explicit merge
 authorization; this disposition is not merge authorization. No further
 cosmetic repair is planned, and publication machinery is not acceptance.
 
-The current human checkpoint is the shared-pose structural embodiment gallery,
-an exploratory candidate toward Stage 2 and outside this surface bridge's
-implementation scope. Its four-profile candidate set and identity-bound
-semantic pose-transform payload must be frozen before evidence; the current
-display variants are not automatic substitutes. It must show generated
-neutral/posed surface, skeleton/bone, weight/influence, and collision-proxy
-artifacts with source/build/scenario lineage. See the
-active runway for objective prerequisites, human judgments, non-goals, and stop
-triggers.
+The current human checkpoint is the four-profile successor anatomy gallery
+described below. It freezes the exact source profiles named by the active
+runway and presents their successor skin captures for appraisal of stylized
+anatomy readability. The shared-pose structural embodiment gallery further
+below is completed historical evidence, not the current stop gate. See the
+active runway for the current human judgments, non-goals, and stop triggers.
 
 The current diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. The producer/profile identities remain
 unchanged: producer v11 with `authored_foot_profile` v1. The current successor
 region id is
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14`.
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15`.
 It contains four authored arm-profile routes plus two authored leg-profile
 routes. The shared elbow seam is exact and upper-arm-owned; the leg routes
 retain the thigh-owned knee and shin-owned hock, and each foot route is exactly
@@ -474,7 +471,7 @@ The producer v11 authored leg profile is checked as two exact bilateral
 five-station routes with `thigh/thigh/thigh/shin/shin` ownership and 30
 indexed lateral/up/forward radii. The guide and successor retain those exact
 projected controls and anisotropic leg-profile segment fields. The successor
-v9 sidecar and v14 region claims are checked against the guide and
+v9 sidecar and v15 region claims are checked against the guide and
 metrics, including the current rounded-superellipse axial profile operation.
 The retained producer envelope remains the exact consumed evidence, and every
 successor PLY is parsed and checked for finite values, valid indices, one
@@ -517,6 +514,39 @@ This is a disposable current-source visual bridge. It does not activate Stage
 evidence. The published form gallery is historical evidence, not the current
 human checkpoint, and publication itself is not acceptance. Keep generated
 bundles and sessions under `/tmp`; they are not repository artifacts.
+
+## Four-profile successor anatomy checkpoint
+
+Generate the exact four fixed source profiles, build the local compiler, and
+publish one immutable successor-surface anatomy group through the pinned
+surface-preview environment:
+
+```bash
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+source_dir=/tmp/ck-successor-anatomy-sources
+
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+  --output-dir "$source_dir"
+cargo build --locked --bin creature-kernel
+"$surface_preview_launcher" dev-tools/visual-review/publish_successor_anatomy_gallery.py \
+  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --source-manifest "$source_dir/manifest.json" \
+  --creature-kernel target/debug/creature-kernel \
+  --id successor-stylized-anatomy-four-profile-checkpoint-v1
+```
+
+The visual-review root must already exist, and the pinned surface-preview
+environment and local compiler build must be available. The publisher replays
+the source generator against the checked-in candidate and base document,
+requires byte-identical generated profiles in the exact frozen order, and
+validates the four rendered RGB PNG sheets before installation. The default
+URL for the command above is
+`http://localhost:8765/review/successor-stylized-anatomy-four-profile-checkpoint-v1`.
+Publication never overwrites an existing review; use a new explicit `--id` for
+every revised candidate. Review IDs are separate from temporary-directory
+names: use a 1–64 character lowercase slug containing only letters, digits,
+`_`, or `-`; do not paste a dot-bearing `mktemp` suffix into `--id`.
 
 ## Shared-pose structural embodiment checkpoint
 

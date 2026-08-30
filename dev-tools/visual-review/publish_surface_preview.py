@@ -56,7 +56,7 @@ SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview
 SEMANTIC_SIDECAR_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v14"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15"
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
 AUTHORED_TORSO_PROFILE_SECTION_NAMES = (
@@ -138,10 +138,9 @@ EXPECTED_GENERATOR_OWNERSHIP = (
 MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
 # The v9 successor manifest carries complete per-variant guide-derived leg/foot
-# metadata plus the compact exact component inventory. Keep the existing bound
-# explicit: current real publication fits it, but there is deliberately little
-# room for duplicated diagnostic metadata.
-MAX_MANIFEST_BYTES = 384 * 1024
+# metadata plus the compact exact component inventory. Keep the bound explicit
+# and tight; the existing hand-paw station payload leaves only a small margin.
+MAX_MANIFEST_BYTES = 400 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_COMPONENT_BOUND_ABS = 100.0
@@ -4450,6 +4449,15 @@ SUCCESSOR_EXTREMITY_STATION_NAMES = (
     ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip"),
     ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"),
 )
+SUCCESSOR_HAND_PAW_PROFILE = (
+    (-0.55, 0.62, 0.66),
+    (-0.15, 1.00, 1.00),
+    (0.35, 0.92, 1.05),
+    (0.78, 0.55, 0.60),
+)
+SUCCESSOR_HAND_PAW_SECTION_NAMES = (
+    "hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip",
+)
 SUCCESSOR_TAIL_SECTION_NAMES = (
     ("tail-root-source-start", "tail-root-source-end"),
     ("tail-root-attachment-start", "tail-root-attachment-end"),
@@ -4603,6 +4611,7 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
     """Re-derive the v9 head/neck sidecar from the validated v11 guide."""
 
     head = guide["controls"]["head"]
+    axes = guide["controls"]["axes"]
     sections = head["sections"]
     connections = head["connections"]
     expected_sections = [
@@ -4630,6 +4639,44 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
         }
         for connection in connections
     ]
+    cranium = sections[3]
+    muzzle_root = sections[5]
+    muzzle_mid = sections[6]
+    muzzle_tip = sections[7]
+    forward = axes["forward"]
+    composition_root = [
+        0.5 * (
+            float(cranium["center"][axis])
+            + float(cranium["radii"]["forward"]) * float(forward[axis])
+            + float(muzzle_root["center"][axis])
+        )
+        for axis in range(3)
+    ]
+    composition_mid = [
+        0.5 * (composition_root[axis] + float(muzzle_tip["center"][axis]))
+        for axis in range(3)
+    ]
+    muzzle_composition = {
+        "operation": "successor-local-forward-muzzle-envelope-v1",
+        "section_names": [
+            "muzzle-composition-root",
+            "muzzle-composition-mid",
+            "muzzle-composition-tip",
+        ],
+        "geometric_input_section_indices": [3, 5, 7],
+        "radius_donor_section_indices": [5, 6, 7],
+        "center_derivation": [
+            "midpoint(cranium-mid forward surface, muzzle-root center)",
+            "midpoint(derived root, muzzle-tip center)",
+            "muzzle-tip center",
+        ],
+        "centers": [composition_root, composition_mid, muzzle_tip["center"]],
+        "station_radii": [
+            muzzle_root["radii"],
+            muzzle_mid["radii"],
+            muzzle_tip["radii"],
+        ],
+    }
     route_topology = []
     for route_name, indices, tangent_axis, transverse_axes, connection_indices in SUCCESSOR_HEAD_NECK_ROUTE_TOPOLOGY:
         route_sections = [sections[index] for index in indices]
@@ -4645,6 +4692,7 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
             "station_radii": [section["radii"] for section in route_sections],
             "endpoint_cap_count": 2,
             "internal_transition_count": 0,
+            "derived_compositions": [muzzle_composition] if route_name == "forward-muzzle" else [],
         })
     return {
         "profile_format": AUTHORED_HEAD_NECK_PROFILE_FORMAT,
@@ -4862,6 +4910,80 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
     }
 
 
+def _expected_successor_hand_paw_metadata(guide: dict[str, Any]) -> dict[str, Any]:
+    """Re-derive the live v9 four-station hand-paw route metadata."""
+
+    controls = guide["controls"]
+    axes = controls["axes"]
+    paws_by_key = {
+        (tuple(item["owner"]["anchors"]), item["owner"]["role"]): item
+        for item in controls["paws"]
+    }
+    side_metadata: list[dict[str, Any]] = []
+    for side in ("left", "right"):
+        hand = paws_by_key.get(((side,), "hand"))
+        if hand is None:
+            raise SurfacePreviewPublishError(f"validated regional guide lacks {side} hand control")
+        paw_mass = next(
+            item for item in hand["masses"] if item["control"] == "paw"
+        )
+        lateral_sign = -1.0 if side == "left" else 1.0
+        outward = [
+            lateral_sign * float(value)
+            for value in axes["lateral"]
+        ]
+        up = [float(value) for value in axes["up"]]
+        forward = [float(value) for value in axes["forward"]]
+        stations: list[dict[str, Any]] = []
+        for index, (offset, up_scale, forward_scale) in enumerate(SUCCESSOR_HAND_PAW_PROFILE):
+            center = [
+                float(paw_mass["center"][axis])
+                + offset * float(paw_mass["radii"][0]) * outward[axis]
+                for axis in range(3)
+            ]
+            volume_radii = [
+                float(paw_mass["radii"][0]),
+                float(paw_mass["radii"][1]) * up_scale,
+                float(paw_mass["radii"][2]) * forward_scale,
+            ]
+            stations.append({
+                "name": SUCCESSOR_HAND_PAW_SECTION_NAMES[index],
+                "section_index": index,
+                "owner": hand["owner"],
+                "center": center,
+                "volume_axes": [outward, up, forward],
+                "volume_radii": volume_radii,
+            })
+        side_metadata.append({
+            "side": side,
+            "route": f"{side}-hand-paw",
+            "route_kind": "hand-paw",
+            "station_count": len(stations),
+            "owner_roles": ["hand"] * len(stations),
+            "stations": stations,
+        })
+    return {
+        "representation": "four-station-full-volume-hand-paw-sweeps",
+        "operation": "symmetric-ellipse",
+        "route_order": [item["route"] for item in side_metadata],
+        "route_kinds": [item["route_kind"] for item in side_metadata],
+        "section_names": list(SUCCESSOR_HAND_PAW_SECTION_NAMES),
+        "owner_roles": ["hand"] * len(SUCCESSOR_HAND_PAW_SECTION_NAMES),
+        "route_station_count": sum(item["station_count"] for item in side_metadata),
+        "route_volume_axis_count": sum(
+            len(station["volume_axes"])
+            for item in side_metadata
+            for station in item["stations"]
+        ),
+        "route_volume_radius_count": sum(
+            len(station["volume_radii"])
+            for item in side_metadata
+            for station in item["stations"]
+        ),
+        "sides": side_metadata,
+    }
+
+
 def _expected_successor_region_metadata(
     guide: dict[str, Any],
     torso_controls: list[dict[str, Any]],
@@ -4881,6 +5003,7 @@ def _expected_successor_region_metadata(
     arm_profile = _expected_successor_arm_profile_metadata(guide)
     leg_profile = _expected_successor_leg_profile_metadata(guide)
     foot_profile = _expected_successor_foot_profile_metadata(guide)
+    hand_paw = _expected_successor_hand_paw_metadata(guide)
 
     limbs_by_key = {
         (tuple(item["owner"]["anchors"]), item["owner"]["role"]): item
@@ -5012,6 +5135,7 @@ def _expected_successor_region_metadata(
         "section_owner_keys": extremity_owner_keys,
         "endpoint_cap_counts": [2] * len(SUCCESSOR_EXTREMITY_ORDER),
         "internal_transition_counts": extremity_internal_transition_counts,
+        "hand_paw": hand_paw,
     }
 
     tails = controls["tails"]
@@ -5050,7 +5174,7 @@ def _expected_successor_region_metadata(
     metrics_region = {
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
         "torso_representation": "rounded-superellipse-axial-profile-sweep-v1",
-        "torso_profile_exponent": 4.0,
+        "torso_profile_exponent": 3.0,
         "torso_sections_consumed": len(torso_controls),
         "torso_section_names": list(AUTHORED_TORSO_PROFILE_SECTION_NAMES),
         "torso_section_owner_keys": [item["owner"] for item in torso_controls],
@@ -5089,6 +5213,7 @@ def _expected_successor_region_metadata(
         "limb_source_owner_keys": source_owner_keys,
         "leg_profile": leg_profile,
         "foot_profile": foot_profile,
+        "hand_paw": hand_paw,
         "extremity_representation": extremities["representation"],
         "extremity_sweeps_consumed": extremities["sweeps_consumed"],
         "extremity_sweep_order": extremities["sweep_order"],
@@ -5118,7 +5243,7 @@ def _expected_successor_region_metadata(
         "torso": {
             "representation": "rounded-superellipse-axial-profile-sweep-v1",
             "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-            "superellipse_exponent": 4.0,
+            "superellipse_exponent": 3.0,
             "sections_consumed": len(torso_controls),
             "section_names": list(AUTHORED_TORSO_PROFILE_SECTION_NAMES),
             "section_controls": torso_controls,

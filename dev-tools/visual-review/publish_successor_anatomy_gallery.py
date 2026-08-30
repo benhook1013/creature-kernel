@@ -348,13 +348,24 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
     candidate_bytes = _read_reference_bytes(candidate_ref, profile_source_generator.MAX_JSON_BYTES, "checked-in candidate")
     if hashlib.sha256(candidate_bytes).hexdigest() != candidate_sha256:
         _fail("source manifest candidate hash does not match the checked-in candidate table")
+    candidate = _decode_json(candidate_bytes, "checked-in candidate")
+    candidate_obj = _require_object(candidate, "checked-in candidate")
+    candidate_base_source = _require_object(
+        candidate_obj.get("base_source"), "checked-in candidate.base_source"
+    )
+    candidate_base_source_sha256 = _hash(
+        candidate_base_source.get("sha256"), "checked-in candidate.base_source.sha256"
+    )
     base_source_ref = _resolve_file(profile_source_generator.DEFAULT_SOURCE, "checked-in base source")
     base_source_bytes = _read_reference_bytes(
         base_source_ref, profile_source_generator.MAX_JSON_BYTES, "checked-in base source"
     )
     base_source = _decode_json(base_source_bytes, "checked-in base source")
-    if hashlib.sha256(base_source_bytes).hexdigest() != base_source_sha256:
+    checked_in_base_source_sha256 = hashlib.sha256(base_source_bytes).hexdigest()
+    if checked_in_base_source_sha256 != base_source_sha256:
         _fail("source manifest base-source hash does not match the checked-in base source")
+    if checked_in_base_source_sha256 != candidate_base_source_sha256:
+        _fail("checked-in candidate base-source hash does not match the checked-in base source")
     base_source_obj = _require_object(base_source, "checked-in base source")
     base_source_identity = _require_object(base_source_obj.get("source"), "checked-in base source.source")
     if (
@@ -362,6 +373,15 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
         or base_source_identity.get("namespace") != base_namespace
     ):
         _fail("source manifest base-source identity does not match the checked-in base source")
+    try:
+        generated_sources = profile_source_generator.generate_sources(candidate, base_source)
+        generated_source_bytes = tuple(
+            profile_source_generator.canonical_source_bytes(source) for source in generated_sources
+        )
+    except profile_source_generator.ProfileGenerationError as exc:
+        _fail(f"checked-in candidate/base could not regenerate profile sources: {exc}")
+    if len(generated_source_bytes) != len(PROFILE_IDS):
+        _fail("checked-in candidate/base generator did not produce exactly four profile documents")
 
     profiles = manifest_obj["profiles"]
     if not isinstance(profiles, list) or len(profiles) != len(PROFILE_IDS):
@@ -417,6 +437,8 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
             _fail(f"{where}.tail_signature is invalid")
         source_ref = _resolve_file(manifest_ref.path.parent / file_name, f"{where}.file")
         source_value, source_bytes = _read_canonical_json(source_ref, f"{where}.file", source=True)
+        if source_bytes != generated_source_bytes[index]:
+            _fail(f"{where}.file does not match the canonical checked-in candidate/base generator output")
         if len(source_bytes) != byte_count or hashlib.sha256(source_bytes).hexdigest() != expected_hash:
             _fail(f"{where}.file does not match its manifest integrity metadata")
         source_object = _require_object(source_value, f"{where}.file")
@@ -612,6 +634,8 @@ def _image_identity(
     try:
         with successor._baseline.Image.open(path) as image:
             image.load()
+            if image.format != "PNG":
+                _fail(f"{profile.profile_id} successor composite is not an actual PNG image")
             if image.size != (EXPECTED_CANVAS["width"], EXPECTED_CANVAS["height"]) or image.mode != EXPECTED_CANVAS["mode"]:
                 _fail(f"{profile.profile_id} successor composite is not the fixed RGB 1800x1500 capture")
     except SuccessorAnatomyGalleryError:
