@@ -920,6 +920,8 @@ class DisposableCKProjectionTests(unittest.TestCase):
         with (
             patch.object(projection.subprocess, "Popen", return_value=process),
             patch.object(projection.os, "getpgid", return_value=711),
+            patch.object(projection.os, "getpid", return_value=712),
+            patch.object(projection.os, "getpgrp", return_value=713),
             patch.object(projection.os, "set_blocking"),
             patch.object(projection.selectors, "DefaultSelector", return_value=selector),
             patch.object(projection.os, "waitid", side_effect=OSError("waitid failed")) as waitid,

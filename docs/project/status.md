@@ -59,28 +59,26 @@ or executable truth.
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
 Remote PR #122 head is the immutable commit
-`252b740911427071b7e229dfdaeb2268eabba7a9`; all three CI lanes are green and
-the preceding six hosted threads are resolved. Its current hosted review
-completed with six findings and its committed-diff CLI review completed with
-seven low-severity findings. The locally integrated valid fixes cover regular
-non-symlink successor-source enforcement, durable baseline-guide test capture,
-pelvis-radius coverage, Python 3.13 zero-test diagnostics, production-matching
-connector-section tests, and distinct exited/live Godot process fixtures and
-release ordering. Ambiguous research wording and one shadowed callable local
-are clarified. Optional duplication, extra caching, type-hygiene, and sensitive
-process-helper refactors are deferred because they do not correct behavior. The
-six current hosted threads remain unresolved pending a pushed fix commit and
-evidence replies. PR `#122` remains draft and unmerged. No hosted taper, final
-gallery, visual acceptance, or merge-readiness claim is made.
+`066d9ab9b331ac4752e87e3b5ece9fbf48a88fcf`; all three CI lanes are green and
+the preceding six hosted threads are resolved. The hosted request on this head
+was rate-limited without running and declared the next included slot in 32
+minutes; the committed-diff CLI review completed with seven low-severity
+findings. The locally integrated final follow-up excludes tests/caches from
+staged publisher copies, corrects the connector-direction docstring, and makes
+the retained-process-group test independent of the runner PID/group. Optional
+helper extraction, deeper caching, containment type cleanup, output-stream
+refactoring, and duplicate support-radius consolidation remain deferred because
+they do not correct behavior. There are no current hosted threads, but hosted
+taper remains outstanding because the review did not run. PR `#122` remains
+draft and unmerged. No final gallery, visual acceptance, or merge-readiness
+claim is made.
 
 The candidate still targets the exact five ordered profiles above, with the
-standard neutral reference first. Current local review-fix evidence includes
-the surface publisher module (67 passed with 1 expected skip), Godot projection
-(35 passed with 1 expected skip), structural profiles (18 passed), wrapper
-tests (6 passed), and focused connector, tail-signature, and clean-workspace
-tests. Documentation validation, whitespace, diff, and formatting checks pass.
-The preceding Rust, historical structural, exact-five, gallery, profile,
-browser, and real-generator evidence remains.
+standard neutral reference first. The final local follow-up passes the staged-
+process test, four connector tests, and Godot projection (35 passed with 1
+expected skip). The preceding publisher, structural-profile, wrapper, Rust,
+historical structural, exact-five, gallery, profile, browser, and real-generator
+evidence remains.
 
 ### Immediate continuation
 
@@ -105,16 +103,15 @@ candidate being appraised and keep research, implementation evidence, and
 project state distinct. Any change that crosses a retained-human boundary is a
 stop-and-present decision, not autonomous continuation.
 
-The current evidence supports technical continuation only. The integrated
-hosted/CLI follow-up fixes pass the surface publisher module (67 with 1 expected
-skip), Godot projection (35 with 1 expected skip), structural profiles (18),
-wrapper tests (6), and focused connector, tail-signature, and clean-workspace
-tests; documentation validation, whitespace, diff, and formatting checks also
-pass. Prior Rust, historical structural, exact-five, gallery, profile, browser,
-and real-generator evidence remains. The fix set is not yet pushed and the six
-hosted threads remain unresolved. This does not claim hosted taper, final
-gallery publication, visual quality, or merge readiness. All three CI lanes are
-green for remote head `252b740911427071b7e229dfdaeb2268eabba7a9`.
+The current evidence supports technical continuation only. The final local
+follow-up passes the staged-process test, four connector tests, and Godot
+projection (35 with 1 expected skip); prior publisher, structural-profile,
+wrapper, Rust, historical structural, exact-five, gallery, profile, browser,
+and real-generator evidence remains. The fix set is not yet pushed. This does
+not claim hosted taper, final gallery publication, visual quality, or merge
+readiness. All three CI lanes are green for remote head
+`066d9ab9b331ac4752e87e3b5ece9fbf48a88fcf`; its hosted attempt was
+rate-limited without a review result.
 
 A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
 treating the source-authored peak and axilla shoulder control landmarks as

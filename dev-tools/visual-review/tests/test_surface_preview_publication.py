@@ -3775,7 +3775,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def _stage_publisher_contract_source(self, mode: str) -> tuple[Path, Path]:
         staged_repository = self.directory / f"staged-contract-{mode}"
         staged_visual_review = staged_repository / "dev-tools" / "visual-review"
-        shutil.copytree(HERE, staged_visual_review)
+        shutil.copytree(
+            HERE,
+            staged_visual_review,
+            ignore=shutil.ignore_patterns("tests", "__pycache__"),
+        )
         source_path = HERE.parents[1] / "experiments" / "current-form-surface-preview" / "successor_surface_preview.py"
         staged_source_path = staged_repository / "experiments" / "current-form-surface-preview" / "successor_surface_preview.py"
         staged_source_path.parent.mkdir(parents=True)

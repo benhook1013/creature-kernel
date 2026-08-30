@@ -3457,10 +3457,12 @@ def _embed_boundary_connector(
     centreline starts one support radius toward the child in the
     lateral/forward plane, so its support meets the cage boundary rather than
     projecting a full radius outside the torso. When the owning cage supplies
-    its inward transverse normal, that normal is used if the authored child
-    vector has insufficient or contradictory transverse span; the axial
-    component remains in the path itself, preserving the intended limb
-    direction. The exact selected ellipse is carried with that normal. A
+    its inward transverse normal, the authored child direction is retained
+    only when its cage-normal dot product meets the near-alignment threshold
+    and support is below the lateral-forward length; otherwise the cage normal
+    replaces it. The axial component remains in the path itself, preserving the
+    intended limb direction. The exact selected ellipse is carried with that
+    normal. A
     legacy target-directed endpoint is retained only when its complete start
     disk is certified inside that ellipse; otherwise a homothetic inner
     ellipse supplies a mathematically valid radial inset. The supplied
