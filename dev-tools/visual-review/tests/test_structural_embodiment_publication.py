@@ -524,6 +524,44 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
         with self.assertRaises(publisher.StructuralEmbodimentPublishError):
             self.publish("wrong-generated-source")
 
+    def test_historical_generator_short_output_fails_closed(self) -> None:
+        candidate_data = publisher.HISTORICAL_CANDIDATE_PATH.read_bytes()
+        candidate = json.loads(candidate_data)
+        outputs = publisher.profile_source_generator.generate_sources(
+            candidate,
+            json.loads(publisher.HISTORICAL_SOURCE_PATH.read_bytes()),
+            mode=publisher.HISTORICAL_GENERATION_MODE,
+        )
+        with patch.object(
+            publisher.profile_source_generator,
+            "generate_sources",
+            return_value=outputs[:-1],
+        ):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                "historical generator did not produce exactly four profile documents",
+            ):
+                publisher._expected_source_documents(candidate, candidate_data)
+
+    def test_historical_generator_surplus_output_fails_closed(self) -> None:
+        candidate_data = publisher.HISTORICAL_CANDIDATE_PATH.read_bytes()
+        candidate = json.loads(candidate_data)
+        outputs = publisher.profile_source_generator.generate_sources(
+            candidate,
+            json.loads(publisher.HISTORICAL_SOURCE_PATH.read_bytes()),
+            mode=publisher.HISTORICAL_GENERATION_MODE,
+        )
+        with patch.object(
+            publisher.profile_source_generator,
+            "generate_sources",
+            return_value=outputs + [outputs[0]],
+        ):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                "historical generator did not produce exactly four profile documents",
+            ):
+                publisher._expected_source_documents(candidate, candidate_data)
+
     def test_semantically_forged_rehashed_artifacts_fail_closed(self) -> None:
         pose = json.loads((self.gallery / publisher.POSE_FILE).read_text(encoding="utf-8"))
         pose["rules"][0]["angle_degrees"] = 1.0

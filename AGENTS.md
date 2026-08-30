@@ -95,13 +95,16 @@ Autonomous merge authority exists only inside a recorded Active runway and
 after all applicable checks, reviews, evidence, and repository gates pass. Stop
 before the first actual human-visible checkpoint, a user-visible CLI/viewer/API
 checkpoint explicitly named for Ben's appraisal, or a retained-human boundary,
-and present that candidate with the judgment Ben is being asked to make. An
-instruction for one PR is not standing authority for later PRs.
+and present that candidate with the judgment Ben is being asked to make. That
+candidate must not be merged autonomously; it requires Ben's explicit, recorded
+authorization. An instruction for one PR is not standing authority for later
+PRs.
 
 Changes to agent authority, workflow routing, merge authority, retained-human
-boundaries, or the governing runway scope are presented to Ben before merge.
-They are outside routine autonomous implementation merge authority even when
-they do not change product behaviour.
+boundaries, or the governing runway scope are presented to Ben and require his
+explicit, recorded authorization before merge. They are outside routine
+autonomous implementation and auto-merge authority even when they do not
+change product behaviour.
 
 ## Decision records
 

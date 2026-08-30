@@ -69,7 +69,7 @@ class SurfacePreviewTestWrapperTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 97)
                 self.assertTrue(python_invoked)
                 self.assertIn("-p test*.py", result.stdout)
-                self.assertNotIn(" -k ", result.stdout)
+                self.assertNotIn("-k", result.stdout.split())
 
     def test_two_selectors_forward_file_and_method_to_the_pinned_launcher(self) -> None:
         result, python_invoked = self.run_wrapper("test_surface_preview.py", "test_one")

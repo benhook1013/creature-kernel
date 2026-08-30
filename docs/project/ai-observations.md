@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 24 open observations
+Status: Operational inbox; 25 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,10 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-08-31 04:22 NZST`: Focused test selectors were guessed instead of resolved
+  - Observation: Five focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; four wrapper calls were rejected with `matched no test files` or `method selector ... matched no tests`, and one raw-launcher call reported `Ran 0 tests` before exact selectors were resolved.
+  - Expected pattern: Before invoking a focused wrapper test, resolve the exact file and `def test_...` name with a narrow `rg`, then run one validated selector shape; use the documented launcher directly when the target lives outside the wrapper's discovery tree.
 
 - `2026-08-31 00:43 NZST`: Pointwise smooth-field audit misclassified an explicit transition volume
   - Observation: A shoulder audit inspected raw torso and arm values plus the final smooth union only at the named axilla boundary and classified continuity as smoothing-dependent. An independent decomposed check found that the shoulder sweep itself is the explicit transition volume, overlaps torso and arm at its endpoints, and changes sign immediately outside the boundary; no finite raw gap was reproduced.

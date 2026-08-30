@@ -37,6 +37,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.creature_kernel = REPOSITORY_ROOT / "target" / "debug" / "creature-kernel"
         self.source_dir = self.root / "sources"
+        self.expected_sources: dict[str, dict[str, int | str]] = {}
         profile_generator.write_sources(
             profile_generator.DEFAULT_CANDIDATE,
             profile_generator.DEFAULT_SOURCE,
@@ -166,6 +167,53 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         self.assertEqual(generation_mode, profile_generator.DEFAULT_GENERATION_MODE)
         self.assertEqual(profile_ids[0], profile_generator.STANDARD_NEUTRAL_PROFILE_ID)
         self.assertEqual(len(profile_ids), 5)
+
+    def test_malformed_active_generation_mode_returns_fail_closed_exit_status(self) -> None:
+        malformed_mode = "malformed-generation-mode"
+        generator = SimpleNamespace(
+            ACTIVE_PROFILE_IDS=tuple(profile_generator.ACTIVE_PROFILE_IDS),
+            DEFAULT_GENERATION_MODE=malformed_mode,
+            HISTORICAL_GENERATION_MODE=profile_generator.HISTORICAL_GENERATION_MODE,
+            STANDARD_NEUTRAL_PROFILE_ID=profile_generator.STANDARD_NEUTRAL_PROFILE_ID,
+            ProfileGenerationError=profile_generator.ProfileGenerationError,
+            _profile_contract=profile_generator._profile_contract,
+        )
+        with patch.dict(
+            adapter._PROFILE_SOURCE_CONSTANTS,
+            {"DEFAULT_GENERATION_MODE": malformed_mode},
+        ), patch.object(adapter.profile_source_generator, "_module", generator), patch(
+            "sys.stderr", new_callable=io.StringIO
+        ) as stderr:
+            status = adapter.main(
+                [
+                    "--root",
+                    str(self.root),
+                    "--source-manifest",
+                    str(self.source_manifest),
+                ]
+            )
+        self.assertEqual(status, 2)
+        self.assertIn(
+            "active profile generation mode is invalid: unsupported structural profile generation mode",
+            stderr.getvalue(),
+        )
+        self.assertNotIn("Traceback", stderr.getvalue())
+
+    def test_unexpected_profile_contract_error_is_not_masked(self) -> None:
+        def raise_unexpected(_mode: str) -> tuple[int, tuple[str, ...] | None]:
+            raise RuntimeError("unexpected profile-contract implementation failure")
+
+        generator = SimpleNamespace(
+            ACTIVE_PROFILE_IDS=tuple(profile_generator.ACTIVE_PROFILE_IDS),
+            DEFAULT_GENERATION_MODE=profile_generator.DEFAULT_GENERATION_MODE,
+            HISTORICAL_GENERATION_MODE=profile_generator.HISTORICAL_GENERATION_MODE,
+            STANDARD_NEUTRAL_PROFILE_ID=profile_generator.STANDARD_NEUTRAL_PROFILE_ID,
+            ProfileGenerationError=profile_generator.ProfileGenerationError,
+            _profile_contract=raise_unexpected,
+        )
+        with patch.object(adapter.profile_source_generator, "_module", generator):
+            with self.assertRaisesRegex(RuntimeError, "unexpected profile-contract implementation failure"):
+                adapter._active_profile_contract()
 
     def test_generator_profile_order_drift_is_rejected(self) -> None:
         with patch.object(
@@ -580,7 +628,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         source_path.write_bytes(source_bytes)
         profile["bytes"] = len(source_bytes)
         profile["sha256"] = hashlib.sha256(source_bytes).hexdigest()
-        profile["tail_signature"] = list(profile_generator._tail_signature(source))
+        profile["tail_signature"] = list(profile_generator.tail_signature(source))
         self.source_manifest.write_bytes(profile_generator.canonical_bytes(manifest))
 
         with self.assertRaisesRegex(

@@ -180,8 +180,8 @@ def _validate_successor_contract_value(name: str, value: Any) -> Any:
                 strict_lower=True,
             )
         if any(
-            float(value[0]) >= float(next_value[0])
-            for value, next_value in zip(value, value[1:])
+            float(station[0]) >= float(next_station[0])
+            for station, next_station in zip(value, value[1:])
         ):
             raise _successor_contract_failure(name, "strictly increasing station offsets")
         return value
@@ -269,11 +269,20 @@ def _validate_successor_contract_value(name: str, value: Any) -> Any:
 
     if name in {
         "_HIP_ROOT_SOCKET_THIGH_WEIGHT",
-        "_HIP_ROOT_SOCKET_PELVIS_WEIGHT",
         "_HIP_ROOT_CUP_THIGH_WEIGHT",
         "_HIP_ROOT_CUP_PELVIS_WEIGHT",
     }:
         _successor_contract_number(name, value, lower=0.0, upper=1.0)
+        return value
+
+    if name == "_HIP_ROOT_SOCKET_PELVIS_WEIGHT":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=1.0,
+            strict_lower=True,
+        )
         return value
 
     if name in {

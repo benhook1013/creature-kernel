@@ -315,12 +315,14 @@ review, CI gates, external-review gates, and finding dispositions are
 complete, and only before the named human checkpoint is reached. The first
 PR that reaches that checkpoint, changes user-visible CLI/viewer/API behaviour
 for Ben's appraisal, or crosses a retained-human boundary is presented to Ben
-before merge.
+before merge, must not be merged autonomously, and requires Ben's explicit,
+recorded authorization.
 
 Control-plane changes—including this workflow, review or automation
-configuration, permissions, or merge policy—are presented to Ben before
-merge. Routine auto-merge, unattended merge loops, administrator bypass, and
-an unrecorded runway are not merge authority.
+configuration, permissions, or merge policy—are presented to Ben and require
+his explicit, recorded authorization before merge. Routine auto-merge,
+unattended merge loops, administrator bypass, and an unrecorded runway are not
+merge authority.
 
 ## CodeRabbit and external review
 

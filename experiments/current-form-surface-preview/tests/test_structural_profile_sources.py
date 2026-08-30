@@ -102,6 +102,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         raise AssertionError(f"missing dimension {wanted} {dimension_role}")
 
     def test_freezes_exactly_five_canonical_sources_with_lineage(self) -> None:
+        self.assertEqual(len(PROFILE_IDS), 5)
         self.assertEqual([profile["id"] for profile in self.candidate["profiles"]], PROFILE_IDS)
         self.assertEqual(tuple(PROFILE_IDS), generator.ACTIVE_PROFILE_IDS)
         self.assertEqual(self.candidate_path.read_bytes(), generator.canonical_bytes(self.candidate))

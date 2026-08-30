@@ -3445,6 +3445,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 source += "\n_HAND_PAW_SECTION_NAMES = ('hand-paw-base', 'hand-paw-base', 'hand-paw-knuckle', 'hand-paw-tip')\n"
             elif mode == "non-monotonic-hand-profile":
                 source += "\n_HAND_PAW_PROFILE = ((-0.15, 0.62, 0.66), (-0.55, 1.00, 1.00), (0.35, 0.92, 1.05), (0.78, 0.55, 0.60))\n"
+            elif mode == "zero-socket-pelvis-weight":
+                source += "\n_HIP_ROOT_SOCKET_PELVIS_WEIGHT = 0.0\n"
             elif mode == "duplicate-foot-name":
                 source += "\n_FOOT_PROFILE_SECTION_NAMES = ('hock', 'metatarsal-midpoint', 'pad', 'pad', 'toe')\n"
             elif mode == "wrong-foot-owner-roles":
@@ -3476,6 +3478,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "wrong-shape-required",
             "duplicate-hand-name",
             "non-monotonic-hand-profile",
+            "zero-socket-pelvis-weight",
             "duplicate-foot-name",
             "wrong-foot-owner-roles",
         ):
@@ -3499,7 +3502,12 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 self.assertEqual(completed.stdout, "")
                 self.assertIn("publish-surface-preview failed:", completed.stderr)
                 self.assertIn("successor contract bootstrap failed:", completed.stderr)
-        self.assertNotIn("Traceback", completed.stderr)
+                if mode == "zero-socket-pelvis-weight":
+                    self.assertIn(
+                        "invalid _HIP_ROOT_SOCKET_PELVIS_WEIGHT: expected a bounded finite number",
+                        completed.stderr,
+                    )
+                self.assertNotIn("Traceback", completed.stderr)
 
     def test_oversized_successor_source_rejects_before_parse_or_publication(self) -> None:
         staged_repository, staged_publisher = self._stage_publisher_contract_source(

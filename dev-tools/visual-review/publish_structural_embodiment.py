@@ -363,11 +363,15 @@ def _expected_source_documents(candidate: dict[str, Any], candidate_data: bytes)
     }:
         raise _error("copied candidate table does not bind the archived historical base source")
     try:
-        outputs = profile_source_generator.generate_sources(
-            candidate,
-            source_value,
-            mode=HISTORICAL_GENERATION_MODE,
+        outputs = tuple(
+            profile_source_generator.generate_sources(
+                candidate,
+                source_value,
+                mode=HISTORICAL_GENERATION_MODE,
+            )
         )
+        if len(outputs) != len(PROFILE_IDS):
+            raise _error("historical generator did not produce exactly four profile documents")
         expected = {
             profile_id: profile_source_generator.canonical_source_bytes(output)
             for profile_id, output in zip(PROFILE_IDS, outputs)

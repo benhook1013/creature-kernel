@@ -835,8 +835,15 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "from pathlib import Path\n"
             "import subprocess\n"
             "import sys\n"
+            "import time\n"
             f"descendant = subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
-            f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n",
+            f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n"
+            f"ready = Path({str(ready_path)!r})\n"
+            "deadline = time.monotonic() + 1.0\n"
+            "while not ready.is_file() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.01)\n"
+            "if not ready.is_file():\n"
+            "    raise SystemExit('descendant did not become ready')\n",
         )
         with patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0), self.assertRaisesRegex(
             projection.ProjectionError, "timed out after 2.0 seconds"
@@ -873,8 +880,15 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "from pathlib import Path\n"
             "import subprocess\n"
             "import sys\n"
+            "import time\n"
             f"descendant = subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
             f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n"
+            f"ready = Path({str(ready_path)!r})\n"
+            "deadline = time.monotonic() + 1.0\n"
+            "while not ready.is_file() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.01)\n"
+            "if not ready.is_file():\n"
+            "    raise SystemExit('descendant did not become ready')\n"
             "raise SystemExit(23)\n",
         )
         events = []

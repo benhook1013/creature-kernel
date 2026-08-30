@@ -5,6 +5,7 @@ import dataclasses
 import importlib.util
 import json
 import math
+import os
 import subprocess
 import sys
 import tempfile
@@ -2431,7 +2432,10 @@ class SurfacePreviewTests(unittest.TestCase):
     def test_generated_profiles_compile_lean_leg_routes_and_foot_chains(self) -> None:
         candidate_path = ROOT / "structural_profile_candidates.json"
         source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
-        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
+        target_dir = Path(os.environ.get("CARGO_TARGET_DIR") or REPO_ROOT / "target")
+        if not target_dir.is_absolute():
+            target_dir = REPO_ROOT / target_dir
+        cli = target_dir / "debug" / "creature-kernel"
         try:
             build = subprocess.run(
                 ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
@@ -2981,13 +2985,17 @@ class SurfacePreviewTests(unittest.TestCase):
                 (1.0, 0.0, 0.0),
                 1.0,
             )
-        with self.assertRaises(surface_preview.PreviewError):
+        with self.assertRaisesRegex(surface_preview.PreviewError, "supplied boundary clearance"):
             surface_preview._embed_boundary_connector(
                 path,
-                (0.2, 0.1),
+                (1.0, 0.1),
                 "test",
                 (1.0, 0.0, 0.0),
-                0.2,
+                surface_preview._BoundaryConnectorContainment(
+                    center=(0.0, -0.45, 0.0),
+                    lateral_radius=1.0,
+                    depth_radius=1.0,
+                ),
             )
         with self.assertRaisesRegex(surface_preview.PreviewError, "supplied boundary ellipse"):
             surface_preview._embed_boundary_connector(
