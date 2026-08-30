@@ -57,16 +57,17 @@ or executable truth.
 ### Current candidate and expected live target
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
-The prior pushed immutable head `8f2390b` completed CI, a second hosted
-CodeRabbit pass with 9 findings, and the committed-diff CLI review. The current
-local candidate is an uncommitted follow-up that integrates verified
-correctness fixes for bounded successor contract bootstrap and source-backed
-constants, hand outward-axis placement, successor-bounds containment, exact
-active profile identity/order, historical tail-signature recomputation,
-connector containment and interpolated root-height context,
-shoulder/smooth-union regressions, global torso ordering in composed body
-space, and related test/doc fixes. It remains unpushed, so PR #122 remains
-draft and unmerged.
+The current pushed immutable head is `3d9fe36520a44511e8d0afab3fd58f26768d0b9d`.
+It integrates verified correctness fixes for bounded successor contract
+bootstrap and source-backed constants, hand outward-axis placement,
+successor-bounds containment, exact active profile identity/order, historical
+tail-signature recomputation, connector containment and interpolated
+root-height context, shoulder/smooth-union regressions, torso ordering in
+composed body space, bounded Godot subprocess cleanup, and related test/doc
+fixes. All historical CodeRabbit conversations have an evidence-based
+disposition and are resolved. Current-head documentation and visual-review CI
+pass; Rust CI and the fresh hosted-plus-CLI review pair are still pending. PR
+#122 remains draft and unmerged.
 
 The candidate still targets the exact five ordered profiles above, with the
 standard neutral reference first. A measured route-interpolation cache showed
@@ -87,9 +88,9 @@ publication.
 
 Continue in this order:
 
-1. Commit and push one coherent fresh immutable head.
-2. Launch CI plus hosted and committed-diff CLI CodeRabbit review in parallel;
-   resolve valid findings until hosted review tapers, without changing the
+1. Await current-head CI and launch hosted and committed-diff CLI CodeRabbit
+   review in parallel.
+2. Resolve valid findings until hosted review tapers, without changing the
    reviewed remote head during each cycle.
 3. Publish a fresh live review ID for the exact five-profile gallery, with the
    standard neutral reference first, from the final candidate and verify its
@@ -98,9 +99,9 @@ Continue in this order:
    completed review state to Ben for visual appraisal. No visual acceptance or
    explicit merge permission has occurred. Any later material fix that changes
    the displayed candidate requires a new immutable review ID and renewed
-   appraisal. The fresh immutable push, CI, hosted-plus-CLI taper cycle, final
-   live five-profile publication, Ben's appraisal, and explicit merge
-   permission remain outstanding.
+   appraisal. Current-head Rust CI, the hosted-plus-CLI taper cycle, final live
+   five-profile publication, Ben's appraisal, and explicit merge permission
+   remain outstanding.
 
 ### Evidence and scope
 
