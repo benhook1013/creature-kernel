@@ -27,7 +27,7 @@ Copyable entry scaffold:
   - Expected pattern: what should happen instead
 
 - `2026-08-31 04:22 NZST`: Focused test selectors were guessed instead of resolved
-  - Observation: Six focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; four wrapper calls were rejected with `matched no test files` or `method selector ... matched no tests`, one raw-launcher call reported `Ran 0 tests`, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved.
+  - Observation: Seven focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; four wrapper calls were rejected with `matched no test files` or `method selector ... matched no tests`, one raw-launcher call reported `Ran 0 tests`, one guessed compound-selector call ran zero tests, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved.
   - Expected pattern: Before invoking a focused wrapper test, resolve the exact file and `def test_...` name with a narrow `rg`, then run one validated selector shape; use the documented launcher directly when the target lives outside the wrapper's discovery tree.
 
 - `2026-08-31 00:43 NZST`: Pointwise smooth-field audit misclassified an explicit transition volume
@@ -43,7 +43,7 @@ Copyable entry scaffold:
   - Expected pattern: Run these integrated visual-review publication suites through `surface_preview_launcher.sh`; do not substitute direct system Python after a launcher-backed pass or treat direct-route `renameat2` failures as product regressions without an independent syscall reproduction.
 
 - `2026-08-30 23:26 NZST`: Production-resolution successor builds provide no progress signal
-  - Observation: Two independent hands-on trials found that 56-sample successor mesh extraction and five-profile gallery publication can produce no output for roughly 24 seconds to several minutes per stage, making healthy CPU-bound work indistinguishable from a stalled process without an external process inspection. Replaying an existing gallery ID also rebuilt all five meshes for several minutes before the final no-replace check rejected it; the installed inventory and hashes remained unchanged.
+  - Observation: Two independent hands-on trials found that 56-sample successor mesh extraction and five-profile gallery publication can produce no output for roughly 24 seconds to several minutes per stage, making healthy CPU-bound work indistinguishable from a stalled process without an external process inspection. Replaying an existing gallery ID also rebuilt all five meshes for several minutes before the final no-replace check rejected it; the installed inventory and hashes remained unchanged. The same long-running no-progress behavior recurred during this review.
   - Expected pattern: Long-running successor generation and gallery publication should emit bounded stage/profile/variant progress to stderr without changing deterministic artifacts or machine-readable stdout. Publishers should reject an already-existing destination before expensive generation while retaining the atomic no-replace check at installation for race safety.
 
 - `2026-08-30 21:10 NZST`: Parallel subagent spawn batch partially succeeded before rejection

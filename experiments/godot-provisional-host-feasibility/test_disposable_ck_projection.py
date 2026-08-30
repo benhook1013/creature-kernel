@@ -634,7 +634,8 @@ class DisposableCKProjectionTests(unittest.TestCase):
 
     def test_stop_process_preserves_direct_process_semantics_without_group_signal(self) -> None:
         process = Mock(pid=505, returncode=None)
-        with patch.object(projection.os, "name", "nt"), patch.object(projection.os, "killpg") as killpg:
+        fake_os = SimpleNamespace(name="nt", kill=Mock(), killpg=Mock())
+        with patch.object(projection, "os", fake_os):
             projection._stop_process(process, process_group_id=606)
 
         self.assertEqual(
@@ -646,24 +647,23 @@ class DisposableCKProjectionTests(unittest.TestCase):
                 call.wait(timeout=projection.PROCESS_GRACE_SECONDS),
             ],
         )
-        killpg.assert_not_called()
+        fake_os.killpg.assert_not_called()
 
     @unittest.skipUnless(os.name == "posix", "direct POSIX process signalling is POSIX-specific")
     def test_stop_process_signals_only_direct_pid_without_group(self) -> None:
         process = Mock(pid=506, returncode=None)
-        with patch.object(projection.os, "name", "posix"), patch.object(projection.os, "kill") as kill, patch.object(
-            projection.os, "killpg"
-        ) as killpg, patch.object(projection.time, "sleep") as sleep:
+        fake_os = SimpleNamespace(name="posix", kill=Mock(), killpg=Mock())
+        with patch.object(projection, "os", fake_os), patch.object(projection.time, "sleep") as sleep:
             projection._stop_process(process, process_group_id=None)
 
         self.assertEqual(
-            kill.call_args_list,
+            fake_os.kill.call_args_list,
             [
                 call(process.pid, projection.signal.SIGTERM),
                 call(process.pid, projection.signal.SIGKILL),
             ],
         )
-        killpg.assert_not_called()
+        fake_os.killpg.assert_not_called()
         sleep.assert_called_once_with(projection.PROCESS_GRACE_SECONDS)
         self.assertEqual(process.method_calls, [call.wait(timeout=projection.PROCESS_GRACE_SECONDS)])
 
@@ -967,6 +967,8 @@ class DisposableCKProjectionTests(unittest.TestCase):
     def test_bounded_subprocess_late_nonzero_after_pipe_drain_kills_descendant(self) -> None:
         pid_path = self.root / "late-nonzero-descendant.pid"
         ready_path = self.root / "late-nonzero-descendant.ready"
+        closed_path = self.root / "late-nonzero-descendant.closed"
+        release_path = self.root / "late-nonzero-descendant.release"
         descendant_body = (
             "from pathlib import Path\n"
             "import time\n"
@@ -990,12 +992,20 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "    raise SystemExit('descendant did not become ready')\n"
             "os.close(1)\n"
             "os.close(2)\n"
-            "time.sleep(0.05)\n"
+            f"closed = Path({str(closed_path)!r})\n"
+            f"release = Path({str(release_path)!r})\n"
+            "closed.write_text('closed')\n"
+            "deadline = time.monotonic() + 1.0\n"
+            "while not release.is_file() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.01)\n"
+            "if not release.is_file():\n"
+            "    raise SystemExit('parent did not release late exit')\n"
             "raise SystemExit(23)\n",
         )
         events = []
         real_waitid = projection.os.waitid
         real_killpg = projection.os.killpg
+        real_sleep = projection.time.sleep
 
         def record_waitid(*args):
             result = real_waitid(*args)
@@ -1009,20 +1019,33 @@ class DisposableCKProjectionTests(unittest.TestCase):
             events.append(("killpg", pgid, signum))
             return real_killpg(pgid, signum)
 
+        def release_after_first_no_status(seconds):
+            events.append(("sleep", seconds))
+            if not release_path.is_file():
+                self.assertEqual(events[-2], ("waitid-none",))
+                release_path.write_text("release")
+                events.append(("release",))
+            return real_sleep(seconds)
+
         with (
             patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0),
             patch.object(projection, "PROCESS_GRACE_SECONDS", 0.05),
             patch.object(projection.os, "waitid", side_effect=record_waitid),
             patch.object(projection.os, "killpg", side_effect=record_killpg),
+            patch.object(projection.time, "sleep", side_effect=release_after_first_no_status),
         ):
             result = projection._bounded_subprocess([str(late_nonzero)])
 
         self.assertEqual(result, (23, b"", b""))
         self.assertTrue(ready_path.is_file(), "descendant did not start")
+        self.assertTrue(closed_path.is_file(), "leader did not close its pipes")
         self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
         descendant_pid = int(pid_path.read_text())
         self.assertIn(("waitid-none",), events, "late-exit path did not observe the pipe-drain race")
+        self.assertIn(("release",), events)
         self.assertIn(("waitid", 23), events)
+        self.assertLess(events.index(("waitid-none",)), events.index(("release",)))
+        self.assertLess(events.index(("release",)), events.index(("waitid", 23)))
         term_index = next(
             index
             for index, event in enumerate(events)

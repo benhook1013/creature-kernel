@@ -34,4 +34,4 @@ untrusted until verified live:
 - [Conditional workflow index](../developer-workflows/README.md) — use only
   when the applicable workflow trigger is present.
 
-This pointer does not record history, evidence, decisions, or project state.
+This pointer does not own authoritative history, evidence, decisions, or project state.
