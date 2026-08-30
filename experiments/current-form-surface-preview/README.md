@@ -292,12 +292,28 @@ BodyDocuments through one shared data-driven transform:
 
 The transform changes exact integer Part placements and source-authored
 permille form dimensions, retains the stable unit neck-to-head reference edge,
-preserves normalized route controls and identity rotations, and keeps all five
-tail modules present while varying tail length and taper. It fails closed on
+preserves normalized route controls and identity rotations, and keeps one tail
+module present in each of the five generated profiles while varying tail
+length and taper. It fails closed on
 incomplete targets, overlapping or uncovered dimension groups, broken
 bilateral/alignment/Attachment invariants, unsafe values, or non-atomic output.
 These are candidate source fixtures and lineage evidence, not public morphology
 limits or a production parameter system.
+
+The active command above is intentionally exact-five and neutral-first. The
+completed shared-pose structural gallery is historical v1 and must retain its
+independent origin/main lineage. Reproduce its source inputs only with the
+explicit archived mode, which verifies the immutable fixture bytes under
+`historical/structural-embodiment-v1/`:
+
+```bash
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+  --generation-mode historical-structural-embodiment-v1 \
+  --output-dir /tmp/ck-structural-profile-sources-historical
+```
+
+The historical mode is not selected from a profile count or ID list; it rejects
+the active five-profile table and any other candidate/source bytes.
 
 The authored arm slice is a disposable consumer intended to test frame-aware
 profile continuity and bounded field behavior around the torso, upper-arm, and
@@ -387,7 +403,7 @@ neutral-surface inputs:
   --bridge-root /tmp/ck-structural-gallery-inputs/bridges \
   --neutral-ply-root /tmp/ck-structural-gallery-inputs/neutral-surfaces \
   --structure-root /tmp/ck-structural-gallery-inputs/structures \
-  --source-manifest /tmp/ck-structural-profile-sources/manifest.json \
+  --source-manifest /tmp/ck-structural-profile-sources-historical/manifest.json \
   --output /tmp/ck-structural-embodiment-gallery
 ```
 

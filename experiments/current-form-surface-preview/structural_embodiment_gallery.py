@@ -59,6 +59,9 @@ CANDIDATE_FILE = "structural_profile_candidates.json"
 SOURCES_DIR = "sources"
 SOURCE_MANIFEST_FILE = "manifest.json"
 SOURCE_MANIFEST_FORMAT = "creature-kernel.disposable-structural-profile-source-manifest.v1"
+HISTORICAL_GENERATION_MODE = profile_source_generator.HISTORICAL_GENERATION_MODE
+HISTORICAL_CANDIDATE_PATH = profile_source_generator.HISTORICAL_CANDIDATE
+HISTORICAL_SOURCE_PATH = profile_source_generator.HISTORICAL_SOURCE
 FROZEN_CANDIDATE_TABLE_SHA256 = "68d6e808a21daad16e1d56716124fc96b021bc492adf5171ec4e155591f45336"
 
 FROZEN_PROFILE_IDS = (
@@ -411,19 +414,26 @@ def _records_by_address(records: Any, where: str) -> dict[tuple[str, tuple[str, 
     return result
 
 
-def _expected_source_documents(candidate_table: dict[str, Any]) -> dict[str, bytes]:
+def _expected_source_documents(
+    candidate_table: dict[str, Any],
+    *,
+    generation_mode: str = HISTORICAL_GENERATION_MODE,
+) -> dict[str, bytes]:
     """Regenerate exact source bytes from the frozen table and hashed base."""
+    if generation_mode != HISTORICAL_GENERATION_MODE:
+        raise GalleryError("structural embodiment gallery requires its explicit historical generation mode")
     candidate_root = candidate_table["root"]
     base_source = _obj(candidate_root.get("base_source"), "candidate table.base_source")
     _require_fields(base_source, ("document", "namespace", "path", "sha256"), "candidate table.base_source")
-    relative = _safe_relative(base_source["path"], "candidate table.base_source.path")
-    repository_root = Path(__file__).resolve().parents[2]
-    source_path = repository_root / relative
-    source_value, source_data = _load_json(source_path, "frozen base source")
+    source_value, source_data = _load_json(HISTORICAL_SOURCE_PATH, "historical frozen base source")
     if hashlib.sha256(source_data).hexdigest() != base_source["sha256"]:
-        raise GalleryError("frozen base source bytes do not match the candidate table")
+        raise GalleryError("historical frozen base source bytes do not match the candidate table")
     try:
-        outputs = profile_source_generator.generate_sources(candidate_root, source_value)
+        outputs = profile_source_generator.generate_sources(
+            candidate_root,
+            source_value,
+            mode=generation_mode,
+        )
         expected = {
             profile_id: profile_source_generator.canonical_source_bytes(output)
             for profile_id, output in zip(FROZEN_PROFILE_IDS, outputs)
@@ -431,7 +441,7 @@ def _expected_source_documents(candidate_table: dict[str, Any]) -> dict[str, byt
     except profile_source_generator.ProfileGenerationError as exc:
         raise GalleryError("could not reproduce generated sources from the frozen candidate table") from exc
     if set(expected) != set(FROZEN_PROFILE_IDS):
-        raise GalleryError("frozen candidate regeneration did not produce the exact four-profile set")
+        raise GalleryError("historical candidate regeneration did not produce the exact four-profile set")
     return expected
 
 
@@ -1649,7 +1659,7 @@ def build(
             normalized[profile_id] = ProfileInput(Path(record[0]), Path(record[1]), Path(record[2]))
         else:
             raise GalleryError(f"{profile_id} input record must include bridge, neutral PLY, and inspect-structure paths")
-    candidate_table = _load_candidates(candidate_path or Path(__file__).with_name(CANDIDATE_FILE))
+    candidate_table = _load_candidates(candidate_path or HISTORICAL_CANDIDATE_PATH)
     source_set = _load_source_manifest(source_manifest_path, candidate_table)
     pose_file = pose_path or Path(__file__).with_name(POSE_FILE)
     pose, pose_file_bytes = _load_pose_with_bytes(pose_file)
@@ -1836,7 +1846,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--neutral-ply-root", type=Path, help="root containing exactly one neutral-v0/surface.ply per frozen profile ID")
     parser.add_argument("--structure-root", type=Path, help="root containing exactly one <profile-id>.json hash-bound structure file per frozen profile ID")
     parser.add_argument("--source-manifest", type=Path, required=True, help="generated four-profile source manifest.json")
-    parser.add_argument("--candidate-table", type=Path, default=Path(__file__).with_name("structural_profile_candidates.json"))
+    parser.add_argument("--candidate-table", type=Path, default=HISTORICAL_CANDIDATE_PATH)
     parser.add_argument("--pose", type=Path, default=Path(__file__).with_name(POSE_FILE))
     parser.add_argument("--output", type=Path, required=True)
     return parser

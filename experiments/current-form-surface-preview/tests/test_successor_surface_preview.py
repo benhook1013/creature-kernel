@@ -832,6 +832,105 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
     def setUp(self) -> None:
         self.form = surface_preview.validate_envelope(fixture.make_varied_payload())
 
+    def _assert_shoulder_socket_support_contract(
+        self,
+        guide: object,
+        region: successor.SuccessorRegion,
+        context: str,
+    ) -> None:
+        """Check conservative nested socket support against the authored route."""
+
+        arm_routes = {item.chain_name: item for item in region.arm_sweeps}
+        for shoulder in region.shoulder_sweeps:
+            with self.subTest(context=context, side=shoulder.side):
+                route = arm_routes[f"{shoulder.side}-upper-arm-route"]
+                socket = shoulder.sweep.sections[3]
+                authored_side = next(item for item in guide.arm_profile.sides if item.side == shoulder.side)
+                authored_start = authored_side.sections[0]
+                route_start = route.source_stations[0]
+                socket_radius = float(socket.transverse_radii[0])
+                self.assertEqual(socket.transverse_radii[1], socket_radius)
+                self.assertEqual(socket.center, route.sweep.sections[0].center)
+                self.assertEqual(socket.center, route_start.center)
+                self.assertEqual(route_start.center, authored_start.center)
+                self.assertEqual(route_start.radii, authored_start.radii)
+                self.assertGreater(socket_radius, 0.0)
+                self.assertLessEqual(socket_radius, min(float(value) for value in authored_start.radii))
+                self.assertLessEqual(
+                    float(successor._profile_sweep_field(
+                        np.asarray(socket.center, dtype=np.float64).reshape(1, 3),
+                        route.sweep,
+                    )[0]),
+                    0.0,
+                )
+                # This scalar is conservative nested support for the authored
+                # route; it is not a second parameter source driving that route.
+
+    def test_shoulder_transition_volume_overlaps_torso_and_arm_with_bounded_axilla_smooth_min(self) -> None:
+        """The five-section sweep carries the shoulder transition through axilla.
+
+        The axilla check decomposes the already-consumed torso, shoulder, and
+        authored arm fields before applying the bounded successor smooth-min.
+        It documents an existing transition volume, not a missing bridge field.
+        """
+
+        expected_names = (
+            "torso-interior", "torso-boundary", "authored-shoulder",
+            "upper-arm-socket", "upper-arm-midpoint",
+        )
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                arm_routes = {item.chain_name: item for item in region.arm_sweeps}
+                for shoulder, side in zip(region.shoulder_sweeps, guide.shoulder_frame.sides):
+                    with self.subTest(side=side.side):
+                        sections = shoulder.sweep.sections
+                        self.assertEqual(len(sections), 5)
+                        self.assertEqual(shoulder.sweep.names, expected_names)
+
+                        boundary = np.asarray(sections[1].center, dtype=np.float64)
+                        interior = np.asarray(sections[0].center, dtype=np.float64)
+                        boundary_value = float(successor._loft_field(
+                            boundary.reshape(1, 3), region.loft,
+                        )[0])
+                        self.assertLessEqual(
+                            boundary_value,
+                            successor._SHOULDER_BOUNDARY_TOLERANCE,
+                        )
+                        self.assertLess(
+                            float(successor._loft_field(
+                                (boundary + 0.5 * (interior - boundary)).reshape(1, 3),
+                                region.loft,
+                            )[0]),
+                            0.0,
+                        )
+
+                        route = arm_routes[f"{side.side}-upper-arm-route"]
+                        socket = np.asarray(sections[3].center, dtype=np.float64)
+                        self.assertLessEqual(
+                            float(successor._profile_sweep_field(socket.reshape(1, 3), route.sweep)[0]),
+                            0.0,
+                        )
+
+                        axilla = np.asarray(side.axilla_anchor, dtype=np.float64).reshape(1, 3)
+                        decomposed = [
+                            successor._loft_field(axilla, region.loft),
+                            successor._shoulder_sweep_field(axilla, shoulder),
+                            successor._profile_sweep_field(axilla, route.sweep),
+                        ]
+                        self.assertTrue(all(np.all(np.isfinite(value)) for value in decomposed))
+                        composed = float(successor._successor_smooth_union(
+                            decomposed, successor.DEFAULT_SMOOTH_K,
+                        )[0])
+                        minimum = min(float(value[0]) for value in decomposed)
+                        correction = minimum - composed
+                        self.assertGreaterEqual(correction, -1.0e-12)
+                        self.assertLessEqual(
+                            correction,
+                            (len(decomposed) - 1) * successor.DEFAULT_SMOOTH_K / 6.0 + 1.0e-12,
+                        )
+
     def test_successor_consumes_authored_five_section_shoulder_envelopes(self) -> None:
         expected_names = (
             "torso-interior", "torso-boundary", "authored-shoulder",
@@ -1660,6 +1759,23 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     successor.DEFAULT_SMOOTH_K,
                 )
                 self.assertGreater(float(composed[0]), 0.0)
+
+    def test_successor_smooth_union_keeps_zero_equal_input_polynomial(self) -> None:
+        smooth_k = successor.DEFAULT_SMOOTH_K
+        actual = successor._successor_smooth_union(
+            [np.asarray((0.0,), dtype=np.float64), np.asarray((0.0,), dtype=np.float64)],
+            smooth_k,
+        )
+        self.assertAlmostEqual(float(actual[0]), -smooth_k / 6.0, places=15)
+
+    def test_successor_smooth_union_keeps_negative_equal_input_polynomial(self) -> None:
+        smooth_k = successor.DEFAULT_SMOOTH_K
+        value = -0.001426
+        actual = successor._successor_smooth_union(
+            [np.asarray((value,), dtype=np.float64), np.asarray((value,), dtype=np.float64)],
+            smooth_k,
+        )
+        self.assertAlmostEqual(float(actual[0]), value - smooth_k / 6.0, places=15)
 
     def test_tail_validation_rejects_inventory_axes_controls_joins_and_malformed_baseline(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -3468,6 +3584,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                             baseline = surface_preview._compile_hybrid_guide(guide)
                             region = successor.compile_successor_region(guide, baseline)
                             components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+
+                            self._assert_shoulder_socket_support_contract(
+                                guide, region, f"{profile_id}/{variant_id}"
+                            )
 
                             self.assertEqual(region.consumer_id, successor.CONSUMER_ID)
                             self.assertEqual(region.region_id, successor.SUCCESSOR_REGION_ID)

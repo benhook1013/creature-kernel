@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-30
+Status date: 2026-08-31
 
 ## Phase
 
@@ -56,21 +56,31 @@ or executable truth.
 
 ### Current candidate and expected live target
 
-The expected active branch/PR is `codex/post-godot-runway` / draft PR #122,
-but that branch, PR head, and PR state must be verified live before they are
-treated as current. PR #122 remains unmerged. The completed local candidate
-combines the lean AI-control-plane rewrite and five-profile gallery adapter
-with five-profile visual feedback, v16 hip-root mechanics, the successor
-positive-field no-ghost fold, and successor-inclusive capture bounds, alongside
-shared torso transitions, neck/head/muzzle composition, tapered limb routes,
-and full-volume hand-paw stations. Consolidated local validation is complete:
-Rust 74, baseline 72 from unchanged baseline, successor 80, structural 14, publication 42,
-gallery 14, provisional 28, wrapper 6, with docs, whitespace, and diff clean.
-Two fresh post-fix hands-on trials passed the 5x4 compile contract, all five
-neutral full-resolution meshes/gallery checks, compact all four, standard all
-four, and the named tall/slender/stocky risk meshes. The checked meshes were
-finite, watertight, and one component. Remote CI/review and live publication
-remain outstanding.
+The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
+The remote head `f841157` completed its first hosted CodeRabbit cycle with 11
+actionable comments; valid local fixes are integrated but remain uncommitted
+and unpushed, so the remote head is frozen/stale and PR #122 remains unmerged.
+The fixes cover the positive-only smooth-union cap, fail-closed scalar
+direction-plus-clearance connectors, dead publisher declarations, owner-local
+negative-test isolation, and corrections to historical dossier wording,
+profile-count diagnostics, and tail wording. A broad focused check found that
+promoting the active five-profile fixture had broken the completed frozen
+four-profile structural gallery and publisher. The local repair preserves the
+exact-five active default and adds an explicit byte-bound historical mode with
+the archived origin/main candidate and source bytes.
+
+Local validation now passes: Rust workspace (74 CLI plus 368 core), baseline
+72, successor 82, provisional publication 28, surface publication 42 (one
+expected skip), active source 16, historical gallery 26, historical
+publication 25, historical evidence 12, successor anatomy gallery 14, and
+wrapper 6; docs, whitespace, and diff are clean. Five profiles × four
+variants (20 meshes) were freshly generated and all were finite, watertight,
+and one component. Body-mechanics audits found no confirmed current
+correctness defect in neck/head, hips/legs, hands/feet, tail, or whole-body
+topology. Shoulder findings were reduced independently to intentional
+transition/nested support and now have focused regression coverage.
+`body_extent_y` is verified non-successor-facing and is not a missing
+torso-height propagation.
 
 ### Immediate continuation
 
@@ -84,8 +94,10 @@ Continue in this order:
    standard neutral reference first, from the final candidate and verify its
    technical loading without using AI visual appraisal as a gate.
 4. Stop with PR #122 unmerged and present the checkpoint URL and completed
-   review state to Ben. Any later material fix that changes the displayed
-   candidate requires a new immutable review ID and renewed appraisal.
+   review state to Ben for visual appraisal. No visual acceptance has occurred.
+   Any later material fix that changes the displayed candidate requires a new
+   immutable review ID and renewed appraisal. Fresh review and CI, final
+   immutable live publication, and Ben's appraisal remain outstanding.
 
 ### Evidence and scope
 
@@ -94,6 +106,10 @@ patches are part of this destination. Keep anatomy observations scoped to the
 candidate being appraised and keep research, implementation evidence, and
 project state distinct. Any change that crosses a retained-human boundary is a
 stop-and-present decision, not autonomous continuation.
+
+The current evidence supports technical continuation only: it does not claim
+hosted taper, CI on the new head, final publication, visual quality, or merge
+readiness.
 
 A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
 treating the source-authored peak and axilla shoulder control landmarks as

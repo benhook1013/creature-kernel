@@ -2614,6 +2614,13 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
             if landmark["role"] == "form_torso_profile_waist_abdomen"
         )
         waist_abdomen["position"][1] = lower_abdomen["position"][1]
+        for variant in non_increasing_owner_local_y["variants"]:
+            waist_section = next(
+                section
+                for section in variant["torso_profile"]["sections"]
+                if section["name"] == "waist-abdomen"
+            )
+            waist_section["position"][1] = lower_abdomen["position"][1]
         cases.append(non_increasing_owner_local_y)
         missing_dimension = copy.deepcopy(valid_v7)
         missing_dimension["authored_torso_profile"]["sections"][0]["dimension_indices"]["lateral"] = 0

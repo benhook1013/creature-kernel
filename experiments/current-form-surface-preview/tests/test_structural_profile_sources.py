@@ -130,6 +130,46 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             self.assertTrue(all(isinstance(item["value"], int) and item["value"] > 0 for item in document["body"]["dimensions"]))  # type: ignore[index]
         self.assertLessEqual((self.output_dir / "manifest.json").stat().st_size, generator.MAX_OUTPUT_JSON_BYTES)
 
+    def test_historical_four_profile_mode_is_explicit_and_byte_bound(self) -> None:
+        historical_candidate = json.loads(generator.HISTORICAL_CANDIDATE.read_bytes())
+        historical_source = json.loads(generator.HISTORICAL_SOURCE.read_bytes())
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "exactly 5 profiles"):
+            generator.generate_sources(historical_candidate, historical_source)
+
+        output = self.root / "historical-sources"
+        manifest = generator.write_sources(
+            generator.HISTORICAL_CANDIDATE,
+            generator.HISTORICAL_SOURCE,
+            output,
+            mode=generator.HISTORICAL_GENERATION_MODE,
+        )
+        self.assertEqual(
+            [profile["id"] for profile in manifest["profiles"]],
+            list(generator.HISTORICAL_PROFILE_IDS),
+        )
+        self.assertEqual(manifest["source"]["candidate_sha256"], generator.HISTORICAL_CANDIDATE_SHA256)
+        self.assertEqual(manifest["source"]["source_sha256"], generator.HISTORICAL_SOURCE_SHA256)
+        self.assertEqual(
+            (output / "manifest.json").read_bytes(),
+            generator.canonical_bytes(manifest),
+        )
+
+        current_candidate = json.loads(self.candidate_path.read_bytes())
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "archived candidate-table bytes"):
+            generator.generate_sources(
+                current_candidate,
+                historical_source,
+                mode=generator.HISTORICAL_GENERATION_MODE,
+            )
+
+        current_source = json.loads(self.source_path.read_bytes())
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "archived source semantics"):
+            generator.generate_sources(
+                historical_candidate,
+                current_source,
+                mode=generator.HISTORICAL_GENERATION_MODE,
+            )
+
     def test_actual_structure_and_provisional_form_cli_succeed_for_all_profiles(self) -> None:
         for profile_id in PROFILE_IDS:
             with self.subTest(profile=profile_id):
@@ -536,6 +576,23 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("generated 5 structural profile sources", result.stdout)
+
+    def test_explicit_historical_check_mode_uses_archived_fixture_bundle(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(EXPERIMENT / "generate_structural_profile_sources.py"),
+                "--generation-mode",
+                generator.HISTORICAL_GENERATION_MODE,
+                "--check",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("generated 4 structural profile sources", result.stdout)
 
     def test_regular_parent_replacement_before_open_is_rejected(self) -> None:
         parent = self.root / "validated-source-parent"

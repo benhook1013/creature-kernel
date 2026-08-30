@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 21 open observations
+Status: Operational inbox; 24 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,18 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-08-31 00:43 NZST`: Pointwise smooth-field audit misclassified an explicit transition volume
+  - Observation: A shoulder audit inspected raw torso and arm values plus the final smooth union only at the named axilla boundary and classified continuity as smoothing-dependent. An independent decomposed check found that the shoulder sweep itself is the explicit transition volume, overlaps torso and arm at its endpoints, and changes sign immediately outside the boundary; no finite raw gap was reproduced.
+  - Expected pattern: Before classifying composed-field continuity from a named boundary sample, inspect every raw operand, identify explicit transition or bridge components, and probe both sides of the boundary. Treat the final smooth-union value alone as insufficient evidence of a missing overlap or bridge.
+
+- `2026-08-31 00:39 NZST`: Promoting a shared frozen fixture invalidated independent historical consumers
+  - Observation: The five-profile anatomy work revised the shared `structural_profile_candidates.json` and its base source in place, while the completed four-profile structural gallery and publisher independently pinned the old profile IDs, candidate/source hashes, artifact inventory, and regeneration semantics. Their focused suites then failed before their intended assertions. One compatibility audit traced the readers after the collision; no pre-change consumer audit had separated the active and historical lineages.
+  - Expected pattern: Before replacing or promoting a frozen fixture or its source path, enumerate every reader plus independently pinned IDs, hashes, inventories, generator defaults, and publication contracts. Preserve completed historical consumers with an explicit immutable fixture/compatibility route instead of silently reusing the active default.
+
+- `2026-08-31 00:07 NZST`: Direct system-Python publication suites hit `renameat2` `EINVAL`
+  - Observation: One worker ran `test_provisional_form_publication.py` and `test_surface_preview_publication.py` directly with system `python3`; seven session-install cases then failed in `publish.py:_rename_noreplace` with `OSError: [Errno 22] Invalid argument`. The same complete suites had passed in the main thread through `experiments/current-form-surface-preview/surface_preview_launcher.sh` (28/28 and 42/42 with one expected skip). Each direct full-suite route was attempted once; focused non-install tests passed, and the exact host-level cause beyond the route/environment difference remains inferred.
+  - Expected pattern: Run these integrated visual-review publication suites through `surface_preview_launcher.sh`; do not substitute direct system Python after a launcher-backed pass or treat direct-route `renameat2` failures as product regressions without an independent syscall reproduction.
 
 - `2026-08-30 23:26 NZST`: Production-resolution successor builds provide no progress signal
   - Observation: Two independent hands-on trials found that 56-sample successor mesh extraction and five-profile gallery publication can produce no output for roughly 24 seconds to several minutes per stage, making healthy CPU-bound work indistinguishable from a stalled process without an external process inspection. Replaying an existing gallery ID also rebuilt all five meshes for several minutes before the final no-replace check rejected it; the installed inventory and hashes remained unchanged.

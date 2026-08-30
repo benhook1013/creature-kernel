@@ -230,7 +230,7 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
     def _write_gallery(cls, root: Path) -> None:
         inventory: list[dict[str, object]] = []
         profiles: list[dict[str, object]] = []
-        candidate_path = HERE.parent.parent / "experiments" / "current-form-surface-preview" / publisher.CANDIDATE_FILE
+        candidate_path = publisher.HISTORICAL_CANDIDATE_PATH
         candidate_data = candidate_path.read_bytes()
         candidate_value = json.loads(candidate_data)
         expected_source_data = publisher._expected_source_documents(candidate_value, candidate_data)

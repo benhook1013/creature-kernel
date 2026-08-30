@@ -3411,7 +3411,7 @@ def _embed_boundary_connector(
     profile: tuple[float, ...],
     where: str,
     inward_direction: np.ndarray | tuple[float, float, float] | None = None,
-    inward_clearance: float | _BoundaryConnectorContainment | None = None,
+    inward_clearance: _BoundaryConnectorContainment | None = None,
 ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     """Move a connector's centreline start inside its owning cage boundary.
 
@@ -3457,10 +3457,7 @@ def _embed_boundary_connector(
             except (TypeError, ValueError, OverflowError):
                 clearance = float("nan")
         else:
-            try:
-                clearance = float(inward_clearance) if inward_clearance is not None else float("nan")
-            except (TypeError, ValueError, OverflowError):
-                clearance = float("nan")
+            _fail(f"{where} cannot embed within the supplied boundary ellipse")
         if cage_inward.shape != (3,) or not np.all(np.isfinite(cage_inward)):
             _fail(f"{where} cannot embed within the supplied boundary clearance")
         cage_lateral_forward = cage_inward[[0, 2]]

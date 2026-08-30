@@ -581,9 +581,11 @@ surface_preview_launcher=experiments/current-form-surface-preview/surface_previe
 The publisher accepts exactly the frozen four-profile order and the complete
 39-artifact/40-file gallery tree, including the generated source manifest and
 four source documents that bind the profiles to their generated inputs. It
-verifies every inventoried digest, reproduces the generated sources, parses and
-checks the neutral/posed surfaces, skeleton, weights, proxies, metrics, and
-fixed pose, then deterministically re-renders each of the four distinct
+verifies every inventoried digest, reproduces the generated sources from the
+immutable `experiments/current-form-surface-preview/historical/structural-embodiment-v1/`
+candidate table and base source through the explicit historical generation
+mode, parses and checks the neutral/posed surfaces, skeleton, weights, proxies,
+metrics, and fixed pose, then deterministically re-renders each of the four distinct
 `1800 x 2500` RGB PNGs before serving them. They remain in one group so
 arrow/click switching retains the comparison viewport. The default review URL is
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.

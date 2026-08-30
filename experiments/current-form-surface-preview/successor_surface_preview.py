@@ -5009,10 +5009,12 @@ def _make_render_components(components: tuple[_Component, ...]) -> tuple[Any, ..
 def _successor_smooth_union(values: list[np.ndarray], smooth_k: float) -> np.ndarray:
     """Fold successor operands while preserving the positive-field invariant.
 
-    For each binary step, the correction is at most half the absolute current
-    minimum.  Therefore two positive operands remain positive, and that fact
-    is preserved by induction over the complete successor fold.  Baseline
-    composition intentionally keeps its historical unguarded operator.
+    For each binary step whose minimum is positive, the correction is at most
+    half that minimum.  Therefore two positive operands remain positive, and
+    that fact is preserved by induction over the complete successor fold. For
+    zero or negative minima, retain the original uncapped polynomial
+    correction. Baseline composition intentionally keeps its historical
+    unguarded operator.
     """
 
     if not values:
@@ -5033,7 +5035,12 @@ def _successor_smooth_union(values: list[np.ndarray], smooth_k: float) -> np.nda
         h = np.maximum(float(smooth_k) - difference, 0.0)
         correction = (h**3) / (6.0 * float(smooth_k) * float(smooth_k))
         minimum = np.minimum(result, current)
-        correction = np.minimum(correction, 0.5 * np.abs(minimum))
+        positive_minimum = minimum > 0.0
+        correction = np.where(
+            positive_minimum,
+            np.minimum(correction, 0.5 * minimum),
+            correction,
+        )
         result = minimum - correction
     return result
 

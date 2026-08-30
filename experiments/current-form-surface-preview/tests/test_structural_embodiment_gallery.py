@@ -312,7 +312,7 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         self.structures: dict[str, Path] = {}
         self.plys: dict[str, Path] = {}
         self.inputs: dict[str, gallery.ProfileInput] = {}
-        candidate_path = EXPERIMENT / gallery.CANDIDATE_FILE
+        candidate_path = gallery.HISTORICAL_CANDIDATE_PATH
         candidate_data = candidate_path.read_bytes()
         candidate = json.loads(candidate_data)
         base_source = candidate["base_source"]
@@ -409,7 +409,7 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         root_inventory = {item["path"]: item for item in manifest["artifacts"]}
         self.assertEqual(
             (output / gallery.CANDIDATE_FILE).read_bytes(),
-            (EXPERIMENT / gallery.CANDIDATE_FILE).read_bytes(),
+            gallery.HISTORICAL_CANDIDATE_PATH.read_bytes(),
         )
         self.assertEqual(
             (output / gallery.SOURCES_DIR / gallery.SOURCE_MANIFEST_FILE).read_bytes(),
@@ -730,17 +730,17 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
 
     def test_candidate_table_is_exactly_bound_and_changed_bytes_fail_closed(self) -> None:
         original = self.build("candidate-original")
-        candidate = json.loads((EXPERIMENT / "structural_profile_candidates.json").read_text(encoding="utf-8"))
+        candidate = json.loads(gallery.HISTORICAL_CANDIDATE_PATH.read_text(encoding="utf-8"))
         candidate["profiles"][0]["label"] += " changed"
         changed_path = self.root / "changed-candidates.json"
         changed_path.write_bytes(json.dumps(candidate, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n")
         original_manifest = json.loads((original / gallery.MANIFEST_FILE).read_text(encoding="utf-8"))
         self.assertEqual(original_manifest["candidate_table"]["sha256"], gallery.FROZEN_CANDIDATE_TABLE_SHA256)
         self.assertEqual(original_manifest["candidate_table"]["kind"], "candidate-table")
-        self.assertEqual(original_manifest["candidate_table"]["bytes"], len((EXPERIMENT / "structural_profile_candidates.json").read_bytes()))
+        self.assertEqual(original_manifest["candidate_table"]["bytes"], len(gallery.HISTORICAL_CANDIDATE_PATH.read_bytes()))
         with self.assertRaisesRegex(gallery.GalleryError, "exact frozen structural candidate table"):
             self.build("candidate-changed", candidate_path=changed_path)
-        stale = json.loads((EXPERIMENT / "structural_profile_candidates.json").read_text(encoding="utf-8"))
+        stale = json.loads(gallery.HISTORICAL_CANDIDATE_PATH.read_text(encoding="utf-8"))
         slender = next(item for item in stale["profiles"] if item["id"] == "slender_long_limb")
         slender["part_placements"]["main|part|tail|tail_tip"] = [0, 0, -2]
         stale_path = self.root / "stale-candidates.json"
@@ -753,6 +753,11 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         broken_path.write_bytes(json.dumps(broken, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n")
         with self.assertRaisesRegex(gallery.GalleryError, "exact frozen four-profile set"):
             self.build("candidate-broken", candidate_path=broken_path)
+        with self.assertRaisesRegex(gallery.GalleryError, "exact frozen structural candidate table|exactly four profiles"):
+            self.build(
+                "active-five-candidate",
+                candidate_path=EXPERIMENT / "structural_profile_candidates.json",
+            )
 
     def test_generated_source_bytes_are_hash_bound(self) -> None:
         profile_id = gallery.FROZEN_PROFILE_IDS[0]

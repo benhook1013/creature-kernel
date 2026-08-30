@@ -41,14 +41,14 @@ method questions; they do not supply anatomy facts here.
 
 The bounded successor-v9 artifact
 `authored-form-expressivity-exact-field-components-checkpoint-v2` and Ben's
-scoped appraisal are recorded in [project status](../project/status.md). The
-artifact shows that the current stations and controls cover the required body
-regions while the resulting skin still loses the neck and reads as blocky
-through the torso and pelvis. The working implementation hypothesis is
-therefore that mass hierarchy, non-uniform section progression, and overly
-uniform or global blending are the immediate bottlenecks. This is a
-provisional implementation inference from that exact candidate, not a
-source-backed anatomy claim or proof that no further controls will be needed.
+scoped appraisal are recorded in [project status](../project/status.md) as
+historical prior-candidate evidence. That artifact shows that its stations
+and controls covered the required body regions while the resulting skin still
+lost the neck and read as blocky through the torso and pelvis. The provisional
+implementation inference from that exact prior candidate was that mass
+hierarchy, non-uniform section progression, and overly uniform or global
+blending warranted investigation. This is not a source-backed anatomy claim
+or proof that no further controls will be needed.
 
 The following are procedural inferences for the two dossiers, not normative
 geometry rules:

@@ -4529,17 +4529,6 @@ SUCCESSOR_TAIL_KINDS = (
     "source-centerline", "root-attachment", "root-collar-mass",
     "source-centerline", "tip-extension", "tip-cap-mass",
 )
-SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES = {
-    "paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box",
-    "tail-segment", "tail-root-bridge", "tail-root-collar",
-    "tail-tip-extension", "tail-tip-cap",
-}
-SUCCESSOR_REQUIRED_REPLACED_RECIPES = (
-    SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES
-    | {"deltoid-sweep-1", "root-bridge", "hip-transition"}
-)
-
-
 def _bounded_json(value: Any, where: str, *, depth: int = 0) -> None:
     """Keep retained experiment metadata finite and within adapter bounds."""
 

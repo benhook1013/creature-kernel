@@ -2903,6 +2903,14 @@ class SurfacePreviewTests(unittest.TestCase):
 
     def test_boundary_connector_cage_normal_recovery_remains_fail_closed(self) -> None:
         path = ((-1.0, -0.45, 0.0), (-1.0, -2.0, 0.0))
+        with self.assertRaisesRegex(surface_preview.PreviewError, "supplied boundary ellipse"):
+            surface_preview._embed_boundary_connector(
+                path,
+                (0.2, 0.1),
+                "test.scalar-clearance",
+                (1.0, 0.0, 0.0),
+                1.0,
+            )
         with self.assertRaises(surface_preview.PreviewError):
             surface_preview._embed_boundary_connector(
                 path,
