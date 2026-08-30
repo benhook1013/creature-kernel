@@ -19,9 +19,9 @@ usage() {
   printf 'Usage: %s [test*.py pattern [test method pattern]]\n' "${BASH_SOURCE[0]}"
   printf '\n'
   printf 'Run the current-form surface-preview unittest suite through its pinned environment.\n'
-  printf 'With one selector, run only matching test files (for example:\n'
+  printf 'With one selector, run only matching test files (for example):\n'
   printf '  %s test_structural_gallery_evidence_probe.py\n' "${BASH_SOURCE[0]}"
-  printf 'With two selectors, also filter methods during focused development (for example:\n'
+  printf 'With two selectors, also filter methods during focused development (for example):\n'
   printf '  %s test_successor_surface_preview.py test_shoulder\n' "${BASH_SOURCE[0]}"
 }
 

@@ -86,9 +86,11 @@ core from optional modules without deciding how either is represented.
 
 ## Frozen profiles and expectations
 
-These four names are frozen for comparative anatomy inspection in this lane;
+These five names are frozen for comparative anatomy inspection in this lane;
 they do not freeze numeric ratios or activate support:
 
+- `standard_neutral_reference`: neutral reference read; proportions and
+  transitions should remain clear without a deliberately extreme build.
 - `compact_broad_short_limb_large_head`: broad, compressed body read; short
   limbs and a large head must not collapse the neck or turn the torso into a
   rounded rectangle.
@@ -100,7 +102,7 @@ they do not freeze numeric ratios or activate support:
 - `stocky_broad_chested`: heavy, broad-chested read; chest, pelvis, and hip
   roots must stay distinct instead of becoming one inflated mass.
 
-Across all four, expect readable neck/head separation, intentional torso and
+Across all five, expect readable neck/head separation, intentional torso and
 pelvis masses, shoulder/hip transitions, tapered limbs, and simplified muzzle
 and paws/feet. Differences must be morphological relationships, not only
 uniform scale.
@@ -108,7 +110,7 @@ uniform scale.
 ## Selected pilot dossiers
 
 Exactly two dossiers are selected. Each is a bounded research input for the
-four-profile anatomy checkpoint, not a contract or an acceptance test.
+five-profile anatomy checkpoint, not a contract or an acceptance test.
 
 ### 1. Axial and upper-root assembly
 
@@ -143,7 +145,7 @@ contact, and deformation are excluded.
 joint bends, taper, and a deliberate planted silhouette without degenerating
 into a hose with spherical joints or a club-shaped paw?
 
-**Procedure.** Exercise the same chain across all four frozen profiles. Inspect
+**Procedure.** Exercise the same chain across all five frozen profiles. Inspect
 side and three-quarter views for hip-root separation, knee/hock placement,
 metatarsal continuation, paw orientation, and consistency against the static
 placement plane. Check that changing leg length or body build does not
@@ -168,7 +170,7 @@ not as anatomy prescriptions:
 - spherical or club-like paws;
 - ring seams;
 - success in only one view;
-- four profiles differing only by uniform scale.
+- five profiles differing only by uniform scale.
 
 ## Scope boundary
 

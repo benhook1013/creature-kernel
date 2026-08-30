@@ -7,7 +7,7 @@ not define product or architecture contracts.
 
 ## Documents
 
-- [Current status](status.md) – its `Active runway` is the sole authoritative
+- [Current status](status.md#active-runway) – its `Active runway` is the sole authoritative
   current continuation source; later sections are reference history or
   task-specific state.
 - [Current operational handover](current-handover.md) – live-verification

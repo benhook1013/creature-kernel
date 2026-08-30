@@ -3494,6 +3494,56 @@ def _point_to_segment_distance(point: Any, start: Any, end: Any) -> float:
     return float(np.linalg.norm(point_vector - (start_vector + t * axis)))
 
 
+def _compiled_limb_connector_path(
+    guide: Any,
+    limb: Any,
+    path: tuple[tuple[float, float, float], tuple[float, float, float]],
+    profile: tuple[float, ...],
+    where: str,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Reconstruct a baseline-owned limb connector with its cage context."""
+
+    if limb.root_centerline is None:
+        _fail(f"{where} root controls are incomplete")
+    role = limb.owner.key[3]
+    if role == "upper_arm":
+        boundary_section = guide.torso_cage.upper_boundary
+    elif role == "thigh":
+        boundary_section = guide.torso_cage.lower_boundary
+    else:
+        _fail(f"{where} root connector has no owning cage boundary")
+    inward_direction, clearance = _baseline._boundary_connector_inward_direction(
+        limb.root_centerline[0],
+        boundary_section,
+        where,
+    )
+    return _baseline._embed_boundary_connector(
+        path,
+        profile,
+        where,
+        inward_direction,
+        clearance,
+    )
+
+
+def _compiled_limb_root_path(
+    guide: Any,
+    limb: Any,
+    where: str,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Reconstruct the baseline-owned root path with its cage context."""
+
+    if limb.root_centerline is None or limb.root_thickness is None:
+        _fail(f"{where} root controls are incomplete")
+    return _compiled_limb_connector_path(
+        guide,
+        limb,
+        limb.root_centerline,
+        limb.root_thickness,
+        where,
+    )
+
+
 def _validate_limb_bridge_inventory(
     guide: Any,
     baseline_fields: tuple[Any, ...],
@@ -3567,11 +3617,7 @@ def _validate_limb_bridge_inventory(
             if proximal.root_centerline is None or proximal.root_thickness is None or len(root_fields) != 1:
                 _fail(f"{side}-{kind} must retain one source-owned root bridge")
             root_shape = root_fields[0].shape
-            root_path = _baseline._embed_boundary_connector(
-                proximal.root_centerline,
-                proximal.root_thickness,
-                f"{side}-{kind}.root",
-            )
+            root_path = _compiled_limb_root_path(guide, proximal, f"{side}-{kind}.root")
             _require_path_shape(root_shape, root_path, proximal.root_thickness, f"{side}-{kind} root connector")
             if kind != "arm":
                 _require_exact_same_point(root_shape.get("to"), start, f"{side}-{kind} root connector")
@@ -3579,7 +3625,9 @@ def _validate_limb_bridge_inventory(
                 hip_fields = tuple(field for field in baseline_fields if field.recipe == "hip-transition" and field.owner is proximal.owner)
                 if proximal.hip_centerline is None or proximal.hip_thickness is None or len(hip_fields) != 1:
                     _fail(f"{side}-{kind} must retain one source-owned hip transition")
-                hip_path = _baseline._embed_boundary_connector(
+                hip_path = _compiled_limb_connector_path(
+                    guide,
+                    proximal,
                     proximal.hip_centerline,
                     proximal.hip_thickness,
                     f"{side}-{kind}.hip",
@@ -4339,7 +4387,7 @@ def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.extremity_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.tail_elements)
     values.extend(_shoulder_sweep_field(points, item) for item in region.shoulder_sweeps)
-    return _baseline._smooth_union(values, smooth_k)
+    return _successor_smooth_union(values, smooth_k)
 
 
 def _arm_profile_lineage_json(lineage: Any) -> dict[str, Any]:
@@ -4759,14 +4807,24 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
         mins.append(lower)
         maxs.append(upper)
     for item in region.shoulder_sweeps:
-        lower, upper = _profile_sweep_bounds(item.sweep)
+        lower, upper = _profile_sweep_bounds(item.sweep, interpolated_frames=False)
         mins.append(lower)
         maxs.append(upper)
     return np.min(np.stack(mins), axis=0), np.max(np.stack(maxs), axis=0)
 
 
-def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]:
-    """Return conservative finite world-axis bounds including both caps."""
+def _profile_sweep_bounds(
+    sweep: _ProfileSweep,
+    *,
+    interpolated_frames: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return conservative finite world-axis bounds including both caps.
+
+    Shoulder spans opt out because their evaluator derives a fresh frame from
+    each finite centerline span.  All ordinary profile spans use the
+    interpolated station frame, whose possible tangent-plane leakage is
+    included below.
+    """
 
     _validate_profile_sweep(sweep)
     lower: list[np.ndarray] = []
@@ -4794,9 +4852,27 @@ def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]
             max(left.transverse_radii[0], right.transverse_radii[0]),
             max(left.transverse_radii[1], right.transverse_radii[1]),
         )
-        # Interpolated frames can tilt out of the endpoint planes. Expanding
-        # every world axis by the two maximum transverse radii's Euclidean
-        # norm conservatively encloses any oriented elliptical cross-section.
+        if interpolated_frames:
+            span_axis = _unit(right_center - left_center, "profile span bounds centerline")
+            left_alignment = float(np.dot(span_axis, _vec3(left.tangent, "profile span bounds left tangent")))
+            right_alignment = float(np.dot(span_axis, _vec3(right.tangent, "profile span bounds right tangent")))
+            if left_alignment * right_alignment <= 0.0:
+                _fail("profile span bounds cannot enclose a frame interpolation crossing the span plane")
+            alignment = min(abs(left_alignment), abs(right_alignment))
+            if not math.isfinite(alignment) or alignment <= _DEGENERATE_TOLERANCE:
+                _fail("profile span bounds have insufficient centerline/frame alignment")
+            # The finite-span gate is perpendicular to the centerline, while
+            # the interpolated field frame is perpendicular to its
+            # interpolated tangent.  For a fixed interpolation parameter,
+            # write the omitted tangent coordinate from the centerline-plane
+            # constraint.  The resulting transverse support is bounded by
+            # this derived factor; using the minimum endpoint alignment is
+            # conservative for the normalized linear tangent interpolation
+            # used by the evaluator.
+            frame_leak = math.sqrt(max(0.0, 1.0 - alignment * alignment)) / alignment
+            radius *= 1.0 + frame_leak
+        if not math.isfinite(radius) or radius <= 0.0:
+            _fail("profile span bounds produced an invalid interpolated-frame support")
         lower.append(np.minimum(left_center, right_center) - radius)
         upper.append(np.maximum(left_center, right_center) + radius)
     for transition in sweep.internal_transitions:
@@ -4816,7 +4892,7 @@ def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]
         lower.append(center - extent)
         upper.append(center + extent)
     for derived in sweep.derived_sweeps:
-        derived_lower, derived_upper = _profile_sweep_bounds(derived)
+        derived_lower, derived_upper = _profile_sweep_bounds(derived, interpolated_frames=interpolated_frames)
         lower.append(derived_lower)
         upper.append(derived_upper)
     return np.min(np.stack(lower), axis=0), np.max(np.stack(upper), axis=0)
@@ -4878,7 +4954,7 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             lambda points, current=item.sweep: _loft_owner_keys(points, current),
         ))
     for item in region.shoulder_sweeps:
-        bounds = _profile_sweep_bounds(item.sweep)
+        bounds = _profile_sweep_bounds(item.sweep, interpolated_frames=False)
         components.append(_Component(
             item.owner,
             f"successor-{item.recipe}",
@@ -4930,16 +5006,76 @@ def _make_render_components(components: tuple[_Component, ...]) -> tuple[Any, ..
     return tuple(render_components)
 
 
+def _successor_smooth_union(values: list[np.ndarray], smooth_k: float) -> np.ndarray:
+    """Fold successor operands while preserving the positive-field invariant.
+
+    For each binary step, the correction is at most half the absolute current
+    minimum.  Therefore two positive operands remain positive, and that fact
+    is preserved by induction over the complete successor fold.  Baseline
+    composition intentionally keeps its historical unguarded operator.
+    """
+
+    if not values:
+        _fail("successor composition requires a non-empty operand list")
+    if not math.isfinite(float(smooth_k)) or smooth_k <= 0.0:
+        _fail("successor smooth-k must be finite and positive")
+    result = np.asarray(values[0], dtype=np.float64).copy()
+    if np.any(np.isnan(result)) or np.any(np.isneginf(result)):
+        _fail("successor composition inputs must not contain NaN or negative infinity")
+    for current in values[1:]:
+        current = np.asarray(current, dtype=np.float64)
+        if current.shape != result.shape or np.any(np.isnan(current)) or np.any(np.isneginf(current)):
+            _fail("successor composition inputs must be shape-matched without NaN or negative infinity")
+        finite_pair = np.isfinite(result) & np.isfinite(current)
+        difference = np.full_like(result, np.inf)
+        np.subtract(result, current, out=difference, where=finite_pair)
+        difference = np.abs(difference)
+        h = np.maximum(float(smooth_k) - difference, 0.0)
+        correction = (h**3) / (6.0 * float(smooth_k) * float(smooth_k))
+        minimum = np.minimum(result, current)
+        correction = np.minimum(correction, 0.5 * np.abs(minimum))
+        result = minimum - correction
+    return result
+
+
 def _evaluate_components(points: np.ndarray, components: tuple[_Component, ...], smooth_k: float) -> np.ndarray:
     values = [component.evaluate(points) for component in components]
-    return _baseline._smooth_union(values, smooth_k)
+    return _successor_smooth_union(values, smooth_k)
 
 
 def _combined_bounds(components: tuple[_Component, ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
+    if not components:
+        _fail("successor sampling requires a non-empty component inventory")
     lower = np.min(np.stack([item.bounds[0] for item in components]), axis=0) - padding
     upper = np.max(np.stack([item.bounds[1] for item in components]), axis=0) + padding
     if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
         _fail("successor sampling bounds are invalid")
+    return lower, upper
+
+
+def _shared_successor_capture_bounds(
+    baseline_field_sets: tuple[tuple[Any, ...], ...],
+    component_sets: tuple[tuple[_Component, ...], ...],
+    padding: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Union baseline and successor consumer bounds for one capture frame."""
+
+    if len(baseline_field_sets) == 0 or len(baseline_field_sets) != len(component_sets):
+        _fail("successor capture bounds require matching non-empty variant sets")
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("successor capture padding must be finite and non-negative")
+    baseline_lower, baseline_upper = _baseline._shared_render_bounds(baseline_field_sets, 0.0)
+    component_bounds = tuple(_combined_bounds(components, 0.0) for components in component_sets)
+    lower = np.min(
+        np.stack((baseline_lower, *(bounds[0] for bounds in component_bounds))),
+        axis=0,
+    ) - float(padding)
+    upper = np.max(
+        np.stack((baseline_upper, *(bounds[1] for bounds in component_bounds))),
+        axis=0,
+    ) + float(padding)
+    if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail("successor shared capture bounds are invalid")
     return lower, upper
 
 
@@ -5204,17 +5340,25 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
     form = _baseline.validate_envelope(value)
 
     # Prepare every private guide and its canonical baseline field set before
-    # any mesh is published.  The capture frame deliberately follows the
-    # baseline consumer's bounds rather than the successor's mesh bounds so
-    # the two consumers remain directly comparable across all four variants.
+    # any mesh is published.  The capture frame is shared across all variants
+    # and covers every field consumer, including successor-only geometry.
     prepared: list[tuple[str, tuple[Any, ...], dict[str, Any], Any, tuple[Any, ...]]] = []
+    successor_component_sets: list[tuple[_Component, ...]] = []
     for variant_id, descriptors, raw_variant in form.variants:
         guide = _baseline._derive_hybrid_guides(form, descriptors)
         _baseline._validate_hybrid_guide(guide)
         fields = _baseline._compile_hybrid_guide(guide)
         prepared.append((variant_id, descriptors, raw_variant, guide, fields))
-    shared_render_bounds = _baseline._shared_render_bounds(
-        tuple(item[4] for item in prepared), DEFAULT_CAPTURE_PADDING
+        successor_component_sets.append(
+            _make_components(
+                compile_successor_region(guide, fields),
+                smooth_k,
+            )
+        )
+    shared_render_bounds = _shared_successor_capture_bounds(
+        tuple(item[4] for item in prepared),
+        tuple(successor_component_sets),
+        DEFAULT_CAPTURE_PADDING,
     )
     for _, _, _, guide, _ in prepared:
         _baseline._validate_hybrid_guide(guide, shared_render_bounds)

@@ -15,7 +15,7 @@ hypotheses, references, and research context.
   feasibility candidate only; RQ-062 remains open pending the bounded trial.
 - [Reference index](references.md)
 - [Provisional morphology-knowledge inventory and pilot dossiers](morphology-knowledge-inventory-and-pilot-dossiers.md) — research-only
-  inventory and exactly two selected anatomy pilots for the four-profile
+  inventory and exactly two selected anatomy pilots for the five-profile
   checkpoint.
 - [Visual-quality evaluation protocol](visual-quality-evaluation.md)
 - [First surface experiment design](first-surface-experiment-design.md) — a

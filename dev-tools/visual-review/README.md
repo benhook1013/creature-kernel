@@ -336,6 +336,9 @@ mergeable/draft with all three
 current CI lanes passed, but remains unmerged pending Ben's explicit merge
 authorization; this disposition is not merge authorization. No further
 cosmetic repair is planned, and publication machinery is not acceptance.
+The superseded v15 predecessor retained four temporary thigh-root/hip bridges—
+one root bridge and one hip transition per side; this is historical context
+only, not a current run instruction.
 
 The current human checkpoint is the five-profile successor anatomy gallery,
 with the standard neutral reference first,
@@ -349,17 +352,20 @@ The current diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. The producer/profile identities remain
 unchanged: producer v11 with `authored_foot_profile` v1. The current successor
 region id is
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15`.
-It contains four authored arm-profile routes plus two authored leg-profile
-routes. The shared elbow seam is exact and upper-arm-owned; the leg routes
-retain the thigh-owned knee and shin-owned hock, and each foot route is exactly
-`hock -> metatarsal midpoint -> pad -> pad-toe midpoint -> toe`, with the hock
-shin-owned and the other four stations foot-owned. Foot routes consume full
-lateral/up/forward radii, outer caps, and four spans. Hand-paw routes also
-retain source-derived outward/up/forward station volumes. There is no
-successor arm root bridge, old underarm support, or duplicate legacy leg mass.
-Exactly four temporary thigh-root/hip bridges remain, one root bridge and one
-hip transition per side. Station tuning does not vary per side or variant.
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16`.
+It contains exactly 25 successor components and replaces 52 baseline fields.
+The v16 hip-root successor derives one four-station pelvis-to-thigh
+socket/cup/tangent-blend route per side from the lower-pelvis cage and authored
+thigh-root controls. It consumes the complete baseline field inventory and
+retains zero temporary bridge fields. It contains four authored arm-profile
+routes plus two authored leg-profile routes. The shared elbow seam is exact and
+upper-arm-owned; the leg routes retain the thigh-owned knee and shin-owned
+hock, and each foot route is exactly `hock -> metatarsal midpoint -> pad ->
+pad-toe midpoint -> toe`, with the hock shin-owned and the other four stations
+foot-owned. Foot routes consume full lateral/up/forward radii, outer caps, and
+four spans. Hand-paw routes retain source-derived outward/up/forward station
+volumes. There is no successor arm root bridge, old underarm support, or
+duplicate legacy leg mass. Station tuning does not vary per side or variant.
 
 Run it from the isolated environment prepared by
 `experiments/current-form-surface-preview/README.md`, or an equivalent
@@ -472,8 +478,10 @@ The producer v11 authored leg profile is checked as two exact bilateral
 five-station routes with `thigh/thigh/thigh/shin/shin` ownership and 30
 indexed lateral/up/forward radii. The guide and successor retain those exact
 projected controls and anisotropic leg-profile segment fields. The successor
-v9 sidecar and v15 region claims are checked against the guide and
+v9 sidecar and v16 region claims are checked against the guide and
 metrics, including the current rounded-superellipse axial profile operation.
+The sidecar also checks exactly 25 successor components, 52 replaced baseline
+fields, and a disabled zero-field `temporary_bridge`.
 The retained producer envelope remains the exact consumed evidence, and every
 successor PLY is parsed and checked for finite values, valid indices, one
 connected component, and watertight topology. Any profile, provenance, identity,
@@ -504,9 +512,11 @@ producer timeouts prevent any review session from being created. The successor
 v9 bundle is independently fail-closed: it must contain exactly four variants
 with one PLY, metrics JSON, successor-consumer sidecar, and composite PNG per
 variant. Its source identity, shared canvas/projections/layout/bounds, sidecar
-identity, torso/shoulder/head-neck/limb/extremity/tail claims, temporary bridge,
-metrics, inventory hashes, and regular-file set are checked against the
-baseline boundary. Only the eight composite PNGs are copied to the gallery;
+identity, torso/shoulder/head-neck/limb/extremity/tail/hip-root claims, exact
+25-component inventory, 52 replaced baseline fields, disabled zero-field
+`temporary_bridge`, metrics, inventory hashes, and regular-file set are checked
+against the baseline boundary. Only the eight composite PNGs are copied to the
+gallery;
 guide JSON, PLYs, sidecars, metrics, and temporary work directories remain
 disposable.
 

@@ -5680,7 +5680,14 @@ mod tests {
             .unwrap()["position"][1] = json!(-0.2);
         authored_control_failure(nonmonotone);
 
-        let owner_local_positions = parsed(&inspect_source(&example()));
+        let mut owner_local_source = document();
+        owner_local_source["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| landmark["role"] == "form_torso_profile_lower_abdomen")
+            .unwrap()["position"][1] = json!(-0.9);
+        let owner_local_positions = parsed(&inspect_source(&bytes(owner_local_source)));
         assert_eq!(owner_local_positions["status"], "success");
         assert_eq!(
             owner_local_positions["authored_torso_profile"]["sections"][1]["name"],

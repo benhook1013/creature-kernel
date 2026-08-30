@@ -2603,7 +2603,17 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         non_axial["authored_landmarks"][0]["position"][0] = 0.1
         cases.append(non_axial)
         non_increasing_owner_local_y = copy.deepcopy(valid_v7)
-        non_increasing_owner_local_y["authored_landmarks"][1]["position"][1] = non_increasing_owner_local_y["authored_landmarks"][0]["position"][1]
+        lower_abdomen = next(
+            landmark
+            for landmark in non_increasing_owner_local_y["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_lower_abdomen"
+        )
+        waist_abdomen = next(
+            landmark
+            for landmark in non_increasing_owner_local_y["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_waist_abdomen"
+        )
+        waist_abdomen["position"][1] = lower_abdomen["position"][1]
         cases.append(non_increasing_owner_local_y)
         missing_dimension = copy.deepcopy(valid_v7)
         missing_dimension["authored_torso_profile"]["sections"][0]["dimension_indices"]["lateral"] = 0

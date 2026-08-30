@@ -2329,8 +2329,27 @@ class SurfacePreviewTests(unittest.TestCase):
                     side = semantic_anchor[[0, 2]] - np.asarray(section.center, dtype=np.float64)[[0, 2]]
                     side /= np.linalg.norm(side)
                     outward = np.asarray([side[0], 0.0, side[1]])
-                    inward = -outward
-                    np.testing.assert_allclose(compiled_start, semantic_anchor + inward * support, atol=1.0e-12)
+                    inward, containment = surface_preview._boundary_connector_inward_direction(
+                        semantic_path[0],
+                        section,
+                        f"test.{recipe}",
+                    )
+                    expected_path = surface_preview._embed_boundary_connector(
+                        semantic_path,
+                        semantic_profile,
+                        f"test.{recipe}",
+                        inward,
+                        containment,
+                    )
+                    np.testing.assert_allclose(compiled_start, expected_path[0], atol=1.0e-12)
+                    self.assertTrue(surface_preview._ellipse_support_is_certified(
+                        compiled_start,
+                        np.asarray(section.center),
+                        section.lateral_radius,
+                        section.depth_radius,
+                        support,
+                        f"test.{recipe}",
+                    ))
                     self.assertGreater(float(np.linalg.norm(compiled_start - target)), 1.0e-9)
 
                     # Sample beyond the branch-facing cage side. The current
@@ -2351,18 +2370,24 @@ class SurfacePreviewTests(unittest.TestCase):
         candidate_path = ROOT / "structural_profile_candidates.json"
         source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
-        build = subprocess.run(
-            ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=180,
-        )
+        try:
+            build = subprocess.run(
+                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as exc:
+            self.skipTest(f"cargo is unavailable in this test environment: {exc}")
         self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
         self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
 
-        with tempfile.TemporaryDirectory(prefix="ck-surface-preview-generated-profiles-", dir="/tmp") as directory:
+        # The launcher sets TMPDIR/TEMP/TMP to a validated native Linux root.
+        # Let tempfile honor that repository-native environment instead of
+        # coupling this test to a particular host's /tmp mount.
+        with tempfile.TemporaryDirectory(prefix="ck-surface-preview-generated-profiles-") as directory:
             output_dir = Path(directory) / "sources"
             profile_generator.write_sources(candidate_path, source_path, output_dir)
             for profile_id in GENERATED_PROFILE_IDS:
@@ -2399,6 +2424,39 @@ class SurfacePreviewTests(unittest.TestCase):
                             [item.recipe for item in fields if item.owner is foot],
                             ["metatarsal", "paw-pad", "toe-box"],
                         )
+                        thigh = next(item for item in descriptors if item.key[1:] == ((side,), "part", "thigh"))
+                        section = guide.torso_cage.lower_boundary
+                        direction, containment = surface_preview._boundary_connector_inward_direction(
+                            next(item for item in guide.limb_guides if item.owner is thigh).root_centerline[0],  # type: ignore[index]
+                            section,
+                            f"generated.{profile_id}.{side}.thigh",
+                        )
+                        for recipe in ("root-bridge", "hip-transition"):
+                            bridge = next(item for item in fields if item.owner is thigh and item.recipe == recipe)
+                            limb = next(item for item in guide.limb_guides if item.owner is thigh)
+                            semantic_path = limb.root_centerline if recipe == "root-bridge" else limb.hip_centerline
+                            semantic_profile = limb.root_thickness if recipe == "root-bridge" else limb.hip_thickness
+                            assert semantic_path is not None and semantic_profile is not None
+                            expected_path = surface_preview._embed_boundary_connector(
+                                semantic_path,
+                                semantic_profile,
+                                f"generated.{profile_id}.{side}.{recipe}",
+                                direction,
+                                containment,
+                            )
+                            np.testing.assert_allclose(bridge.shape["from"], expected_path[0], atol=1.0e-12)
+                            support = float(bridge.shape["r0"])
+                            self.assertTrue(
+                                surface_preview._ellipse_support_is_certified(
+                                    np.asarray(bridge.shape["from"]),
+                                    np.asarray(section.center),
+                                    section.lateral_radius,
+                                    section.depth_radius,
+                                    support,
+                                    f"generated.{profile_id}.{side}.{recipe}",
+                                ),
+                                f"{profile_id}/{side}/{recipe} connector support escapes its selected cage section",
+                            )
 
     def test_torso_cage_dimensions_are_consumed_by_the_swept_field(self) -> None:
         import dataclasses
@@ -2654,10 +2712,21 @@ class SurfacePreviewTests(unittest.TestCase):
         right_hip = next(item for item in fields if item.owner is right_thigh and item.recipe == "hip-transition")
         left_thigh_shape = surface_preview._source_shape(left_thigh, form.reference_scale)
         thigh_radius = surface_preview._radius_from_shape(left_thigh_shape)
-        left_hip_guide = next(item for item in surface_preview._derive_hybrid_guides(form, descriptors).limb_guides if item.owner is left_thigh)
+        left_hip_guide = next(item for item in guide.limb_guides if item.owner is left_thigh)
+        hip_inward, hip_containment = surface_preview._boundary_connector_inward_direction(
+            left_hip_guide.hip_centerline[0],  # type: ignore[index]
+            torso_cage.lower_boundary,
+            "test.hip",
+        )
         np.testing.assert_allclose(
             left_hip.shape["from"],
-            surface_preview._embed_boundary_connector(left_hip_guide.hip_centerline, left_hip_guide.hip_thickness, "test")[0],  # type: ignore[arg-type]
+            surface_preview._embed_boundary_connector(
+                left_hip_guide.hip_centerline,
+                left_hip_guide.hip_thickness,
+                "test.hip",
+                hip_inward,
+                hip_containment,
+            )[0],  # type: ignore[arg-type]
         )
         np.testing.assert_allclose(
             left_hip.shape["to"],
@@ -2850,6 +2919,74 @@ class SurfacePreviewTests(unittest.TestCase):
                 (0.0, 0.0, 0.0),
                 1.0,
             )
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        section = guide.torso_cage.lower_boundary
+        boundary = tuple(
+            np.asarray(section.center, dtype=np.float64)
+            + np.asarray((section.lateral_radius, 0.0, 0.0))
+        )
+        direction, containment = surface_preview._boundary_connector_inward_direction(
+            boundary,
+            section,
+            "test.context",
+        )
+        malformed = dataclasses.replace(containment, depth_radius=0.0)
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._embed_boundary_connector(
+                (boundary, (boundary[0], boundary[1] - 2.0, boundary[2])),
+                (0.2, 0.1),
+                "test.context",
+                direction,
+                malformed,
+            )
+
+    def test_boundary_connector_anisotropic_support_uses_a_valid_inner_ellipse_bound(self) -> None:
+        form = surface_preview.validate_envelope(make_payload())
+        guide = surface_preview._derive_hybrid_guides(form, form.variants[0][1])
+        section = dataclasses.replace(
+            guide.torso_cage.lower_boundary,
+            lateral_radius=10.0,
+            anterior_radius=1.0,
+            posterior_radius=1.0,
+            depth_radius=1.0,
+        )
+        boundary = np.asarray(section.center, dtype=np.float64) + np.asarray((10.0, 0.0, 0.0))
+        target = boundary + np.asarray((0.0, -2.0, 0.0))
+        direction, containment = surface_preview._boundary_connector_inward_direction(
+            tuple(boundary),
+            section,
+            "anisotropic",
+        )
+        support = 0.9
+        naive_start = boundary + np.asarray(direction, dtype=np.float64) * support
+        self.assertFalse(
+            surface_preview._ellipse_support_is_certified(
+                naive_start,
+                np.asarray(section.center),
+                section.lateral_radius,
+                section.depth_radius,
+                support,
+                "anisotropic.naive",
+            )
+        )
+
+        compiled = surface_preview._embed_boundary_connector(
+            (tuple(boundary), tuple(target)),
+            (support, support),
+            "anisotropic",
+            direction,
+            containment,
+        )
+        np.testing.assert_allclose(compiled[0], section.center + np.asarray((1.0, 0.0, 0.0)), atol=1.0e-12)
+        self.assertTrue(surface_preview._ellipse_support_is_certified(
+            np.asarray(compiled[0]),
+            np.asarray(section.center),
+            section.lateral_radius,
+            section.depth_radius,
+            support,
+            "anisotropic.compiled",
+        ))
 
     def test_role_recipes_reject_nonconforming_axis_placement(self) -> None:
         payload = make_payload()

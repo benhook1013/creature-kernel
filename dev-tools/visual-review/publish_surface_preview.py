@@ -14,6 +14,7 @@ human checkpoint when the active runway explicitly identifies it as one.
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 import hashlib
 import json
@@ -50,13 +51,52 @@ class SurfacePreviewPublishError(RuntimeError):
     """A bounded, user-facing publication failure."""
 
 
+_SUCCESSOR_SOURCE_TREE: ast.Module | None = None
+
+
+def _successor_literal(name: str) -> Any:
+    """Read one immutable contract literal from the successor source owner."""
+
+    global _SUCCESSOR_SOURCE_TREE
+    successor_path = (
+        Path(__file__).resolve().parents[2]
+        / "experiments"
+        / "current-form-surface-preview"
+        / "successor_surface_preview.py"
+    )
+    if _SUCCESSOR_SOURCE_TREE is None:
+        try:
+            _SUCCESSOR_SOURCE_TREE = ast.parse(
+                successor_path.read_text(encoding="utf-8"),
+                filename=str(successor_path),
+            )
+        except (OSError, SyntaxError, UnicodeError) as exc:
+            raise SurfacePreviewPublishError(
+                f"could not read successor contract owner: {exc}"
+            ) from exc
+    for statement in _SUCCESSOR_SOURCE_TREE.body:
+        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+            continue
+        target = statement.targets[0]
+        if isinstance(target, ast.Name) and target.id == name:
+            try:
+                return ast.literal_eval(statement.value)
+            except (ValueError, TypeError) as exc:
+                raise SurfacePreviewPublishError(
+                    f"successor contract owner has a non-literal {name}"
+                ) from exc
+    raise SurfacePreviewPublishError(
+        f"successor contract owner does not define {name}"
+    )
+
+
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v3"
 REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v11"
 SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_SIDECAR_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15"
+SUCCESSOR_REGION_ID = _successor_literal("SUCCESSOR_REGION_ID")
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
 AUTHORED_TORSO_PROFILE_SECTION_NAMES = (
@@ -266,8 +306,8 @@ EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS = {
     "successor-tail-tip-cap": 1,
     "successor-left-shoulder-envelope": 1,
     "successor-right-shoulder-envelope": 1,
-    "root-bridge": 2,
-    "hip-transition": 2,
+    "successor-left-hip-root-transition": 1,
+    "successor-right-hip-root-transition": 1,
 }
 EXPECTED_GUIDE_COUNTS = {
     "owners": 18,
@@ -4449,15 +4489,22 @@ SUCCESSOR_EXTREMITY_STATION_NAMES = (
     ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip"),
     ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"),
 )
-SUCCESSOR_HAND_PAW_PROFILE = (
-    (-0.55, 0.62, 0.66),
-    (-0.15, 1.00, 1.00),
-    (0.35, 0.92, 1.05),
-    (0.78, 0.55, 0.60),
-)
-SUCCESSOR_HAND_PAW_SECTION_NAMES = (
-    "hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip",
-)
+SUCCESSOR_HAND_PAW_PROFILE = _successor_literal("_HAND_PAW_PROFILE")
+SUCCESSOR_HAND_PAW_SECTION_NAMES = _successor_literal("_HAND_PAW_SECTION_NAMES")
+SUCCESSOR_HIP_ROOT_PROFILE_OPERATION = _successor_literal("_HIP_ROOT_PROFILE_OPERATION")
+SUCCESSOR_HIP_ROOT_CONTROLS = {
+    "boundary_samples": _successor_literal("_HIP_ROOT_BOUNDARY_SAMPLES"),
+    "boundary_iterations": _successor_literal("_HIP_ROOT_BOUNDARY_ITERATIONS"),
+    "boundary_max_parameter": _successor_literal("_HIP_ROOT_BOUNDARY_MAX_PARAMETER"),
+    "socket_fraction": _successor_literal("_HIP_ROOT_SOCKET_FRACTION"),
+    "cup_remaining_fraction": _successor_literal("_HIP_ROOT_CUP_REMAINING_FRACTION"),
+    "pelvis_support_cap": _successor_literal("_HIP_ROOT_PELVIS_SUPPORT_CAP"),
+    "socket_thigh_weight": _successor_literal("_HIP_ROOT_SOCKET_THIGH_WEIGHT"),
+    "socket_pelvis_weight": _successor_literal("_HIP_ROOT_SOCKET_PELVIS_WEIGHT"),
+    "cup_thigh_weight": _successor_literal("_HIP_ROOT_CUP_THIGH_WEIGHT"),
+    "cup_pelvis_weight": _successor_literal("_HIP_ROOT_CUP_PELVIS_WEIGHT"),
+    "tangent_blend_fraction": _successor_literal("_HIP_ROOT_TANGENT_BLEND_FRACTION"),
+}
 SUCCESSOR_TAIL_SECTION_NAMES = (
     ("tail-root-source-start", "tail-root-source-end"),
     ("tail-root-attachment-start", "tail-root-attachment-end"),
@@ -4468,7 +4515,7 @@ SUCCESSOR_TAIL_SECTION_NAMES = (
 )
 SUCCESSOR_REPLACED_BASELINE_RECIPES = (
     "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
-    "deltoid-sweep-1",
+    "deltoid-sweep-1", "root-bridge", "hip-transition",
     "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal",
     "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock",
     "paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box",
@@ -4482,14 +4529,14 @@ SUCCESSOR_TAIL_KINDS = (
     "source-centerline", "root-attachment", "root-collar-mass",
     "source-centerline", "tip-extension", "tip-cap-mass",
 )
-SUCCESSOR_RETAINED_BRIDGE_RECIPES = ("hip-transition", "root-bridge")
 SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES = {
     "paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box",
     "tail-segment", "tail-root-bridge", "tail-root-collar",
     "tail-tip-extension", "tail-tip-cap",
 }
 SUCCESSOR_REQUIRED_REPLACED_RECIPES = (
-    SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES | {"deltoid-sweep-1"}
+    SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES
+    | {"deltoid-sweep-1", "root-bridge", "hip-transition"}
 )
 
 
@@ -4988,7 +5035,7 @@ def _expected_successor_region_metadata(
     guide: dict[str, Any],
     torso_controls: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build the exact structural metadata emitted by the v9 successor.
+    """Build the exact structural metadata emitted by the v16 successor region.
 
     The values are derived from the already validated regional guide.  This is
     deliberately a complete metadata binding rather than independent length
@@ -5067,6 +5114,7 @@ def _expected_successor_region_metadata(
         "endpoint_cap_counts": [2] * len(SUCCESSOR_LIMB_ORDER),
         "arm_profile": arm_profile,
         "leg_profile": leg_profile,
+        "hip_root": None,
         "foot_profile": foot_profile,
     }
 
@@ -5090,7 +5138,7 @@ def _expected_successor_region_metadata(
                 + offset * float(hand_mass["radii"][0]) * lateral_sign
                 for axis in range(3)
             ]
-            for offset in (-0.55, -0.15, 0.35, 0.78)
+            for offset, _up_scale, _forward_scale in SUCCESSOR_HAND_PAW_PROFILE
         ]
         foot_chain = foot["chain"]
         foot_masses = {
@@ -5212,6 +5260,7 @@ def _expected_successor_region_metadata(
         "limb_sweep_internal_transition_counts": limb_internal_transition_counts,
         "limb_source_owner_keys": source_owner_keys,
         "leg_profile": leg_profile,
+        "hip_root": None,
         "foot_profile": foot_profile,
         "hand_paw": hand_paw,
         "extremity_representation": extremities["representation"],
@@ -5236,7 +5285,7 @@ def _expected_successor_region_metadata(
         "tail_source_owner_keys": [root["owner"], tip["owner"]],
         "tail_element_controls": None,
         "tail_tip_shared_endpoint": None,
-        "replaced_baseline_field_count": 48,
+        "replaced_baseline_field_count": 52,
         "replaced_baseline_recipes": list(SUCCESSOR_REPLACED_BASELINE_RECIPES),
     }
     return {
@@ -5261,6 +5310,177 @@ def _expected_successor_region_metadata(
         "tail": tail,
         "metrics_region": metrics_region,
     }
+
+
+def _validate_successor_hip_root_metadata(
+    value: Any,
+    guide: dict[str, Any],
+    leg_profile: dict[str, Any],
+) -> None:
+    """Validate the exact v16 bilateral pelvis-to-thigh metadata boundary."""
+
+    expected_fields = {
+        "operation",
+        "topology",
+        "route_order",
+        "route_kinds",
+        "section_names",
+        "section_counts",
+        "section_owner_keys",
+        "source_owner_keys",
+        "pelvis_section_names",
+        "authored_station_names",
+        "boundary_parameters",
+        "socket_parameters",
+        "tangent_blend_distances",
+        "derived_from",
+        "controls",
+        "volume_radii",
+    }
+    route_order = ["left-hip-root-transition", "right-hip-root-transition"]
+    route_kinds = ["derived-pelvis-thigh-transition"] * 2
+    section_names = ["hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"]
+    if not isinstance(value, dict) or set(value) != expected_fields:
+        raise SurfacePreviewPublishError("successor hip-root metadata has an invalid shape")
+    if (
+        value["operation"] != SUCCESSOR_HIP_ROOT_PROFILE_OPERATION
+        or value["topology"]
+        != "one-derived-four-station-pelvis-socket-cup-tangent-blend-to-authored-thigh-root-per-side"
+        or value["route_order"] != route_order
+        or value["route_kinds"] != route_kinds
+        or value["section_names"] != [section_names, section_names]
+        or value["section_counts"] != [4, 4]
+        or value["pelvis_section_names"] != ["lower-pelvis", "lower-pelvis"]
+        or value["authored_station_names"] != ["thigh-start", "thigh-start"]
+        or value["controls"] != SUCCESSOR_HIP_ROOT_CONTROLS
+    ):
+        raise SurfacePreviewPublishError("successor hip-root metadata is not the exact v16 contract")
+
+    torso_sections = guide["controls"]["torso_cage"]["sections"]
+    if not torso_sections or torso_sections[0]["name"] != "lower-pelvis":
+        raise SurfacePreviewPublishError("validated guide lacks the lower-pelvis hip-root source")
+    pelvis_owner = torso_sections[0]["owner"]
+    leg_sides = leg_profile.get("sides")
+    if not isinstance(leg_sides, list) or len(leg_sides) != 2:
+        raise SurfacePreviewPublishError("successor hip-root metadata lacks authored leg sources")
+
+    list_fields = (
+        "section_owner_keys",
+        "source_owner_keys",
+        "boundary_parameters",
+        "socket_parameters",
+        "tangent_blend_distances",
+        "derived_from",
+        "volume_radii",
+    )
+    if any(not isinstance(value[field], list) or len(value[field]) != 2 for field in list_fields):
+        raise SurfacePreviewPublishError("successor hip-root metadata lacks its exact bilateral inventory")
+
+    for index, side in enumerate(("left", "right")):
+        where = f"successor hip-root metadata[{side}]"
+        leg_side = leg_sides[index]
+        stations = leg_side.get("stations") if isinstance(leg_side, dict) else None
+        if (
+            not isinstance(leg_side, dict)
+            or leg_side.get("side") != side
+            or not isinstance(stations, list)
+            or not stations
+            or stations[0].get("name") != "thigh-start"
+        ):
+            raise SurfacePreviewPublishError(f"{where} does not bind the authored thigh start")
+        thigh_station = stations[0]
+        thigh_owner = thigh_station.get("owner")
+        if (
+            value["section_owner_keys"][index]
+            != [pelvis_owner, thigh_owner, thigh_owner, thigh_owner]
+            or value["source_owner_keys"][index] != [pelvis_owner, thigh_owner]
+        ):
+            raise SurfacePreviewPublishError(f"{where} source ownership does not bind pelvis and thigh")
+
+        boundary = _finite_number(value["boundary_parameters"][index], f"{where}.boundary_parameter")
+        socket = _finite_number(value["socket_parameters"][index], f"{where}.socket_parameter")
+        tangent_distance = _finite_number(
+            value["tangent_blend_distances"][index],
+            f"{where}.tangent_blend_distance",
+        )
+        if (
+            not 0.0 < boundary <= float(SUCCESSOR_HIP_ROOT_CONTROLS["boundary_max_parameter"])
+            or not 0.0 < socket < 1.0
+            or tangent_distance <= 0.0
+            or not math.isclose(
+                socket,
+                float(SUCCESSOR_HIP_ROOT_CONTROLS["socket_fraction"]) * boundary,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+        ):
+            raise SurfacePreviewPublishError(f"{where} derived parameters are invalid")
+
+        derived = value["derived_from"][index]
+        expected_derived = {
+            "lower_pelvis": {"section_name": "lower-pelvis", "source_section_index": 0},
+            "authored_thigh_start": {"station_name": "thigh-start", "source_station_index": 0},
+            "tangent_blend": {
+                "station_name": "thigh-tangent-blend",
+                "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent",
+                "distance": tangent_distance,
+            },
+        }
+        if derived != expected_derived:
+            raise SurfacePreviewPublishError(f"{where} derivation does not bind the v16 sources")
+
+        radii = value["volume_radii"][index]
+        radius_names = ("socket", "cup", "tangent_blend", "authored_thigh_start")
+        if not isinstance(radii, dict) or set(radii) != set(radius_names):
+            raise SurfacePreviewPublishError(f"{where} volume radii have an invalid shape")
+        parsed_radii: dict[str, list[float]] = {}
+        for name in radius_names:
+            raw = radii[name]
+            if not isinstance(raw, list) or len(raw) != 3:
+                raise SurfacePreviewPublishError(f"{where}.{name} volume radii are invalid")
+            parsed = [
+                _finite_number(component, f"{where}.{name}[{axis}]")
+                for axis, component in enumerate(raw)
+            ]
+            if any(component <= 0.0 for component in parsed):
+                raise SurfacePreviewPublishError(f"{where}.{name} volume radii are invalid")
+            parsed_radii[name] = parsed
+
+        station_radii = thigh_station.get("radii")
+        expected_thigh = (
+            [float(station_radii[axis]) for axis in AUTHORED_LEG_PROFILE_RADIUS_AXES]
+            if isinstance(station_radii, dict)
+            and set(station_radii) == set(AUTHORED_LEG_PROFILE_RADIUS_AXES)
+            else None
+        )
+        if parsed_radii["authored_thigh_start"] != expected_thigh:
+            raise SurfacePreviewPublishError(f"{where} authored volume does not bind the thigh start")
+
+        socket_thigh_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["socket_thigh_weight"])
+        socket_pelvis_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["socket_pelvis_weight"])
+        cup_thigh_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["cup_thigh_weight"])
+        cup_pelvis_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["cup_pelvis_weight"])
+        support_cap = float(SUCCESSOR_HIP_ROOT_CONTROLS["pelvis_support_cap"])
+        for axis, (socket_radius, cup_radius, blend_radius, thigh_radius) in enumerate(
+            zip(
+                parsed_radii["socket"],
+                parsed_radii["cup"],
+                parsed_radii["tangent_blend"],
+                parsed_radii["authored_thigh_start"],
+            )
+        ):
+            pelvis_support = (
+                socket_radius - socket_thigh_weight * thigh_radius
+            ) / socket_pelvis_weight
+            expected_cup = cup_thigh_weight * thigh_radius + cup_pelvis_weight * pelvis_support
+            expected_blend = 0.5 * (cup_radius + thigh_radius)
+            if (
+                pelvis_support <= 0.0
+                or pelvis_support > support_cap * thigh_radius + 1.0e-12
+                or not math.isclose(cup_radius, expected_cup, rel_tol=0.0, abs_tol=1.0e-12)
+                or not math.isclose(blend_radius, expected_blend, rel_tol=0.0, abs_tol=1.0e-12)
+            ):
+                raise SurfacePreviewPublishError(f"{where} volume radius axis {axis} is not v16-derived")
 
 
 def _validate_successor_tail_controls(
@@ -5448,11 +5668,31 @@ def _validate_successor_sidecar(
     expected_metadata = _expected_successor_region_metadata(
         baseline_guide, expected_torso_controls
     )
-    for key in ("torso", "shoulders", "head_neck", "limbs", "extremities"):
+    for key in ("torso", "shoulders", "head_neck", "extremities"):
         if sidecar.get(key) != expected_metadata[key]:
             raise SurfacePreviewPublishError(
                 f"successor {key.replace('_', '/')} metadata does not match the validated guide"
             )
+    limbs = sidecar.get("limbs")
+    expected_limbs = expected_metadata["limbs"]
+    if (
+        not isinstance(limbs, dict)
+        or set(limbs) != set(expected_limbs)
+        or any(
+            limbs.get(key) != expected
+            for key, expected in expected_limbs.items()
+            if key != "hip_root"
+        )
+    ):
+        raise SurfacePreviewPublishError(
+            "successor limbs metadata does not match the validated guide"
+        )
+    hip_root = limbs.get("hip_root")
+    _validate_successor_hip_root_metadata(
+        hip_root,
+        baseline_guide,
+        expected_limbs["leg_profile"],
+    )
     tail = sidecar.get("tail")
     expected_tail = expected_metadata["tail"]
     if not isinstance(tail, dict) or set(tail) != set(expected_tail) | {"controls", "tip_shared_endpoint"}:
@@ -5465,26 +5705,21 @@ def _validate_successor_sidecar(
     if not isinstance(bridge, dict) or set(bridge) != {"enabled", "consumer", "regions", "field_count", "retained_recipes"}:
         raise SurfacePreviewPublishError("successor temporary bridge metadata is missing")
     if (
-        bridge.get("enabled") is not True
-        or bridge.get("consumer") != "baseline-analytic-fields"
-        or bridge.get("regions") != ["thigh-root-connectors", "hip-transitions"]
-        or bridge.get("field_count") != 4
-        or bridge.get("retained_recipes") != list(SUCCESSOR_RETAINED_BRIDGE_RECIPES)
+        bridge.get("enabled") is not False
+        or bridge.get("consumer") != "none"
+        or bridge.get("regions") != []
+        or bridge.get("field_count") != 0
+        or bridge.get("retained_recipes") != []
     ):
         raise SurfacePreviewPublishError(
-            "successor temporary bridge must contain only two thigh-root and two hip fields"
+            "successor temporary bridge must be disabled with no retained fields"
         )
-    retained = bridge["retained_recipes"]
-    if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
-        raise SurfacePreviewPublishError("successor temporary bridge retains baseline paw, foot, or tail recipes")
 
     replaced = sidecar.get("replaced_baseline_recipes")
     if not isinstance(replaced, list) or not all(isinstance(recipe, str) and recipe for recipe in replaced):
         raise SurfacePreviewPublishError("successor replaced-baseline recipe metadata is invalid")
     if replaced != list(SUCCESSOR_REPLACED_BASELINE_RECIPES):
         raise SurfacePreviewPublishError("successor sidecar does not contain the exact replaced-baseline recipe inventory")
-    if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
-        raise SurfacePreviewPublishError("successor sidecar retains a replaced baseline recipe")
 
     if metrics.get("consumer_id") != SUCCESSOR_CONSUMER_ID or metrics.get("successor_region_id") != SUCCESSOR_REGION_ID:
         raise SurfacePreviewPublishError("successor metrics identity does not match sidecar")
@@ -5498,6 +5733,7 @@ def _validate_successor_sidecar(
         )
     dynamic_metrics_keys = {
         "shoulder_sweep_controls",
+        "hip_root",
         "tail_element_controls",
         "tail_tip_shared_endpoint",
     }
@@ -5684,6 +5920,8 @@ def _validate_successor_sidecar(
             )
     if metrics_region["shoulder_sweep_section_owner_keys"] != expected_metrics_region["shoulder_sweep_section_owner_keys"]:
         raise SurfacePreviewPublishError("successor shoulder metrics ownership does not match the validated guide")
+    if metrics_region.get("hip_root") != hip_root:
+        raise SurfacePreviewPublishError("successor hip-root metrics disagree with the sidecar")
     if metrics_region.get("tail_element_controls") != tail["controls"] or metrics_region.get("tail_tip_shared_endpoint") != tail["tip_shared_endpoint"]:
         raise SurfacePreviewPublishError("successor tail metrics disagree with the sidecar")
     if metrics_region.get("replaced_baseline_recipes") != replaced or metrics.get("temporary_bridge") != bridge:
@@ -5828,7 +6066,7 @@ def _validate_successor_bundle(
     if (
         generator.get("production_status") != "disposable exploratory proof"
         or generator.get("consumer_boundary")
-        != "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors"
+        != "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral pelvis-to-thigh socket/cup transitions, bilateral hands, digitigrade feet, and tail"
     ):
         raise SurfacePreviewPublishError("successor generator boundary metadata is invalid")
 
@@ -5967,7 +6205,7 @@ def _validate_successor_bundle(
         _validate_component_visualization_metrics(
             metrics_payload,
             allowed_owners=profile_binding["variants"][variant_id]["descriptor_owners"],
-            expected_component_count=27,
+            expected_component_count=sum(EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS.values()),
             expected_recipe_counts=EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS,
             where=where,
         )

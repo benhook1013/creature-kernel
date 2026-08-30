@@ -638,7 +638,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         return path
 
     def _successor_generator(self, *, mode: str = "success") -> Path:
-        """Write a small valid successor-v9 fixture, with bounded mutations."""
+        """Write a small valid successor-v9/v16-region fixture, with bounded mutations."""
 
         path = self.directory / f"successor-generator-{mode}.py"
         script = textwrap.dedent("""
@@ -663,6 +663,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             EXTREMITY_STATION_NAMES = __EXTREMITY_STATION_NAMES__
             HAND_PAW_PROFILE = __HAND_PAW_PROFILE__
             HAND_PAW_SECTION_NAMES = __HAND_PAW_SECTION_NAMES__
+            HIP_ROOT_OPERATION = __HIP_ROOT_OPERATION__
+            HIP_ROOT_CONTROLS = __HIP_ROOT_CONTROLS__
             TAIL_ORDER = __TAIL_ORDER__
             TAIL_KINDS = __TAIL_KINDS__
             TAIL_SECTION_NAMES = __TAIL_SECTION_NAMES__
@@ -760,7 +762,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 elif MODE == "ply-zero-volume": surface_ply = ZERO_VOLUME_PLY
                 elif MODE == "ply-flattened": surface_ply = FLATTENED_PLY
                 (variant_dir / "surface.ply").write_bytes(surface_ply)
-                bridge = {"enabled": True, "consumer": "baseline-analytic-fields", "regions": ["thigh-root-connectors", "hip-transitions"], "field_count": 4, "retained_recipes": ["hip-transition", "root-bridge"]}
+                bridge = {"enabled": False, "consumer": "none", "regions": [], "field_count": 0, "retained_recipes": []}
                 replaced = list(REPLACED)
                 producer_variant = raw_variants[variant_index]
                 descriptors = producer_variant["descriptors"]
@@ -942,7 +944,56 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     else:
                         limb_centerlines.append([[side_sign * 1.0, -1.0, 0.0], [side_sign * 1.0, -1.5, 0.0], [side_sign * 1.0, -2.0, 0.0], [side_sign * 1.0, -2.5, 0.5], [side_sign * 1.0, -3.0, 1.0]])
                 limb_internal_transition_counts = [0, 0, 0, 0, *[bend_count(points) for points in limb_centerlines]]
-                limbs = {"representation": "shared-guide-derived-authored-arm-and-leg-profile-routes", "sweeps_consumed": len(LIMB_ORDER), "sweep_order": list(LIMB_ORDER), "route_kinds": ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "leg-profile", "leg-profile"], "station_counts": [len(names) for names in LIMB_STATION_NAMES], "station_names": [list(names) for names in LIMB_STATION_NAMES], "section_owner_keys": limb_owner_keys, "station_owner_keys": limb_owner_keys, "endpoint_cap_counts": [2] * len(LIMB_ORDER), "arm_profile": arm_profile, "leg_profile": leg_profile, "foot_profile": foot_profile}
+                pelvis_owner = torso_controls[0]["owner"]
+                hip_root_section_names = ["hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"]
+                hip_root_section_owner_keys = []
+                hip_root_source_owner_keys = []
+                hip_root_boundary_parameters = []
+                hip_root_socket_parameters = []
+                hip_root_tangent_blend_distances = []
+                hip_root_derived_from = []
+                hip_root_volume_radii = []
+                for leg_side in leg_profile["sides"]:
+                    thigh_start = leg_side["stations"][0]
+                    thigh_owner = thigh_start["owner"]
+                    thigh_volume = [thigh_start["radii"][axis] for axis in ("lateral", "up", "forward")]
+                    pelvis_support = [1.1 * radius for radius in thigh_volume]
+                    socket_volume = [HIP_ROOT_CONTROLS["socket_thigh_weight"] * thigh + HIP_ROOT_CONTROLS["socket_pelvis_weight"] * support for thigh, support in zip(thigh_volume, pelvis_support)]
+                    cup_volume = [HIP_ROOT_CONTROLS["cup_thigh_weight"] * thigh + HIP_ROOT_CONTROLS["cup_pelvis_weight"] * support for thigh, support in zip(thigh_volume, pelvis_support)]
+                    tangent_blend_volume = [0.5 * (cup + thigh) for cup, thigh in zip(cup_volume, thigh_volume)]
+                    boundary_parameter = 0.5
+                    socket_parameter = HIP_ROOT_CONTROLS["socket_fraction"] * boundary_parameter
+                    tangent_blend_distance = 0.25
+                    hip_root_section_owner_keys.append([pelvis_owner, thigh_owner, thigh_owner, thigh_owner])
+                    hip_root_source_owner_keys.append([pelvis_owner, thigh_owner])
+                    hip_root_boundary_parameters.append(boundary_parameter)
+                    hip_root_socket_parameters.append(socket_parameter)
+                    hip_root_tangent_blend_distances.append(tangent_blend_distance)
+                    hip_root_derived_from.append({
+                        "lower_pelvis": {"section_name": "lower-pelvis", "source_section_index": 0},
+                        "authored_thigh_start": {"station_name": "thigh-start", "source_station_index": 0},
+                        "tangent_blend": {"station_name": "thigh-tangent-blend", "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent", "distance": tangent_blend_distance},
+                    })
+                    hip_root_volume_radii.append({"socket": socket_volume, "cup": cup_volume, "tangent_blend": tangent_blend_volume, "authored_thigh_start": thigh_volume})
+                hip_root = {
+                    "operation": HIP_ROOT_OPERATION,
+                    "topology": "one-derived-four-station-pelvis-socket-cup-tangent-blend-to-authored-thigh-root-per-side",
+                    "route_order": ["left-hip-root-transition", "right-hip-root-transition"],
+                    "route_kinds": ["derived-pelvis-thigh-transition", "derived-pelvis-thigh-transition"],
+                    "section_names": [hip_root_section_names, hip_root_section_names],
+                    "section_counts": [4, 4],
+                    "section_owner_keys": hip_root_section_owner_keys,
+                    "source_owner_keys": hip_root_source_owner_keys,
+                    "pelvis_section_names": ["lower-pelvis", "lower-pelvis"],
+                    "authored_station_names": ["thigh-start", "thigh-start"],
+                    "boundary_parameters": hip_root_boundary_parameters,
+                    "socket_parameters": hip_root_socket_parameters,
+                    "tangent_blend_distances": hip_root_tangent_blend_distances,
+                    "derived_from": hip_root_derived_from,
+                    "controls": dict(HIP_ROOT_CONTROLS),
+                    "volume_radii": hip_root_volume_radii,
+                }
+                limbs = {"representation": "shared-guide-derived-authored-arm-and-leg-profile-routes", "sweeps_consumed": len(LIMB_ORDER), "sweep_order": list(LIMB_ORDER), "route_kinds": ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "leg-profile", "leg-profile"], "station_counts": [len(names) for names in LIMB_STATION_NAMES], "station_names": [list(names) for names in LIMB_STATION_NAMES], "section_owner_keys": limb_owner_keys, "station_owner_keys": limb_owner_keys, "endpoint_cap_counts": [2] * len(LIMB_ORDER), "arm_profile": arm_profile, "leg_profile": leg_profile, "hip_root": hip_root, "foot_profile": foot_profile}
                 paw_owners = {(side, role): source_owner(descriptors, role, [side]) for side in ("left", "right") for role in ("hand", "foot")}
                 hand_paw_sides = []
                 for side in ("left", "right"):
@@ -982,7 +1033,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 extremity_internal_transition_counts = []
                 for side in ("left", "right"):
                     side_sign = -1.0 if side == "left" else 1.0
-                    hand_centers = [[side_sign * 1.3 + offset * 0.5 * side_sign, -0.9, 0.0] for offset in (-0.55, -0.15, 0.35, 0.78)]
+                    hand_centers = [[side_sign * 1.3 + offset * 0.5 * side_sign, -0.9, 0.0] for offset, _up_scale, _forward_scale in HAND_PAW_PROFILE]
                     hock_center = [side_sign * 1.0, -3.0, 1.0]
                     pad_center = [side_sign * 1.0, -3.6, 1.5]
                     toe_center = [side_sign * 1.0, -3.6, 1.72]
@@ -1024,6 +1075,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "head_neck": head_neck,
                     "arm_profile": arm_profile,
                     "leg_profile": leg_profile,
+                    "hip_root": hip_root,
                     "foot_profile": foot_profile,
                     "hand_paw": hand_paw,
                     "limb_representation": limbs["representation"],
@@ -1059,7 +1111,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "tail_source_owner_keys": [tail_root_owner, tail_tip_owner],
                     "tail_element_controls": tail_controls,
                     "tail_tip_shared_endpoint": tip_shared_endpoint,
-                    "replaced_baseline_field_count": 48,
+                    "replaced_baseline_field_count": 52,
                     "replaced_baseline_recipes": list(REPLACED),
                 }
                 sidecar = {
@@ -1087,11 +1139,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "successor-right-hand-attachment", "successor-right-hand-paw", "successor-right-foot", "successor-tail-root-source",
                     "successor-tail-root-attachment", "successor-tail-root-collar", "successor-tail-tip-source", "successor-tail-tip-extension",
                     "successor-tail-tip-cap", "successor-left-shoulder-envelope", "successor-right-shoulder-envelope",
-                    "root-bridge", "root-bridge", "hip-transition", "hip-transition",
+                    "successor-left-hip-root-transition", "successor-right-hip-root-transition",
                 ]
                 component_visualization = {
                     **COMPONENT_VISUALIZATION_METRICS,
-                    "component_count": 27,
+                    "component_count": 25,
                     "components": [{"source_owner": descriptors[index % len(descriptors)]["address"], "recipe": recipe, "bounds": {"min": [-1.0, -1.0, -1.0], "max": [1.0, 1.0, 1.0]}} for index, recipe in enumerate(component_recipes)],
                 }
                 if MODE == "metrics-wrong-topology":
@@ -1100,8 +1152,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     sidecar["consumer_id"] = "wrong-consumer"
                 elif MODE == "sidecar-bridge":
                     sidecar["temporary_bridge"] = {**bridge, "field_count": 7}
-                elif MODE == "sidecar-stale-six-bridge":
-                    sidecar["temporary_bridge"] = {**bridge, "regions": ["limb-root-connectors", "hip-transitions"], "field_count": 6}
+                elif MODE == "sidecar-stale-v15-bridge":
+                    sidecar["temporary_bridge"] = {"enabled": True, "consumer": "baseline-analytic-fields", "regions": ["thigh-root-connectors", "hip-transitions"], "field_count": 4, "retained_recipes": ["hip-transition", "root-bridge"]}
                 elif MODE == "sidecar-stale-v2":
                     sidecar["format"] = "creature-kernel.disposable-successor-surface-preview.v2"
                 elif MODE == "sidecar-old-shoulder":
@@ -1122,6 +1174,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     sidecar["shoulders"] = {**sidecar["shoulders"], "span_index": True}
                 elif MODE == "sidecar-missing-deltoid-replacement":
                     sidecar["replaced_baseline_recipes"] = [recipe for recipe in replaced if recipe != "deltoid-sweep-1"]
+                elif MODE == "sidecar-missing-hip-replacement":
+                    sidecar["replaced_baseline_recipes"] = [recipe for recipe in replaced if recipe != "hip-transition"]
+                elif MODE == "sidecar-hip-root":
+                    sidecar["limbs"] = {**sidecar["limbs"], "hip_root": {**sidecar["limbs"]["hip_root"], "operation": "stale-hip-root-operation"}}
                 elif MODE == "sidecar-torso-owner":
                     pelvis_owner = next(item["address"] for item in descriptors if item["address"]["role"] == "pelvis" and item["address"]["anchors"] == [])
                     sidecar["torso"] = {**sidecar["torso"], "section_controls": [*sidecar["torso"]["section_controls"][:2], {**sidecar["torso"]["section_controls"][2], "owner": pelvis_owner}, *sidecar["torso"]["section_controls"][3:]]}
@@ -1252,6 +1308,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     owners = list(metrics["successor_region"]["limb_sweep_station_owner_keys"])
                     owners[4] = [limb_owners[("left", "thigh")]] * 5
                     metrics_file["successor_region"] = {**metrics["successor_region"], "limb_sweep_station_owner_keys": owners}
+                elif MODE == "metrics-hip-root":
+                    hip_metadata = {**metrics["successor_region"]["hip_root"], "route_order": ["right-hip-root-transition", "left-hip-root-transition"]}
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "hip_root": hip_metadata}
+                elif MODE == "metrics-replaced-count":
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "replaced_baseline_field_count": 48}
                 elif MODE == "metrics-foot-profile":
                     foot_profile_metadata = dict(metrics["successor_region"]["foot_profile"])
                     foot_profile_metadata["route_order"] = list(reversed(foot_profile_metadata["route_order"]))
@@ -1306,7 +1367,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             if MODE == "stale-canvas": manifest_canvas = {"width": 1800, "height": 570, "mode": "RGB"}
             if MODE == "stale-layout": manifest_layout = {"panel_order": ["front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin"], "panels": [{"id": "front-guide", "projection": "front", "content": "guide", "box": [12, 72, 292, 548]}, {"id": "front-skin", "projection": "front", "content": "skin", "box": [310, 72, 590, 548]}, {"id": "side-guide", "projection": "side", "content": "guide", "box": [608, 72, 888, 548]}, {"id": "side-skin", "projection": "side", "content": "skin", "box": [906, 72, 1186, 548]}, {"id": "three-quarter-guide", "projection": "three-quarter", "content": "guide", "box": [1204, 72, 1484, 548]}, {"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1502, 72, 1782, 548]}], "pairing": "guide-left/skin-right per projection", "frame": "shared-world-bounds-and-projection-basis"}
             if MODE == "stale-format": manifest_format = "creature-kernel.disposable-successor-surface-preview.v8"
-            generator = {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof", "component_visualization": COMPONENT_VISUALIZATION}
+            generator = {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral pelvis-to-thigh socket/cup transitions, bilateral hands, digitigrade feet, and tail", "production_status": "disposable exploratory proof", "component_visualization": COMPONENT_VISUALIZATION}
             if MODE == "component-visualization-omitted": generator.pop("component_visualization")
             if MODE == "component-visualization-tampered": generator["component_visualization"] = {**COMPONENT_VISUALIZATION, "samples_per_axis": 31}
             manifest = {"format": manifest_format, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": manifest_canvas, "layout": manifest_layout, "projections": frame["projections"], "generator": generator, "variants": records}
@@ -1331,6 +1392,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__EXTREMITY_STATION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_EXTREMITY_STATION_NAMES]),
             "__HAND_PAW_PROFILE__": repr(list(publisher.SUCCESSOR_HAND_PAW_PROFILE)),
             "__HAND_PAW_SECTION_NAMES__": repr(list(publisher.SUCCESSOR_HAND_PAW_SECTION_NAMES)),
+            "__HIP_ROOT_OPERATION__": repr(publisher.SUCCESSOR_HIP_ROOT_PROFILE_OPERATION),
+            "__HIP_ROOT_CONTROLS__": repr(publisher.SUCCESSOR_HIP_ROOT_CONTROLS),
             "__TAIL_ORDER__": repr(list(publisher.SUCCESSOR_TAIL_ORDER)),
             "__TAIL_KINDS__": repr(list(publisher.SUCCESSOR_TAIL_KINDS)),
             "__TAIL_SECTION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_TAIL_SECTION_NAMES]),
@@ -2615,10 +2678,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         )
         raw = source.read_bytes()
-        self.assertEqual(len(raw), 56_857)
+        self.assertEqual(len(raw), 56_863)
         self.assertEqual(
             hashlib.sha256(raw).hexdigest(),
-            "100b45e98a51b78f6fa9d6c037483620c30003db90da3cb21b537803df652241",
+            "d4f0dad6f936d62f9ee8c0fa24701898ee4ae6e48bcdeaf44641bd4dc3b549de",
         )
         evidence = publisher._validate_input_evidence(
             publisher._read_input_evidence(source), "checked-in source"
@@ -2698,22 +2761,22 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         publisher._validate_producer_evidence(
             descriptor, "review.subject_context.descriptor_snapshot"
         )
-        self.assertEqual(len(compact), 190_445)
+        self.assertEqual(len(compact), 190_465)
         self.assertEqual(
             hashlib.sha256(compact).hexdigest(),
-            "0428640633bfcc1f65e5e4aec84f72650e63b86ae9a09fc199024fa7d16c6b57",
+            "22f59bd768f27da8130d213f13f277c500315d3e570e62ccbdc86758a322b0d5",
         )
-        self.assertEqual(descriptor["producer_envelope_bytes"], 190_445)
+        self.assertEqual(descriptor["producer_envelope_bytes"], 190_465)
         self.assertEqual(
             descriptor["producer_envelope_sha256"],
-            "0428640633bfcc1f65e5e4aec84f72650e63b86ae9a09fc199024fa7d16c6b57",
+            "22f59bd768f27da8130d213f13f277c500315d3e570e62ccbdc86758a322b0d5",
         )
         compressed = base64.b64decode(descriptor["producer_envelope_xz_base64"])
-        self.assertEqual(len(compressed), 6_268)
-        self.assertEqual(len(descriptor["producer_envelope_xz_base64"]), 8_360)
+        self.assertEqual(len(compressed), 6_272)
+        self.assertEqual(len(descriptor["producer_envelope_xz_base64"]), 8_364)
         self.assertEqual(
             hashlib.sha256(compressed).hexdigest(),
-            "df4611f5024810b18edb3e1354b36d3ea7835c9c9195f5fc578e34899f82e8de",
+            "b5ceac6a879620e45b43e0509da8555e9208f51b9c22203b6cd40ddae25ec98c",
         )
         self.assertEqual(
             publisher._decode_producer_evidence(descriptor), compact
@@ -2727,10 +2790,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         }
         subject_context_json = json.dumps(subject_context, allow_nan=False, ensure_ascii=False)
         subject_context_size = len(subject_context_json.encode("utf-8"))
-        self.assertEqual(subject_context_size, 8_844)
+        self.assertEqual(subject_context_size, 8_848)
         self.assertEqual(
             hashlib.sha256(subject_context_json.encode("utf-8")).hexdigest(),
-            "48ba3b4038c92e571e336880331985c7cf15b3331949ff3f8c6992794b7d8434",
+            "aa31709ee1f71ca9899ecd7fadf0a0476722b12e9c305d37e3303919b133f4d7",
         )
         self.assertLessEqual(subject_context_size, common.MAX_CONTEXT_JSON)
         self.assertEqual(
@@ -2911,13 +2974,15 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "sidecar-tail",
             "sidecar-tail-shared-endpoint",
             "sidecar-shoulder-span-type",
+            "sidecar-hip-root",
             "sidecar-leg-route-order",
             "sidecar-leg-owner",
             "sidecar-leg-lineage",
             "sidecar-missing-deltoid-replacement",
+            "sidecar-missing-hip-replacement",
             "sidecar-stale-v2",
             "sidecar-old-shoulder",
-            "sidecar-stale-six-bridge",
+            "sidecar-stale-v15-bridge",
             "sidecar-stale-region-id",
             "metrics-disagreement",
             "metrics-shoulder-span-type",
@@ -2926,6 +2991,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "metrics-shoulder-owner",
             "metrics-limb-source-owner",
             "metrics-leg-cross-binding",
+            "metrics-hip-root",
+            "metrics-replaced-count",
         )
         for index, mode in enumerate(modes):
             review_id = f"successor-bad-{index}"

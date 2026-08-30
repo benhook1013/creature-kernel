@@ -58,23 +58,30 @@ or executable truth.
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122,
 but that branch, PR head, and PR state must be verified live before they are
-treated as current. The current local candidate combines the lean AI-control-
-plane rewrite and five-profile gallery adapter with shared torso transitions,
-neck/head/muzzle composition, tapered limb routes, and full-volume hand-paw
-stations. Final consolidated validation, immutable-head external review, and
-the live checkpoint publication remain outstanding. The remote PR head may
-lag this local candidate until those local gates complete.
+treated as current. PR #122 remains unmerged. The completed local candidate
+combines the lean AI-control-plane rewrite and five-profile gallery adapter
+with five-profile visual feedback, v16 hip-root mechanics, the successor
+positive-field no-ghost fold, and successor-inclusive capture bounds, alongside
+shared torso transitions, neck/head/muzzle composition, tapered limb routes,
+and full-volume hand-paw stations. Consolidated local validation is complete:
+Rust 74, baseline 72 from unchanged baseline, successor 80, structural 14, publication 42,
+gallery 14, provisional 28, wrapper 6, with docs, whitespace, and diff clean.
+Two fresh post-fix hands-on trials passed the 5x4 compile contract, all five
+neutral full-resolution meshes/gallery checks, compact all four, standard all
+four, and the named tall/slender/stocky risk meshes. The checked meshes were
+finite, watertight, and one component. Remote CI/review and live publication
+remain outstanding.
 
 ### Immediate continuation
 
 Continue in this order:
 
-1. Complete consolidated local validation, hands-on trials, and current
-   risk-scaled review; resolve verified correctness findings.
-2. Commit and push one coherent immutable head, then launch CI plus hosted and
-   committed-diff CLI review in parallel without changing that remote head.
-3. Publish the exact five-profile gallery, with the standard neutral reference
-   first, from that candidate and verify its
+1. Commit and push one coherent immutable head.
+2. Launch CI plus hosted and committed-diff CLI CodeRabbit review in parallel;
+   resolve valid findings until hosted review tapers, without changing the
+   reviewed remote head during each cycle.
+3. Publish a fresh live review ID for the exact five-profile gallery, with the
+   standard neutral reference first, from the final candidate and verify its
    technical loading without using AI visual appraisal as a gate.
 4. Stop with PR #122 unmerged and present the checkpoint URL and completed
    review state to Ben. Any later material fix that changes the displayed
@@ -331,7 +338,7 @@ semantic contact, show localized press/release deformation plus actual physical
 response, measure render/collision coherence with named hardware and frame
 evidence, and demonstrate a CPU baseline plus a useful fallback. That work is
 now complete and dispositioned; the active-runway section above owns the current
-four-profile anatomy checkpoint. The
+five-profile anatomy checkpoint. The
 [first host runtime evaluation](../research/first-host-runtime-evaluation.md)
 records the bounded evidence and unresolved trial questions.
 
@@ -353,7 +360,7 @@ retained-human Readiness 3 or adapter-activation decision.
 
 After the bounded Godot mechanics/feasibility checkpoint is completed or
 dispositioned, the next model-facing human checkpoint is convincing
-simplified/stylized anatomy across the four fixed profiles: a readable,
+simplified/stylized anatomy across the five fixed profiles: a readable,
 intentional neck, torso and pelvis masses, shoulder/hip transitions, tapered
 limbs, and a simplified muzzle and paws/feet. This is not a photorealistic
 anatomy, detailed-hands/faces/tissue, or current Godot-mechanics claim.
@@ -365,7 +372,7 @@ axial and upper-root assembly, and pelvic-to-planted-hind-paw assembly. It does
 not create a schema, roadmap, architecture, supported morphology promise, or
 executable truth. Ben's direction to continue dispositioned the bounded Godot
 feasibility checkpoint; implementation now proceeds toward the already named
-four-profile anatomy checkpoint. All retained-human boundaries remain
+five-profile anatomy checkpoint. All retained-human boundaries remain
 unchanged.
 
 The active runway remains fail-closed: stop for main-thread reevaluation if the

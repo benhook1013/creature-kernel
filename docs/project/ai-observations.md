@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 19 open observations
+Status: Operational inbox; 21 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,14 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-08-30 23:26 NZST`: Production-resolution successor builds provide no progress signal
+  - Observation: Two independent hands-on trials found that 56-sample successor mesh extraction and five-profile gallery publication can produce no output for roughly 24 seconds to several minutes per stage, making healthy CPU-bound work indistinguishable from a stalled process without an external process inspection. Replaying an existing gallery ID also rebuilt all five meshes for several minutes before the final no-replace check rejected it; the installed inventory and hashes remained unchanged.
+  - Expected pattern: Long-running successor generation and gallery publication should emit bounded stage/profile/variant progress to stderr without changing deterministic artifacts or machine-readable stdout. Publishers should reject an already-existing destination before expensive generation while retaining the atomic no-replace check at installation for race safety.
+
+- `2026-08-30 21:10 NZST`: Parallel subagent spawn batch partially succeeded before rejection
+  - Observation: A two-spawn `Promise.all` call reported only `agent thread limit reached`, but its first spawn had already succeeded without its returned ID being surfaced. Recovering a completed slot and retrying the batch's work created a second worker with the same write scope; completion notifications later exposed the duplicate concurrent documentation edit.
+  - Expected pattern: When available slots are uncertain, launch write-capable subagents sequentially and retain each returned ID before starting the next; after any batched spawn rejection, treat earlier calls as potentially successful and reconcile notifications or authoritative live status before retrying overlapping work.
 
 - `2026-08-30 18:18 NZST`: Dynamically composed visual-review IDs failed safe-slug admission
   - Observation: Two independent anatomy-gallery hands-on trials each spent a failed first publication attempt on an invalid explicit review ID: one copied a dot-bearing `mktemp` suffix, while the other used a 68-character attack label beyond the 64-character bound. Both returned status 2 with the generic safe-slug error and required a corrected second attempt; neither failure installed a review directory.

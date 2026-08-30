@@ -297,7 +297,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             json.dumps([part["placement"]["translation"] for part in document["body"]["parts"]])  # type: ignore[index]
             for document in self.sources.values()
         }
-        self.assertGreaterEqual(len(placement_signatures), 4)
+        self.assertEqual(len(placement_signatures), 4)
         self.assertEqual(len({generator.canonical_source_bytes(document) for document in self.sources.values()}), 5)
         signatures = {generator._tail_signature(document) for document in self.sources.values()}
         self.assertGreaterEqual(len(signatures), 3)

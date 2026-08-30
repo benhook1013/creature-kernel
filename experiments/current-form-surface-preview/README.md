@@ -16,9 +16,11 @@ The integrated candidate is producer v11 with `authored_foot_profile` v1:
 current diagnostic target is baseline preview format v3, regional guide v11,
 and successor preview v9. Producer v11 and `authored_foot_profile` v1 remain
 the source identities. The current successor region/profile identity is
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15`
-after adding full-volume hand stations and source-control-preserving muzzle
-composition.
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16`.
+This v16 hip-root successor derives one four-station pelvis-to-thigh
+socket/cup/tangent-blend route per side from the lower-pelvis cage and authored
+thigh-root controls. It consumes the complete baseline field inventory and
+retains zero temporary bridge fields.
 The exact foot route is `hock -> metatarsal midpoint -> pad ->
 pad-toe midpoint -> toe`: the hock is shin-owned, the other four stations are
 foot-owned, and the route carries full lateral/up/forward radii, outer caps,
@@ -52,7 +54,7 @@ The renderer expands each source descriptor into a bounded, deterministic
 role recipe where useful. The current fixture convention supplies ordered
 pelvic/chest girdle and narrow-waist masses joined by two short tapered station
 bridges, cranium and muzzle, a parent-surface neck/collar, source-owned
-compact shoulder and hip root controls plus embedded limb root bridges, tapered hip-to-thigh
+compact shoulder and hip root controls plus embedded limb root connectors, tapered hip-to-thigh
 transitions, piecewise limb profiles, endpoint joint stations, simple
 two-stage hand paws, source-derived digitigrade foot chains from the existing
 hock through a tapered metatarsal, planted paw pad, and forward toe box, and
@@ -60,7 +62,7 @@ a smoothly rooted straight tail with a full midsection and short blunt distal
 taper. Recipe components are fields,
 not semantic nodes: every generated component keeps its source descriptor as
 owner and the semantic sidecar emits only source AddressKeys. Limb and root
-bridges are anchored on the torso cage boundary for torso-owned roots, or the
+connectors are anchored on the torso cage boundary for torso-owned roots, or the
 parent analytic-field boundary for other attachments, in the existing
 axis-aligned fixture convention; arbitrary orientation is not claimed. Recipe
 expansion therefore fails closed unless the envelope contains the exact 18-Part
@@ -99,7 +101,7 @@ front, side, and three-quarter x-ray panels. The older ordered axial
 (`pelvis-waist`, `waist-chest`) remain only as a clearly marked
 `compatibility-diagnostic-not-rendered` sidecar view; they are not rendered and
 are not the skin-driving controls. Limb controls expose
-named tapered sections, consumed profile radii, source-owned root/hip bridges,
+named tapered sections, consumed profile radii, source-owned root/hip connectors,
 named endpoint joint stations, and exact parent anchors for hand/foot
 attachments. The authored arm profile is projected into exactly five ordered
 stations per side: `upper-arm-start`, `upper-arm-midpoint`, `elbow`,
@@ -234,20 +236,21 @@ its source-derived outward/up/forward volume, while the foot chain retains the
 shin-owned hock seam and foot-owned metatarsal, pad, and toe controls. The
 successor
 tail boundary consumes six source-owned tail elements (root source,
-attachment, collar mass, tip source, extension, and cap); baseline fields
-remain an explicit bridge only for two thigh root connectors and two hip
-transitions. The successor v9 region
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15`
+attachment, collar mass, tip source, extension, and cap). The successor v9
+region
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16`
 uses four authored arm-profile routes plus two authored leg-profile routes.
 The authored leg routes retain the thigh-owned knee and shin-owned hock, and
 each foot route is exactly `hock -> metatarsal midpoint -> pad -> pad-toe midpoint
--> toe`, with the hock shin-owned and all other stations foot-owned. The two arm
-root bridges and old underarm supports are absent; the shared upper-arm-owned
-elbow seam consumes all three authored radii. Exactly four temporary
-thigh-root/hip bridges remain: one root bridge and one hip transition per
-side. No duplicate legacy leg mass is retained, and there is no per-side or
-per-variant station tuning. No baseline tail, paw, or foot component remains. The shared
-tail source/extension endpoint retains its independently authored profiles;
+-> toe`, with the hock shin-owned and all other stations foot-owned. The
+successor consumes every baseline field through its successor or derived
+hip-root components; `temporary_bridge` is disabled with no consumer, regions,
+retained recipes, or fields. The two arm root bridges and old underarm
+supports are absent; the shared upper-arm-owned elbow seam consumes all three
+authored radii. No duplicate legacy leg mass is retained, and there is no
+per-side or per-variant station tuning. No baseline tail, paw, or foot
+component remains. The shared tail source/extension endpoint retains its
+independently authored profiles;
 this experiment does not claim that the resulting tail silhouette or visual
 quality has been observed or accepted.
 It is neither a permanent backend selection nor an acceptance decision. The

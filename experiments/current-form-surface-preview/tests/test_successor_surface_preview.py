@@ -5,6 +5,7 @@ import importlib.util
 import hashlib
 import json
 import math
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -18,6 +19,7 @@ from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_SPEC = importlib.util.spec_from_file_location("successor_fixture", Path(__file__).with_name("test_surface_preview.py"))
 assert FIXTURE_SPEC and FIXTURE_SPEC.loader
 fixture = importlib.util.module_from_spec(FIXTURE_SPEC)
@@ -49,6 +51,103 @@ def _serialized_torso_section_controls(region: successor.SuccessorRegion) -> lis
         }
         for section in region.loft.sections
     ]
+
+
+EXPECTED_EXACT_COMPONENT_COUNT = 25
+EXPECTED_REPLACED_BASELINE_FIELD_COUNT = 52
+
+
+def _expected_successor_region_metadata(metrics: dict[str, object]) -> dict[str, object]:
+    """Return the exact sidecar region metadata projected from emitted metrics."""
+
+    metrics_region = metrics["successor_region"]
+    return {
+        "successor_region_id": metrics["successor_region_id"],
+        "torso": {
+            "representation": metrics_region["torso_representation"],
+            "regional_guide_format": metrics_region["regional_guide_format"],
+            "superellipse_exponent": metrics_region["torso_profile_exponent"],
+            "sections_consumed": metrics_region["torso_sections_consumed"],
+            "section_names": metrics_region["torso_section_names"],
+            "section_controls": metrics_region["torso_section_controls"],
+        },
+        "shoulders": {
+            "representation": metrics_region["shoulder_representation"],
+            "sweeps_consumed": metrics_region["shoulder_sweeps_consumed"],
+            "sweep_order": metrics_region["shoulder_sweep_order"],
+            "section_counts": metrics_region["shoulder_sweep_section_counts"],
+            "section_names": metrics_region["shoulder_sweep_section_names"],
+        },
+        "head_neck": metrics_region["head_neck"],
+        "limbs": {
+            "representation": metrics_region["limb_representation"],
+            "sweeps_consumed": metrics_region["limb_sweeps_consumed"],
+            "sweep_order": metrics_region["limb_sweep_order"],
+            "route_kinds": metrics_region["limb_sweep_route_kinds"],
+            "station_counts": metrics_region["limb_sweep_station_counts"],
+            "station_names": metrics_region["limb_sweep_station_names"],
+            "section_owner_keys": metrics_region["limb_sweep_section_owner_keys"],
+            "station_owner_keys": metrics_region["limb_sweep_station_owner_keys"],
+            "endpoint_cap_counts": metrics_region["limb_sweep_endpoint_cap_counts"],
+            "arm_profile": metrics_region["arm_profile"],
+            "leg_profile": metrics_region["leg_profile"],
+            "hip_root": metrics_region["hip_root"],
+            "foot_profile": metrics_region["foot_profile"],
+        },
+        "extremities": {
+            "representation": metrics_region["extremity_representation"],
+            "sweeps_consumed": metrics_region["extremity_sweeps_consumed"],
+            "sweep_order": metrics_region["extremity_sweep_order"],
+            "sweep_kinds": metrics_region["extremity_sweep_kinds"],
+            "station_counts": metrics_region["extremity_sweep_station_counts"],
+            "station_names": metrics_region["extremity_sweep_station_names"],
+            "section_owner_keys": metrics_region["extremity_sweep_section_owner_keys"],
+            "endpoint_cap_counts": metrics_region["extremity_sweep_endpoint_cap_counts"],
+            "internal_transition_counts": metrics_region["extremity_sweep_internal_transition_counts"],
+            "hand_paw": metrics_region["hand_paw"],
+        },
+        "tail": {
+            "representation": metrics_region["tail_representation"],
+            "elements_consumed": metrics_region["tail_elements_consumed"],
+            "element_order": metrics_region["tail_element_order"],
+            "element_kinds": metrics_region["tail_element_kinds"],
+            "section_counts": metrics_region["tail_element_section_counts"],
+            "section_names": metrics_region["tail_element_section_names"],
+            "owner_keys": metrics_region["tail_element_owner_keys"],
+            "endpoint_cap_counts": metrics_region["tail_element_endpoint_cap_counts"],
+            "internal_transition_counts": metrics_region["tail_element_internal_transition_counts"],
+            "controls": metrics_region["tail_element_controls"],
+            "tip_shared_endpoint": metrics_region["tail_tip_shared_endpoint"],
+        },
+        "temporary_bridge": metrics["temporary_bridge"],
+        "replaced_baseline_recipes": metrics_region["replaced_baseline_recipes"],
+    }
+
+
+def _fake_successor_build_variant(form: object, descriptors: tuple[object, ...], **_kwargs: object) -> successor.SuccessorMesh:
+    """Build the minimal valid mesh double shared by generator cleanup tests."""
+
+    guide = surface_preview._derive_hybrid_guides(form, descriptors)
+    fields = surface_preview._compile_hybrid_guide(guide)
+    region = successor.compile_successor_region(guide, fields)
+    metrics = {
+        "successor_region": {
+            "torso_section_controls": _serialized_torso_section_controls(region),
+            "hand_paw": successor._hand_paw_metadata(region),
+            "tail_element_controls": [],
+            "tail_tip_shared_endpoint": {},
+        },
+        "temporary_bridge": {"enabled": False, "field_count": 0},
+    }
+    return successor.SuccessorMesh(
+        np.empty((0, 3), dtype=np.float64),
+        np.empty((0, 3), dtype=np.int64),
+        np.empty((0, 3), dtype=np.float64),
+        (),
+        metrics,
+        region,
+        {},
+    )
 
 
 class _TestOwner:
@@ -179,6 +278,51 @@ def _rotated_between_sections_profile_sweep() -> successor._ProfileSweep:
         successor._ProfileEndpointCap("end", sections[-1].center, (0.0, 1.0, 0.0), right_axes, sections[-1].transverse_radii, 0.8),
     )
     return successor._ProfileSweep(sections, caps)
+
+
+def _anisotropic_interpolated_frame_profile_sweep() -> successor._ProfileSweep:
+    """Build a finite span whose station frame is tilted from its centerline."""
+
+    owner = _TestOwner("anisotropic-interpolated")
+    centers = ((0.0, 0.0, 0.0), (0.0, 1.0, 0.0), (1.0, 2.0, 0.0))
+    tangents = (
+        (0.0, 1.0, 0.0),
+        (5.0 ** -0.5, 2.0 * 5.0 ** -0.5, 0.0),
+        (2.0 ** -0.5, 2.0 ** -0.5, 0.0),
+    )
+    sections = []
+    for index, (center, tangent, radii) in enumerate(zip(
+        centers,
+        tangents,
+        ((0.18, 0.30), (0.22, 0.63), (0.57, 0.19)),
+    )):
+        _, first, second = successor._frame_from_tangent(
+            np.asarray(tangent, dtype=np.float64),
+            np.asarray((1.0, 0.0, 0.0), dtype=np.float64),
+            np.asarray((0.0, 0.0, 1.0), dtype=np.float64),
+            f"test-anisotropic[{index}]",
+        )
+        sections.append(successor._ProfileSection(
+            name=f"anisotropic-{index}",
+            owner=owner,
+            center=center,
+            tangent=tangent,
+            transverse_axes=(tuple(first), tuple(second)),
+            transverse_radii=radii,
+            path_length=float(index),
+        ))
+    ordered = tuple(sections)
+    caps = (
+        successor._ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-value for value in ordered[0].tangent),
+            ordered[0].transverse_axes, ordered[0].transverse_radii, 0.19,
+        ),
+        successor._ProfileEndpointCap(
+            "end", ordered[-1].center, ordered[-1].tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii, 0.19,
+        ),
+    )
+    return successor._ProfileSweep(ordered, caps)
 
 
 _HEAD_NECK_AXIS_INDEX = {"lateral": 0, "up": 1, "forward": 2}
@@ -1485,6 +1629,38 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(tuple(address[3] for address in attributed), tuple(section.owner.key[3] for section in item.sweep.sections))
             self.assertTrue(all(address == item.owner.key for address in attributed))
 
+    def test_successor_binary_fold_preserves_tiny_positive_inputs_for_permutations_and_triples(self) -> None:
+        """The successor-wide correction cap prevents every positive ghost fold."""
+
+        extension = np.asarray((0.027064596942855276,), dtype=np.float64)
+        cap = np.asarray((0.004857914517354351,), dtype=np.float64)
+        raw = surface_preview._smooth_union([extension, cap], successor.DEFAULT_SMOOTH_K)
+        self.assertLess(float(raw[0]), 0.0)
+
+        tiny = (1.0e-12, 2.0e-12, 3.0e-12)
+        from itertools import permutations
+        for order in permutations(tiny):
+            with self.subTest(order=order):
+                composed = successor._successor_smooth_union(
+                    [np.asarray((value,), dtype=np.float64) for value in order],
+                    successor.DEFAULT_SMOOTH_K,
+                )
+                self.assertTrue(np.all(np.isfinite(composed)))
+                self.assertGreater(float(composed[0]), 0.0)
+
+        counterexample = successor._successor_smooth_union(
+            [np.asarray((0.001426,), dtype=np.float64), np.asarray((0.001426,), dtype=np.float64)],
+            successor.DEFAULT_SMOOTH_K,
+        )
+        self.assertGreater(float(counterexample[0]), 0.0)
+        for order in permutations((0.001426, 0.0027, 0.0041)):
+            with self.subTest(triple_order=order):
+                composed = successor._successor_smooth_union(
+                    [np.asarray((value,), dtype=np.float64) for value in order],
+                    successor.DEFAULT_SMOOTH_K,
+                )
+                self.assertGreater(float(composed[0]), 0.0)
+
     def test_tail_validation_rejects_inventory_axes_controls_joins_and_malformed_baseline(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
@@ -2457,6 +2633,124 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 ))
                 self.assertTrue(all(value <= signed_target + successor._FRAME_TOLERANCE for value in signed_lateral))
 
+    def test_hip_root_render_bounds_enclose_each_fixture_variant(self) -> None:
+        """Hip components must keep the exact render-boundary invariant."""
+
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant_id=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                for transition in region.hip_root_sweeps:
+                    lower, upper = successor._profile_sweep_bounds(transition.sweep)
+                    padded_lower = lower - surface_preview.FIELD_COMPONENT_PADDING
+                    padded_upper = upper + surface_preview.FIELD_COMPONENT_PADDING
+                    axes = tuple(
+                        np.linspace(
+                            padded_lower[index],
+                            padded_upper[index],
+                            surface_preview.FIELD_COMPONENT_SAMPLES,
+                            dtype=np.float64,
+                        )
+                        for index in range(3)
+                    )
+                    points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+                    values = successor._profile_sweep_field(points, transition.sweep)
+                    boundary = np.concatenate((
+                        values[0, :, :].ravel(), values[-1, :, :].ravel(),
+                        values[:, 0, :].ravel(), values[:, -1, :].ravel(),
+                        values[:, :, 0].ravel(), values[:, :, -1].ravel(),
+                    ))
+                    self.assertTrue(np.all(np.isfinite(boundary)))
+                    self.assertTrue(np.all(boundary > 0.0))
+
+    def test_limb_connector_validation_reuses_baseline_cage_embedding_for_all_variants(self) -> None:
+        """Root and hip bridge checks must match the emitted baseline controls."""
+
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant_id=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                baseline = surface_preview._compile_hybrid_guide(guide)
+                baseline_by_slot = {
+                    (field.owner.key[1][0], field.owner.key[3], field.recipe): field
+                    for field in baseline
+                    if field.recipe in {"root-bridge", "hip-transition"}
+                }
+                for side in ("left", "right"):
+                    for role in ("upper_arm", "thigh"):
+                        limb = next(
+                            item
+                            for item in guide.limb_guides
+                            if item.owner.key[1:] == ((side,), "part", role)
+                        )
+                        connectors = [("root_centerline", "root-bridge")]
+                        if role == "thigh":
+                            connectors.append(("hip_centerline", "hip-transition"))
+                        for attribute, recipe in connectors:
+                            path = getattr(limb, attribute)
+                            profile = getattr(limb, attribute.replace("centerline", "thickness"))
+                            self.assertIsNotNone(path)
+                            self.assertIsNotNone(profile)
+                            expected = successor._compiled_limb_connector_path(
+                                guide,
+                                limb,
+                                path,
+                                profile,
+                                f"test.{side}.{role}.{recipe}",
+                            )
+                            shape = baseline_by_slot[(side, role, recipe)].shape
+                            self.assertEqual(tuple(shape["from"]), expected[0])
+                            self.assertEqual(tuple(shape["to"]), expected[1])
+
+    def test_arm_root_validation_consumes_baseline_cage_normal_embedding(self) -> None:
+        """A compact-like root span must retain the baseline compiled endpoint."""
+
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        upper_index = next(
+            index
+            for index, limb in enumerate(guide.limb_guides)
+            if limb.owner.key[1:] == (("left",), "part", "upper_arm")
+        )
+        upper = guide.limb_guides[upper_index]
+        assert upper.root_centerline is not None
+
+        # The child target points back across the authored branch-facing ray.
+        # This is the relationship that makes the cage-normal embedding differ
+        # from the legacy authored-direction reconstruction without changing
+        # any authored arm-profile stations or ownership.
+        compact_like_target = (-2.0, upper.root_centerline[1][1], upper.root_centerline[1][2])
+        compact_like_upper = replace(
+            upper,
+            root_centerline=(upper.root_centerline[0], compact_like_target),
+        )
+        limbs = list(guide.limb_guides)
+        limbs[upper_index] = compact_like_upper
+        compact_like_guide = replace(guide, limb_guides=tuple(limbs))
+
+        baseline = surface_preview._compile_hybrid_guide(compact_like_guide)
+        baseline_root = next(
+            field
+            for field in baseline
+            if field.recipe == "root-bridge" and field.owner is compact_like_upper.owner
+        )
+        legacy_path = surface_preview._embed_boundary_connector(
+            compact_like_upper.root_centerline,
+            compact_like_upper.root_thickness,
+            "test.legacy-arm-root",
+        )
+        self.assertNotEqual(tuple(baseline_root.shape["from"]), legacy_path[0])
+        self.assertEqual(
+            tuple(baseline_root.shape["from"]),
+            successor._compiled_limb_root_path(compact_like_guide, compact_like_upper, "test.arm-root")[0],
+        )
+
+        region = successor.compile_successor_region(compact_like_guide, baseline)
+        self.assertEqual(region.bridge_fields, ())
+        self.assertTrue(all(
+            field.recipe != "root-bridge" or field.owner is not compact_like_upper.owner
+            for field in region.bridge_fields
+        ))
+
     def test_limb_components_consume_all_chains_with_dynamic_section_ownership(self) -> None:
         for _, descriptors, _ in self.form.variants:
             guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
@@ -2790,7 +3084,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         baseline = surface_preview._compile_hybrid_guide(guide)
         region = successor.compile_successor_region(guide, baseline)
         exact_components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
-        self.assertEqual(len(exact_components), 25)
+        self.assertEqual(len(exact_components), EXPECTED_EXACT_COMPONENT_COUNT)
         self.assertEqual(len(region.bridge_fields), 0)
         exact_torso_bounds = successor._profile_sweep_bounds(region.loft)
         aggregate_region_bounds = successor._bounds_for_region(region)
@@ -2805,8 +3099,8 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         with mock.patch.object(surface_preview, "_make_render_component", side_effect=recording_adapter):
             render_components = successor._make_render_components(exact_components)
 
-        self.assertEqual(len(render_components), 25)
-        self.assertEqual(len(calls), 25)
+        self.assertEqual(len(render_components), EXPECTED_EXACT_COMPONENT_COUNT)
+        self.assertEqual(len(calls), EXPECTED_EXACT_COMPONENT_COUNT)
         adapted_torso_bounds = render_components[0].bounds
         np.testing.assert_array_equal(adapted_torso_bounds[0], exact_torso_bounds[0])
         np.testing.assert_array_equal(adapted_torso_bounds[1], exact_torso_bounds[1])
@@ -2843,7 +3137,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertNotIn(f"successor-{guide_only_recipe}", generic_recipes)
         self.assertFalse(generic_recipes & set(region.replaced_baseline_recipes))
 
-        with self.assertRaisesRegex(successor.SuccessorPreviewError, "exactly 25"):
+        with self.assertRaisesRegex(
+            successor.SuccessorPreviewError,
+            f"exactly {EXPECTED_EXACT_COMPONENT_COUNT}",
+        ):
             successor._make_render_components(exact_components[:-1])
 
     def test_successor_build_retains_exact_render_inventory_and_render_receives_it(self) -> None:
@@ -2860,7 +3157,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             mesh = successor.build_variant(self.form, descriptors, padding=0.5)
         self.assertEqual(len(exact_inventory), 1)
         exact_components = exact_inventory[0]
-        self.assertEqual(len(mesh.render_components), 25)
+        self.assertEqual(len(mesh.render_components), EXPECTED_EXACT_COMPONENT_COUNT)
         for exact, adapted in zip(exact_components, mesh.render_components):
             self.assertIs(adapted.evaluate, exact.evaluate)
             self.assertIs(adapted.bounds, exact.bounds)
@@ -2878,7 +3175,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 )
         extract.assert_called_once()
         self.assertIs(extract.call_args.args[0], mesh.render_components)
-        self.assertEqual(mesh.metrics["component_visualization"]["component_count"], 25)
+        self.assertEqual(
+            mesh.metrics["component_visualization"]["component_count"],
+            EXPECTED_EXACT_COMPONENT_COUNT,
+        )
 
     def test_successor_preserves_section_source_ownership_in_attribution(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -3114,6 +3414,228 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         np.testing.assert_array_equal(successor_bounds[0], baseline_bounds[0])
         np.testing.assert_array_equal(successor_bounds[1], baseline_bounds[1])
 
+    def test_generated_structural_profiles_compile_successor_inventory_without_rendering(self) -> None:
+        """Every generated profile and actual preview variant reaches the successor inventory."""
+
+        try:
+            build = subprocess.run(
+                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as exc:
+            self.skipTest(f"cargo is unavailable in this test environment: {exc}")
+        self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
+        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
+        self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
+
+        candidate_path = ROOT / "structural_profile_candidates.json"
+        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
+        self.assertEqual(profile_ids[0], "standard_neutral_reference")
+
+        with _native_temporary_directory() as directory:
+            output_dir = Path(directory) / "sources"
+            source_manifest = fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
+            self.assertEqual([item["id"] for item in source_manifest["profiles"]], list(profile_ids))
+
+            for profile_id in profile_ids:
+                with self.subTest(profile=profile_id):
+                    result = subprocess.run(
+                        [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
+                        cwd=REPO_ROOT,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                        timeout=120,
+                    )
+                    self.assertEqual(result.returncode, 0, msg=result.stderr)
+                    payload = json.loads(result.stdout)
+                    self.assertEqual(payload["status"], "success", msg=result.stdout[:1000])
+                    self.assertEqual(payload["diagnostics"], [], msg=result.stdout[:1000])
+                    form = surface_preview.validate_envelope(payload)
+                    self.assertEqual(
+                        tuple(variant_id for variant_id, _, _ in form.variants),
+                        tuple(surface_preview.VARIANT_IDS),
+                    )
+
+                    for variant_id, descriptors, _ in form.variants:
+                        with self.subTest(variant=variant_id):
+                            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                            baseline = surface_preview._compile_hybrid_guide(guide)
+                            region = successor.compile_successor_region(guide, baseline)
+                            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+
+                            self.assertEqual(region.consumer_id, successor.CONSUMER_ID)
+                            self.assertEqual(region.region_id, successor.SUCCESSOR_REGION_ID)
+                            self.assertTrue(region.region_id.endswith("-v16"))
+                            self.assertEqual(
+                                sum(component.recipe == "successor-torso-loft" for component in components),
+                                1,
+                            )
+                            self.assertEqual(len(components), EXPECTED_EXACT_COMPONENT_COUNT)
+                            self.assertEqual(region.bridge_fields, ())
+                            self.assertEqual(
+                                sum(field.recipe in region.replaced_baseline_recipes for field in baseline),
+                                EXPECTED_REPLACED_BASELINE_FIELD_COUNT,
+                            )
+                            self.assertEqual(
+                                {item.side for item in region.hip_root_sweeps},
+                                {"left", "right"},
+                            )
+                            self.assertEqual(len(region.hip_root_sweeps), 2)
+                            self.assertEqual(
+                                tuple(item.name for item in region.hip_root_sweeps),
+                                ("left-hip-root-transition", "right-hip-root-transition"),
+                            )
+                            self.assertEqual(len(region.shoulder_sweeps), 2)
+                            self.assertEqual(len(region.head_neck_sweeps), 2)
+                            self.assertEqual(len(region.arm_sweeps), 4)
+                            self.assertEqual(len(region.leg_sweeps), 2)
+                            self.assertEqual(len(region.hand_sweeps), 4)
+                            self.assertEqual(len(region.foot_sweeps), 2)
+                            self.assertEqual(len(region.tail_elements), 6)
+
+    def test_generated_profile_capture_bounds_contain_all_baseline_and_successor_components(self) -> None:
+        """All 5x4 generated consumers fit the shared successor capture frame."""
+
+        try:
+            build = subprocess.run(
+                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as exc:
+            self.skipTest(f"cargo is unavailable in this test environment: {exc}")
+        self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
+        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
+        self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
+
+        candidate_path = ROOT / "structural_profile_candidates.json"
+        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
+        baseline_only_bounds = []
+        successor_capture_bounds = []
+        all_baseline_fields = []
+        all_successor_components = []
+
+        with _native_temporary_directory() as directory:
+            output_dir = Path(directory) / "sources"
+            source_manifest = fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
+            self.assertEqual([item["id"] for item in source_manifest["profiles"]], list(profile_ids))
+
+            for profile_id in profile_ids:
+                with self.subTest(profile=profile_id):
+                    result = subprocess.run(
+                        [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
+                        cwd=REPO_ROOT,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                        timeout=120,
+                    )
+                    self.assertEqual(result.returncode, 0, msg=result.stderr)
+                    payload = json.loads(result.stdout)
+                    form = surface_preview.validate_envelope(payload)
+                    baseline_sets = []
+                    component_sets = []
+                    for variant_id, descriptors, _ in form.variants:
+                        with self.subTest(variant=variant_id):
+                            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                            fields = surface_preview._compile_hybrid_guide(guide)
+                            region = successor.compile_successor_region(guide, fields)
+                            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                            baseline_sets.append(fields)
+                            component_sets.append(components)
+                            all_baseline_fields.append(fields)
+                            all_successor_components.append(components)
+
+                    baseline_only_bounds.append(
+                        surface_preview._shared_render_bounds(
+                            tuple(baseline_sets), successor.DEFAULT_CAPTURE_PADDING
+                        )
+                    )
+                    successor_capture_bounds.append(
+                        successor._shared_successor_capture_bounds(
+                            tuple(baseline_sets), tuple(component_sets), successor.DEFAULT_CAPTURE_PADDING
+                        )
+                    )
+
+        saw_successor_extension = False
+        for baseline_bounds, capture_bounds, field_sets, component_sets in zip(
+            baseline_only_bounds,
+            successor_capture_bounds,
+            (all_baseline_fields[index:index + 4] for index in range(0, len(all_baseline_fields), 4)),
+            (all_successor_components[index:index + 4] for index in range(0, len(all_successor_components), 4)),
+        ):
+            self.assertTrue(np.all(capture_bounds[0] <= baseline_bounds[0]))
+            self.assertTrue(np.all(capture_bounds[1] >= baseline_bounds[1]))
+            for fields in field_sets:
+                for field in fields:
+                    lower, upper = surface_preview._field_bounds(field)
+                    self.assertTrue(np.all(capture_bounds[0] <= lower))
+                    self.assertTrue(np.all(capture_bounds[1] >= upper))
+            for components in component_sets:
+                for component in components:
+                    self.assertTrue(np.all(capture_bounds[0] <= component.bounds[0]))
+                    self.assertTrue(np.all(capture_bounds[1] >= component.bounds[1]))
+                    if np.any(component.bounds[1] > baseline_bounds[1]):
+                        saw_successor_extension = True
+        self.assertTrue(saw_successor_extension)
+
+    def test_compact_lean_local_81_cube_has_no_negative_all_positive_successor_fold(self) -> None:
+        """The reproduced tail neighborhood satisfies the successor-wide invariant."""
+
+        try:
+            build = subprocess.run(
+                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as exc:
+            self.skipTest(f"cargo is unavailable in this test environment: {exc}")
+        self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
+        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
+        self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
+
+        candidate_path = ROOT / "structural_profile_candidates.json"
+        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        with _native_temporary_directory() as directory:
+            output_dir = Path(directory) / "sources"
+            fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
+            result = subprocess.run(
+                [str(cli), "inspect-provisional-form", "--input", str(output_dir / "compact_broad_short_limb_large_head.json")],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=120,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            form = surface_preview.validate_envelope(json.loads(result.stdout))
+            _, descriptors, _ = next(item for item in form.variants if item[0] == "lean-readable-v0")
+            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+            region = successor.compile_successor_region(guide)
+            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+            lower = np.asarray((-0.20, -0.10, -2.65), dtype=np.float64)
+            upper = np.asarray((0.20, 0.08, -2.30), dtype=np.float64)
+            axes = tuple(np.linspace(lower[index], upper[index], 81, dtype=np.float64) for index in range(3))
+            points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+            values = [component.evaluate(points) for component in components]
+            all_positive = np.logical_and.reduce(tuple(value > 0.0 for value in values))
+            self.assertTrue(np.any(all_positive))
+            composed = successor._successor_smooth_union(values, successor.DEFAULT_SMOOTH_K)
+            self.assertTrue(np.all(composed[all_positive] > 0.0))
+
     def test_generator_emits_explicit_successor_and_bridge_metadata(self) -> None:
         with _native_temporary_directory() as directory:
             root = Path(directory)
@@ -3180,8 +3702,19 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 )
                 for _, descriptors, _ in self.form.variants
             )
-            expected_bounds = surface_preview._shared_render_bounds(
-                canonical_fields, successor.DEFAULT_CAPTURE_PADDING
+            canonical_components = tuple(
+                successor._make_components(
+                    successor.compile_successor_region(
+                        surface_preview._derive_hybrid_guides(self.form, descriptors),
+                    ),
+                    successor.DEFAULT_SMOOTH_K,
+                )
+                for _, descriptors, _ in self.form.variants
+            )
+            expected_bounds = successor._shared_successor_capture_bounds(
+                canonical_fields,
+                canonical_components,
+                successor.DEFAULT_CAPTURE_PADDING,
             )
             baseline_default_bounds = surface_preview._shared_render_bounds(
                 canonical_fields, surface_preview.DEFAULT_PADDING
@@ -3190,10 +3723,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 "min": [float(value) for value in expected_bounds[0]],
                 "max": [float(value) for value in expected_bounds[1]],
             }
-            self.assertEqual(expected_bounds_json, {
-                "min": [float(value) for value in baseline_default_bounds[0]],
-                "max": [float(value) for value in baseline_default_bounds[1]],
-            })
+            self.assertTrue(np.any(expected_bounds[0] < baseline_default_bounds[0]) or np.any(expected_bounds[1] > baseline_default_bounds[1]))
             self.assertEqual(first_manifest["shared_render_bounds"], expected_bounds_json)
             self.assertEqual(first_manifest["canvas"], {"width": surface_preview.CANVAS[0], "height": surface_preview.CANVAS[1], "mode": "RGB"})
             self.assertEqual(first_manifest["projections"], surface_preview._projection_json())
@@ -3285,10 +3815,46 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     image.verify()
                 sidecar = json.loads((variant_dir / "successor.json").read_text())
                 metrics_payload = json.loads((variant_dir / "metrics.json").read_text())
+                expected_region_metadata = _expected_successor_region_metadata(metrics_payload)
+                self.assertEqual(
+                    {
+                        key: sidecar[key]
+                        for key in expected_region_metadata
+                    },
+                    expected_region_metadata,
+                )
+                self.assertEqual(
+                    expected_region_metadata["successor_region_id"],
+                    successor.SUCCESSOR_REGION_ID,
+                )
+                self.assertTrue(
+                    expected_region_metadata["successor_region_id"].endswith("-v16")
+                )
+                self.assertIn("hip_root", expected_region_metadata["limbs"])
+                self.assertEqual(
+                    metrics_payload["successor_region"]["replaced_baseline_field_count"],
+                    EXPECTED_REPLACED_BASELINE_FIELD_COUNT,
+                )
+                self.assertEqual(
+                    metrics_payload["temporary_bridge"],
+                    {
+                        "enabled": False,
+                        "consumer": "none",
+                        "regions": [],
+                        "field_count": 0,
+                        "retained_recipes": [],
+                    },
+                )
                 self.assertEqual(metrics_payload["component_visualization"], variant["metrics"]["component_visualization"])
-                self.assertEqual(metrics_payload["component_visualization"]["component_count"], 25)
+                self.assertEqual(
+                    metrics_payload["component_visualization"]["component_count"],
+                    EXPECTED_EXACT_COMPONENT_COUNT,
+                )
                 self.assertEqual(metrics_payload["component_visualization"]["resolution"]["samples_per_axis"], 32)
-                self.assertEqual(len(metrics_payload["component_visualization"]["components"]), 25)
+                self.assertEqual(
+                    len(metrics_payload["component_visualization"]["components"]),
+                    EXPECTED_EXACT_COMPONENT_COUNT,
+                )
                 sampling_lower, sampling_upper = expected_sampling_bounds[variant["id"]]
                 self.assertEqual(
                     metrics_payload["grid"]["bounds_min"],
@@ -3429,29 +3995,6 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             source = root / "input.json"
             source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
 
-            def fake_build_variant(form, descriptors, **_kwargs):
-                guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                fields = surface_preview._compile_hybrid_guide(guide)
-                region = successor.compile_successor_region(guide, fields)
-                metrics = {
-                    "successor_region": {
-                        "torso_section_controls": _serialized_torso_section_controls(region),
-                        "hand_paw": successor._hand_paw_metadata(region),
-                        "tail_element_controls": [],
-                        "tail_tip_shared_endpoint": {},
-                    },
-                    "temporary_bridge": {"enabled": False, "field_count": 0},
-                }
-                return successor.SuccessorMesh(
-                    np.empty((0, 3), dtype=np.float64),
-                    np.empty((0, 3), dtype=np.int64),
-                    np.empty((0, 3), dtype=np.float64),
-                    (),
-                    metrics,
-                    region,
-                    {},
-                )
-
             for entry_kind in ("extra", "symlink"):
                 with self.subTest(entry_kind=entry_kind):
                     output = root / entry_kind
@@ -3468,7 +4011,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                             except (OSError, NotImplementedError) as exc:
                                 raise unittest.SkipTest(f"symlinks unavailable: {exc}") from exc
 
-                    with mock.patch.object(successor, "build_variant", side_effect=fake_build_variant), mock.patch.object(
+                    with mock.patch.object(successor, "build_variant", side_effect=_fake_successor_build_variant), mock.patch.object(
                         surface_preview, "_render", side_effect=fake_render
                     ):
                         with self.assertRaisesRegex(successor.SuccessorPreviewError, "staging bundle contains a symlink|explicit artifact inventory"):
@@ -3483,29 +4026,6 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
             output = root / "render-failure"
 
-            def fake_build_variant(form, descriptors, **_kwargs):
-                guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                fields = surface_preview._compile_hybrid_guide(guide)
-                region = successor.compile_successor_region(guide, fields)
-                metrics = {
-                    "successor_region": {
-                        "torso_section_controls": _serialized_torso_section_controls(region),
-                        "hand_paw": successor._hand_paw_metadata(region),
-                        "tail_element_controls": [],
-                        "tail_tip_shared_endpoint": {},
-                    },
-                    "temporary_bridge": {"enabled": False, "field_count": 0},
-                }
-                return successor.SuccessorMesh(
-                    np.empty((0, 3), dtype=np.float64),
-                    np.empty((0, 3), dtype=np.int64),
-                    np.empty((0, 3), dtype=np.float64),
-                    (),
-                    metrics,
-                    region,
-                    {},
-                )
-
             def failing_render(path, *args, **kwargs):
                 del args, kwargs
                 self.assertTrue((path.parent / "surface.ply").is_file())
@@ -3514,7 +4034,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 path.write_bytes(b"partial-png")
                 raise RuntimeError("injected render failure")
 
-            with mock.patch.object(successor, "build_variant", side_effect=fake_build_variant), mock.patch.object(
+            with mock.patch.object(successor, "build_variant", side_effect=_fake_successor_build_variant), mock.patch.object(
                 surface_preview, "_render", side_effect=failing_render
             ):
                 with self.assertRaisesRegex(RuntimeError, "injected render failure"):
@@ -3627,6 +4147,32 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         conservative_radius = math.hypot(1.0, 0.8)
         self.assertGreaterEqual(float(upper[0]), conservative_radius - 1.0e-12)
         self.assertLessEqual(float(lower[0]), -conservative_radius + 1.0e-12)
+
+    def test_anisotropic_interpolated_frame_bounds_enclose_the_finite_span(self) -> None:
+        sweep = _anisotropic_interpolated_frame_profile_sweep()
+        lower, upper = successor._profile_sweep_bounds(sweep)
+        padded_lower = lower - surface_preview.FIELD_COMPONENT_PADDING
+        padded_upper = upper + surface_preview.FIELD_COMPONENT_PADDING
+        axes = tuple(
+            np.linspace(
+                padded_lower[index],
+                padded_upper[index],
+                surface_preview.FIELD_COMPONENT_SAMPLES,
+                dtype=np.float64,
+            )
+            for index in range(3)
+        )
+        points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+        values = successor._profile_sweep_field(points, sweep)
+        boundary = np.concatenate((
+            values[0, :, :].ravel(), values[-1, :, :].ravel(),
+            values[:, 0, :].ravel(), values[:, -1, :].ravel(),
+            values[:, :, 0].ravel(), values[:, :, -1].ravel(),
+        ))
+        self.assertTrue(np.all(np.isfinite(boundary)))
+        self.assertTrue(np.all(boundary > 0.0))
+        legacy_radius = math.hypot(0.57, 0.63)
+        self.assertLess(float(lower[0]), -legacy_radius)
 
     def test_paired_transverse_frame_flip_interpolates_without_cancellation(self) -> None:
         base = _test_profile_sweep()

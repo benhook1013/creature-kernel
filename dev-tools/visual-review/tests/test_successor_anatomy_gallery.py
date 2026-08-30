@@ -47,6 +47,12 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
+    def require_creature_kernel(self, path: Path | None = None) -> Path:
+        executable = path or self.creature_kernel
+        if not executable.is_file():
+            self.skipTest(f"requires built inspection CLI at {executable}")
+        return executable
+
     def _run_gallery(
         self,
         review_id: str,
@@ -54,6 +60,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         samples: int = adapter.MIN_GALLERY_SAMPLES,
         creature_kernel: Path | None = None,
     ) -> dict[str, object]:
+        creature_kernel = self.require_creature_kernel(creature_kernel)
         published: dict[str, object] = {}
         events: list[tuple[str, str]] = []
         (self.root / "reviews").mkdir(exist_ok=True)
@@ -112,7 +119,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             result = adapter.publish_successor_anatomy_gallery(
                 self.root / "reviews",
                 self.source_manifest,
-                creature_kernel=creature_kernel or self.creature_kernel,
+                creature_kernel=creature_kernel,
                 samples=samples,
                 review_id=review_id,
             )
@@ -308,6 +315,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         parse.assert_not_called()
 
     def test_pinning_survives_original_path_replacement_and_propagates_digest(self) -> None:
+        self.require_creature_kernel()
         try:
             result = subprocess.run(
                 ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
