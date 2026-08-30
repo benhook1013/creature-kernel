@@ -957,18 +957,6 @@ def _remove_tree_contents(directory_fd: int) -> bool:
     return complete
 
 
-def _remove_tree(path: Path) -> None:
-    """Remove contents through an anchored no-follow directory descriptor."""
-    directory_fd = _open_directory_descriptor(path, "cleanup directory")
-    try:
-        _remove_tree_contents(directory_fd)
-    finally:
-        try:
-            os.close(directory_fd)
-        except OSError:
-            pass
-
-
 def _cleanup_created_destination(path: Path, identity: tuple[int, int]) -> None:
     parent_fd: int | None = None
     directory_fd: int | None = None

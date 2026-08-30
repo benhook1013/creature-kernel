@@ -27,11 +27,11 @@ the canonical owner of the active runway, and the required reading order in
   correctness findings; both were fixed before the squash merge. The workflow
   records Ben's explicit 2026-08-27 authorization for deliberate main-thread
   CodeRabbit review near completion of a substantial coherent PR. Automatic
-  reviews remain disabled in `.coderabbit.yaml`. Ben clarified on 2026-08-30
+  reviews remain disabled in `.coderabbit.yaml`. Ben clarified on 2026-08-30 NZST
   that hosted finding taper is the procedural merge gate: hosted and
   committed-diff CLI run in parallel on an immutable head, but CLI supports
-  the hosted cycles and cannot replace them. Rate limiting means wait or obtain
-  Ben's explicit waiver. Creature Kernel limits are independent of FireMUD.
+  the hosted cycles and cannot replace them. Rate limiting means waiting for
+  allowance or obtaining Ben's explicit waiver. Creature Kernel limits are independent of FireMUD.
   These reviews do not replace internal review, hands-on trials, validation,
   CI, human, or merge gates.
 - The visual-review systemd service is active from

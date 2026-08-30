@@ -425,7 +425,7 @@ coherent PR reaches final review readiness (implementation and local/internal
 checks are sufficiently complete), hosted and committed-diff CLI CodeRabbit
 reviews should be launched in parallel. Do not conserve an available hosted
 round merely because the CLI review is also running. Only the main thread may
-invoke CodeRabbit autonomously. Ben clarified on 2026-08-30 that hosted finding
+invoke CodeRabbit autonomously. Ben clarified on 2026-08-30 NZST that hosted finding
 taper is a procedural merge gate for substantial PRs. Individual findings are
 advisory and require verification and explicit disposition, but a substantial
 PR does not merge until hosted cycles reach the taper stop condition below.

@@ -94,7 +94,7 @@ findings surface or taper, subject to the stop criteria in the workflow below.
 Ben explicitly authorized main-thread CodeRabbit review on 2026-08-27 and
 directed on 2026-08-28 that, once a substantial coherent PR is ready for final
 review, hosted and committed-diff CLI reviews run in parallel. Ben clarified
-on 2026-08-30 that hosted finding taper is a procedural merge gate for a
+on 2026-08-30 NZST that hosted finding taper is a procedural merge gate for a
 substantial PR. Individual findings remain advisory and require main-thread
 verification and disposition, but the PR does not merge until successive
 hosted passes produce no new material findings or only repeated,

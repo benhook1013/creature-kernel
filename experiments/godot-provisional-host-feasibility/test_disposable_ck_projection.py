@@ -591,10 +591,12 @@ class DisposableCKProjectionTests(unittest.TestCase):
         sleeper = self._write_executable(
             "timeout-sleeper",
             "import os\n"
+            "from pathlib import Path\n"
             "import subprocess\n"
             "import sys\n"
             "import time\n"
-            f"subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
+            f"descendant = subprocess.Popen([sys.executable, '-c', {descendant_body!r}])\n"
+            f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n"
             "time.sleep(30)\n",
         )
         with patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0), self.assertRaisesRegex(

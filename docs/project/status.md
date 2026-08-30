@@ -33,9 +33,9 @@ remain subject to verification and disposition; CLI review supports the hosted
 cycles but cannot replace them. Creature Kernel's limits are independent of
 FireMUD.
 
-PR #119 merged as squash commit `ee48881d3029dad599a7a2ccc70172c10713a812`
-and retained the bounded deformation/coherence evidence described below. PR
-#120 merged as squash commit `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`
+PR `#119` merged as squash commit `ee48881d3029dad599a7a2ccc70172c10713a812`
+and retained the bounded deformation/coherence evidence described below.
+PR `#120` merged as squash commit `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`
 after both CI lanes passed and the committed-diff CodeRabbit CLI review found
 no issues; hosted review was rate-limited and the PR merged under the earlier
 non-gating wording. That history is not precedent for the clarified hosted
@@ -46,7 +46,7 @@ after one hosted-plus-CLI cycle on pre-fix commit
 `8fc7e4953544d54b821055f04cc229c2e758a402`, review fixes and further internal
 review, passing hands-on trials, and green CI. The final follow-up head did not
 receive another hosted taper pass before the main thread manually used
-administrator merge. Ben identified that as a process failure on 2026-08-30;
+administrator merge. Ben identified that as a process failure on 2026-08-30 NZST;
 it is not precedent for later merges.
 
 The visual-review systemd service is active from `/home/ben/src/creature-kernel`;
