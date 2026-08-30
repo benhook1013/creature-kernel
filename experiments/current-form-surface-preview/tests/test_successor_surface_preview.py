@@ -473,6 +473,36 @@ def _foot_station_volume_signature(route: successor._ExtremitySweep, index: int)
 
 
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
+    def test_torso_profile_parameter_remap_is_finite_strictly_monotone_and_exact(self) -> None:
+        exponents = (0.72, 0.82, 0.88, 0.90, 1.0, 1.12, 1.18, 1.28)
+        samples = np.linspace(0.0, 1.0, 4097, dtype=np.float64)
+        for exponent in exponents:
+            mapped = successor._torso_span_profile_remap(samples, exponent)
+            self.assertTrue(np.all(np.isfinite(mapped)))
+            self.assertTrue(np.all(np.diff(mapped) > 0.0))
+            self.assertEqual(float(successor._torso_span_profile_remap(np.asarray((0.0,)), exponent)[0]), 0.0)
+            self.assertEqual(float(successor._torso_span_profile_remap(np.asarray((1.0,)), exponent)[0]), 1.0)
+            midpoint = successor._torso_span_profile_remap(np.asarray((0.5,)), exponent)[0]
+            self.assertEqual(float(midpoint), 0.5 ** exponent)
+
+    def test_torso_profile_parameter_remap_has_unit_endpoint_slopes_and_bounded_subunit_derivatives(self) -> None:
+        exponents = (0.72, 0.82, 0.88, 0.90, 1.0, 1.12, 1.18, 1.28)
+        endpoints = np.asarray((0.0, 1.0), dtype=np.float64)
+        endpoint_slopes = {
+            exponent: successor._torso_span_profile_remap_derivative(endpoints, exponent)
+            for exponent in exponents
+        }
+        for slopes in endpoint_slopes.values():
+            np.testing.assert_allclose(slopes, 1.0, rtol=0.0, atol=1.0e-15)
+
+        subunit_exponents = tuple(exponent for exponent in exponents if exponent < 1.0)
+        samples = np.linspace(0.0, 1.0, 4097, dtype=np.float64)
+        for exponent in subunit_exponents:
+            derivative = successor._torso_span_profile_remap_derivative(samples, exponent)
+            self.assertTrue(np.all(np.isfinite(derivative)))
+            self.assertGreater(float(np.min(derivative)), 0.6)
+            self.assertLess(float(np.max(derivative)), 1.4)
+
     def test_torso_profile_hits_exact_cardinals_and_has_finite_outside_caps(self) -> None:
         sweep = _test_torso_profile_sweep()
         for section in sweep.sections:
@@ -523,6 +553,52 @@ class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
         rounded_value = float(successor._loft_field(rounded_point.reshape(1, 3), sweep)[0])
         ellipse_value = (math.sqrt(0.75**2 + 0.75**2) - 1.0) * min(lateral, anterior, posterior)
         self.assertLess(rounded_value, ellipse_value - 1.0e-3)
+
+    def test_torso_profile_eases_mass_transitions_without_losing_authored_cardinals(self) -> None:
+        base = _test_torso_profile_sweep()
+        controls = (
+            (1.50, 0.85, 0.60),
+            (1.35, 0.78, 0.56),
+            (1.05, 0.62, 0.50),
+            (0.90, 0.52, 0.42),
+            (1.125, 0.65, 0.50),
+            (1.40, 0.85, 0.65),
+            (1.50, 0.90, 0.70),
+        )
+        sweep = replace(
+            base,
+            sections=tuple(
+                replace(
+                    section,
+                    transverse_radii=(radii[0], max(radii[1], radii[2])),
+                    torso_cardinal_radii=radii,
+                )
+                for section, radii in zip(base.sections, controls)
+            ),
+        )
+
+        def linear_lateral_midpoint_value(index: int) -> float:
+            left, right = sweep.sections[index:index + 2]
+            center = (np.asarray(left.center) + np.asarray(right.center)) / 2.0
+            linear_radius = (left.cardinal_radii[0] + right.cardinal_radii[0]) / 2.0
+            point = center + linear_radius * np.asarray(left.transverse_axes[0])
+            return float(successor._loft_field(point.reshape(1, 3), sweep)[0])
+
+        # The old linear station progression put the pelvis-to-abdomen
+        # midpoint exactly on the boundary.  Role-level easing now leaves a
+        # measurable contracted bridge and delays the waist-to-abdomen rise.
+        self.assertGreater(linear_lateral_midpoint_value(1), 1.0e-3)
+        self.assertGreater(linear_lateral_midpoint_value(3), 1.0e-3)
+        for section in sweep.sections:
+            center = np.asarray(section.center)
+            lateral_axis, forward_axis = (np.asarray(axis) for axis in section.transverse_axes)
+            lateral, anterior, posterior = section.cardinal_radii
+            points = np.asarray((
+                center + lateral * lateral_axis,
+                center + anterior * forward_axis,
+                center - posterior * forward_axis,
+            ))
+            np.testing.assert_allclose(successor._loft_field(points, sweep), 0.0, rtol=0.0, atol=1.0e-12)
 
     def test_torso_profile_is_invariant_under_fixed_frame_rotation_and_translation(self) -> None:
         angle_x, angle_y = 0.31, -0.47

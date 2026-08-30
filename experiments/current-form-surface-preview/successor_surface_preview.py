@@ -70,7 +70,10 @@ _HEAD_NECK_RADIUS_REFERENCE_INDICES = (
     (22, 23, 21), (25, 26, 24), (10, 11, 9), (7, 8, 6),
     (4, 5, 3), (16, 17, 15), (13, 14, 12), (19, 20, 18),
 )
-TORSO_SUPERELLIPSE_EXPONENT = 4.0
+# A slightly softer-than-boxy section profile keeps the authored cardinal
+# controls exact while avoiding the rounded-rectangle character of the prior
+# disposable successor.
+TORSO_SUPERELLIPSE_EXPONENT = 3.0
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 # Capture framing is a baseline-compatible concern, separate from the
@@ -3378,6 +3381,57 @@ def _shape_preserving_sample(path: np.ndarray, values: np.ndarray, slopes: np.nd
     return h00[..., None] * left + h10[..., None] * width[..., None] * left_slope + h01[..., None] * right + h11[..., None] * width[..., None] * right_slope
 
 
+def _torso_span_profile_exponent(left: _ProfileSection, right: _ProfileSection) -> float:
+    """Select the shared section-role easing for one torso span."""
+
+    left_width = float(left.cardinal_radii[0])
+    right_width = float(right.cardinal_radii[0])
+    width_increases = right_width > left_width
+    width_decreases = right_width < left_width
+    exponent = 1.0
+    if left.owner is not right.owner:
+        exponent = 0.72 if width_decreases else 1.28 if width_increases else 1.0
+    elif right.name == "waist-abdomen":
+        exponent = 0.82 if width_decreases else 1.18 if width_increases else 1.0
+    elif left.name == "waist-abdomen":
+        exponent = 1.28 if width_increases else 0.82 if width_decreases else 1.0
+    elif left.name == "upper-abdomen" and right.name == "lower-ribcage":
+        exponent = 1.12 if width_increases else 0.90 if width_decreases else 1.0
+    elif left.name == "lower-ribcage" and right.name == "upper-ribcage-shoulder":
+        exponent = 0.88 if width_increases else 1.12 if width_decreases else 1.0
+    return exponent
+
+
+def _torso_span_profile_remap(t: np.ndarray, exponent: float) -> np.ndarray:
+    """Remap one normalized span parameter with unit endpoint slopes."""
+
+    normalized = np.asarray(t, dtype=np.float64)
+    k = 16.0 * (0.5 ** exponent - 0.5)
+    return normalized + k * normalized**2 * (1.0 - normalized)**2
+
+
+def _torso_span_profile_remap_derivative(t: np.ndarray, exponent: float) -> np.ndarray:
+    """Evaluate the analytic derivative of the normalized span remap."""
+
+    normalized = np.asarray(t, dtype=np.float64)
+    k = 16.0 * (0.5 ** exponent - 0.5)
+    return 1.0 + 2.0 * k * normalized * (1.0 - normalized) * (1.0 - 2.0 * normalized)
+
+
+def _torso_span_profile_parameter(left: _ProfileSection, right: _ProfileSection, t: np.ndarray) -> np.ndarray:
+    """Shape the shared axial progression into linked regional masses.
+
+    The seven authored stations remain the only profile controls.  These
+    fixed section-role easings only decide where an existing transition is
+    felt: pelvis fullness contracts early into the long abdominal bridge,
+    the waist stays contracted before expanding, and the upper ribcage takes
+    the stronger final expansion.  The direction is checked from the
+    existing lateral controls so profile variants retain their own identity.
+    """
+
+    return _torso_span_profile_remap(t, _torso_span_profile_exponent(left, right))
+
+
 def _torso_superellipse_field(
     lateral_distance: np.ndarray,
     forward_distance: np.ndarray,
@@ -3426,7 +3480,8 @@ def _torso_span_field(
     else:
         _, first, second = _interpolated_span_frame(left, right, t)
     span_length = math.sqrt(length_sq)
-    query_path = float(left.path_length) + t * span_length
+    profile_t = _torso_span_profile_parameter(left, right, t)
+    query_path = float(left.path_length) + profile_t * span_length
     local_radii = _shape_preserving_sample(path, radii, slopes, query_path)
     offset = points - centre
     lateral_distance = np.sum(offset * first, axis=-1)
