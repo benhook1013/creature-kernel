@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish one disposable four-profile successor-surface anatomy appraisal."""
+"""Publish one disposable five-profile successor-surface anatomy appraisal."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, NoReturn
 
 import numpy as np
 
@@ -49,6 +49,7 @@ class SuccessorAnatomyGalleryError(RuntimeError):
 
 SOURCE_MANIFEST_FORMAT = "creature-kernel.disposable-structural-profile-source-manifest.v1"
 PROFILE_IDS = (
+    "standard_neutral_reference",
     "compact_broad_short_limb_large_head",
     "tall_narrow_long_legged",
     "slender_long_limb",
@@ -58,11 +59,13 @@ NEUTRAL_VARIANT_ID = "neutral-v0"
 REVIEW_ID = "successor-surface-anatomy-appraisal"
 TITLE = "Disposable successor-surface anatomy appraisal"
 DESCRIPTION = (
-    "Disposable successor-surface anatomy appraisal for four ordered source profiles; "
+    "Disposable successor-surface anatomy appraisal for five ordered source profiles, "
+    "with the standard neutral reference first; "
     "not structural, pose, or skeleton evidence and not acceptance."
 )
 INSTRUCTIONS = (
-    "Compare the four ordered neutral successor-surface composites for gross anatomy, "
+    "Compare the five ordered neutral successor-surface composites, starting with the "
+    "standard neutral reference, for gross anatomy, "
     "silhouette, connected regions, and profile differentiation. This is a disposable "
     "successor-surface anatomy appraisal only; it is not structural, pose, skeleton, "
     "or acceptance evidence, and this gallery records no acceptance decision."
@@ -87,7 +90,7 @@ class _ProfileInput:
     producer_variant_sha256: str
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     raise SuccessorAnatomyGalleryError(message)
 
 
@@ -381,11 +384,11 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
     except profile_source_generator.ProfileGenerationError as exc:
         _fail(f"checked-in candidate/base could not regenerate profile sources: {exc}")
     if len(generated_source_bytes) != len(PROFILE_IDS):
-        _fail("checked-in candidate/base generator did not produce exactly four profile documents")
+        _fail("checked-in candidate/base generator did not produce exactly five profile documents")
 
     profiles = manifest_obj["profiles"]
     if not isinstance(profiles, list) or len(profiles) != len(PROFILE_IDS):
-        _fail("source manifest must contain exactly four profiles")
+        _fail("source manifest must contain exactly five profiles")
     if [item.get("id") if isinstance(item, dict) else None for item in profiles] != list(PROFILE_IDS):
         _fail("source manifest profiles are not in the exact required order")
 
@@ -446,7 +449,7 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
         if source_identity.get("document") != profile["document"] or source_identity.get("namespace") != base_namespace:
             _fail(f"{where}.file source identity does not match its profile record")
         try:
-            tail_signature = list(profile_source_generator._tail_signature(source_object))
+            expected_tail_signature = list(profile_source_generator._tail_signature(source_object))
         except (
             AttributeError,
             IndexError,
@@ -456,7 +459,7 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
             profile_source_generator.ProfileGenerationError,
         ) as exc:
             _fail(f"{where}.file has an invalid generated source shape: {exc}")
-        if profile["tail_signature"] != tail_signature:
+        if profile["tail_signature"] != expected_tail_signature:
             _fail(f"{where}.tail_signature does not match its source document")
         loaded.append((profile, source_ref, source_value, source_bytes))
     return manifest_obj, manifest_bytes, loaded
@@ -676,7 +679,7 @@ def _build_review_manifest(
     title: str,
 ) -> tuple[Path, dict[str, dict[str, int | str]]]:
     if type(samples) is not int or samples < MIN_GALLERY_SAMPLES or samples > successor.MAX_SAMPLES:
-        _fail(f"samples-per-axis must be between {MIN_GALLERY_SAMPLES} and {successor.MAX_SAMPLES} for this four-profile gallery")
+        _fail(f"samples-per-axis must be between {MIN_GALLERY_SAMPLES} and {successor.MAX_SAMPLES} for this five-profile gallery")
     if not math.isfinite(float(padding)) or padding < 0.0 or not math.isfinite(float(smooth_k)) or smooth_k <= 0.0:
         _fail("successor sampling configuration is invalid")
     baseline_capture_bound, prepared = _shared_capture_bound(profiles)
@@ -858,7 +861,7 @@ def _build_review_manifest(
         "kind": "image",
         "groups": [{
             "id": "successor-anatomy",
-            "title": "Four ordered source profiles",
+            "title": "Five ordered source profiles (standard neutral first)",
             "selection_mode": "none",
             "items": images,
         }],

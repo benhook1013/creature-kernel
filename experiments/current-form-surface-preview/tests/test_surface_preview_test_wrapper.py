@@ -18,6 +18,7 @@ class SurfacePreviewTestWrapperTests(unittest.TestCase):
             python_shim = root / "python-shim"
             python_shim.write_text(
                 "#!/bin/sh\n"
+                "if [ \"$1\" = \"-\" ]; then exit 0; fi\n"
                 "printf '%s\\n' \"$*\" > \"$CK_SURFACE_PREVIEW_TEST_WRAPPER_MARKER\"\n"
                 "exit 97\n",
                 encoding="utf-8",
@@ -34,6 +35,8 @@ class SurfacePreviewTestWrapperTests(unittest.TestCase):
                 text=True,
                 check=False,
             )
+            if marker.exists():
+                result.stdout += marker.read_text(encoding="utf-8")
             return result, marker.exists()
 
     def test_rejects_slash_empty_and_invalid_selectors_before_unittest(self) -> None:
@@ -65,6 +68,13 @@ class SurfacePreviewTestWrapperTests(unittest.TestCase):
                 result, python_invoked = self.run_wrapper(*arguments)
                 self.assertEqual(result.returncode, 97)
                 self.assertTrue(python_invoked)
+
+    def test_two_selectors_forward_file_and_method_to_the_pinned_launcher(self) -> None:
+        result, python_invoked = self.run_wrapper("test_surface_preview.py", "test_one")
+        self.assertEqual(result.returncode, 97)
+        self.assertTrue(python_invoked)
+        self.assertIn("-p test_surface_preview.py", result.stdout)
+        self.assertIn("-k test_one", result.stdout)
 
     def test_help_succeeds_from_non_root_directory(self) -> None:
         result, python_invoked = self.run_wrapper("--help")

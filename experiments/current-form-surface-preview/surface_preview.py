@@ -122,6 +122,10 @@ FOOT_PROFILE_SECTION_NAMES = ("pad", "toe")
 FOOT_PROFILE_OWNER_ROLES = ("foot", "foot")
 FOOT_PROFILE_HOCK_SECTION_INDEX = 4
 REGIONAL_ROUTE_ORDER_TORSO = (("torso", (0, 1, 2, 3, 4, 5, 6), 1, "y"),)
+REGIONAL_ROUTE_ORDER_AUTHORED_TORSO = (
+    ("pelvis", (0, 1), 1, "y"),
+    ("torso", (2, 3, 4, 5, 6), 1, "y"),
+)
 REGIONAL_ROUTE_ORDER_AUTHORED_HEAD_NECK = (
     ("neck", (0, 1), 1, "y"),
     ("cranium", (2, 3, 4), 1, "y"),
@@ -1618,7 +1622,7 @@ def _parse_authored_torso_profile(
         )
     _validate_regional_route_order(
         tuple(section.landmark.position for section in parsed),
-        REGIONAL_ROUTE_ORDER_TORSO,
+        REGIONAL_ROUTE_ORDER_AUTHORED_TORSO,
         "authored_torso_profile.sections",
     )
     return AuthoredTorsoProfile(tuple(parsed), provenance)
@@ -3386,6 +3390,8 @@ def _embed_boundary_connector(
     path: tuple[tuple[float, float, float], tuple[float, float, float]],
     profile: tuple[float, ...],
     where: str,
+    inward_direction: np.ndarray | tuple[float, float, float] | None = None,
+    inward_clearance: float | None = None,
 ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     """Move a connector's centreline start inside its owning cage boundary.
 
@@ -3395,9 +3401,11 @@ def _embed_boundary_connector(
     not toward the branch-facing outward side. The analytic connector
     centreline starts one support radius toward the child in the
     lateral/forward plane, so its spherical support meets the cage boundary
-    rather than projecting a full radius outside the torso. The axial
-    component remains in the path itself, preserving the intended limb
-    direction.
+    rather than projecting a full radius outside the torso. When the owning
+    cage supplies its inward transverse normal, that normal is used if the
+    authored child vector has insufficient or contradictory transverse span;
+    the axial component remains in the path itself, preserving the intended
+    limb direction. The supplied clearance keeps this recovery fail-closed.
     """
 
     _guide_profile(profile, f"{where}.profile")
@@ -3407,13 +3415,66 @@ def _embed_boundary_connector(
     lateral_forward = direction[[0, 2]]
     lateral_forward_length = float(np.linalg.norm(lateral_forward))
     support = float(profile[0])
-    if not math.isfinite(lateral_forward_length) or lateral_forward_length <= 1.0e-12 or not math.isfinite(support) or support <= 0.0:
+    if not math.isfinite(lateral_forward_length) or not math.isfinite(support) or support <= 0.0:
         _fail(f"{where} cannot embed a degenerate boundary connector")
-    if support >= lateral_forward_length:
-        _fail(f"{where} support radius consumes its boundary-to-child span")
-    lateral_direction = lateral_forward / lateral_forward_length
+    if inward_direction is None:
+        if lateral_forward_length <= 1.0e-12 or support >= lateral_forward_length:
+            _fail(f"{where} support radius consumes its boundary-to-child span")
+        lateral_direction = lateral_forward / lateral_forward_length
+    else:
+        cage_inward = np.asarray(inward_direction, dtype=np.float64)
+        if cage_inward.shape != (3,) or not np.all(np.isfinite(cage_inward)):
+            _fail(f"{where} cannot embed within the supplied boundary clearance")
+        cage_lateral_forward = cage_inward[[0, 2]]
+        cage_inward_length = float(np.linalg.norm(cage_lateral_forward))
+        if (
+            not math.isfinite(cage_inward_length)
+            or cage_inward_length <= 1.0e-12
+            or inward_clearance is None
+            or not math.isfinite(float(inward_clearance))
+            or float(inward_clearance) <= 0.0
+            or support >= float(inward_clearance)
+        ):
+            _fail(f"{where} cannot embed within the supplied boundary clearance")
+        cage_lateral_direction = cage_lateral_forward / cage_inward_length
+        if lateral_forward_length > 1.0e-12:
+            authored_lateral_direction = lateral_forward / lateral_forward_length
+            if float(np.dot(authored_lateral_direction, cage_lateral_direction)) >= 1.0 - 1.0e-12 and support < lateral_forward_length:
+                lateral_direction = authored_lateral_direction
+            else:
+                lateral_direction = cage_lateral_direction
+        else:
+            lateral_direction = cage_lateral_direction
     compiled_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
     return _guide_path(compiled_start, target, profile, f"{where}.compiled")
+
+
+def _boundary_connector_inward_direction(
+    boundary: tuple[float, float, float],
+    section: _TorsoCageSection,
+    where: str,
+) -> tuple[tuple[float, float, float], float]:
+    """Derive the transverse inward normal and conservative cage clearance."""
+
+    boundary_point = np.asarray(boundary, dtype=np.float64)
+    if boundary_point.shape != (3,) or not np.all(np.isfinite(boundary_point)):
+        _fail(f"{where} cannot derive a finite inward boundary normal")
+    offset = boundary_point[[0, 2]] - np.asarray(section.center, dtype=np.float64)[[0, 2]]
+    radii = np.asarray([section.lateral_radius, section.depth_radius], dtype=np.float64)
+    gradient = offset / np.square(radii)
+    gradient_length = float(np.linalg.norm(gradient))
+    clearance = float(np.min(radii))
+    if (
+        not np.all(np.isfinite(radii))
+        or np.any(radii <= 0.0)
+        or not math.isfinite(gradient_length)
+        or gradient_length <= 1.0e-12
+        or not math.isfinite(clearance)
+        or clearance <= 0.0
+    ):
+        _fail(f"{where} cannot derive a finite inward boundary normal")
+    inward = -gradient / gradient_length
+    return (float(inward[0]), 0.0, float(inward[1])), clearance
 
 
 def _guide_topology(descriptors: tuple[Descriptor, ...]) -> _GuideTopology:
@@ -6533,6 +6594,20 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             _fail(f"limb profile controls are invalid for {_key_text(limb.owner.key)}")
         if len(limb.sections) != 2:
             _fail(f"limb piecewise sections are invalid for {_key_text(limb.owner.key)}")
+        boundary_inward_direction = None
+        boundary_clearance = None
+        if limb.root_centerline is not None:
+            if desc.key[3] == "thigh":
+                boundary_section = torso_cage.lower_boundary
+            elif desc.key[3] == "upper_arm":
+                boundary_section = torso_cage.upper_boundary
+            else:
+                _fail(f"limb root connector has no owning cage boundary for {_key_text(desc.key)}")
+            boundary_inward_direction, boundary_clearance = _boundary_connector_inward_direction(
+                limb.root_centerline[0],
+                boundary_section,
+                f"{_key_text(limb.owner.key)}.root",
+            )
         arm_side = next((item for item in guide.arm_profile.sides if item.side == desc.key[1][0]), None) if desc.key[3] in {"upper_arm", "forearm"} else None
         leg_side = next((item for item in guide.leg_profile.sides if item.side == desc.key[1][0]), None) if desc.key[3] in {"thigh", "shin"} else None
         if arm_side is not None:
@@ -6560,7 +6635,13 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             add_path(
                 desc,
                 "root-bridge",
-                _embed_boundary_connector(limb.root_centerline, limb.root_thickness, f"{_key_text(limb.owner.key)}.root"),
+                _embed_boundary_connector(
+                    limb.root_centerline,
+                    limb.root_thickness,
+                    f"{_key_text(limb.owner.key)}.root",
+                    boundary_inward_direction,
+                    boundary_clearance,
+                ),
                 limb.root_thickness,
                 "tapered-segment",
             )  # type: ignore[arg-type]
@@ -6568,7 +6649,13 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             add_path(
                 desc,
                 "hip-transition",
-                _embed_boundary_connector(limb.hip_centerline, limb.hip_thickness, f"{_key_text(limb.owner.key)}.hip"),
+                _embed_boundary_connector(
+                    limb.hip_centerline,
+                    limb.hip_thickness,
+                    f"{_key_text(limb.owner.key)}.hip",
+                    boundary_inward_direction,
+                    boundary_clearance,
+                ),
                 limb.hip_thickness,
                 "tapered-segment",
             )  # type: ignore[arg-type]

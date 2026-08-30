@@ -1510,6 +1510,25 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                     prior_variant, f"v7 variant field on {prior_format}"
                 )
 
+    def test_v7_torso_profile_accepts_contiguous_owner_local_routes(self) -> None:
+        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
+        source_landmark = next(
+            landmark
+            for landmark in payload["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_lower_abdomen"
+        )
+        source_landmark["position"][1] = -0.60
+        for variant in payload["variants"]:
+            variant["torso_profile"]["sections"][2]["position"][1] = -0.60
+
+        validated = common._validate_provisional_form_envelope(
+            payload, "owner-local torso route fixture"
+        )
+        self.assertEqual(
+            validated["authored_torso_profile"]["sections"][2]["name"],
+            "lower-abdomen",
+        )
+
     def test_unknown_and_malformed_payloads_fail_closed(self) -> None:
         cases = [
             {"unknown": True},
@@ -2553,6 +2572,17 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         valid_v7 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
         self.assertEqual(self.browser_form_errors(valid_v7), [])
 
+        owner_local_routes = copy.deepcopy(valid_v7)
+        source_landmark = next(
+            landmark
+            for landmark in owner_local_routes["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_lower_abdomen"
+        )
+        source_landmark["position"][1] = -0.60
+        for variant in owner_local_routes["variants"]:
+            variant["torso_profile"]["sections"][2]["position"][1] = -0.60
+        self.assertEqual(self.browser_form_errors(owner_local_routes), [])
+
         cases = []
         unknown_envelope_field = copy.deepcopy(valid_v7)
         unknown_envelope_field["unexpected"] = True
@@ -2572,9 +2602,9 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         non_axial = copy.deepcopy(valid_v7)
         non_axial["authored_landmarks"][0]["position"][0] = 0.1
         cases.append(non_axial)
-        non_increasing_y = copy.deepcopy(valid_v7)
-        non_increasing_y["authored_landmarks"][1]["position"][1] = non_increasing_y["authored_landmarks"][0]["position"][1]
-        cases.append(non_increasing_y)
+        non_increasing_owner_local_y = copy.deepcopy(valid_v7)
+        non_increasing_owner_local_y["authored_landmarks"][1]["position"][1] = non_increasing_owner_local_y["authored_landmarks"][0]["position"][1]
+        cases.append(non_increasing_owner_local_y)
         missing_dimension = copy.deepcopy(valid_v7)
         missing_dimension["authored_torso_profile"]["sections"][0]["dimension_indices"]["lateral"] = 0
         cases.append(missing_dimension)

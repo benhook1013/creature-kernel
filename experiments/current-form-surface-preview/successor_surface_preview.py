@@ -5,9 +5,8 @@ This module is intentionally adjacent to, rather than a modification of,
 ``surface_preview.py``.  It consumes the existing private hybrid guide and
 replaces the torso/shoulder, head/neck, four limb-chain, hand/foot, and tail
 skin consumers with explicitly identified profile sweeps. Thigh/hip connector
-fields remain an explicit temporary bridge so the
-experiment can still produce a whole-body mesh without pretending that those
-connectors have been redesigned.
+fields are replaced by one derived bilateral pelvis-to-thigh transition per
+side; the experiment still does not claim to provide a production topology.
 
 The representation is exploratory and disposable.  It is not a production
 surface backend, topology contract, SDF, collision shape, or runtime API.
@@ -49,12 +48,13 @@ FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v15"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16"
 TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
 _HEAD_NECK_PROFILE_OPERATION = "authored-head-neck-branched-route-profile-v1"
 _ARM_PROFILE_OPERATION = "authored-arm-profile-route-v1"
 _LEG_PROFILE_OPERATION = "authored-leg-profile-route-v1"
 _FOOT_PROFILE_OPERATION = "authored-foot-profile-route-v1"
+_HIP_ROOT_PROFILE_OPERATION = "derived-pelvis-thigh-socket-profile-v2"
 _FOOT_PROFILE_SECTION_NAMES = ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe")
 _FOOT_PROFILE_OWNER_ROLES = ("shin", "foot", "foot", "foot", "foot")
 _HEAD_NECK_ROUTE_TOPOLOGY = (
@@ -82,6 +82,7 @@ DEFAULT_PADDING = 0.50
 DEFAULT_CAPTURE_PADDING = _baseline.DEFAULT_PADDING
 DEFAULT_SMOOTH_K = 0.10
 _FORWARD_MUZZLE_COMPOSITION_OPERATION = "successor-local-forward-muzzle-envelope-v1"
+_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = (3, 5, 7)
 MAX_SAMPLES = 96
 MAX_VOXELS = 96**3
 MAX_FIELD_VALUES = 16_000_000
@@ -320,6 +321,30 @@ class _LimbChainSweep:
 
 
 @dataclass(frozen=True)
+class _HipRootTransition:
+    """One derived, bilateral-side pelvis-to-authored-thigh transition."""
+
+    name: str
+    side: str
+    owner: Any
+    source_owners: tuple[Any, Any]
+    sweep: _ProfileSweep
+    pelvis_section_name: str
+    authored_station_name: str
+    boundary_parameter: float
+    socket_parameter: float
+    tangent_blend_distance: float
+    socket_volume_radii: tuple[float, float, float]
+    cup_volume_radii: tuple[float, float, float]
+    tangent_blend_volume_radii: tuple[float, float, float]
+    authored_volume_radii: tuple[float, float, float]
+
+    @property
+    def sections_consumed(self) -> int:
+        return len(self.sweep.sections)
+
+
+@dataclass(frozen=True)
 class _TailElement:
     """One explicitly named, source-owned successor tail element.
 
@@ -361,9 +386,8 @@ class SuccessorRegion:
     """Explicit successor torso/shoulder/head/neck/limb/extremity/tail representation.
 
     ``bridge_fields`` are untouched baseline fields for all regions outside
-    this successor region.  They are kept here, rather than silently folded
-    into the successor, so the remaining root/hip connector consumers have a
-    stable extension point and the temporary boundary remains inspectable.
+    this successor region.  The successor currently consumes every baseline
+    field in this guide, including one derived hip-root transition per side.
     """
 
     consumer_id: str
@@ -378,6 +402,7 @@ class SuccessorRegion:
     leg_profile: Any | None = None
     foot_profile: Any | None = None
     limb_sweeps: tuple[_LimbChainSweep, ...] = ()
+    hip_root_transitions: tuple[_HipRootTransition, ...] = ()
     extremity_sweeps: tuple[_ExtremitySweep, ...] = ()
     tail_elements: tuple[_TailElement, ...] = ()
 
@@ -410,6 +435,12 @@ class SuccessorRegion:
         """The two shared authored leg-profile routes."""
 
         return tuple(item for item in self.limb_sweeps if item.is_leg_profile_route)
+
+    @property
+    def hip_root_sweeps(self) -> tuple[_HipRootTransition, ...]:
+        """The two derived pelvis-to-thigh socket/cup transitions."""
+
+        return self.hip_root_transitions
 
     @property
     def hand_sweeps(self) -> tuple[_ExtremitySweep, ...]:
@@ -552,6 +583,7 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         _ARM_PROFILE_OPERATION,
         _LEG_PROFILE_OPERATION,
         _FOOT_PROFILE_OPERATION,
+        _HIP_ROOT_PROFILE_OPERATION,
     }:
         _fail(f"profile sweep has unknown profile operation {sweep.profile_operation!r}")
     if sweep._validated:
@@ -1085,6 +1117,22 @@ _HAND_PAW_PROFILE = (
     (0.78, 0.55, 0.60),
 )
 _HAND_PAW_SECTION_NAMES = ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip")
+
+# The hip-root transition is deliberately shared across all profiles.  Its
+# fixed values bound the first-exit search, control how far inside the measured
+# pelvis boundary the socket starts, and set the tangent seam blend; all
+# positions and radii come from the current guide fields.
+_HIP_ROOT_SOCKET_FRACTION = 0.62
+_HIP_ROOT_CUP_REMAINING_FRACTION = 0.55
+_HIP_ROOT_TANGENT_BLEND_FRACTION = 0.50
+_HIP_ROOT_BOUNDARY_SAMPLES = 64
+_HIP_ROOT_BOUNDARY_ITERATIONS = 64
+_HIP_ROOT_BOUNDARY_MAX_PARAMETER = 4.0
+_HIP_ROOT_PELVIS_SUPPORT_CAP = 1.20
+_HIP_ROOT_SOCKET_THIGH_WEIGHT = 0.68
+_HIP_ROOT_SOCKET_PELVIS_WEIGHT = 0.32
+_HIP_ROOT_CUP_THIGH_WEIGHT = 0.82
+_HIP_ROOT_CUP_PELVIS_WEIGHT = 0.18
 
 
 def _make_transition_sweep(
@@ -1831,11 +1879,12 @@ def _make_forward_muzzle_composition_sweep(profile: Any) -> _ProfileSweep:
     lateral = _unit(_vec3(axes.lateral, "forward muzzle composition lateral axis"), "forward muzzle composition lateral axis")
     up = _unit(_vec3(axes.up, "forward muzzle composition up axis"), "forward muzzle composition up axis")
     by_index = {int(section.section_index): section for section in profile.sections}
+    cranium_index, muzzle_root_index, muzzle_tip_index = _FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
     try:
-        cranium = by_index[3]
-        muzzle_root = by_index[5]
+        cranium = by_index[cranium_index]
+        muzzle_root = by_index[muzzle_root_index]
         muzzle_mid = by_index[6]
-        muzzle_tip = by_index[7]
+        muzzle_tip = by_index[muzzle_tip_index]
     except KeyError as exc:
         _fail(f"forward muzzle composition is missing authored section {exc.args[0]}")
 
@@ -1980,7 +2029,7 @@ def _head_neck_route_json(item: _RegionalProfileSweep) -> dict[str, Any]:
             {
                 "operation": _FORWARD_MUZZLE_COMPOSITION_OPERATION,
                 "section_names": list(derived.names),
-                "geometric_input_section_indices": [3, 5, 7],
+                "geometric_input_section_indices": list(_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES),
                 "radius_donor_section_indices": [int(section.source_section_index) for section in derived.sections],
                 "center_derivation": [
                     "midpoint(cranium-mid forward surface, muzzle-root center)",
@@ -2944,6 +2993,268 @@ def _make_limb_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
     return tuple(sweeps)
 
 
+def _support_radius(
+    direction: np.ndarray,
+    axes: tuple[np.ndarray, np.ndarray, np.ndarray],
+    radii: tuple[float, float, float],
+    where: str,
+) -> float:
+    """Return an ellipsoid's finite support radius in one derived direction."""
+
+    direction = _unit(np.asarray(direction, dtype=np.float64), f"{where}.direction")
+    _finite_positive(tuple(float(value) for value in radii), f"{where}.radii")
+    support = math.sqrt(sum((float(np.dot(direction, axis)) * radius) ** 2 for axis, radius in zip(axes, radii)))
+    if not math.isfinite(support) or support <= 0.0:
+        _fail(f"{where} produced an invalid support radius")
+    return support
+
+
+def _hip_root_boundary_parameter(
+    loft: _ProfileSweep,
+    origin: np.ndarray,
+    target: np.ndarray,
+    where: str,
+) -> float:
+    """Find the first lower-pelvis field exit on the pelvis-to-thigh ray."""
+
+    direction = target - origin
+    if float(np.linalg.norm(direction)) <= _DEGENERATE_TOLERANCE:
+        _fail(f"{where} pelvis-to-thigh ray is degenerate")
+    origin_value = float(_lower_pelvis_field(origin.reshape(1, 3), loft)[0])
+    if not math.isfinite(origin_value) or origin_value >= 0.0:
+        _fail(f"{where} lower-pelvis origin is not inside the lower-pelvis region")
+
+    # Find the first exit rather than assuming the union of the lower-pelvis
+    # cap and its adjacent span is monotonic along every authored thigh ray.
+    parameters = np.linspace(
+        0.0,
+        _HIP_ROOT_BOUNDARY_MAX_PARAMETER,
+        _HIP_ROOT_BOUNDARY_SAMPLES + 1,
+    )
+    points = origin + parameters[:, None] * direction
+    values = _lower_pelvis_field(points, loft)
+    if not np.all(np.isfinite(values)):
+        _fail(f"{where} lower-pelvis boundary samples became non-finite")
+    exit_indices = np.flatnonzero((values[:-1] < 0.0) & (values[1:] >= 0.0))
+    if not len(exit_indices):
+        _fail(f"{where} lower-pelvis boundary samples did not bracket a first exit")
+    first_exit = int(exit_indices[0])
+    lower = float(parameters[first_exit])
+    upper = float(parameters[first_exit + 1])
+    for _ in range(_HIP_ROOT_BOUNDARY_ITERATIONS):
+        midpoint = 0.5 * (lower + upper)
+        value = float(_lower_pelvis_field((origin + midpoint * direction).reshape(1, 3), loft)[0])
+        if not math.isfinite(value):
+            _fail(f"{where} lower-pelvis boundary search became non-finite")
+        if value < 0.0:
+            lower = midpoint
+        else:
+            upper = midpoint
+    boundary = 0.5 * (lower + upper)
+    boundary_value = float(_lower_pelvis_field((origin + boundary * direction).reshape(1, 3), loft)[0])
+    if not math.isfinite(boundary_value) or abs(boundary_value) > _SHOULDER_BOUNDARY_TOLERANCE:
+        _fail(f"{where} lower-pelvis boundary did not converge")
+    return boundary
+
+
+def _make_hip_root_transition(
+    loft: _ProfileSweep,
+    leg: _LimbChainSweep,
+    side: str,
+) -> _HipRootTransition:
+    """Build one shared lower-pelvis socket/cup route for an authored thigh."""
+
+    if len(loft.sections) < 2 or loft.sections[0].name != "lower-pelvis":
+        _fail(f"{side} hip-root transition requires the successor lower-pelvis section")
+    pelvis = loft.sections[0]
+    cardinal = pelvis.cardinal_radii
+    if cardinal is None:
+        _fail(f"{side} hip-root transition requires lower-pelvis cardinal radii")
+    thigh_start = leg.sweep.sections[0]
+    if thigh_start.station_volume_axes is None or thigh_start.station_volume_radii is None:
+        _fail(f"{side} hip-root transition requires the authored thigh-start volume")
+
+    volume_axes = tuple(
+        _unit(_vec3(axis, f"{side}.hip-root.volume-axis[{index}]"), f"{side}.hip-root.volume-axis[{index}]")
+        for index, axis in enumerate(thigh_start.station_volume_axes)
+    )
+    thigh_volume = tuple(float(value) for value in thigh_start.station_volume_radii)
+    if len(volume_axes) != 3 or len(thigh_volume) != 3:
+        _fail(f"{side} hip-root transition thigh-start volume must have three axes and radii")
+    _finite_positive(thigh_volume, f"{side}.hip-root.thigh-start-volume")
+
+    origin = _vec3(pelvis.center, f"{side}.hip-root.pelvis-origin")
+    target = _vec3(thigh_start.center, f"{side}.hip-root.thigh-start")
+    boundary_parameter = _hip_root_boundary_parameter(loft, origin, target, f"{side}.hip-root")
+    socket_parameter = _HIP_ROOT_SOCKET_FRACTION * boundary_parameter
+    cup_parameter = socket_parameter + _HIP_ROOT_CUP_REMAINING_FRACTION * (1.0 - socket_parameter)
+    if not 0.0 < socket_parameter < cup_parameter < 1.0:
+        _fail(f"{side} hip-root transition parameters are not ordered")
+
+    pelvis_support = np.asarray(
+        tuple(
+            _torso_cap_radial_distance(
+                axis,
+                loft.endpoint_caps[0],
+                cardinal,
+                f"{side}.hip-root.pelvis-support[{index}]",
+            )
+            for index, axis in enumerate(volume_axes)
+        ),
+        dtype=np.float64,
+    )
+    capped_pelvis_support = np.minimum(
+        pelvis_support,
+        _HIP_ROOT_PELVIS_SUPPORT_CAP * np.asarray(thigh_volume, dtype=np.float64),
+    )
+    socket_volume = tuple(float(value) for value in (
+        _HIP_ROOT_SOCKET_THIGH_WEIGHT * np.asarray(thigh_volume)
+        + _HIP_ROOT_SOCKET_PELVIS_WEIGHT * capped_pelvis_support
+    ))
+    cup_volume = tuple(float(value) for value in (
+        _HIP_ROOT_CUP_THIGH_WEIGHT * np.asarray(thigh_volume)
+        + _HIP_ROOT_CUP_PELVIS_WEIGHT * capped_pelvis_support
+    ))
+    _finite_positive(socket_volume, f"{side}.hip-root.socket-volume")
+    _finite_positive(cup_volume, f"{side}.hip-root.cup-volume")
+
+    socket_center = origin + socket_parameter * (target - origin)
+    cup_center = origin + cup_parameter * (target - origin)
+    authored_tangent = _vec3(thigh_start.tangent, f"{side}.hip-root.authored-thigh-tangent")
+    authored_tangent = _unit(authored_tangent, f"{side}.hip-root.authored-thigh-tangent")
+    cup_to_target = target - cup_center
+    tangent_projection = float(np.dot(cup_to_target, authored_tangent))
+    if not math.isfinite(tangent_projection) or tangent_projection <= _DEGENERATE_TOLERANCE:
+        _fail(f"{side} hip-root cup leaves no forward span for the authored thigh tangent")
+    tangent_blend_distance = _HIP_ROOT_TANGENT_BLEND_FRACTION * tangent_projection
+    if not math.isfinite(tangent_blend_distance) or tangent_blend_distance <= _DEGENERATE_TOLERANCE:
+        _fail(f"{side} hip-root tangent blend distance is invalid")
+    tangent_blend_center = target - tangent_blend_distance * authored_tangent
+    tangent_blend_volume = tuple(
+        float(0.5 * (cup + thigh)) for cup, thigh in zip(cup_volume, thigh_volume)
+    )
+    _finite_positive(tangent_blend_volume, f"{side}.hip-root.tangent-blend-volume")
+    centers = (socket_center, cup_center, tangent_blend_center, target)
+    owners = (pelvis.owner, thigh_start.owner, thigh_start.owner, thigh_start.owner)
+    volumes = (socket_volume, cup_volume, tangent_blend_volume, thigh_volume)
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (name, owner, center, volume) in enumerate(zip(
+        ("hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"), owners, centers, volumes,
+    )):
+        current = _vec3(center, f"{side}.hip-root.{name}.center")
+        if index:
+            previous = _vec3(centers[index - 1], f"{side}.hip-root.previous-center")
+            span = float(np.linalg.norm(current - previous))
+            if span <= _DEGENERATE_TOLERANCE:
+                _fail(f"{side}.hip-root.{name} follows a degenerate span")
+            path_length += span
+        if index == 0:
+            direction = _vec3(centers[1], f"{side}.hip-root.next-center") - current
+        elif index == len(centers) - 1:
+            # The final transition station is the exact authored thigh-start
+            # frame.  Its preceding derived blend station is placed on that
+            # tangent so the ordered centerline and the authored frame agree.
+            tangent = authored_tangent
+            first = _vec3(thigh_start.transverse_axes[0], f"{side}.hip-root.authored-thigh-first-axis")
+            second = _vec3(thigh_start.transverse_axes[1], f"{side}.hip-root.authored-thigh-second-axis")
+            station_radii = (
+                _support_radius(first, volume_axes, volume, f"{side}.hip-root.{name}.first-support"),
+                _support_radius(second, volume_axes, volume, f"{side}.hip-root.{name}.second-support"),
+            )
+            tangent_radius = _support_radius(tangent, volume_axes, volume, f"{side}.hip-root.{name}.tangent-support")
+            sections.append(_ProfileSection(
+                name=name,
+                owner=owner,
+                center=tuple(float(value) for value in current),
+                tangent=tuple(float(value) for value in tangent),
+                transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
+                transverse_radii=station_radii,
+                path_length=path_length,
+                tangent_radius=tangent_radius,
+                station_volume_axes=tuple(tuple(float(value) for value in axis) for axis in volume_axes),
+                station_volume_radii=tuple(float(value) for value in volume),
+            ))
+            continue
+        else:
+            direction = _vec3(centers[index + 1], f"{side}.hip-root.next-center") - _vec3(centers[index - 1], f"{side}.hip-root.previous-center")
+        tangent, first, second = _frame_from_tangent(
+            direction,
+            volume_axes[0],
+            volume_axes[1],
+            f"{side}.hip-root.{name}",
+        )
+        station_radii = (
+            _support_radius(first, volume_axes, volume, f"{side}.hip-root.{name}.first-support"),
+            _support_radius(second, volume_axes, volume, f"{side}.hip-root.{name}.second-support"),
+        )
+        tangent_radius = _support_radius(tangent, volume_axes, volume, f"{side}.hip-root.{name}.tangent-support")
+        sections.append(_ProfileSection(
+            name=name,
+            owner=owner,
+            center=tuple(float(value) for value in current),
+            tangent=tuple(float(value) for value in tangent),
+            transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            transverse_radii=station_radii,
+            path_length=path_length,
+            tangent_radius=tangent_radius,
+            station_volume_axes=tuple(tuple(float(value) for value in axis) for axis in volume_axes),
+            station_volume_radii=tuple(float(value) for value in volume),
+        ))
+
+    ordered = tuple(sections)
+    sweep = _ProfileSweep(
+        ordered,
+        (
+            _ProfileEndpointCap("start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent), ordered[0].transverse_axes, ordered[0].transverse_radii, min(*ordered[0].transverse_radii, ordered[0].tangent_radius or min(ordered[0].transverse_radii))),
+            _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, min(*ordered[-1].transverse_radii, ordered[-1].tangent_radius or min(ordered[-1].transverse_radii))),
+        ),
+        profile_operation=_HIP_ROOT_PROFILE_OPERATION,
+    )
+    _validate_profile_sweep(sweep)
+    socket_value = float(_lower_pelvis_field(np.asarray(ordered[0].center).reshape(1, 3), loft)[0])
+    if not math.isfinite(socket_value) or socket_value >= -_FRAME_TOLERANCE:
+        _fail(f"{side} hip-root socket does not start inside the lower-pelvis profile")
+    side_sign = -1.0 if side == "left" else 1.0
+    signed_lateral = [side_sign * float(center[0]) for center in centers]
+    if any(right + _FRAME_TOLERANCE < left for left, right in zip(signed_lateral, signed_lateral[1:])):
+        _fail(f"{side} hip-root transition reverses its inward-to-thigh lateral order")
+    return _HipRootTransition(
+        name=f"{side}-hip-root-transition",
+        side=side,
+        owner=thigh_start.owner,
+        source_owners=(pelvis.owner, thigh_start.owner),
+        sweep=sweep,
+        pelvis_section_name=pelvis.name,
+        authored_station_name=thigh_start.name,
+        boundary_parameter=float(boundary_parameter),
+        socket_parameter=float(socket_parameter),
+        tangent_blend_distance=float(tangent_blend_distance),
+        socket_volume_radii=socket_volume,
+        cup_volume_radii=cup_volume,
+        tangent_blend_volume_radii=tangent_blend_volume,
+        authored_volume_radii=thigh_volume,
+    )
+
+
+def _make_hip_root_transitions(
+    guide: Any,
+    loft: _ProfileSweep,
+    limb_sweeps: tuple[_LimbChainSweep, ...],
+) -> tuple[_HipRootTransition, ...]:
+    """Build exactly one data-derived successor hip root on each side."""
+
+    legs = {item.chain_name: item for item in limb_sweeps if item.is_leg_profile_route}
+    if tuple(sorted(legs)) != ("left-leg", "right-leg"):
+        _fail("successor hip-root transition inventory requires both authored leg routes")
+    result = tuple(_make_hip_root_transition(loft, legs[f"{side}-leg"], side) for side in ("left", "right"))
+    if tuple(item.name for item in result) != ("left-hip-root-transition", "right-hip-root-transition"):
+        _fail("successor hip-root transition order is unstable")
+    if any(item.source_owners[0] is not guide.torso_cage.pelvis_owner for item in result):
+        _fail("successor hip-root transitions must retain the canonical pelvis owner")
+    return result
+
+
 def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
     """Build the four-station outward hand profile from exact paw controls."""
 
@@ -3342,8 +3653,9 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
 
     The torso cage, one authored shoulder envelope per side, two authored head/neck route fields,
     four bilateral limb chains, ten bilateral hand/foot fields, and six tail
-    fields are replaced. Every other baseline field is carried as a named
-    temporary bridge: two thigh-root bridges and two hip transitions.
+    fields are replaced. The old thigh-root bridge and hip-transition fields
+    are consumed only as validated source evidence; successor skin uses one
+    derived pelvis-to-thigh socket/cup transition per side.
     """
 
     _baseline._validate_hybrid_guide(guide)
@@ -3353,7 +3665,8 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         baseline_fields = _baseline._compile_hybrid_guide(guide)
     replaced = (
         "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
-        "deltoid-sweep-1", *_LIMB_CHAIN_BASELINE_RECIPES, *_EXTREMITY_BASELINE_RECIPES, *_TAIL_BASELINE_RECIPES,
+        "deltoid-sweep-1", "root-bridge", "hip-transition",
+        *_LIMB_CHAIN_BASELINE_RECIPES, *_EXTREMITY_BASELINE_RECIPES, *_TAIL_BASELINE_RECIPES,
     )
     torso_fields = tuple(field for field in baseline_fields if field.recipe == "torso-cage")
     expected_torso_owner = guide.torso_cage.torso_owner
@@ -3386,6 +3699,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     foot_profile = _validate_foot_profile_guide(guide)
     _validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
     loft = _make_loft(guide)
+    hip_root_transitions = _make_hip_root_transitions(guide, loft, limb_sweeps)
     shoulder_sweeps = _make_shoulder_sweeps(guide, loft)
     upper_arm_owner_ids = {id(side.owner) for side in guide.shoulder_frame.sides}
     replaced_fields = tuple(
@@ -3395,13 +3709,13 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     )
     bridge = tuple(
         field for field in bridge_before_tail
-        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1", *_EXTREMITY_BASELINE_RECIPES}
+        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1", *_EXTREMITY_BASELINE_RECIPES, "root-bridge", "hip-transition"}
         and not (field.recipe == "root-bridge" and id(field.owner) in upper_arm_owner_ids)
     )
     if len(bridge) + len(replaced_fields) != len(baseline_fields):
         _fail("baseline bridge selection lost fields")
-    if len(bridge) != 4 or tuple(field.recipe for field in bridge).count("root-bridge") != 2 or tuple(field.recipe for field in bridge).count("hip-transition") != 2:
-        _fail("successor bridge must contain exactly two thigh root bridges and two hip transitions")
+    if bridge:
+        _fail("successor bridge unexpectedly retains baseline fields")
     head_neck_sweeps = _make_head_neck_sweeps(guide)
     tail_elements = _make_tail_elements(guide, loft)
     source_keys = {descriptor.key for descriptor in guide.source_descriptors}
@@ -3420,6 +3734,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         leg_profile=leg_profile,
         foot_profile=foot_profile,
         limb_sweeps=limb_sweeps,
+        hip_root_transitions=hip_root_transitions,
         extremity_sweeps=extremity_sweeps,
         tail_elements=tail_elements,
     )
@@ -3668,6 +3983,56 @@ def _torso_cap_field(points: np.ndarray, cap: _ProfileEndpointCap, cardinal_radi
         axial_distance,
         float(cap.axial_radius),
     )
+
+
+def _torso_cap_radial_distance(
+    direction: np.ndarray,
+    cap: _ProfileEndpointCap,
+    cardinal_radii: tuple[float, float, float],
+    where: str,
+) -> float:
+    """Return the exact radial distance to one consumed torso endpoint cap."""
+
+    ray = _unit(np.asarray(direction, dtype=np.float64), f"{where}.direction")
+    lateral_radius, anterior_radius, posterior_radius = (
+        float(value) for value in cardinal_radii
+    )
+    _finite_positive(
+        (lateral_radius, anterior_radius, posterior_radius, float(cap.axial_radius)),
+        f"{where}.radii",
+    )
+    lateral = float(np.dot(ray, _vec3(cap.transverse_axes[0], f"{where}.lateral-axis")))
+    forward = float(np.dot(ray, _vec3(cap.transverse_axes[1], f"{where}.forward-axis")))
+    axial = float(np.dot(ray, _vec3(cap.outward_tangent, f"{where}.axial-axis")))
+    forward_radius = anterior_radius if forward >= 0.0 else posterior_radius
+    denominator = (
+        abs(lateral / lateral_radius) ** TORSO_SUPERELLIPSE_EXPONENT
+        + abs(forward / forward_radius) ** TORSO_SUPERELLIPSE_EXPONENT
+        + abs(axial / float(cap.axial_radius)) ** TORSO_SUPERELLIPSE_EXPONENT
+    )
+    distance = denominator ** (-1.0 / TORSO_SUPERELLIPSE_EXPONENT)
+    if not math.isfinite(distance) or distance <= 0.0:
+        _fail(f"{where} produced an invalid torso-cap radial distance")
+    return distance
+
+
+def _lower_pelvis_field(points: np.ndarray, loft: _ProfileSweep) -> np.ndarray:
+    """Evaluate only the lower-pelvis cap and its adjacent consumed span."""
+
+    _validate_profile_sweep(loft)
+    if len(loft.sections) < 2 or loft.sections[0].name != "lower-pelvis":
+        _fail("lower-pelvis field requires the canonical first torso section")
+    points = np.asarray(points, dtype=np.float64)
+    if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
+        _fail("lower-pelvis query points must be finite three-vectors")
+    cardinal = np.asarray([section.cardinal_radii for section in loft.sections], dtype=np.float64)
+    path = np.asarray([section.path_length for section in loft.sections], dtype=np.float64)
+    slopes = _shape_preserving_slopes(path, cardinal)
+    values = (
+        _torso_span_field(points, loft.sections[0], loft.sections[1], path, cardinal, slopes),
+        _torso_cap_field(points, loft.endpoint_caps[0], tuple(float(value) for value in cardinal[0])),
+    )
+    return np.min(np.stack(values, axis=0), axis=0)
 
 
 def _torso_profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray:
@@ -3970,6 +4335,7 @@ def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_
     values = [_loft_field(points, region.loft)]
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.head_neck_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.limb_sweeps)
+    values.extend(_profile_sweep_field(points, item.sweep) for item in region.hip_root_transitions)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.extremity_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.tail_elements)
     values.extend(_shoulder_sweep_field(points, item) for item in region.shoulder_sweeps)
@@ -4135,6 +4501,69 @@ def _leg_profile_metadata(region: SuccessorRegion) -> dict[str, Any]:
         "provenance": dict(first_station.profile_provenance),
         "variant_provenance": dict(first_station.variant_provenance),
         "sides": side_metadata,
+    }
+
+
+def _hip_root_metadata(region: SuccessorRegion) -> dict[str, Any]:
+    """Serialize the derived bilateral pelvis-to-thigh socket controls."""
+
+    routes = region.hip_root_transitions
+    if tuple(item.name for item in routes) != ("left-hip-root-transition", "right-hip-root-transition"):
+        _fail("successor hip-root metadata route order is unstable")
+    return {
+        "operation": _HIP_ROOT_PROFILE_OPERATION,
+        "topology": "one-derived-four-station-pelvis-socket-cup-tangent-blend-to-authored-thigh-root-per-side",
+        "route_order": [item.name for item in routes],
+        "route_kinds": ["derived-pelvis-thigh-transition", "derived-pelvis-thigh-transition"],
+        "section_names": [list(item.sweep.names) for item in routes],
+        "section_counts": [item.sections_consumed for item in routes],
+        "section_owner_keys": [
+            [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+            for item in routes
+        ],
+        "source_owner_keys": [
+            [_baseline._address_json(owner.key) for owner in item.source_owners]
+            for item in routes
+        ],
+        "pelvis_section_names": [item.pelvis_section_name for item in routes],
+        "authored_station_names": [item.authored_station_name for item in routes],
+        "boundary_parameters": [float(item.boundary_parameter) for item in routes],
+        "socket_parameters": [float(item.socket_parameter) for item in routes],
+        "tangent_blend_distances": [float(item.tangent_blend_distance) for item in routes],
+        "derived_from": [
+            {
+                "lower_pelvis": {"section_name": item.pelvis_section_name, "source_section_index": 0},
+                "authored_thigh_start": {"station_name": item.authored_station_name, "source_station_index": 0},
+                "tangent_blend": {
+                    "station_name": "thigh-tangent-blend",
+                    "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent",
+                    "distance": float(item.tangent_blend_distance),
+                },
+            }
+            for item in routes
+        ],
+        "controls": {
+            "boundary_samples": _HIP_ROOT_BOUNDARY_SAMPLES,
+            "boundary_iterations": _HIP_ROOT_BOUNDARY_ITERATIONS,
+            "boundary_max_parameter": _HIP_ROOT_BOUNDARY_MAX_PARAMETER,
+            "socket_fraction": _HIP_ROOT_SOCKET_FRACTION,
+            "cup_remaining_fraction": _HIP_ROOT_CUP_REMAINING_FRACTION,
+            "pelvis_support_cap": _HIP_ROOT_PELVIS_SUPPORT_CAP,
+            "socket_thigh_weight": _HIP_ROOT_SOCKET_THIGH_WEIGHT,
+            "socket_pelvis_weight": _HIP_ROOT_SOCKET_PELVIS_WEIGHT,
+            "cup_thigh_weight": _HIP_ROOT_CUP_THIGH_WEIGHT,
+            "cup_pelvis_weight": _HIP_ROOT_CUP_PELVIS_WEIGHT,
+            "tangent_blend_fraction": _HIP_ROOT_TANGENT_BLEND_FRACTION,
+        },
+        "volume_radii": [
+            {
+                    "socket": [float(value) for value in item.socket_volume_radii],
+                    "cup": [float(value) for value in item.cup_volume_radii],
+                    "tangent_blend": [float(value) for value in item.tangent_blend_volume_radii],
+                    "authored_thigh_start": [float(value) for value in item.authored_volume_radii],
+            }
+            for item in routes
+        ],
     }
 
 
@@ -4317,6 +4746,10 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
         maxs.append(upper)
+    for item in region.hip_root_transitions:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
     for item in region.extremity_sweeps:
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
@@ -4414,6 +4847,16 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             True,
             lambda points, current=item.sweep: _loft_owner_keys(points, current),
         ))
+    for item in region.hip_root_transitions:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.owner,
+            f"successor-{item.name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            bounds,
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
     for item in region.extremity_sweeps:
         bounds = _profile_sweep_bounds(item.sweep)
         components.append(_Component(
@@ -4458,11 +4901,11 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             bounds = (np.minimum(start, end) - radius, np.maximum(start, end) + radius)
         components.append(_Component(field.owner, field.recipe, lambda points, current=field: _baseline._field(points, current), bounds, False))
     if len(components) < 2:
-        _fail("successor full-body consumer has no temporary bridge")
+        _fail("successor full-body consumer has too few components")
     return tuple(components)
 
 
-_EXPECTED_COMPONENT_COUNT = 27
+_EXPECTED_COMPONENT_COUNT = 25
 
 
 def _make_render_components(components: tuple[_Component, ...]) -> tuple[Any, ...]:
@@ -4612,6 +5055,7 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "head_neck": _head_neck_metadata(region),
             "arm_profile": _arm_profile_metadata(region),
             "leg_profile": _leg_profile_metadata(region),
+            "hip_root": _hip_root_metadata(region),
             "foot_profile": _foot_profile_metadata(region),
             "hand_paw": _hand_paw_metadata(region),
             "limb_representation": "shared-guide-derived-authored-arm-and-leg-profile-routes",
@@ -4672,9 +5116,9 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "replaced_baseline_recipes": list(region.replaced_baseline_recipes),
         },
         "temporary_bridge": {
-            "enabled": True,
-            "consumer": "baseline-analytic-fields",
-            "regions": ["thigh-root-connectors", "hip-transitions"],
+            "enabled": False,
+            "consumer": "none",
+            "regions": [],
             "field_count": len(region.bridge_fields),
             "retained_recipes": sorted({field.recipe for field in region.bridge_fields}),
         },
@@ -4855,6 +5299,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.limb_sweeps],
                     "arm_profile": _arm_profile_metadata(mesh.representation),
                     "leg_profile": _leg_profile_metadata(mesh.representation),
+                    "hip_root": _hip_root_metadata(mesh.representation),
                     "foot_profile": _foot_profile_metadata(mesh.representation),
                 },
                 "extremities": {
@@ -4920,7 +5365,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": canvas,
             "layout": layout,
             "projections": projections,
-            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof", "component_visualization": {"mode": "exact-consumed-component-zero-isosurfaces", "samples_per_axis": 32, "stage": "pre-smooth-union", "colour_identity": "sha256-source-owner-and-recipe"}},
+            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral pelvis-to-thigh socket/cup transitions, bilateral hands, digitigrade feet, and tail", "production_status": "disposable exploratory proof", "component_visualization": {"mode": "exact-consumed-component-zero-isosurfaces", "samples_per_axis": 32, "stage": "pre-smooth-union", "colour_identity": "sha256-source-owner-and-recipe"}},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"

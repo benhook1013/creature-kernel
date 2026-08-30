@@ -337,7 +337,8 @@ current CI lanes passed, but remains unmerged pending Ben's explicit merge
 authorization; this disposition is not merge authorization. No further
 cosmetic repair is planned, and publication machinery is not acceptance.
 
-The current human checkpoint is the four-profile successor anatomy gallery
+The current human checkpoint is the five-profile successor anatomy gallery,
+with the standard neutral reference first,
 described below. It freezes the exact source profiles named by the active
 runway and presents their successor skin captures for appraisal of stylized
 anatomy readability. The shared-pose structural embodiment gallery further
@@ -435,10 +436,10 @@ new immutable session. Older immutable sessions retain their original
 envelope, canvas, panel count, and captures; they are not rewritten by this
 diagnostic.
 
-For each historical comparison, appraise whether the successor reads as a more coherent
+For each current comparison, appraise whether the successor reads as a more coherent
 stylized digitigrade biped overall: recognizable cranium/muzzle/neck,
 shoulder/torso/pelvis structure, connected limbs and joints, digitigrade legs,
-paws, and tail; less like blended primitives; and with the four variants still
+paws, and tail; less like blended primitives; and with the five profiles still
 meaningfully different. The gallery records the comparison only; it does not
 record acceptance.
 
@@ -515,9 +516,10 @@ evidence. The published form gallery is historical evidence, not the current
 human checkpoint, and publication itself is not acceptance. Keep generated
 bundles and sessions under `/tmp`; they are not repository artifacts.
 
-## Four-profile successor anatomy checkpoint
+## Five-profile successor anatomy checkpoint
 
-Generate the exact four fixed source profiles, build the local compiler, and
+Generate the exact five ordered source profiles, with the standard neutral
+reference first, build the local compiler, and
 publish one immutable successor-surface anatomy group through the pinned
 surface-preview environment:
 
@@ -533,20 +535,25 @@ cargo build --locked --bin creature-kernel
   --root /home/ben/.cache/creature-kernel/visual-reviews \
   --source-manifest "$source_dir/manifest.json" \
   --creature-kernel target/debug/creature-kernel \
-  --id successor-stylized-anatomy-four-profile-checkpoint-v1
+  --id successor-stylized-anatomy-five-profile-checkpoint-v1
 ```
 
 The visual-review root must already exist, and the pinned surface-preview
 environment and local compiler build must be available. The publisher replays
 the source generator against the checked-in candidate and base document,
 requires byte-identical generated profiles in the exact frozen order, and
-validates the four rendered RGB PNG sheets before installation. The default
+validates the five rendered RGB PNG sheets before installation. The default
 URL for the command above is
-`http://localhost:8765/review/successor-stylized-anatomy-four-profile-checkpoint-v1`.
+`http://localhost:8765/review/successor-stylized-anatomy-five-profile-checkpoint-v1`.
 Publication never overwrites an existing review; use a new explicit `--id` for
 every revised candidate. Review IDs are separate from temporary-directory
 names: use a 1–64 character lowercase slug containing only letters, digits,
 `_`, or `-`; do not paste a dot-bearing `mktemp` suffix into `--id`.
+
+Publication may happen before the review server starts. Before opening the URL,
+ensure the existing systemd visual-review service (or one documented server)
+is active on port 8765. If the systemd service is already active, do not start
+a second `serve.py` instance on port 8765.
 
 ## Shared-pose structural embodiment checkpoint
 

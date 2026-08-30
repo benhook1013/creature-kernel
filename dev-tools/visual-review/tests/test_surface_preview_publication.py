@@ -35,17 +35,6 @@ def load_module(name: str, filename: str):
 import common
 publisher = load_module("surface_preview_publisher", "publish_surface_preview.py")
 
-EXPECTED_HAND_PAW_PROFILE = (
-    (-0.55, 0.62, 0.66),
-    (-0.15, 1.00, 1.00),
-    (0.35, 0.92, 1.05),
-    (0.78, 0.55, 0.60),
-)
-EXPECTED_HAND_PAW_SECTION_NAMES = (
-    "hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip",
-)
-
-
 class SurfacePreviewPublicationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -1340,8 +1329,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__LIMB_ORDER__": repr(list(publisher.SUCCESSOR_LIMB_ORDER)),
             "__LIMB_STATION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_LIMB_STATION_NAMES]),
             "__EXTREMITY_STATION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_EXTREMITY_STATION_NAMES]),
-            "__HAND_PAW_PROFILE__": repr(list(EXPECTED_HAND_PAW_PROFILE)),
-            "__HAND_PAW_SECTION_NAMES__": repr(list(EXPECTED_HAND_PAW_SECTION_NAMES)),
+            "__HAND_PAW_PROFILE__": repr(list(publisher.SUCCESSOR_HAND_PAW_PROFILE)),
+            "__HAND_PAW_SECTION_NAMES__": repr(list(publisher.SUCCESSOR_HAND_PAW_SECTION_NAMES)),
             "__TAIL_ORDER__": repr(list(publisher.SUCCESSOR_TAIL_ORDER)),
             "__TAIL_KINDS__": repr(list(publisher.SUCCESSOR_TAIL_KINDS)),
             "__TAIL_SECTION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_TAIL_SECTION_NAMES]),
@@ -2076,7 +2065,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             metrics_hand_paw = item["metrics"]["successor_region"]["hand_paw"]
             self.assertEqual(sidecar_hand_paw, metrics_hand_paw)
             self.assertEqual(sidecar_hand_paw["route_order"], ["left-hand-paw", "right-hand-paw"])
-            self.assertEqual(sidecar_hand_paw["section_names"], list(EXPECTED_HAND_PAW_SECTION_NAMES))
+            self.assertEqual(sidecar_hand_paw["section_names"], list(publisher.SUCCESSOR_HAND_PAW_SECTION_NAMES))
             self.assertEqual(sidecar_hand_paw["route_station_count"], 8)
             self.assertEqual(sidecar_hand_paw["route_volume_axis_count"], 24)
             self.assertEqual(sidecar_hand_paw["route_volume_radius_count"], 24)
@@ -2626,10 +2615,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         )
         raw = source.read_bytes()
-        self.assertEqual(len(raw), 56_859)
+        self.assertEqual(len(raw), 56_857)
         self.assertEqual(
             hashlib.sha256(raw).hexdigest(),
-            "faf02db965a2b7f6889dfb1cd58eb79befa9c536f58adca40b14ccc955eaf533",
+            "100b45e98a51b78f6fa9d6c037483620c30003db90da3cb21b537803df652241",
         )
         evidence = publisher._validate_input_evidence(
             publisher._read_input_evidence(source), "checked-in source"
@@ -2709,22 +2698,22 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         publisher._validate_producer_evidence(
             descriptor, "review.subject_context.descriptor_snapshot"
         )
-        self.assertEqual(len(compact), 190_444)
+        self.assertEqual(len(compact), 190_445)
         self.assertEqual(
             hashlib.sha256(compact).hexdigest(),
-            "c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e",
+            "0428640633bfcc1f65e5e4aec84f72650e63b86ae9a09fc199024fa7d16c6b57",
         )
-        self.assertEqual(descriptor["producer_envelope_bytes"], 190_444)
+        self.assertEqual(descriptor["producer_envelope_bytes"], 190_445)
         self.assertEqual(
             descriptor["producer_envelope_sha256"],
-            "c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e",
+            "0428640633bfcc1f65e5e4aec84f72650e63b86ae9a09fc199024fa7d16c6b57",
         )
         compressed = base64.b64decode(descriptor["producer_envelope_xz_base64"])
-        self.assertEqual(len(compressed), 6_244)
-        self.assertEqual(len(descriptor["producer_envelope_xz_base64"]), 8_328)
+        self.assertEqual(len(compressed), 6_268)
+        self.assertEqual(len(descriptor["producer_envelope_xz_base64"]), 8_360)
         self.assertEqual(
             hashlib.sha256(compressed).hexdigest(),
-            "5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161",
+            "df4611f5024810b18edb3e1354b36d3ea7835c9c9195f5fc578e34899f82e8de",
         )
         self.assertEqual(
             publisher._decode_producer_evidence(descriptor), compact
@@ -2738,10 +2727,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         }
         subject_context_json = json.dumps(subject_context, allow_nan=False, ensure_ascii=False)
         subject_context_size = len(subject_context_json.encode("utf-8"))
-        self.assertEqual(subject_context_size, 8_812)
+        self.assertEqual(subject_context_size, 8_844)
         self.assertEqual(
             hashlib.sha256(subject_context_json.encode("utf-8")).hexdigest(),
-            "0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7",
+            "48ba3b4038c92e571e336880331985c7cf15b3331949ff3f8c6992794b7d8434",
         )
         self.assertLessEqual(subject_context_size, common.MAX_CONTEXT_JSON)
         self.assertEqual(

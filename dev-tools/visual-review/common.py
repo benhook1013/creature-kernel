@@ -1762,8 +1762,9 @@ def _validate_v7_authored_torso_profile(
     consumed_dimension_keys: set[
         tuple[tuple[str, tuple[str, ...], str, str], str]
     ] = set()
-    section_y: list[float | int] = []
     source_sections: list[dict[str, Any]] = []
+    previous_owner: tuple[str, tuple[str, ...], str, str] | None = None
+    previous_y: float | int | None = None
     for index, (raw_section, expected_name, expected_owner_role) in enumerate(
         zip(
             sections,
@@ -1819,7 +1820,12 @@ def _validate_v7_authored_torso_profile(
                 f"{section_where}.landmark_index does not resolve to the canonical section landmark"
             )
         position = landmark_positions[landmark_index]
-        section_y.append(position[1])
+        if previous_owner == expected_owner and previous_y is not None and position[1] <= previous_y:
+            raise ValidationError(
+                f"{section_where}.landmark.position must be strictly ordered within each owner-local route"
+            )
+        previous_owner = expected_owner
+        previous_y = position[1]
 
         dimension_indices = _object(
             section.get("dimension_indices"), f"{section_where}.dimension_indices"
@@ -1853,8 +1859,6 @@ def _validate_v7_authored_torso_profile(
                 "radii": radii,
             }
         )
-    if any(section_y[index] >= section_y[index + 1] for index in range(len(section_y) - 1)):
-        raise ValidationError(f"{profile_where}.sections landmarks must have strictly increasing y")
     return consumed_dimension_keys, source_sections
 
 

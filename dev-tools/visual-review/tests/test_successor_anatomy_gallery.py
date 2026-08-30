@@ -32,25 +32,10 @@ PROFILE_IDS = list(adapter.PROFILE_IDS)
 
 
 class SuccessorAnatomyGalleryTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        result = subprocess.run(
-            ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
-            cwd=REPOSITORY_ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=180,
-        )
-        if result.returncode != 0:
-            raise AssertionError(f"could not build the inspection CLI: {result.stderr[-2000:]}")
-        cls.creature_kernel = REPOSITORY_ROOT / "target" / "debug" / "creature-kernel"
-        if not cls.creature_kernel.is_file():
-            raise AssertionError(f"inspection CLI is missing: {cls.creature_kernel}")
-
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="ck-successor-anatomy-tests-")
         self.root = Path(self.temp.name)
+        self.creature_kernel = REPOSITORY_ROOT / "target" / "debug" / "creature-kernel"
         self.source_dir = self.root / "sources"
         profile_generator.write_sources(
             profile_generator.DEFAULT_CANDIDATE,
@@ -86,7 +71,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             )
             published["expected_sources"] = expected_sources
             self.expected_sources = expected_sources
-            return {"schema_version": 1, "id": review_id, "session": "test", "review": "test/review.json", "assets": 4}
+            return {"schema_version": 1, "id": review_id, "session": "test", "review": "test/review.json", "assets": 5}
 
         def fake_build(form, descriptors, **_configuration):
             neutral_descriptors = next(
@@ -111,6 +96,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                 PROFILE_IDS[1]: (100, 90, 80),
                 PROFILE_IDS[2]: (80, 110, 90),
                 PROFILE_IDS[3]: (110, 80, 100),
+                PROFILE_IDS[4]: (90, 110, 80),
             }[variant_id]
             adapter.successor._baseline.Image.new(
                 "RGB",
@@ -131,18 +117,18 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                 review_id=review_id,
             )
         review = published["manifest"]
-        self.assertEqual(result["images"], 4)
-        self.assertEqual(build_variant.call_count, 4)
-        self.assertEqual(run_inspection.call_count, 4)
-        self.assertEqual([event[0] for event in events], ["build"] * 4 + ["render"] * 4)
+        self.assertEqual(result["images"], 5)
+        self.assertEqual(build_variant.call_count, 5)
+        self.assertEqual(run_inspection.call_count, 5)
+        self.assertEqual([event[0] for event in events], ["build"] * 5 + ["render"] * 5)
         commands = [call.args[0] for call in run_inspection.call_args_list]
         self.assertEqual(
             [command[1:3] for command in commands],
-            [["inspect-provisional-form", "--input"]] * 4,
+            [["inspect-provisional-form", "--input"]] * 5,
         )
         self.assertEqual(len({command[0] for command in commands}), 1)
         self.assertTrue(all(command[0] != str(creature_kernel or self.creature_kernel) for command in commands))
-        self.assertEqual(len({command[-1] for command in commands}), 4)
+        self.assertEqual(len({command[-1] for command in commands}), 5)
         self.assertEqual(
             [form.source["document"] for form, _ in (call.args for call in build_variant.call_args_list)],
             [
@@ -177,11 +163,11 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         self.assertEqual(group["selection_mode"], "none")
         items = group["items"]
         self.assertEqual([item["id"] for item in items], PROFILE_IDS)
-        self.assertEqual([item["metadata"]["producer"]["variant_id"] for item in items], ["neutral-v0"] * 4)
-        self.assertEqual([item["metadata"]["producer"]["profile_id"] for item in items], ["neutral-v0"] * 4)
+        self.assertEqual([item["metadata"]["producer"]["variant_id"] for item in items], ["neutral-v0"] * 5)
+        self.assertEqual([item["metadata"]["producer"]["profile_id"] for item in items], ["neutral-v0"] * 5)
 
         bounds = [item["metadata"]["capture"]["global_capture_bound"] for item in items]
-        self.assertEqual(bounds, [bounds[0]] * 4)
+        self.assertEqual(bounds, [bounds[0]] * 5)
         self.assertEqual(items[0]["metadata"]["capture"]["canvas"], adapter.EXPECTED_CANVAS)
         self.assertEqual(items[0]["metadata"]["capture"]["views"], list(adapter.EXPECTED_VIEWS))
         self.assertEqual(
@@ -202,7 +188,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         )
         self.assertEqual(
             [item["metadata"]["source_manifest_sha256"] for item in items],
-            [hashlib.sha256(self.source_manifest.read_bytes()).hexdigest()] * 4,
+            [hashlib.sha256(self.source_manifest.read_bytes()).hexdigest()] * 5,
         )
         self.assertEqual(
             review["subject_context"]["descriptor_snapshot"]["source_manifest"]["profile_ids"],
@@ -210,7 +196,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         )
         self.assertEqual(
             len(review["subject_context"]["descriptor_snapshot"]["producer"]["envelope_sha256_by_profile"]),
-            4,
+            5,
         )
         implementation = review["subject_context"]["descriptor_snapshot"]["implementation"]
         self.assertRegex(implementation["identity_sha256"], r"^[0-9a-f]{64}$")
@@ -268,7 +254,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             [item["metadata"] for item in second["groups"][0]["items"]],
         )
 
-    def test_sampling_below_the_known_four_profile_floor_is_rejected(self) -> None:
+    def test_sampling_below_the_known_five_profile_floor_is_rejected(self) -> None:
         with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "between 56 and 96"):
             self._run_gallery("successor-anatomy-low-resolution", samples=20)
 
@@ -322,6 +308,21 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         parse.assert_not_called()
 
     def test_pinning_survives_original_path_replacement_and_propagates_digest(self) -> None:
+        try:
+            result = subprocess.run(
+                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+                cwd=REPOSITORY_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError:
+            self.skipTest("requires cargo to build the inspection CLI")
+        if result.returncode != 0:
+            raise AssertionError(f"could not build the inspection CLI: {result.stderr[-2000:]}")
+        if not self.creature_kernel.is_file():
+            raise AssertionError(f"inspection CLI is missing: {self.creature_kernel}")
         original_path = self.root / "creature-kernel"
         original_bytes = self.creature_kernel.read_bytes()
         original_path.write_bytes(original_bytes)

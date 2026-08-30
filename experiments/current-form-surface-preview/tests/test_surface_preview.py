@@ -5,6 +5,7 @@ import dataclasses
 import importlib.util
 import json
 import math
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -16,6 +17,10 @@ from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parents[1]
+sys.path.insert(0, str(ROOT))
+import generate_structural_profile_sources as profile_generator  # noqa: E402
+
 SPEC = importlib.util.spec_from_file_location("surface_preview", ROOT / "surface_preview.py")
 assert SPEC and SPEC.loader
 surface_preview = importlib.util.module_from_spec(SPEC)
@@ -536,6 +541,15 @@ def make_payload() -> dict[str, object]:
 
 def make_varied_payload() -> dict[str, object]:
     return make_payload()
+
+
+GENERATED_PROFILE_IDS = (
+    "standard_neutral_reference",
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+)
 
 
 class SurfacePreviewTests(unittest.TestCase):
@@ -1972,6 +1986,16 @@ class SurfacePreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(surface_preview.PreviewError, "strictly increasing"):
             surface_preview.validate_envelope(payload)
 
+    def test_authored_torso_profile_orders_owner_local_controls_before_world_route_validation(self) -> None:
+        payload = make_payload()
+        lower_abdomen_index = payload["authored_torso_profile"]["sections"][2]["landmark_index"]
+        payload["authored_landmarks"][lower_abdomen_index]["position"][1] = -0.75
+        for variant in payload["variants"]:
+            variant["torso_profile"]["sections"][2]["position"][1] = -0.75
+        form = surface_preview.validate_envelope(payload)
+        cage = surface_preview._derive_hybrid_guides(form, form.variants[0][1]).torso_cage
+        self.assertLess(cage.sections[1].center[1], cage.sections[2].center[1])
+
     def test_authored_head_neck_profile_projects_all_variants_with_exact_lineage(self) -> None:
         form = surface_preview.validate_envelope(make_payload())
         self.assertEqual(
@@ -2322,6 +2346,59 @@ class SurfacePreviewTests(unittest.TestCase):
                     midpoint = (compiled_start + target) * 0.5
                     self.assertLess(float(surface_preview._field(np.asarray([midpoint]), bridge)[0]), 0.0)
                     self.assertAlmostEqual(float(surface_preview._field(np.asarray([semantic_anchor]), torso_field)[0]), 0.0, places=12)
+
+    def test_generated_profiles_compile_lean_leg_routes_and_foot_chains(self) -> None:
+        candidate_path = ROOT / "structural_profile_candidates.json"
+        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
+        build = subprocess.run(
+            ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=180,
+        )
+        self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
+        self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
+
+        with tempfile.TemporaryDirectory(prefix="ck-surface-preview-generated-profiles-", dir="/tmp") as directory:
+            output_dir = Path(directory) / "sources"
+            profile_generator.write_sources(candidate_path, source_path, output_dir)
+            for profile_id in GENERATED_PROFILE_IDS:
+                with self.subTest(profile=profile_id):
+                    result = subprocess.run(
+                        [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
+                        cwd=REPO_ROOT,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                        timeout=120,
+                    )
+                    self.assertEqual(result.returncode, 0, msg=result.stderr)
+                    payload = json.loads(result.stdout)
+                    self.assertEqual(payload["status"], "success", msg=result.stdout[:1000])
+                    self.assertEqual(payload["diagnostics"], [], msg=result.stdout[:1000])
+                    form = surface_preview.validate_envelope(payload)
+                    _, descriptors, _ = next(item for item in form.variants if item[0] == "lean-readable-v0")
+                    guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                    fields = surface_preview._compile_hybrid_guide(guide)
+                    self.assertEqual(len(fields), 52)
+                    for side in ("left", "right"):
+                        for role, expected_recipes in {
+                            "thigh": ["thigh-pre-joint", "thigh-joint", "root-bridge", "hip-transition", "knee"],
+                            "shin": ["shin-pre-joint", "shin-joint", "hock"],
+                        }.items():
+                            owner = next(item for item in descriptors if item.key[1:] == ((side,), "part", role))
+                            self.assertEqual(
+                                [item.recipe for item in fields if item.owner is owner],
+                                expected_recipes,
+                            )
+                        foot = next(item for item in descriptors if item.key[1:] == ((side,), "part", "foot"))
+                        self.assertEqual(
+                            [item.recipe for item in fields if item.owner is foot],
+                            ["metatarsal", "paw-pad", "toe-box"],
+                        )
 
     def test_torso_cage_dimensions_are_consumed_by_the_swept_field(self) -> None:
         import dataclasses
@@ -2754,6 +2831,25 @@ class SurfacePreviewTests(unittest.TestCase):
         tapered_side = surface_preview._parent_surface_anchor(tail_root, np.asarray([1.0, 0.0, -0.5]), form.reference_scale)
         self.assertAlmostEqual(float(tapered_side[0]), 0.26)
         self.assertAlmostEqual(float(tapered_side[2]), -0.5)
+
+    def test_boundary_connector_cage_normal_recovery_remains_fail_closed(self) -> None:
+        path = ((-1.0, -0.45, 0.0), (-1.0, -2.0, 0.0))
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._embed_boundary_connector(
+                path,
+                (0.2, 0.1),
+                "test",
+                (1.0, 0.0, 0.0),
+                0.2,
+            )
+        with self.assertRaises(surface_preview.PreviewError):
+            surface_preview._embed_boundary_connector(
+                path,
+                (0.2, 0.1),
+                "test",
+                (0.0, 0.0, 0.0),
+                1.0,
+            )
 
     def test_role_recipes_reject_nonconforming_axis_placement(self) -> None:
         payload = make_payload()

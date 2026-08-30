@@ -273,10 +273,12 @@ weight/influence, and collision-proxy artifacts with source/build/scenario
 lineage. See `docs/project/status.md` for the current named human checkpoint
 and active runway.
 
-The experiment-local `structural_profile_candidates.json` freezes four source
-candidate IDs used by the completed gallery:
-`compact_broad_short_limb_large_head`, `tall_narrow_long_legged`,
-`slender_long_limb`, and `stocky_broad_chested`. Generate their compact canonical
+The experiment-local `structural_profile_candidates.json` freezes five ordered
+source candidate IDs for the current anatomy gallery, with the standard neutral
+reference first:
+`standard_neutral_reference`, `compact_broad_short_limb_large_head`,
+`tall_narrow_long_legged`, `slender_long_limb`, and `stocky_broad_chested`.
+Generate their compact canonical
 BodyDocuments through one shared data-driven transform:
 
 ```bash
@@ -287,7 +289,7 @@ BodyDocuments through one shared data-driven transform:
 
 The transform changes exact integer Part placements and source-authored
 permille form dimensions, retains the stable unit neck-to-head reference edge,
-preserves normalized route controls and identity rotations, and keeps all four
+preserves normalized route controls and identity rotations, and keeps all five
 tail modules present while varying tail length and taper. It fails closed on
 incomplete targets, overlapping or uncovered dimension groups, broken
 bilateral/alignment/Attachment invariants, unsafe values, or non-atomic output.

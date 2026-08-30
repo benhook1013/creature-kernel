@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the four experiment-local structural source-profile candidates.
+"""Generate the five experiment-local structural source-profile candidates.
 
 The candidate JSON is the frozen data table.  This module contains one
 selector-driven transform and the fail-closed checks around it; profile IDs do
@@ -31,6 +31,8 @@ DEFAULT_CANDIDATE = HERE.with_name("structural_profile_candidates.json")
 DEFAULT_SOURCE = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
 FORMAT = "creature-kernel.disposable-structural-profile-candidates.v1"
 SOURCE_DOCUMENT_SUFFIX = "structural_profile"
+PROFILE_COUNT = 5
+STANDARD_NEUTRAL_PROFILE_ID = "standard_neutral_reference"
 MAX_SAFE_INTEGER = 10**9
 MAX_JSON_BYTES = 1024 * 1024
 MAX_OUTPUT_JSON_BYTES = MAX_JSON_BYTES
@@ -484,8 +486,8 @@ def _validate_candidate(candidate: dict[str, Any], source: dict[str, Any]) -> tu
     if not _list(transform["reference_edges"], "candidate.transform.reference_edges"):
         raise ProfileGenerationError("candidate declares no stable reference edge")
     profiles = _list(candidate["profiles"], "candidate.profiles")
-    if len(profiles) != 4:
-        raise ProfileGenerationError(f"candidate must freeze exactly four profiles, found {len(profiles)}")
+    if len(profiles) != PROFILE_COUNT:
+        raise ProfileGenerationError(f"candidate must freeze exactly {PROFILE_COUNT} profiles, found {len(profiles)}")
     profile_ids: list[str] = []
     profile_labels: list[str] = []
     group_names = set(groups)
@@ -514,6 +516,22 @@ def _validate_candidate(candidate: dict[str, Any], source: dict[str, Any]) -> tu
             if parsed not in actual_part_keys or parsed.split("|")[1] != "part":
                 raise ProfileGenerationError(f"profile {profile_id} has an unknown Part placement target {key}")
             _vector(vector, f"profile {profile_id}.part_placements.{key}")
+    if profile_ids[0] != STANDARD_NEUTRAL_PROFILE_ID:
+        raise ProfileGenerationError(
+            f"the first profile must be the {STANDARD_NEUTRAL_PROFILE_ID} neutral reference"
+        )
+    neutral = profiles[0]
+    if any(scale != 1000 for scale in neutral["dimension_scales"].values()):
+        raise ProfileGenerationError("the standard neutral reference must use 1000-permille dimension scales")
+    source_placements = {
+        address_key(part["address"]): tuple(part["placement"]["translation"])
+        for part in parts
+    }
+    for key, vector in neutral["part_placements"].items():
+        if tuple(vector) != source_placements[key]:
+            raise ProfileGenerationError(
+                "the standard neutral reference must retain the base source Part placements"
+            )
     return parts, dimensions, groups, profile_ids
 
 
@@ -626,19 +644,15 @@ def _apply_profile(source: dict[str, Any], profile: dict[str, Any], groups: dict
     for module in output["body"]["modules"]:
         module["declaration"]["document"] = output["source"]["document"]
     placements = profile["part_placements"]
-    changed_placements = 0
     for part in output["body"]["parts"]:
         key = address_key(part["address"])
         if key not in placements:
             raise ProfileGenerationError(f"profile {profile_id} is missing transform target {key}")
         expected = _vector(placements[key], f"profile {profile_id}.part_placements.{key}")
-        if part["placement"]["translation"] != expected:
-            changed_placements += 1
         part["placement"]["translation"] = expected
     if set(placements) != {address_key(part["address"]) for part in output["body"]["parts"]}:
         raise ProfileGenerationError(f"profile {profile_id} has an unknown transform target")
 
-    changed_dimensions = 0
     for index, dimension in enumerate(output["body"]["dimensions"]):
         matches = [name for name, selector in groups.items() if _matches_dimension(dimension, selector)]
         if len(matches) != 1:
@@ -650,11 +664,7 @@ def _apply_profile(source: dict[str, Any], profile: dict[str, Any], groups: dict
         scaled = _round_permille(value, _integer(scale, f"profile {profile_id}.dimension_scales.{matches[0]}", minimum=1, maximum=10_000))
         if scaled < 1 or scaled > MAX_SAFE_INTEGER:
             raise ProfileGenerationError(f"profile {profile_id} generated an unsafe permille value")
-        if scaled != value:
-            changed_dimensions += 1
         dimension["value"] = scaled
-    if changed_placements == 0 or changed_dimensions == 0:
-        raise ProfileGenerationError(f"profile {profile_id} does not produce real source-level changes")
     return output
 
 
@@ -681,8 +691,8 @@ def _generate_sources(candidate: dict[str, Any], source: dict[str, Any]) -> list
         tail_signatures.add(_tail_signature(output))
         outputs.append(output)
     if len(tail_signatures) < 2:
-        raise ProfileGenerationError("the four present tails do not provide style contrast")
-    if len(outputs) != 4 or [output["source"]["document"] for output in outputs] != [f"{source['source']['document']}__{SOURCE_DOCUMENT_SUFFIX}__{profile_id}" for profile_id in profile_ids]:
+        raise ProfileGenerationError("the five present tails do not provide style contrast")
+    if len(outputs) != PROFILE_COUNT or [output["source"]["document"] for output in outputs] != [f"{source['source']['document']}__{SOURCE_DOCUMENT_SUFFIX}__{profile_id}" for profile_id in profile_ids]:
         raise ProfileGenerationError("generated source lineage is not deterministic")
     return outputs
 

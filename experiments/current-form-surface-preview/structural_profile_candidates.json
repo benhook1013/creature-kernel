@@ -3,7 +3,7 @@
     "document": "stylized_digitigrade_biped_authored_form",
     "namespace": "main",
     "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
-    "sha256": "faf02db965a2b7f6889dfb1cd58eb79befa9c536f58adca40b14ccc955eaf533"
+    "sha256": "d4f0dad6f936d62f9ee8c0fa24701898ee4ae6e48bcdeaf44641bd4dc3b549de"
   },
   "canonicalization": {
     "number_rule": "integer source placements and permille dimensions only; round-to-nearest ties-to-even for positive integer products",
@@ -11,6 +11,141 @@
   },
   "format": "creature-kernel.disposable-structural-profile-candidates.v1",
   "profiles": [
+    {
+      "dimension_scales": {
+        "arm_profile_forward": 1000,
+        "arm_profile_lateral": 1000,
+        "arm_profile_up": 1000,
+        "arm_radius": 1000,
+        "arm_shoulder": 1000,
+        "body_extent_x": 1000,
+        "body_extent_y": 1000,
+        "body_extent_z": 1000,
+        "body_profile_depth": 1000,
+        "body_profile_lateral": 1000,
+        "foot_extent_x": 1000,
+        "foot_extent_y": 1000,
+        "foot_extent_z": 1000,
+        "foot_profile_forward": 1000,
+        "foot_profile_lateral": 1000,
+        "foot_profile_up": 1000,
+        "hand_extent_x": 1000,
+        "hand_extent_y": 1000,
+        "hand_extent_z": 1000,
+        "head_extent_x": 1000,
+        "head_extent_y": 1000,
+        "head_extent_z": 1000,
+        "head_profile_forward": 1000,
+        "head_profile_lateral": 1000,
+        "head_profile_up": 1000,
+        "leg_profile_forward": 1000,
+        "leg_profile_lateral": 1000,
+        "leg_profile_up": 1000,
+        "leg_radius": 1000,
+        "neck_profile_forward": 1000,
+        "neck_profile_lateral": 1000,
+        "neck_profile_up": 1000,
+        "neck_radius": 1000,
+        "tail_root_end": 1000,
+        "tail_root_start": 1000,
+        "tail_tip_end": 1000,
+        "tail_tip_start": 1000
+      },
+      "id": "standard_neutral_reference",
+      "label": "standard neutral reference",
+      "part_placements": {
+        "main|part|left|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|left|forearm": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|hand": [
+          -1,
+          0,
+          0
+        ],
+        "main|part|left|shin": [
+          0,
+          -1,
+          0
+        ],
+        "main|part|left|thigh": [
+          -1,
+          -1,
+          0
+        ],
+        "main|part|left|upper_arm": [
+          -1,
+          1,
+          0
+        ],
+        "main|part|right|foot": [
+          0,
+          -1,
+          1
+        ],
+        "main|part|right|forearm": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|hand": [
+          1,
+          0,
+          0
+        ],
+        "main|part|right|shin": [
+          0,
+          -1,
+          0
+        ],
+        "main|part|right|thigh": [
+          1,
+          -1,
+          0
+        ],
+        "main|part|right|upper_arm": [
+          1,
+          1,
+          0
+        ],
+        "main|part|tail|tail_root": [
+          0,
+          0,
+          -1
+        ],
+        "main|part|tail|tail_tip": [
+          0,
+          0,
+          -1
+        ],
+        "main|part||head": [
+          0,
+          1,
+          0
+        ],
+        "main|part||neck": [
+          0,
+          1,
+          0
+        ],
+        "main|part||pelvis": [
+          0,
+          0,
+          0
+        ],
+        "main|part||torso": [
+          0,
+          1,
+          0
+        ]
+      }
+    },
     {
       "dimension_scales": {
         "arm_profile_forward": 1050,
@@ -210,7 +345,7 @@
           0
         ],
         "main|part|left|thigh": [
-          -2,
+          -1,
           -2,
           0
         ],
@@ -240,7 +375,7 @@
           0
         ],
         "main|part|right|thigh": [
-          2,
+          1,
           -2,
           0
         ],
@@ -276,7 +411,7 @@
         ],
         "main|part||torso": [
           0,
-          2,
+          1,
           0
         ]
       }
@@ -345,7 +480,7 @@
           0
         ],
         "main|part|left|thigh": [
-          -2,
+          -1,
           -2,
           0
         ],
@@ -375,7 +510,7 @@
           0
         ],
         "main|part|right|thigh": [
-          2,
+          1,
           -2,
           0
         ],
@@ -480,7 +615,7 @@
           0
         ],
         "main|part|left|thigh": [
-          -3,
+          -1,
           -1,
           0
         ],
@@ -510,7 +645,7 @@
           0
         ],
         "main|part|right|thigh": [
-          3,
+          1,
           -1,
           0
         ],

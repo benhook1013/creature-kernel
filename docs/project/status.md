@@ -20,8 +20,9 @@ preserve evidence but do not redefine current continuation.
 ### Current destination
 
 The current destination is convincing simplified/stylized anatomy across
-exactly four fixed source profiles:
+exactly five ordered source profiles, with a standard neutral reference first:
 
+- `standard_neutral_reference`
 - `compact_broad_short_limb_large_head`
 - `tall_narrow_long_legged`
 - `slender_long_limb`
@@ -30,6 +31,13 @@ exactly four fixed source profiles:
 This is a human visual anatomy checkpoint. Appraisal should cover a readable,
 intentional neck; distinct torso, waist, and pelvis masses; shoulder and hip
 transitions; tapered limbs; and a simplified muzzle and paws/feet.
+
+Ben's 2026-08-30 appraisal of the preceding four-profile candidate found the
+chest and arms acceptable, but found external thigh bulbs on the tall, slender,
+and stocky profiles rather than leg roots seated inside the pelvis. The lower
+torso still read as an upside-down bell, and the chest needed slightly more of
+the body's height. This source revision addresses those candidate-scoped
+concerns; a new appraisal is required.
 
 The checkpoint is not photorealistic anatomy, detailed hands/faces/tissue,
 current Godot mechanics, or a permanent backend.
@@ -51,7 +59,7 @@ or executable truth.
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122,
 but that branch, PR head, and PR state must be verified live before they are
 treated as current. The current local candidate combines the lean AI-control-
-plane rewrite and four-profile gallery adapter with shared torso transitions,
+plane rewrite and five-profile gallery adapter with shared torso transitions,
 neck/head/muzzle composition, tapered limb routes, and full-volume hand-paw
 stations. Final consolidated validation, immutable-head external review, and
 the live checkpoint publication remain outstanding. The remote PR head may
@@ -65,7 +73,8 @@ Continue in this order:
    risk-scaled review; resolve verified correctness findings.
 2. Commit and push one coherent immutable head, then launch CI plus hosted and
    committed-diff CLI review in parallel without changing that remote head.
-3. Publish the exact four-profile gallery from that candidate and verify its
+3. Publish the exact five-profile gallery, with the standard neutral reference
+   first, from that candidate and verify its
    technical loading without using AI visual appraisal as a gate.
 4. Stop with PR #122 unmerged and present the checkpoint URL and completed
    review state to Ben. Any later material fix that changes the displayed
@@ -73,7 +82,7 @@ Continue in this order:
 
 ### Evidence and scope
 
-The four profiles should use shared operations; no per-profile or per-fixture
+The five profiles should use shared operations; no per-profile or per-fixture
 patches are part of this destination. Keep anatomy observations scoped to the
 candidate being appraised and keep research, implementation evidence, and
 project state distinct. Any change that crosses a retained-human boundary is a

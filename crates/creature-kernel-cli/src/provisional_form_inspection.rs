@@ -1596,6 +1596,7 @@ fn prepare_torso_profile(
     }
 
     let mut sections = Vec::with_capacity(TORSO_PROFILE_SECTION_NAMES.len());
+    let mut previous_owner = None;
     let mut previous_y = None;
     for (name, owner_role) in TORSO_PROFILE_SECTION_NAMES
         .into_iter()
@@ -1659,11 +1660,15 @@ fn prepare_torso_profile(
             });
         }
         let y = landmark.position().components()[1].as_f64();
+        if previous_owner.as_ref() != Some(&owner) {
+            previous_owner = Some(owner.clone());
+            previous_y = None;
+        }
         if previous_y.is_some_and(|previous| y <= previous) {
             return Err(InspectionError::InvalidAuthoredControl {
                 address: landmark_key.owner().clone(),
                 role: landmark_key.role().to_owned(),
-                detail: "torso profile axial landmarks must be strictly ordered globally"
+                detail: "torso profile axial landmarks must be strictly ordered within each owner-local route"
                     .to_owned(),
             });
         }
@@ -3682,6 +3687,7 @@ mod tests {
         let frames = value["authored_frames"].as_array().unwrap();
         let landmarks = value["authored_landmarks"].as_array().unwrap();
         let dimensions = value["authored_dimensions"].as_array().unwrap();
+        let mut previous_owner = None;
         let mut previous_y = None;
         for (index, section) in sections.iter().enumerate() {
             assert_eq!(section["section_index"], json!(index));
@@ -3705,7 +3711,12 @@ mod tests {
             assert_eq!(landmark["position"][0], json!(0.0));
             assert_eq!(landmark["position"][2], json!(0.0));
             let y = landmark["position"][1].as_f64().unwrap();
+            let owner = &frame["owner"];
+            if previous_owner.as_ref() != Some(owner) {
+                previous_y = None;
+            }
             assert!(previous_y.is_none_or(|previous| y > previous));
+            previous_owner = Some(owner.clone());
             previous_y = Some(y);
 
             let dimension_indices = &section["dimension_indices"];
@@ -5666,8 +5677,19 @@ mod tests {
             .unwrap()
             .iter_mut()
             .find(|landmark| landmark["role"] == "form_torso_profile_lower_ribcage")
-            .unwrap()["position"][1] = json!(0.2);
+            .unwrap()["position"][1] = json!(-0.2);
         authored_control_failure(nonmonotone);
+
+        let owner_local_positions = parsed(&inspect_source(&example()));
+        assert_eq!(owner_local_positions["status"], "success");
+        assert_eq!(
+            owner_local_positions["authored_torso_profile"]["sections"][1]["name"],
+            "upper-pelvis"
+        );
+        assert_eq!(
+            owner_local_positions["authored_torso_profile"]["sections"][2]["name"],
+            "lower-abdomen"
+        );
 
         let mut nonaxial = document();
         nonaxial["body"]["landmarks"]
