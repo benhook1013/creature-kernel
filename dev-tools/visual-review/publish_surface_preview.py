@@ -422,15 +422,27 @@ def _bootstrap_successor_contract() -> tuple[dict[str, Any], str | None]:
 _SUCCESSOR_CONTRACT_VALUES, _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR = _bootstrap_successor_contract()
 
 
-def _successor_literal(name: str) -> Any:
-    """Return a previously bootstrapped successor contract literal, if available."""
+def _raise_if_successor_contract_bootstrap_failed() -> None:
+    if _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is not None:
+        raise SurfacePreviewPublishError(_SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR)
+
+
+def _successor_literal_for_module_initialization(name: str) -> Any:
+    """Read literals while module-level compatibility constants are initialized."""
 
     return _SUCCESSOR_CONTRACT_VALUES.get(name)
 
 
-def _raise_if_successor_contract_bootstrap_failed() -> None:
-    if _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is not None:
-        raise SurfacePreviewPublishError(_SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR)
+def _successor_literal(name: str) -> Any:
+    """Return a validated successor contract literal or fail closed."""
+
+    _raise_if_successor_contract_bootstrap_failed()
+    try:
+        return _SUCCESSOR_CONTRACT_VALUES[name]
+    except KeyError as exc:
+        raise SurfacePreviewPublishError(
+            f"successor contract does not define {name}"
+        ) from exc
 
 
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v3"
@@ -439,27 +451,27 @@ SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview
 SEMANTIC_SIDECAR_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = _successor_literal("SUCCESSOR_REGION_ID")
-SUCCESSOR_TORSO_PROFILE_OPERATION = _successor_literal("TORSO_PROFILE_OPERATION")
-SUCCESSOR_HEAD_NECK_PROFILE_OPERATION = _successor_literal(
+SUCCESSOR_REGION_ID = _successor_literal_for_module_initialization("SUCCESSOR_REGION_ID")
+SUCCESSOR_TORSO_PROFILE_OPERATION = _successor_literal_for_module_initialization("TORSO_PROFILE_OPERATION")
+SUCCESSOR_HEAD_NECK_PROFILE_OPERATION = _successor_literal_for_module_initialization(
     "_HEAD_NECK_PROFILE_OPERATION"
 )
-SUCCESSOR_ARM_PROFILE_OPERATION = _successor_literal("_ARM_PROFILE_OPERATION")
-SUCCESSOR_LEG_PROFILE_OPERATION = _successor_literal("_LEG_PROFILE_OPERATION")
-SUCCESSOR_FOOT_PROFILE_OPERATION = _successor_literal("_FOOT_PROFILE_OPERATION")
-SUCCESSOR_HAND_PAW_PROFILE_OPERATION = _successor_literal(
+SUCCESSOR_ARM_PROFILE_OPERATION = _successor_literal_for_module_initialization("_ARM_PROFILE_OPERATION")
+SUCCESSOR_LEG_PROFILE_OPERATION = _successor_literal_for_module_initialization("_LEG_PROFILE_OPERATION")
+SUCCESSOR_FOOT_PROFILE_OPERATION = _successor_literal_for_module_initialization("_FOOT_PROFILE_OPERATION")
+SUCCESSOR_HAND_PAW_PROFILE_OPERATION = _successor_literal_for_module_initialization(
     "_PROFILE_SWEEP_DEFAULT_OPERATION"
 )
-SUCCESSOR_FORWARD_MUZZLE_COMPOSITION_OPERATION = _successor_literal(
+SUCCESSOR_FORWARD_MUZZLE_COMPOSITION_OPERATION = _successor_literal_for_module_initialization(
     "_FORWARD_MUZZLE_COMPOSITION_OPERATION"
 )
-SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = _successor_literal(
+SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = _successor_literal_for_module_initialization(
     "_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES"
 )
-SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES = _successor_literal(
+SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES = _successor_literal_for_module_initialization(
     "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES"
 )
-SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT = _successor_literal(
+SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT = _successor_literal_for_module_initialization(
     "TORSO_SUPERELLIPSE_EXPONENT"
 )
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
@@ -4976,23 +4988,23 @@ SUCCESSOR_LIMB_STATION_NAMES = (
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
 )
-SUCCESSOR_HAND_PAW_PROFILE = _successor_literal("_HAND_PAW_PROFILE")
-SUCCESSOR_HAND_PAW_SECTION_NAMES = _successor_literal("_HAND_PAW_SECTION_NAMES")
-SUCCESSOR_FOOT_PROFILE_SECTION_NAMES = _successor_literal("_FOOT_PROFILE_SECTION_NAMES")
-SUCCESSOR_FOOT_PROFILE_OWNER_ROLES = _successor_literal("_FOOT_PROFILE_OWNER_ROLES")
-SUCCESSOR_HIP_ROOT_PROFILE_OPERATION = _successor_literal("_HIP_ROOT_PROFILE_OPERATION")
+SUCCESSOR_HAND_PAW_PROFILE = _successor_literal_for_module_initialization("_HAND_PAW_PROFILE")
+SUCCESSOR_HAND_PAW_SECTION_NAMES = _successor_literal_for_module_initialization("_HAND_PAW_SECTION_NAMES")
+SUCCESSOR_FOOT_PROFILE_SECTION_NAMES = _successor_literal_for_module_initialization("_FOOT_PROFILE_SECTION_NAMES")
+SUCCESSOR_FOOT_PROFILE_OWNER_ROLES = _successor_literal_for_module_initialization("_FOOT_PROFILE_OWNER_ROLES")
+SUCCESSOR_HIP_ROOT_PROFILE_OPERATION = _successor_literal_for_module_initialization("_HIP_ROOT_PROFILE_OPERATION")
 SUCCESSOR_HIP_ROOT_CONTROLS = {
-    "boundary_samples": _successor_literal("_HIP_ROOT_BOUNDARY_SAMPLES"),
-    "boundary_iterations": _successor_literal("_HIP_ROOT_BOUNDARY_ITERATIONS"),
-    "boundary_max_parameter": _successor_literal("_HIP_ROOT_BOUNDARY_MAX_PARAMETER"),
-    "socket_fraction": _successor_literal("_HIP_ROOT_SOCKET_FRACTION"),
-    "cup_remaining_fraction": _successor_literal("_HIP_ROOT_CUP_REMAINING_FRACTION"),
-    "pelvis_support_cap": _successor_literal("_HIP_ROOT_PELVIS_SUPPORT_CAP"),
-    "socket_thigh_weight": _successor_literal("_HIP_ROOT_SOCKET_THIGH_WEIGHT"),
-    "socket_pelvis_weight": _successor_literal("_HIP_ROOT_SOCKET_PELVIS_WEIGHT"),
-    "cup_thigh_weight": _successor_literal("_HIP_ROOT_CUP_THIGH_WEIGHT"),
-    "cup_pelvis_weight": _successor_literal("_HIP_ROOT_CUP_PELVIS_WEIGHT"),
-    "tangent_blend_fraction": _successor_literal("_HIP_ROOT_TANGENT_BLEND_FRACTION"),
+    "boundary_samples": _successor_literal_for_module_initialization("_HIP_ROOT_BOUNDARY_SAMPLES"),
+    "boundary_iterations": _successor_literal_for_module_initialization("_HIP_ROOT_BOUNDARY_ITERATIONS"),
+    "boundary_max_parameter": _successor_literal_for_module_initialization("_HIP_ROOT_BOUNDARY_MAX_PARAMETER"),
+    "socket_fraction": _successor_literal_for_module_initialization("_HIP_ROOT_SOCKET_FRACTION"),
+    "cup_remaining_fraction": _successor_literal_for_module_initialization("_HIP_ROOT_CUP_REMAINING_FRACTION"),
+    "pelvis_support_cap": _successor_literal_for_module_initialization("_HIP_ROOT_PELVIS_SUPPORT_CAP"),
+    "socket_thigh_weight": _successor_literal_for_module_initialization("_HIP_ROOT_SOCKET_THIGH_WEIGHT"),
+    "socket_pelvis_weight": _successor_literal_for_module_initialization("_HIP_ROOT_SOCKET_PELVIS_WEIGHT"),
+    "cup_thigh_weight": _successor_literal_for_module_initialization("_HIP_ROOT_CUP_THIGH_WEIGHT"),
+    "cup_pelvis_weight": _successor_literal_for_module_initialization("_HIP_ROOT_CUP_PELVIS_WEIGHT"),
+    "tangent_blend_fraction": _successor_literal_for_module_initialization("_HIP_ROOT_TANGENT_BLEND_FRACTION"),
 }
 SUCCESSOR_EXTREMITY_STATION_NAMES = (
     ("hand-attachment-start", "hand-attachment-end"),

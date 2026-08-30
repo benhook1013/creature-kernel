@@ -3421,16 +3421,28 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             if mode in {"missing-required", "missing-foot-section-names", "missing-foot-owner-roles"}:
                 lines: list[str] = []
                 skipping = False
+                closing_delimiter: str | None = None
                 for line in source.splitlines():
                     if not skipping and (
                         line.startswith(f"{required_name} =")
                         or line.startswith(f"{required_name}:")
                     ):
                         skipping = True
+                        assignment_rhs = line.split("=", 1)[1].strip() if "=" in line else ""
+                        closing_delimiter = {
+                            "(": ")",
+                            "[": "]",
+                            "{": "}",
+                        }.get(assignment_rhs)
                         continue
                     if skipping:
+                        if closing_delimiter is not None and line.strip() == closing_delimiter:
+                            skipping = False
+                            closing_delimiter = None
+                            continue
                         if not line.strip() or not line[0].isspace():
                             skipping = False
+                            closing_delimiter = None
                         else:
                             continue
                     lines.append(line)
@@ -3502,6 +3514,15 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 self.assertEqual(completed.stdout, "")
                 self.assertIn("publish-surface-preview failed:", completed.stderr)
                 self.assertIn("successor contract bootstrap failed:", completed.stderr)
+                expected_missing_constant = {
+                    "missing-foot-section-names": "_FOOT_PROFILE_SECTION_NAMES",
+                    "missing-foot-owner-roles": "_FOOT_PROFILE_OWNER_ROLES",
+                }.get(mode)
+                if expected_missing_constant is not None:
+                    self.assertIn(
+                        f"successor contract owner does not define {expected_missing_constant}",
+                        completed.stderr,
+                    )
                 if mode == "zero-socket-pelvis-weight":
                     self.assertIn(
                         "invalid _HIP_ROOT_SOCKET_PELVIS_WEIGHT: expected a bounded finite number",
@@ -3541,6 +3562,38 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertNotIn("AST PARSE STARTED", completed.stderr)
         self.assertNotIn("Traceback", completed.stderr)
         self.assertFalse(publication_root.exists())
+
+    def test_successor_literal_fails_closed_after_captured_bootstrap_error(self) -> None:
+        staged_repository, _staged_publisher = self._stage_publisher_contract_source(
+            "missing-required"
+        )
+        probe = textwrap.dedent(
+            """
+            import publish_surface_preview as publisher
+
+            assert publisher._SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is not None
+            try:
+                publisher._successor_literal("SUCCESSOR_REGION_ID")
+            except publisher.SurfacePreviewPublishError as exc:
+                assert str(exc) == publisher._SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR
+            else:
+                raise AssertionError("bootstrap failure was not enforced")
+            print("ok")
+            """
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), "ok")
+        self.assertEqual(completed.stderr, "")
 
     def test_successor_contract_projects_foot_names_and_owner_roles_in_fresh_staged_process(self) -> None:
         staged_repository, _staged_publisher = self._stage_publisher_contract_source("foot-parity")

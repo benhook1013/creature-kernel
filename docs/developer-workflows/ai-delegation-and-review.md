@@ -54,7 +54,8 @@ Detailed decision-record states, acceptance prerequisites, review records, and
 the acceptance operation remain owned by `docs/decisions/README.md`. This
 workflow does not accept a DR, change a canonical product or architecture
 contract, or grant a subagent authority that the canonical owner does not
-have. Unaccepted material remains labelled `Proposed` or `provisional`.
+have. Unaccepted material remains labelled `Candidate`, `Proposed`, `Under
+Review`, or `provisional`, as appropriate to its state.
 
 ## Batches and research passes
 

@@ -1,6 +1,7 @@
 # Project status
 
-Status date: 2026-08-31
+Status date: 2026-08-31 (NZST; repository activity is recorded in NZST while
+GitHub timestamps are UTC)
 
 ## Phase
 
@@ -57,44 +58,33 @@ or executable truth.
 ### Current candidate and expected live target
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
-The implementation head `3d9fe36520a44511e8d0afab3fd58f26768d0b9d`
-integrates verified correctness fixes for bounded successor contract
-bootstrap and source-backed constants, hand outward-axis placement,
-successor-bounds containment, exact active profile identity/order, historical
-tail-signature recomputation, connector containment and interpolated
-root-height context, shoulder/smooth-union regressions, torso ordering in
-composed body space, bounded Godot subprocess cleanup, and related test/doc
-fixes. The docs-only review head `a25fb87e86b5160d5cd01e0b8bfd04998ee881fe`
-passed CI and one hosted-plus-CLI cycle; hosted reported 6 findings and CLI
-reported 25. Follow-up head `301d41340b4886cf2ff3db7067412a590b1fc844`
-integrates the verified correctness and coverage fixes. Its documentation and
-visual-review CI passed, Rust CI found one formatting-only mismatch, the hosted
-request was rate-limited, and CLI reported 9 suggestions. The current
-follow-up applies the exact Rust formatting, closes one browser-side missing-owner
-validation gap, and adds direct-process cleanup coverage; the other CLI items
-have explicit evidence-based dispositions. A fresh immutable-head CI and
-hosted-plus-CLI cycle is still required. PR #122 remains draft and unmerged.
+Remote PR #122 head `dd366575548db9ed6011ced5431827ad07cecb7a` passed all
+three CI lanes and completed one hosted-plus-committed-diff CLI cycle; hosted
+produced 6 findings and CLI produced 14. The current coherent follow-up
+integrates verified valid fixes for canonical unaccepted labels, timezone
+qualification, the forward-muzzle derived-center ordering guard, late-nonzero
+process-group cleanup before leader reap, successor bootstrap fail-closed
+behaviour, staged constant-removal fixture correctness, the exact browser
+diagnostic, symlink-test reachability, and argparse help wrapping. Dead
+root-bridge cleanup is deferred as non-gating maintainability. Reusing
+generator profile IDs is rejected because the local exact-five list
+intentionally acts as an independent oracle. A fresh pushed immutable head,
+CI, hosted-plus-CLI taper cycle, final live gallery, Ben appraisal, and explicit
+merge authorization remain outstanding. PR #122 remains draft and unmerged.
 
 The candidate still targets the exact five ordered profiles above, with the
-standard neutral reference first. A measured route-interpolation cache showed
-about a 10% representative improvement; record that as a post-checkpoint
-performance follow-up, not active runway scope. Consolidated affected
-validation passes: baseline 73; successor 86 plus focused post-suite
-connector/muzzle parity checks; structural and historical suites 71; surface
-publication 52 with one expected opt-in skip; exact-five anatomy publication
-24; provisional/browser and connected publication checks 99 with one expected
-skip; and the complete provisional Godot host suite 207 with 31 expected
-skips plus 33 focused post-suite cleanup checks with one expected skip.
-Documentation, whitespace, and diff checks pass. Fresh hands-on
-publisher trials also passed one canonical 32-sample success path and
-fail-closed malformed-contract and non-containing-bounds paths without live
-publication.
+standard neutral reference first. Consolidated verified validation: surface
+publication 53 with one expected opt-in skip; exact-five anatomy 24;
+provisional publication 29; structural profile sources 17; Godot projection
+34 with one expected skip; focused muzzle checks passed, including all-variant
+deterministic output; and documentation, whitespace, diff, and cargo fmt
+checks pass.
 
 ### Immediate continuation
 
 Continue in this order:
 
-1. For each changed review-fix head, await current-head CI and launch hosted and
+1. Push a fresh immutable head, await current-head CI, and launch hosted and
    committed-diff CLI CodeRabbit review in parallel.
 2. Resolve valid findings until hosted review tapers, without changing the
    reviewed remote head during each cycle.
@@ -105,9 +95,9 @@ Continue in this order:
    completed review state to Ben for visual appraisal. No visual acceptance or
    explicit merge permission has occurred. Any later material fix that changes
    the displayed candidate requires a new immutable review ID and renewed
-   appraisal. The fresh review-fix head's CI and hosted-plus-CLI taper cycle,
-   final live five-profile publication, Ben's appraisal, and explicit merge
-   permission remain outstanding.
+   appraisal. The fresh pushed head's CI and hosted-plus-CLI taper cycle, final
+   live five-profile publication, Ben's appraisal, and explicit merge permission
+   remain outstanding.
 
 ### Evidence and scope
 

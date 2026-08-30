@@ -2399,6 +2399,41 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(section.transverse_radii, (donor.radii[0], donor.radii[1]))
             self.assertEqual(section.tangent_radius, donor.radii[2])
 
+    def test_forward_muzzle_composition_rejects_crossing_authored_controls(self) -> None:
+        """A schema-valid cranium radius must not make the derived root run past the tip."""
+
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        original_cranium_radius = guide.head_guide.profile.sections[3].radii[2]
+        crossing_guide = _mutate_head_neck_radius(
+            guide,
+            section_index=3,
+            axis="forward",
+            factor=5.0 / original_cranium_radius,
+        )
+        successor._validate_authored_head_neck_guide(crossing_guide)
+
+        profile = crossing_guide.head_guide.profile
+        forward = np.asarray(crossing_guide.topology.axes.forward, dtype=np.float64)
+        cranium = profile.sections[3]
+        muzzle_root = profile.sections[5]
+        muzzle_tip = profile.sections[7]
+        derived_root = 0.5 * (
+            np.asarray(cranium.center, dtype=np.float64)
+            + float(cranium.radii[2]) * forward
+            + np.asarray(muzzle_root.center, dtype=np.float64)
+        )
+        self.assertLess(
+            float(np.dot(np.asarray(muzzle_tip.center, dtype=np.float64) - derived_root, forward)),
+            -successor._DEGENERATE_TOLERANCE,
+        )
+
+        with self.assertRaisesRegex(
+            successor.SuccessorPreviewError,
+            "forward muzzle composition root must precede authored tip along forward axis",
+        ):
+            successor._make_head_neck_sweeps(crossing_guide)
+
     def test_profile_derived_composition_is_single_level_and_head_only(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)

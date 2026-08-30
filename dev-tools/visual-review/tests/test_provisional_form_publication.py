@@ -2580,7 +2580,12 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         upper_pelvis["position"][1] = 0.95
         for variant in composed_inversion["variants"]:
             variant["torso_profile"]["sections"][1]["position"][1] = 0.95
-        self.assertTrue(self.browser_form_errors(composed_inversion))
+        self.assertEqual(
+            self.browser_form_errors(composed_inversion),
+            [
+                "Authored torso sections landmarks must have strictly increasing composed body-space y."
+            ] * len(composed_inversion["variants"]),
+        )
 
         cases = []
         unknown_envelope_field = copy.deepcopy(valid_v7)

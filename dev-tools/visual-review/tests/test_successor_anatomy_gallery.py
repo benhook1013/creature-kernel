@@ -606,9 +606,13 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, "does not bind its profile id"):
             adapter._validate_source_manifest(self.source_manifest)
 
+        self.source_manifest.write_bytes(profile_generator.canonical_bytes(manifest))
         linked_manifest = self.root / "manifest-link.json"
         linked_manifest.symlink_to(self.source_manifest)
-        with self.assertRaises(adapter.SuccessorAnatomyGalleryError):
+        with self.assertRaisesRegex(
+            adapter.SuccessorAnatomyGalleryError,
+            "source manifest may not use symlinks",
+        ):
             adapter._validate_source_manifest(linked_manifest)
 
     def test_source_tamper_is_rejected_before_inspection(self) -> None:

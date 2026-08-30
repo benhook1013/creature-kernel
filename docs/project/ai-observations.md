@@ -27,7 +27,7 @@ Copyable entry scaffold:
   - Expected pattern: what should happen instead
 
 - `2026-08-31 04:22 NZST`: Focused test selectors were guessed instead of resolved
-  - Observation: Five focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; four wrapper calls were rejected with `matched no test files` or `method selector ... matched no tests`, and one raw-launcher call reported `Ran 0 tests` before exact selectors were resolved.
+  - Observation: Six focused validation attempts in one review round used guessed file, method, or compound `-k` selectors; four wrapper calls were rejected with `matched no test files` or `method selector ... matched no tests`, one raw-launcher call reported `Ran 0 tests`, and one direct unittest call raised `AttributeError` for a nonexistent method before exact selectors were resolved.
   - Expected pattern: Before invoking a focused wrapper test, resolve the exact file and `def test_...` name with a narrow `rg`, then run one validated selector shape; use the documented launcher directly when the target lives outside the wrapper's discovery tree.
 
 - `2026-08-31 00:43 NZST`: Pointwise smooth-field audit misclassified an explicit transition volume
@@ -59,16 +59,16 @@ Copyable entry scaffold:
   - Expected pattern: Pass one verified pathname per `unlink` invocation, or use a separately validated safe multi-file cleanup route.
 
 - `2026-08-28 20:13 NZST`: Direct experiment test bypassed the pinned Python launcher
-  - Observation: A focused Xvfb test invoked bare `python3` and failed before reaching Godot because system Python lacks Pillow, despite the experiment README requiring its repository-owned launcher for every experiment Python command.
+  - Observation: A focused Xvfb test invoked bare `python3` and failed before reaching Godot because system Python lacks Pillow, despite the experiment README requiring its repository-owned launcher for every experiment Python command. A later review repeated the bypass once for a visual-review unittest and failed at import because system Python lacked NumPy.
   - Expected pattern: Invoke current-form and dependent Godot experiment Python through `experiments/current-form-surface-preview/surface_preview_launcher.sh`; do not substitute bare system Python.
 
 - `2026-08-28 22:13 NZST`: Direct dynamic import recreated repository bytecode cache
   - Observation: A read-only review dynamically imported `disposable_avatar_carrier.py` outside the canonical wrapper, and an isolated `python -I` projection child ignored the launcher's `PYTHONDONTWRITEBYTECODE`; both routes created repository `__pycache__` files that can invalidate concurrent cache-cleanliness tests.
   - Expected pattern: Set bytecode suppression before `exec_module`, run experiment tests through their canonical wrapper from a cache-clean tree, and pass `-B` explicitly to isolated Python children because `-I` ignores `PYTHON*` environment variables.
 
-- `2026-08-29 00:38 NZST`: Markdown backticks broke an orchestration template string
-  - Observation: A subagent launch failed before execution because a Markdown code span inside a JavaScript template-string payload terminated the string and produced `SyntaxError: Unexpected identifier 'validate'`.
-  - Expected pattern: Build free-form orchestration prompts from quoted line arrays joined with newlines, or otherwise escape embedded backticks before evaluation.
+- `2026-08-29 00:38 NZST`: Unescaped text broke orchestration JavaScript strings
+  - Observation: A subagent launch failed before execution because a Markdown code span inside a JavaScript template string terminated the string and produced `SyntaxError: Unexpected identifier 'validate'`. A later review command repeated the payload-construction failure once with an unescaped nested double quote and produced `SyntaxError: Invalid or unexpected token` before shell execution.
+  - Expected pattern: Build free-form prompts and commands from safely quoted values or line arrays instead of embedding unchecked Markdown or shell text directly in JavaScript string delimiters.
 
 - `2026-08-29 00:40 NZST`: Invalid `gh api --arg` aggregation repeated before changing route
   - Observation: A read-only CI audit passed jq's `--arg` option directly to `gh api`, received `unknown flag: --arg` 20 times in one loop, and only then switched to successful per-run API queries.

@@ -1901,6 +1901,9 @@ def _make_forward_muzzle_composition_sweep(profile: Any) -> _ProfileSweep:
         + _vec3(muzzle_root.center, "forward muzzle composition root center")
     )
     tip_center = _vec3(muzzle_tip.center, "forward muzzle composition tip center")
+    forward_progress = float(np.dot(tip_center - root_center, forward))
+    if not math.isfinite(forward_progress) or forward_progress <= _DEGENERATE_TOLERANCE:
+        _fail("forward muzzle composition root must precede authored tip along forward axis")
     mid_center = 0.5 * (root_center + tip_center)
     composition_centers = (
         ("muzzle-composition-root", root_center),

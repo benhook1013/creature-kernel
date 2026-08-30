@@ -963,6 +963,89 @@ class DisposableCKProjectionTests(unittest.TestCase):
         else:
             self.fail("descendant survived nonzero process-group cleanup")
 
+    @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant liveness requires Linux /proc process state")
+    def test_bounded_subprocess_late_nonzero_after_pipe_drain_kills_descendant(self) -> None:
+        pid_path = self.root / "late-nonzero-descendant.pid"
+        ready_path = self.root / "late-nonzero-descendant.ready"
+        descendant_body = (
+            "from pathlib import Path\n"
+            "import time\n"
+            f"Path({str(ready_path)!r}).write_text('ready')\n"
+            "time.sleep(30)\n"
+        )
+        late_nonzero = self._write_executable(
+            "late-nonzero-pipe-close",
+            "from pathlib import Path\n"
+            "import os\n"
+            "import subprocess\n"
+            "import sys\n"
+            "import time\n"
+            f"descendant = subprocess.Popen([sys.executable, '-c', {descendant_body!r}], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+            f"Path({str(pid_path)!r}).write_text(str(descendant.pid))\n"
+            f"ready = Path({str(ready_path)!r})\n"
+            "deadline = time.monotonic() + 1.0\n"
+            "while not ready.is_file() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.01)\n"
+            "if not ready.is_file():\n"
+            "    raise SystemExit('descendant did not become ready')\n"
+            "os.close(1)\n"
+            "os.close(2)\n"
+            "time.sleep(0.05)\n"
+            "raise SystemExit(23)\n",
+        )
+        events = []
+        real_waitid = projection.os.waitid
+        real_killpg = projection.os.killpg
+
+        def record_waitid(*args):
+            result = real_waitid(*args)
+            if result is None:
+                events.append(("waitid-none",))
+            elif result.si_pid:
+                events.append(("waitid", result.si_status))
+            return result
+
+        def record_killpg(pgid, signum):
+            events.append(("killpg", pgid, signum))
+            return real_killpg(pgid, signum)
+
+        with (
+            patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0),
+            patch.object(projection, "PROCESS_GRACE_SECONDS", 0.05),
+            patch.object(projection.os, "waitid", side_effect=record_waitid),
+            patch.object(projection.os, "killpg", side_effect=record_killpg),
+        ):
+            result = projection._bounded_subprocess([str(late_nonzero)])
+
+        self.assertEqual(result, (23, b"", b""))
+        self.assertTrue(ready_path.is_file(), "descendant did not start")
+        self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
+        descendant_pid = int(pid_path.read_text())
+        self.assertIn(("waitid-none",), events, "late-exit path did not observe the pipe-drain race")
+        self.assertIn(("waitid", 23), events)
+        term_index = next(
+            index
+            for index, event in enumerate(events)
+            if event[0] == "killpg" and event[2] == projection.signal.SIGTERM
+        )
+        self.assertLess(events.index(("waitid", 23)), term_index)
+        self.assertEqual(
+            [event[2] for event in events if event[0] == "killpg"],
+            [projection.signal.SIGTERM, projection.signal.SIGKILL],
+        )
+        cleanup_budget_seconds = 5.0
+        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
+        while projection.time.monotonic() < cleanup_deadline:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            if not descendant_is_live(descendant_pid):
+                break
+            projection.time.sleep(0.01)
+        else:
+            self.fail("descendant survived late nonzero process-group cleanup")
+
     def test_subprocess_return_code_malformed_output_and_source_mutation_fail_closed(self) -> None:
         with self.assertRaisesRegex(projection.ProjectionError, "exited 7"):
             self.build(runner=lambda command: (7, b"", b"broken"))

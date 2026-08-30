@@ -174,7 +174,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             generator.main(["--help"])
 
         self.assertEqual(exit_info.exception.code, 0)
-        rendered_help = help_output.getvalue().lower()
+        rendered_help = " ".join(help_output.getvalue().lower().split())
         self.assertIn("--generation-mode", rendered_help)
         self.assertIn("generate experiment-local structural source-profile candidates.", rendered_help)
         self.assertNotIn("five experiment-local structural source-profile candidates", rendered_help)

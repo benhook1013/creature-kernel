@@ -762,6 +762,23 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
+        if os.name == "posix":
+            # Closing both pipes does not guarantee that the direct leader has
+            # exited yet. Keep its status unreaped while giving waitid a
+            # bounded chance to observe a late nonzero exit before Popen.wait
+            # consumes the status and the retained process group loses its
+            # direct-leader anchor.
+            while not leader_exit_observed:
+                observe_leader_exit()
+                if leader_exit_observed:
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
+                time.sleep(min(0.01, remaining))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
         try:
             return_code = process.wait(timeout=remaining)
         except subprocess.TimeoutExpired as exc:
