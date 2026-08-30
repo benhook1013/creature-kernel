@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 26 open observations
+Status: Operational inbox; 27 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,10 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-08-31 07:56 NZST`: Independent evidence reviews duplicated an unassigned broad suite on a changing worktree
+  - Observation: Two fresh evidence-only hand/paw reviewers independently launched the same full `test_successor_surface_preview.py` suite even though their assigned deliverable was static/adversarial review and consolidated broad validation remained main-thread work. Process inspection exposed both CPU-heavy runs before the main thread redirected each reviewer to stop only its own suite. One reviewer also reported a non-reproducible stale-import `NameError` while implementation edits changed the shared worktree beneath its run, so that partial evidence was discarded. A later stable post-fix reviewer stayed within its allowed focused selector, but that selector still exceeded the intended cheap-check boundary and was stopped without a result after the already-completed main-thread focused pass supplied the evidence.
+  - Expected pattern: Evidence-only review prompts should explicitly prohibit broad suites unless that reviewer owns a named validation lane; reviewers may run narrowly targeted checks only against a stable snapshot, while the main thread assigns each expensive consolidated suite once after overlapping writes finish.
 
 - `2026-08-31 06:35 NZST`: Launcher-selected environment does not imply repository module discovery
   - Observation: A launcher-backed inline/stdin probe imported repository modules and failed before execution with `ModuleNotFoundError` because `surface_preview_launcher.sh` selects the pinned interpreter/environment but does not automatically add experiment or visual-review directories to `sys.path`.

@@ -2718,27 +2718,27 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
                     and descriptor["parent"]["role"] == "torso"
                 ):
                     descriptor["parent"] = copy.deepcopy(pelvis_address)
-        left_upper_arm = next(
+        neck = next(
             descriptor
             for descriptor in missing_torso_tree["variants"][0]["descriptors"]
-            if descriptor["address"]["role"] == "upper_arm"
-            and descriptor["address"]["anchors"] == ["left"]
+            if descriptor["address"]["role"] == "neck"
+            and descriptor["address"]["anchors"] == []
         )
-        left_forearm = next(
+        head = next(
             descriptor
             for descriptor in missing_torso_tree["variants"][0]["descriptors"]
-            if descriptor["address"]["role"] == "forearm"
-            and descriptor["address"]["anchors"] == ["left"]
+            if descriptor["address"]["role"] == "head"
+            and descriptor["address"]["anchors"] == []
         )
         missing_torso_tree["reference_scale"] = {
-            "parent": copy.deepcopy(left_upper_arm["address"]),
-            "child": copy.deepcopy(left_forearm["address"]),
+            "parent": copy.deepcopy(neck["address"]),
+            "child": copy.deepcopy(head["address"]),
             "axis_delta": [
-                left_forearm["reference_point"][axis] - left_upper_arm["reference_point"][axis]
+                head["reference_point"][axis] - neck["reference_point"][axis]
                 for axis in range(3)
             ],
             "squared_length": sum(
-                (left_forearm["reference_point"][axis] - left_upper_arm["reference_point"][axis]) ** 2
+                (head["reference_point"][axis] - neck["reference_point"][axis]) ** 2
                 for axis in range(3)
             ),
             "source": "exact-containment-edge",

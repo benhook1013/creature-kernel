@@ -60,33 +60,39 @@ or executable truth.
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
 Predecessor `3826a6448b354f3e0e27e3a1bff0534751609aaa` completed hosted (2) /
 committed-diff CLI (6); its valid gallery fail-closed fix is in `60e`.
-Remote PR #122 head `60e76ba15324b1d78a1ff50bf8184e462eb01fa` passed all three
-CI lanes. Its hosted request was rate-limited and committed-diff CLI completed
-with five findings. The next review-fix head integrates the valid 60e CLI and
-focused findings: AI-observation count/recurrences, the corrected successor
-contract-owner path in opt-in integration, a bounded manifest cap from 400 to
-420 KiB with explicit 8 KiB minimum and over-cap rejection plus current measured
-408,678-byte evidence, and precise but portable malformed-mesh/source-tamper
-assertions. The CLI local-variable rename and repeated support-radius
-deduplication are deferred as non-gating maintainability/semantic-risk items.
-A fresh pushed immutable head, CI, hosted+CLI taper, final live gallery, Ben
-appraisal, and explicit merge authorization remain outstanding. PR `#122`
-remains draft and unmerged.
+Remote PR #122 head `4ef0db26eb3a91abdd281f7e5c19bdf32ecd0688` passed all three
+CI lanes. Its hosted review completed with two unresolved findings: trivial
+station-center reuse and a valid derive-replaced-count issue. Its committed-
+diff CLI review completed with 10 findings; the hand/paw axial-support
+over-extension, exact literal five-profile oracle, and missing-torso browser
+fixture are accepted fixes, while maintainability-only items are deferred and
+the cargo-timeout skip is rejected. The source/publisher residual hand-paw
+axial support is locally complete: it enforces finite strict `abs(offset)<1`,
+increasing and center-straddling offsets, preserves station-volume contribution
+and both authored endpoints, reuses derived centers, and derives replaced
+count. PR `#122` remains draft and unmerged. Remote remains `4ef0db2` with
+green CI and two unresolved hosted threads pending the next push/replies. A
+fresh immutable-head CI,
+hosted-plus-CLI review cycle, final live gallery, Ben appraisal, and explicit
+merge authorization remain outstanding.
 
 The candidate still targets the exact five ordered profiles above, with the
-standard neutral reference first. Consolidated verified validation: surface
-publication 54 with one skip; exact opt-in actual-generator integration 1 passed
-in about 187s; successor anatomy gallery 28; Godot projection 34 with one skip;
-documentation, whitespace, diff, and cargo fmt checks pass.
+standard neutral reference first. Consolidated verified validation: source
+hand-paw 5/5; extremity 7/7 (worker evidence); exact five-profile inventory and
+generator metadata parity pass; publisher 60 passed with 1 expected opt-in skip;
+explicit real-generator integration 1 passed in 185.744s with exact
+408,364-byte manifest and 21,716-byte headroom below 420 KiB; structural profile
+17/17; provisional browser publication 29/29; docs, whitespace, and diff checks
+pass.
 
 ### Immediate continuation
 
 Continue in this order:
 
-1. Push a fresh immutable head, await current-head CI, and launch hosted and
-   committed-diff CLI CodeRabbit review in parallel.
-2. Resolve valid findings until hosted review tapers, without changing the
-   reviewed remote head during each cycle.
+1. Commit and push a fresh immutable head, await current-head CI, and launch
+   hosted and committed-diff CLI CodeRabbit review in parallel.
+2. Review any new findings and preserve the immutable reviewed remote head
+   during each cycle; hosted taper remains outstanding.
 3. Publish a fresh live review ID for the exact five-profile gallery, with the
    standard neutral reference first, from the final candidate and verify its
    technical loading without using AI visual appraisal as a gate.
@@ -106,9 +112,16 @@ candidate being appraised and keep research, implementation evidence, and
 project state distinct. Any change that crosses a retained-human boundary is a
 stop-and-present decision, not autonomous continuation.
 
-The current evidence supports technical continuation only: it does not claim
-hosted taper, CI on the new head, final publication, visual quality, or merge
-readiness.
+The current evidence supports technical continuation only: source hand-paw
+5/5; extremity 7/7 (worker evidence); exact five-profile inventory and
+generator metadata parity pass; publisher 60 passed with 1 expected opt-in
+skip; explicit real-generator integration 1 passed in 185.744s with exact
+408,364-byte manifest and 21,716-byte headroom below 420 KiB; structural profile
+17/17; provisional browser publication 29/29; and docs, whitespace, and diff
+checks pass locally. The geometry fix is complete locally, but this does not
+claim hosted taper, final publication, visual quality, or merge readiness. CI
+is green only for remote head
+`4ef0db26eb3a91abdd281f7e5c19bdf32ecd0688`.
 
 A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
 treating the source-authored peak and axilla shoulder control landmarks as

@@ -93,6 +93,7 @@ _MAX_SUCCESSOR_CONTRACT_INTEGER = 4096
 _MAX_SUCCESSOR_CONTRACT_PARAMETER = 64.0
 _MAX_SUCCESSOR_CONTRACT_SCALE = 4.0
 _MAX_SUCCESSOR_CONTRACT_EXPONENT = 16.0
+_MAX_SUCCESSOR_HAND_PAW_OFFSET = 1.0
 _SUCCESSOR_CONTRACT_VALUES: dict[str, Any] = {}
 _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR: str | None = None
 
@@ -162,8 +163,10 @@ def _validate_successor_contract_value(name: str, value: Any) -> Any:
             _successor_contract_number(
                 f"{name}[{station_index}][0]",
                 station[0],
-                lower=-_MAX_SUCCESSOR_CONTRACT_PARAMETER,
-                upper=_MAX_SUCCESSOR_CONTRACT_PARAMETER,
+                lower=-_MAX_SUCCESSOR_HAND_PAW_OFFSET,
+                upper=_MAX_SUCCESSOR_HAND_PAW_OFFSET,
+                strict_lower=True,
+                strict_upper=True,
             )
             _successor_contract_number(
                 f"{name}[{station_index}][1]",
@@ -184,6 +187,11 @@ def _validate_successor_contract_value(name: str, value: Any) -> Any:
             for station, next_station in zip(value, value[1:])
         ):
             raise _successor_contract_failure(name, "strictly increasing station offsets")
+        offsets = tuple(float(station[0]) for station in value)
+        if not min(offsets) < 0.0 < max(offsets):
+            raise _successor_contract_failure(
+                name, "station offsets straddling the paw center"
+            )
         return value
 
     if name == "_HAND_PAW_SECTION_NAMES":
@@ -556,8 +564,9 @@ MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
 # The v9 successor manifest carries complete per-variant guide-derived leg/foot
 # metadata plus the compact exact component inventory. The current hand-paw
-# payload serializes to 408,678 bytes; 420 KiB preserves the required 8 KiB
-# headroom while keeping the untrusted manifest cap finite and tight.
+# payload serializes to 408,364 bytes; 420 KiB leaves 21,716 bytes of
+# headroom, preserving the required 8 KiB while keeping the untrusted manifest
+# cap finite and tight.
 MIN_MANIFEST_HEADROOM_BYTES = 8 * 1024
 MAX_MANIFEST_BYTES = 420 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
@@ -5497,13 +5506,27 @@ def _expected_successor_hand_paw_metadata(guide: dict[str, Any]) -> dict[str, An
         forward = [float(value) for value in axes["forward"]]
         stations: list[dict[str, Any]] = []
         for index, (offset, up_scale, forward_scale) in enumerate(SUCCESSOR_HAND_PAW_PROFILE):
+            axial_radius = float(paw_mass["radii"][0])
+            parsed_offset = float(offset)
+            if (
+                not math.isfinite(parsed_offset)
+                or not -_MAX_SUCCESSOR_HAND_PAW_OFFSET < parsed_offset < _MAX_SUCCESSOR_HAND_PAW_OFFSET
+            ):
+                raise SurfacePreviewPublishError(
+                    f"successor {side} hand-paw station {index} has an invalid offset"
+                )
+            residual_axial_radius = (1.0 - abs(parsed_offset)) * axial_radius
+            if not math.isfinite(residual_axial_radius) or residual_axial_radius <= 0.0:
+                raise SurfacePreviewPublishError(
+                    f"successor {side} hand-paw station {index} has a nonpositive residual axial radius"
+                )
             center = [
                 float(paw_mass["center"][axis])
-                + offset * float(paw_mass["radii"][0]) * outward[axis]
+                + parsed_offset * axial_radius * outward[axis]
                 for axis in range(3)
             ]
             volume_radii = [
-                float(paw_mass["radii"][0]),
+                residual_axial_radius,
                 float(paw_mass["radii"][1]) * up_scale,
                 float(paw_mass["radii"][2]) * forward_scale,
             ]
@@ -5558,7 +5581,6 @@ def _expected_successor_region_metadata(
     """
 
     controls = guide["controls"]
-    axes = controls["axes"]
     head = controls["head"]
     head_owner, neck_owner = head["owners"]
     head_neck = _expected_successor_head_neck_metadata(guide)
@@ -5639,26 +5661,22 @@ def _expected_successor_region_metadata(
     }
     extremity_owner_keys: list[list[dict[str, Any]]] = []
     extremity_internal_transition_counts: list[int] = []
+    hand_paw_by_side = {
+        item["side"]: item
+        for item in hand_paw["sides"]
+    }
     for side in ("left", "right"):
         hand = paws_by_key.get(((side,), "hand"))
         foot = paws_by_key.get(((side,), "foot"))
         shin = limbs_by_key.get(((side,), "shin"))
         if hand is None or foot is None or shin is None:
             raise SurfacePreviewPublishError(f"validated regional guide lacks {side} extremity controls")
-        hand_mass = hand["masses"][0]
-        lateral_sign = -1.0 if side == "left" else 1.0
-        outward = [
-            lateral_sign * float(value)
-            for value in axes["lateral"]
-        ]
-        hand_centers = [
-            [
-                float(hand_mass["center"][axis])
-                + offset * float(hand_mass["radii"][0]) * outward[axis]
-                for axis in range(3)
-            ]
-            for offset, _up_scale, _forward_scale in SUCCESSOR_HAND_PAW_PROFILE
-        ]
+        hand_paw_side = hand_paw_by_side.get(side)
+        if not isinstance(hand_paw_side, dict) or not isinstance(hand_paw_side.get("stations"), list):
+            raise SurfacePreviewPublishError(
+                f"validated hand-paw metadata lacks the {side} station centers"
+            )
+        hand_centers = [station["center"] for station in hand_paw_side["stations"]]
         foot_chain = foot["chain"]
         foot_masses = {
             item["control"]: item for item in foot_chain["masses"]
@@ -5804,7 +5822,10 @@ def _expected_successor_region_metadata(
         "tail_source_owner_keys": [root["owner"], tip["owner"]],
         "tail_element_controls": None,
         "tail_tip_shared_endpoint": None,
-        "replaced_baseline_field_count": 52,
+        "replaced_baseline_field_count": sum(
+            EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"][recipe]
+            for recipe in SUCCESSOR_REPLACED_BASELINE_RECIPES
+        ),
         "replaced_baseline_recipes": list(SUCCESSOR_REPLACED_BASELINE_RECIPES),
     }
     return {

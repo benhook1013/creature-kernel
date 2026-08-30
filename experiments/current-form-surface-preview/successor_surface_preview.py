@@ -2854,8 +2854,17 @@ def _validate_extremity_sweeps(
             tuple(float(value) for value in hand.axes.up),
             tuple(float(value) for value in hand.axes.forward),
         )
-        for index, (section, control) in enumerate(zip(paw.sweep.sections, _HAND_PAW_PROFILE)):
-            expected_center = _vec3(hand.paw_center, f"{side}.paw-center") + float(control[0]) * float(hand.paw_radii[0]) * outward
+        controls = _validated_hand_paw_profile(
+            _HAND_PAW_PROFILE,
+            f"{side}.hand-paw owner {hand.owner.key}",
+        )
+        for index, (section, control) in enumerate(zip(paw.sweep.sections, controls)):
+            offset, station_axial_radius = _hand_paw_station_axial_radius(
+                control[0],
+                float(hand.paw_radii[0]),
+                f"{side}.hand-paw.section[{index}]",
+            )
+            expected_center = _vec3(hand.paw_center, f"{side}.paw-center") + offset * float(hand.paw_radii[0]) * outward
             if not np.array_equal(_vec3(section.center, f"{side}.hand-paw.section[{index}]"), expected_center):
                 _fail(f"{side} hand paw section {index} does not follow shared outward offsets")
             expected_radii = (float(hand.paw_radii[1]) * control[1], float(hand.paw_radii[2]) * control[2])
@@ -2868,7 +2877,7 @@ def _validate_extremity_sweeps(
             if section.station_volume_axes != expected_station_axes:
                 _fail(f"{side} hand paw station {index} lost its source-derived volume axes")
             expected_station_radii = (
-                float(hand.paw_radii[0]),
+                station_axial_radius,
                 float(hand.paw_radii[1]) * float(control[1]),
                 float(hand.paw_radii[2]) * float(control[2]),
             )
@@ -3269,6 +3278,59 @@ def _make_hip_root_transitions(
     return result
 
 
+def _hand_paw_offset(offset: Any, where: str) -> float:
+    """Validate one authored hand-paw offset before using its support."""
+
+    try:
+        offset_value = float(offset)
+    except (OverflowError, TypeError, ValueError):
+        _fail(f"{where} offset must be finite and have absolute value less than one")
+    if not math.isfinite(offset_value) or abs(offset_value) >= 1.0:
+        _fail(f"{where} offset must be finite and have absolute value less than one")
+    return offset_value
+
+
+def _validated_hand_paw_profile(profile: Any, where: str) -> tuple[tuple[float, Any, Any], ...]:
+    """Validate the four source-owned offsets and their required straddle."""
+
+    try:
+        controls = tuple(profile)
+    except TypeError:
+        _fail(f"{where} authored profile must contain exactly four controls")
+    if len(controls) != len(_HAND_PAW_SECTION_NAMES):
+        _fail(f"{where} authored profile must contain exactly four controls")
+    validated: list[tuple[float, Any, Any]] = []
+    offsets: list[float] = []
+    for index, control in enumerate(controls):
+        try:
+            values = tuple(control)
+        except TypeError:
+            _fail(f"{where} control {index} must contain an offset and two transverse scales")
+        if len(values) != 3:
+            _fail(f"{where} control {index} must contain an offset and two transverse scales")
+        offset = _hand_paw_offset(values[0], f"{where}.section[{index}]")
+        offsets.append(offset)
+        validated.append((offset, values[1], values[2]))
+    if any(right <= left for left, right in zip(offsets, offsets[1:])):
+        _fail(f"{where} authored offsets must be strictly increasing")
+    if min(offsets) >= 0.0 or max(offsets) <= 0.0:
+        _fail(f"{where} authored offsets must straddle the paw center")
+    return tuple(validated)
+
+
+def _hand_paw_station_axial_radius(offset: Any, axial_radius: float, where: str) -> tuple[float, float]:
+    """Validate one authored hand-paw offset and derive its residual support."""
+
+    offset_value = _hand_paw_offset(offset, where)
+    try:
+        residual_radius = (1.0 - abs(offset_value)) * float(axial_radius)
+    except (OverflowError, TypeError, ValueError):
+        _fail(f"{where} residual axial radius must be finite and strictly positive")
+    if not math.isfinite(residual_radius) or residual_radius <= 0.0:
+        _fail(f"{where} residual axial radius must be finite and strictly positive")
+    return offset_value, residual_radius
+
+
 def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
     """Build the four-station outward hand profile from exact paw controls."""
 
@@ -3293,13 +3355,24 @@ def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
         tuple(float(value) for value in forward),
     )
     sections: list[_ProfileSection] = []
+    station_axial_radii: list[float] = []
     path_length = 0.0
-    for index, (offset, up_scale, forward_scale) in enumerate(_HAND_PAW_PROFILE):
-        center = centre + float(offset) * axial_radius * outward
+    controls = _validated_hand_paw_profile(
+        _HAND_PAW_PROFILE,
+        f"{side}.hand-paw owner {paw.owner.key}",
+    )
+    for index, (offset, up_scale, forward_scale) in enumerate(controls):
+        offset, station_axial_radius = _hand_paw_station_axial_radius(
+            offset,
+            axial_radius,
+            f"{side}.hand-paw.section[{index}]",
+        )
+        center = centre + offset * axial_radius * outward
         radii = (float(paw_radii[1]) * float(up_scale), float(paw_radii[2]) * float(forward_scale))
         _finite_positive(radii, f"{side}.hand-paw.section[{index}].radii")
         if index:
-            path_length += abs(float(_HAND_PAW_PROFILE[index][0] - _HAND_PAW_PROFILE[index - 1][0])) * axial_radius
+            previous_offset = controls[index - 1][0]
+            path_length += abs(offset - previous_offset) * axial_radius
         sections.append(_ProfileSection(
             _HAND_PAW_SECTION_NAMES[index], paw.owner,
             tuple(float(value) for value in center),
@@ -3307,19 +3380,20 @@ def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
             (tuple(float(value) for value in up), tuple(float(value) for value in forward)),
             radii, path_length,
             station_volume_axes=station_axes,
-            station_volume_radii=(axial_radius, radii[0], radii[1]),
+            station_volume_radii=(station_axial_radius, radii[0], radii[1]),
         ))
+        station_axial_radii.append(station_axial_radius)
     ordered = tuple(sections)
     caps = (
         _ProfileEndpointCap(
             "start", ordered[0].center, tuple(-float(value) for value in outward),
             ordered[0].transverse_axes, ordered[0].transverse_radii,
-            min(min(ordered[0].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[0][0])) * axial_radius),
+            min(min(ordered[0].transverse_radii), 0.85 * station_axial_radii[0]),
         ),
         _ProfileEndpointCap(
             "end", ordered[-1].center, ordered[-1].tangent,
             ordered[-1].transverse_axes, ordered[-1].transverse_radii,
-            min(min(ordered[-1].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[-1][0])) * axial_radius),
+            min(min(ordered[-1].transverse_radii), 0.85 * station_axial_radii[-1]),
         ),
     )
     sweep = _ProfileSweep(ordered, caps)

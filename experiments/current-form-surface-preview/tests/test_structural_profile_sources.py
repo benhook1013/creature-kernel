@@ -26,6 +26,13 @@ import structural_atomic_publish  # noqa: E402
 
 
 PROFILE_IDS = list(generator.ACTIVE_PROFILE_IDS)
+EXPECTED_PROFILE_IDS = (
+    "standard_neutral_reference",
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+)
 
 
 def address(role: str, anchors: list[str] | None = None, kind: str = "part") -> dict[str, object]:
@@ -104,7 +111,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
     def test_freezes_exactly_five_canonical_sources_with_lineage(self) -> None:
         self.assertEqual(len(PROFILE_IDS), 5)
         self.assertEqual([profile["id"] for profile in self.candidate["profiles"]], PROFILE_IDS)
-        self.assertEqual(tuple(PROFILE_IDS), generator.ACTIVE_PROFILE_IDS)
+        self.assertEqual(tuple(PROFILE_IDS), EXPECTED_PROFILE_IDS)
         self.assertEqual(self.candidate_path.read_bytes(), generator.canonical_bytes(self.candidate))
         self.assertEqual(set(self.sources), set(PROFILE_IDS))
         manifest = json.loads((self.output_dir / "manifest.json").read_text(encoding="utf-8"))

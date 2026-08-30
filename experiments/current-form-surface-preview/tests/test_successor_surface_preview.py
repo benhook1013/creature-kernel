@@ -1308,7 +1308,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                         self.assertEqual(
                             section.station_volume_radii,
                             (
-                                hand.paw_radii[0],
+                                (1.0 - abs(control[0])) * hand.paw_radii[0],
                                 hand.paw_radii[1] * control[1],
                                 hand.paw_radii[2] * control[2],
                             ),
@@ -1321,7 +1321,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                         ),
                     )
                     start = np.asarray(item.sweep.sections[0].center, dtype=np.float64)
-                    station_probe = (start - 0.8 * hand.paw_radii[0] * outward).reshape(1, 3)
+                    station_probe = (start - 0.4 * hand.paw_radii[0] * outward).reshape(1, 3)
                     self.assertLess(float(successor._profile_sweep_field(station_probe, item.sweep)[0]), 0.0)
                     self.assertGreater(float(successor._profile_sweep_field(station_probe, stripped)[0]), 0.0)
                     full_lower, full_upper = successor._profile_sweep_bounds(item.sweep)
@@ -1331,6 +1331,123 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     self.assertLess(float(successor._profile_sweep_field(paw_center, item.sweep)[0]), 0.0)
                 forearm_end = np.asarray(arm.sweep.sections[-1].center).reshape(1, 3)
                 self.assertLess(float(successor._profile_sweep_field(forearm_end, item.sweep)[0]), 0.0)
+
+    def test_hand_paw_axial_station_support_is_positive_bounded_and_reaches_authored_extent(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                paws = {
+                    (item.owner.key[1][0], item.owner.key[3]): item
+                    for item in guide.paw_guides
+                }
+                for route in region.hand_sweeps:
+                    if route.kind != "hand-paw":
+                        continue
+                    hand = paws[(route.side, "hand")]
+                    axial_radius = float(hand.paw_radii[0])
+                    intervals = []
+                    for section, (offset, _up_scale, _forward_scale) in zip(
+                        route.sweep.sections,
+                        successor._HAND_PAW_PROFILE,
+                    ):
+                        offset = float(offset)
+                        residual_radius = (1.0 - abs(offset)) * axial_radius
+                        self.assertTrue(math.isfinite(residual_radius))
+                        self.assertLess(abs(offset), 1.0)
+                        self.assertGreater(residual_radius, 0.0)
+                        self.assertEqual(section.station_volume_radii[0], residual_radius)
+                        intervals.append((
+                            offset * axial_radius - residual_radius,
+                            offset * axial_radius + residual_radius,
+                        ))
+
+                    for lower, upper in intervals:
+                        self.assertGreaterEqual(lower, -axial_radius - 1.0e-12)
+                        self.assertLessEqual(upper, axial_radius + 1.0e-12)
+                    self.assertAlmostEqual(min(lower for lower, _upper in intervals), -axial_radius, places=12)
+                    self.assertAlmostEqual(max(upper for _lower, upper in intervals), axial_radius, places=12)
+
+    def test_hand_paw_invalid_endpoint_and_out_of_range_offsets_fail_closed(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        hand = next(item for item in guide.paw_guides if item.owner.key[1:] == (("left",), "part", "hand"))
+        canonical_controls = tuple(successor._HAND_PAW_PROFILE)
+        cases = {}
+        for name, index, invalid_offset in (
+            ("negative-endpoint", 0, -1.0),
+            ("positive-endpoint", 3, 1.0),
+            ("out-of-range", 2, 1.01),
+            ("non-finite", 1, math.nan),
+        ):
+            controls = list(canonical_controls)
+            _old_offset, up_scale, forward_scale = controls[index]
+            controls[index] = (invalid_offset, up_scale, forward_scale)
+            cases[name] = tuple(controls)
+        for name, offsets in (
+            ("all-positive", (0.01, 0.15, 0.35, 0.78)),
+            ("all-negative", (-0.55, -0.35, -0.15, -0.01)),
+            ("non-monotonic", (-0.55, 0.35, -0.15, 0.78)),
+        ):
+            cases[name] = tuple(
+                (offset, control[1], control[2])
+                for offset, control in zip(offsets, canonical_controls)
+            )
+        for name, controls in cases.items():
+            with self.subTest(name=name), mock.patch.object(
+                successor,
+                "_HAND_PAW_PROFILE",
+                tuple(controls),
+            ), self.assertRaisesRegex(successor.SuccessorPreviewError, "offset|straddle"):
+                successor._make_hand_paw_sweep(hand, "left")
+
+        limb_sweeps = successor._make_limb_sweeps(guide)
+        extremity_sweeps = successor._make_extremity_sweeps(guide, limb_sweeps)
+        for name in ("all-positive", "all-negative"):
+            with self.subTest(source_owner_invariant=name), mock.patch.object(
+                successor,
+                "_HAND_PAW_PROFILE",
+                cases[name],
+            ), self.assertRaisesRegex(successor.SuccessorPreviewError, "straddle"):
+                successor._validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
+
+    def test_hand_paw_station_volumes_remain_active_after_axial_support_correction(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                paws = {
+                    (item.owner.key[1][0], item.owner.key[3]): item
+                    for item in guide.paw_guides
+                }
+                for route in region.hand_sweeps:
+                    if route.kind != "hand-paw":
+                        continue
+                    hand = paws[(route.side, "hand")]
+                    stripped = replace(
+                        route.sweep,
+                        sections=tuple(
+                            replace(item, station_volume_axes=None, station_volume_radii=None)
+                            for item in route.sweep.sections
+                        ),
+                    )
+                    outward = np.asarray(route.sweep.sections[0].station_volume_axes[0], dtype=np.float64)
+                    for endpoint_index, probe_distance in ((0, 0.4), (3, 0.2)):
+                        with self.subTest(side=route.side, endpoint=endpoint_index):
+                            section = route.sweep.sections[endpoint_index]
+                            direction = -outward if endpoint_index == 0 else outward
+                            station_probe = (
+                                np.asarray(section.center, dtype=np.float64)
+                                + probe_distance * float(hand.paw_radii[0]) * direction
+                            ).reshape(1, 3)
+                            self.assertLess(
+                                float(successor._profile_sweep_field(station_probe, route.sweep)[0]),
+                                0.0,
+                            )
+                            self.assertGreater(
+                                float(successor._profile_sweep_field(station_probe, stripped)[0]),
+                                0.0,
+                            )
 
     def test_hand_paw_metadata_retains_exact_compiled_full_volume_controls(self) -> None:
         for variant_id, descriptors, _ in self.form.variants:
@@ -1349,12 +1466,17 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(metadata["route_volume_axis_count"], 24)
                 self.assertEqual(metadata["route_volume_radius_count"], 24)
                 hand_routes = tuple(item for item in region.hand_sweeps if item.kind == "hand-paw")
+                paws = {
+                    (item.owner.key[1][0], item.owner.key[3]): item
+                    for item in guide.paw_guides
+                }
                 for side_metadata, route in zip(metadata["sides"], hand_routes):
                     self.assertEqual(side_metadata["side"], route.side)
                     self.assertEqual(side_metadata["route"], route.name)
                     self.assertEqual(side_metadata["route_kind"], route.kind)
                     self.assertEqual(side_metadata["station_count"], 4)
                     self.assertEqual(side_metadata["owner_roles"], ["hand"] * 4)
+                    hand = paws[(route.side, "hand")]
                     for index, (station_metadata, section) in enumerate(zip(side_metadata["stations"], route.sweep.sections)):
                         self.assertEqual(station_metadata["name"], section.name)
                         self.assertEqual(station_metadata["section_index"], index)
@@ -1368,6 +1490,11 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                             [list(axis) for axis in section.station_volume_axes],
                         )
                         self.assertEqual(station_metadata["volume_radii"], list(section.station_volume_radii))
+                        offset = float(successor._HAND_PAW_PROFILE[index][0])
+                        self.assertEqual(
+                            station_metadata["volume_radii"][0],
+                            (1.0 - abs(offset)) * float(hand.paw_radii[0]),
+                        )
                 mesh = successor.build_variant(self.form, descriptors, padding=0.5)
                 self.assertEqual(mesh.metrics["successor_region"]["hand_paw"], metadata)
 
