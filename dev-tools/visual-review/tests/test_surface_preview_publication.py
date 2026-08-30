@@ -3530,6 +3530,63 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         time.sleep(0.35)
         self.assertFalse(marker.exists())
 
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_run_bounded_allows_post_eof_teardown_within_overall_timeout(self) -> None:
+        child = self.directory / "delayed-teardown.py"
+        child.write_text(textwrap.dedent("""
+            import os, sys, time
+
+            os.close(1)
+            os.close(2)
+            time.sleep(0.75)
+            raise SystemExit(17)
+        """), encoding="utf-8")
+
+        stdout, stderr, returncode = publisher._run_bounded(
+            [sys.executable, str(child)],
+            timeout=1.5,
+            label="delayed teardown fixture",
+        )
+
+        self.assertEqual((stdout, stderr, returncode), (b"", b"", 17))
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_run_bounded_kills_post_eof_child_that_exceeds_overall_timeout(self) -> None:
+        pid_path = self.directory / "over-budget-pid.txt"
+        signal_path = self.directory / "over-budget-signal.txt"
+        child = self.directory / "over-budget-teardown.py"
+        child.write_text(textwrap.dedent("""
+            import os, pathlib, signal, sys, time
+
+            pid_path = pathlib.Path(sys.argv[1])
+            signal_path = pathlib.Path(sys.argv[2])
+
+            def record_term(_signum, _frame):
+                signal_path.write_text("term", encoding="ascii")
+                signal.signal(signal.SIGTERM, signal.SIG_IGN)
+
+            pid_path.write_text(str(os.getpid()), encoding="ascii")
+            signal.signal(signal.SIGTERM, record_term)
+            os.close(1)
+            os.close(2)
+            while True:
+                time.sleep(1)
+        """), encoding="utf-8")
+
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError,
+            "over-budget teardown fixture did not exit",
+        ):
+            publisher._run_bounded(
+                [sys.executable, str(child), str(pid_path), str(signal_path)],
+                timeout=0.15,
+                label="over-budget teardown fixture",
+            )
+
+        self.assertEqual(signal_path.read_text(encoding="ascii"), "term")
+        with self.assertRaises(ProcessLookupError):
+            os.kill(int(pid_path.read_text(encoding="ascii")), 0)
+
     @unittest.skipUnless(
         os.name == "posix" and sys.platform.startswith("linux") and Path("/proc").is_dir(),
         "unreaped leader inspection requires Linux /proc",

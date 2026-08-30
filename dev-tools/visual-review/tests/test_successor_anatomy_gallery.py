@@ -543,7 +543,6 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         parse.assert_not_called()
 
     def test_pinning_survives_original_path_replacement_and_propagates_digest(self) -> None:
-        self.require_creature_kernel()
         try:
             result = subprocess.run(
                 ["cargo", "build", "-q", "-p", "creature-kernel-cli"],

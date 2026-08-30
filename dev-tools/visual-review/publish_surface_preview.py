@@ -883,7 +883,7 @@ def _stop_process(
     try:
         process.wait(timeout=PROCESS_GRACE_SECONDS)
     except subprocess.TimeoutExpired as exc:  # pragma: no cover - defensive after SIGKILL
-        raise SurfacePreviewPublishError(f"process group did not terminate") from exc
+        raise SurfacePreviewPublishError("process group did not terminate") from exc
 
 
 def _observe_unreaped_exit(process: subprocess.Popen[bytes]) -> int | None:
@@ -999,19 +999,22 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
             raise failure
         if os.name == "posix":
             returncode: int | None = None
-            wait_deadline = time.monotonic() + PROCESS_GRACE_SECONDS
             while returncode is None:
                 returncode = _observe_unreaped_exit(process)
                 if returncode is not None:
                     break
-                remaining = wait_deadline - time.monotonic()
+                remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     stop_process()
                     raise SurfacePreviewPublishError(f"{label} did not exit")
                 time.sleep(min(0.01, remaining))
         else:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                stop_process()
+                raise SurfacePreviewPublishError(f"{label} did not exit")
             try:
-                returncode = process.wait(timeout=PROCESS_GRACE_SECONDS)
+                returncode = process.wait(timeout=remaining)
             except subprocess.TimeoutExpired as exc:
                 stop_process()
                 raise SurfacePreviewPublishError(f"{label} did not exit") from exc

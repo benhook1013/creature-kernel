@@ -59,36 +59,39 @@ or executable truth.
 
 The expected active branch/PR is `codex/post-godot-runway` / draft PR #122.
 Remote PR #122 head is the immutable commit
-`dc1761ef2c77c4ec6ac9e3b920ad9407fa6f1e29`; all three CI lanes are green. Its
-hosted review completed with four new findings, all independently verified and
-fixed in the local candidate: Rust composed-torso ordering across
-pelvis-to-torso; fail-closed handling for duplicate successor contract
-definitions; structural `--check` honoring the configured tempfile root; and
-killing successful private process-group descendants before leader reap in the
-Godot projection and publisher. Second-order review corrected the initial
-reap-before-kill PGID race in both helpers. The committed-diff CLI review was
-terminally rate-limited with a service-declared 18-minute retry delay and
-reported no findings. The
-four hosted threads remain unresolved pending a pushed fix commit and replies.
-PR `#122` remains draft and unmerged. No hosted taper, final gallery, visual
+`13d6fae5a3d975e5efd19a1b84cb2156307ff3c8`; all three CI lanes are green and
+the preceding four hosted threads are resolved. Its current hosted review
+completed with six findings and its committed-diff CLI review completed with
+nine findings. The locally integrated valid fixes cover bounded post-EOF child
+teardown, clean-workspace anatomy-gallery testing, positional historical source
+identity, direct use of the connector-clearance contract, and shared generated-
+profile test setup. The prior rate-limited CLI attempt on `dc1761e` produced no
+review result; it is not evidence of a finding-free pass. Invalid findings were
+rejected with evidence, including NZST date complaints, conflated v9-format and
+v16-region labels, producer-owned frozen-digest coupling, redundant parameter
+clamping, timeout skipping, and a proposed two-dimensional connector-span
+invariant contradicted by valid axial limb routes. The six current hosted
+threads remain unresolved pending a pushed fix commit and evidence replies. PR
+`#122` remains draft and unmerged. No hosted taper, final gallery, visual
 acceptance, or merge-readiness claim is made.
 
 The candidate still targets the exact five ordered profiles above, with the
-standard neutral reference first. The locally verified fix set passes the Rust
-torso suite (6 passed) and full CLI suite (75 passed); structural profile (18
-passed); Godot projection (35 passed with 1 expected skip); publisher (63 passed
-with 1 expected skip in 54.546s); and explicit real-generator integration (1
-passed in 187.081s) with the unchanged exact 408,364-byte manifest. Prior
-exact-five, gallery, profile, and browser evidence remains.
+standard neutral reference first. Current local review-fix evidence includes
+the surface publisher module (65 passed with 1 expected skip), both historical
+structural modules (28 passed each), the clean-workspace anatomy-gallery test
+(1 passed), and five exact successor connector/generated-profile tests (5
+passed). The preceding Rust, structural-profile, Godot, exact-five, gallery,
+profile, browser, and real-generator evidence remains.
 
 ### Immediate continuation
 
 Continue in this order:
 
-1. Complete the final integrated review of the local fix set, then run docs
-   validation, whitespace, diff, and formatting checks.
-2. Commit and push a fresh immutable head, resolve the four hosted threads with
-   replies to the pushed fixes, and preserve that reviewed remote head.
+1. Complete consolidated validation of the integrated local fix set, including
+   docs, whitespace, diff, and formatting checks.
+2. Commit and push a fresh immutable head, resolve the six hosted threads with
+   evidence-based fix or rejection replies, and preserve that reviewed remote
+   head.
 3. Await fresh current-head CI and launch hosted and committed-diff CLI review
    in parallel; preserve the immutable head through that cycle.
 4. If hosted review tapers, publish and technically verify a fresh exact-five
@@ -103,18 +106,16 @@ candidate being appraised and keep research, implementation evidence, and
 project state distinct. Any change that crosses a retained-human boundary is a
 stop-and-present decision, not autonomous continuation.
 
-The current evidence supports technical continuation only: Rust torso 6 and
-full CLI 75 pass; structural profile 18 pass; Godot projection 35 pass with 1
-expected skip; publisher 63 pass with 1 expected skip in 54.546s; and explicit
-real-generator integration 1 pass in 187.081s with the unchanged exact
-408,364-byte manifest. Prior exact-five, gallery, profile, and browser evidence
-remains. The four hosted findings are independently verified and fixed locally,
-including the corrected reap-before-kill PGID race in both helpers, but the fix
-set is not yet pushed and the four hosted threads remain unresolved. This does
-not claim hosted taper, final gallery publication, visual quality, or merge
-readiness. All three CI lanes are green for remote head
-`dc1761ef2c77c4ec6ac9e3b920ad9407fa6f1e29`; the terminally rate-limited CLI
-review declared an 18-minute retry delay and reported no findings.
+The current evidence supports technical continuation only. The integrated
+hosted/CLI follow-up fixes pass the surface publisher module (65 with 1 expected
+skip), both historical structural modules (28 each), the clean-workspace
+anatomy-gallery test (1), and five focused successor connector/generated-
+profile tests. Prior Rust, structural-profile, Godot, exact-five, gallery,
+profile, browser, and real-generator evidence remains. The fix set is not yet
+pushed and the six hosted threads remain unresolved. This does not claim hosted
+taper, final gallery publication, visual quality, or merge readiness. All three
+CI lanes are green for remote head
+`13d6fae5a3d975e5efd19a1b84cb2156307ff3c8`.
 
 A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
 treating the source-authored peak and axilla shoulder control landmarks as

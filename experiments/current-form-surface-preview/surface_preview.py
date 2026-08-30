@@ -3492,7 +3492,7 @@ def _embed_boundary_connector(
             _fail(f"{where} cannot embed within the supplied boundary clearance")
         if isinstance(inward_clearance, _BoundaryConnectorContainment):
             try:
-                clearance = min(float(inward_clearance.lateral_radius), float(inward_clearance.depth_radius))
+                clearance = float(inward_clearance.clearance)
             except (TypeError, ValueError, OverflowError):
                 clearance = float("nan")
         else:
@@ -3559,10 +3559,11 @@ def _embed_boundary_connector(
                     _fail(f"{where} cannot derive a radial cage inset")
                 radial_direction = radial / radial_length
                 inset = support * radial_length / clearance
+                if not math.isfinite(inset):
+                    _fail(f"{where} cannot certify full support inside the boundary ellipse")
                 compiled_start = boundary + np.asarray([radial_direction[0], 0.0, radial_direction[1]]) * inset
                 if (
-                    not math.isfinite(inset)
-                    or not _ellipse_support_is_certified(
+                    not _ellipse_support_is_certified(
                         compiled_start,
                         section_center,
                         float(radii[0]),

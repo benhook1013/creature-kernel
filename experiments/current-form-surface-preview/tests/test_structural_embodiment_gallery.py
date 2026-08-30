@@ -766,6 +766,42 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
                 candidate_path=EXPERIMENT / "structural_profile_candidates.json",
             )
 
+    def test_historical_generator_reordered_or_mislabeled_output_fails_closed(self) -> None:
+        self.expected_source_patch.stop()
+        candidate_table = gallery._load_candidates(gallery.HISTORICAL_CANDIDATE_PATH)
+        outputs = gallery.profile_source_generator.generate_sources(
+            candidate_table["root"],
+            json.loads(gallery.HISTORICAL_SOURCE_PATH.read_bytes()),
+            mode=gallery.HISTORICAL_GENERATION_MODE,
+        )
+        for malformed in (outputs[:-1], [*outputs, outputs[-1]]):
+            with self.subTest(output_count=len(malformed)):
+                with patch.object(
+                    gallery.profile_source_generator,
+                    "generate_sources",
+                    return_value=malformed,
+                ):
+                    with self.assertRaisesRegex(gallery.GalleryError, "exactly four profile documents"):
+                        gallery._expected_source_documents(candidate_table)
+
+        with patch.object(
+            gallery.profile_source_generator,
+            "generate_sources",
+            return_value=list(reversed(outputs)),
+        ):
+            with self.assertRaisesRegex(gallery.GalleryError, "unexpected source.document"):
+                gallery._expected_source_documents(candidate_table)
+
+        mislabeled = [dict(output) for output in outputs]
+        mislabeled[0] = {**mislabeled[0], "source": {**mislabeled[0]["source"], "document": "wrong"}}
+        with patch.object(
+            gallery.profile_source_generator,
+            "generate_sources",
+            return_value=mislabeled,
+        ):
+            with self.assertRaisesRegex(gallery.GalleryError, "unexpected source.document"):
+                gallery._expected_source_documents(candidate_table)
+
     def test_generated_source_bytes_are_hash_bound(self) -> None:
         profile_id = gallery.FROZEN_PROFILE_IDS[0]
         source_path = self.source_manifest.parent / f"{profile_id}.json"

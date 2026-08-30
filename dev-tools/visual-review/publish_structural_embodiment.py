@@ -372,14 +372,21 @@ def _expected_source_documents(candidate: dict[str, Any], candidate_data: bytes)
         )
         if len(outputs) != len(PROFILE_IDS):
             raise _error("historical generator did not produce exactly four profile documents")
-        expected = {
-            profile_id: profile_source_generator.canonical_source_bytes(output)
-            for profile_id, output in zip(PROFILE_IDS, outputs)
-        }
+        expected = {}
+        for index, (profile_id, output) in enumerate(zip(PROFILE_IDS, outputs)):
+            expected_document = f"{FROZEN_BASE_SOURCE_DOCUMENT}__structural_profile__{profile_id}"
+            if (
+                not isinstance(output, dict)
+                or not isinstance(output.get("source"), dict)
+                or output["source"].get("document") != expected_document
+            ):
+                raise _error(
+                    f"historical generator output {index} has unexpected source.document; "
+                    f"expected {expected_document}"
+                )
+            expected[profile_id] = profile_source_generator.canonical_source_bytes(output)
     except profile_source_generator.ProfileGenerationError as exc:
         raise _error("could not reproduce generated sources from the archived historical candidate table") from exc
-    if set(expected) != set(PROFILE_IDS):
-        raise _error("copied candidate table did not reproduce the exact four-profile source set")
     return expected
 
 

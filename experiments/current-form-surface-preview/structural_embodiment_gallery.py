@@ -434,14 +434,21 @@ def _expected_source_documents(
             source_value,
             mode=generation_mode,
         )
-        expected = {
-            profile_id: profile_source_generator.canonical_source_bytes(output)
-            for profile_id, output in zip(FROZEN_PROFILE_IDS, outputs)
-        }
+        if len(outputs) != len(FROZEN_PROFILE_IDS):
+            raise GalleryError("historical generator did not produce exactly four profile documents")
+        expected = {}
+        for index, (profile_id, output) in enumerate(zip(FROZEN_PROFILE_IDS, outputs)):
+            expected_document = f"{base_source['document']}__structural_profile__{profile_id}"
+            output_root = _obj(output, f"historical generator output[{index}]")
+            output_source = _obj(output_root.get("source"), f"historical generator output[{index}].source")
+            if output_source.get("document") != expected_document:
+                raise GalleryError(
+                    f"historical generator output {index} has unexpected source.document; "
+                    f"expected {expected_document}"
+                )
+            expected[profile_id] = profile_source_generator.canonical_source_bytes(output_root)
     except profile_source_generator.ProfileGenerationError as exc:
         raise GalleryError("could not reproduce generated sources from the frozen candidate table") from exc
-    if set(expected) != set(FROZEN_PROFILE_IDS):
-        raise GalleryError("historical candidate regeneration did not produce the exact four-profile set")
     return expected
 
 

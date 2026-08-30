@@ -829,8 +829,62 @@ class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
 
 
 class SuccessorSurfacePreviewTests(unittest.TestCase):
+    _generated_profile_tempdir: tempfile.TemporaryDirectory | None = None
+    _generated_profile_cli: Path | None = None
+    _generated_profile_output_dir: Path | None = None
+    _generated_profile_manifest: dict[str, object] | None = None
+
     def setUp(self) -> None:
         self.form = surface_preview.validate_envelope(fixture.make_varied_payload())
+
+    @classmethod
+    def _ensure_generated_profile_setup(cls) -> tuple[Path, Path, dict[str, object]]:
+        if (
+            cls._generated_profile_cli is not None
+            and cls._generated_profile_output_dir is not None
+            and cls._generated_profile_manifest is not None
+        ):
+            return cls._generated_profile_cli, cls._generated_profile_output_dir, cls._generated_profile_manifest
+
+        try:
+            build = subprocess.run(
+                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as exc:
+            raise unittest.SkipTest(f"cargo is unavailable in this test environment: {exc}") from exc
+        if build.returncode != 0:
+            raise AssertionError(build.stderr[-2000:])
+
+        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
+        if not cli.is_file():
+            raise AssertionError(f"built inspection CLI is missing: {cli}")
+
+        candidate_path = ROOT / "structural_profile_candidates.json"
+        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        tempdir = _native_temporary_directory()
+        cls._generated_profile_tempdir = tempdir
+        output_dir = Path(tempdir.name) / "sources"
+        source_manifest = fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
+        cls._generated_profile_cli = cli
+        cls._generated_profile_output_dir = output_dir
+        cls._generated_profile_manifest = source_manifest
+        return cli, output_dir, source_manifest
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        tempdir = cls._generated_profile_tempdir
+        cls._generated_profile_tempdir = None
+        cls._generated_profile_cli = None
+        cls._generated_profile_output_dir = None
+        cls._generated_profile_manifest = None
+        if tempdir is not None:
+            tempdir.cleanup()
+        super().tearDownClass()
 
     def _assert_shoulder_socket_support_contract(
         self,
@@ -3905,159 +3959,118 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
     def test_generated_structural_profiles_compile_successor_inventory_without_rendering(self) -> None:
         """Every generated profile and actual preview variant reaches the successor inventory."""
 
-        try:
-            build = subprocess.run(
-                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=180,
-            )
-        except FileNotFoundError as exc:
-            self.skipTest(f"cargo is unavailable in this test environment: {exc}")
-        self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
-        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
-        self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
-
-        candidate_path = ROOT / "structural_profile_candidates.json"
-        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        cli, output_dir, source_manifest = self._ensure_generated_profile_setup()
         profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
         self.assertEqual(profile_ids[0], "standard_neutral_reference")
+        self.assertEqual([item["id"] for item in source_manifest["profiles"]], list(profile_ids))
 
-        with _native_temporary_directory() as directory:
-            output_dir = Path(directory) / "sources"
-            source_manifest = fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
-            self.assertEqual([item["id"] for item in source_manifest["profiles"]], list(profile_ids))
+        for profile_id in profile_ids:
+            with self.subTest(profile=profile_id):
+                result = subprocess.run(
+                    [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
+                    cwd=REPO_ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    timeout=120,
+                )
+                self.assertEqual(result.returncode, 0, msg=result.stderr)
+                payload = json.loads(result.stdout)
+                self.assertEqual(payload["status"], "success", msg=result.stdout[:1000])
+                self.assertEqual(payload["diagnostics"], [], msg=result.stdout[:1000])
+                form = surface_preview.validate_envelope(payload)
+                self.assertEqual(
+                    tuple(variant_id for variant_id, _, _ in form.variants),
+                    tuple(surface_preview.VARIANT_IDS),
+                )
 
-            for profile_id in profile_ids:
-                with self.subTest(profile=profile_id):
-                    result = subprocess.run(
-                        [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
-                        cwd=REPO_ROOT,
-                        text=True,
-                        capture_output=True,
-                        check=False,
-                        timeout=120,
-                    )
-                    self.assertEqual(result.returncode, 0, msg=result.stderr)
-                    payload = json.loads(result.stdout)
-                    self.assertEqual(payload["status"], "success", msg=result.stdout[:1000])
-                    self.assertEqual(payload["diagnostics"], [], msg=result.stdout[:1000])
-                    form = surface_preview.validate_envelope(payload)
-                    self.assertEqual(
-                        tuple(variant_id for variant_id, _, _ in form.variants),
-                        tuple(surface_preview.VARIANT_IDS),
-                    )
+                for variant_id, descriptors, _ in form.variants:
+                    with self.subTest(variant=variant_id):
+                        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                        baseline = surface_preview._compile_hybrid_guide(guide)
+                        region = successor.compile_successor_region(guide, baseline)
+                        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
 
-                    for variant_id, descriptors, _ in form.variants:
-                        with self.subTest(variant=variant_id):
-                            guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                            baseline = surface_preview._compile_hybrid_guide(guide)
-                            region = successor.compile_successor_region(guide, baseline)
-                            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                        self._assert_shoulder_socket_support_contract(
+                            guide, region, f"{profile_id}/{variant_id}"
+                        )
 
-                            self._assert_shoulder_socket_support_contract(
-                                guide, region, f"{profile_id}/{variant_id}"
-                            )
-
-                            self.assertEqual(region.consumer_id, successor.CONSUMER_ID)
-                            self.assertEqual(region.region_id, successor.SUCCESSOR_REGION_ID)
-                            self.assertTrue(region.region_id.endswith("-v16"))
-                            self.assertEqual(
-                                sum(component.recipe == "successor-torso-loft" for component in components),
-                                1,
-                            )
-                            self.assertEqual(len(components), EXPECTED_EXACT_COMPONENT_COUNT)
-                            self.assertEqual(region.bridge_fields, ())
-                            self.assertEqual(
-                                sum(field.recipe in region.replaced_baseline_recipes for field in baseline),
-                                EXPECTED_REPLACED_BASELINE_FIELD_COUNT,
-                            )
-                            self.assertEqual(
-                                {item.side for item in region.hip_root_sweeps},
-                                {"left", "right"},
-                            )
-                            self.assertEqual(len(region.hip_root_sweeps), 2)
-                            self.assertEqual(
-                                tuple(item.name for item in region.hip_root_sweeps),
-                                ("left-hip-root-transition", "right-hip-root-transition"),
-                            )
-                            self.assertEqual(len(region.shoulder_sweeps), 2)
-                            self.assertEqual(len(region.head_neck_sweeps), 2)
-                            self.assertEqual(len(region.arm_sweeps), 4)
-                            self.assertEqual(len(region.leg_sweeps), 2)
-                            self.assertEqual(len(region.hand_sweeps), 4)
-                            self.assertEqual(len(region.foot_sweeps), 2)
-                            self.assertEqual(len(region.tail_elements), 6)
+                        self.assertEqual(region.consumer_id, successor.CONSUMER_ID)
+                        self.assertEqual(region.region_id, successor.SUCCESSOR_REGION_ID)
+                        self.assertTrue(region.region_id.endswith("-v16"))
+                        self.assertEqual(
+                            sum(component.recipe == "successor-torso-loft" for component in components),
+                            1,
+                        )
+                        self.assertEqual(len(components), EXPECTED_EXACT_COMPONENT_COUNT)
+                        self.assertEqual(region.bridge_fields, ())
+                        self.assertEqual(
+                            sum(field.recipe in region.replaced_baseline_recipes for field in baseline),
+                            EXPECTED_REPLACED_BASELINE_FIELD_COUNT,
+                        )
+                        self.assertEqual(
+                            {item.side for item in region.hip_root_sweeps},
+                            {"left", "right"},
+                        )
+                        self.assertEqual(len(region.hip_root_sweeps), 2)
+                        self.assertEqual(
+                            tuple(item.name for item in region.hip_root_sweeps),
+                            ("left-hip-root-transition", "right-hip-root-transition"),
+                        )
+                        self.assertEqual(len(region.shoulder_sweeps), 2)
+                        self.assertEqual(len(region.head_neck_sweeps), 2)
+                        self.assertEqual(len(region.arm_sweeps), 4)
+                        self.assertEqual(len(region.leg_sweeps), 2)
+                        self.assertEqual(len(region.hand_sweeps), 4)
+                        self.assertEqual(len(region.foot_sweeps), 2)
+                        self.assertEqual(len(region.tail_elements), 6)
 
     def test_generated_profile_capture_bounds_contain_all_baseline_and_successor_components(self) -> None:
         """All 5x4 generated consumers fit the shared successor capture frame."""
 
-        try:
-            build = subprocess.run(
-                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=180,
-            )
-        except FileNotFoundError as exc:
-            self.skipTest(f"cargo is unavailable in this test environment: {exc}")
-        self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
-        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
-        self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
-
-        candidate_path = ROOT / "structural_profile_candidates.json"
-        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        cli, output_dir, _ = self._ensure_generated_profile_setup()
         profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
         baseline_only_bounds = []
         successor_capture_bounds = []
         all_baseline_fields = []
         all_successor_components = []
 
-        with _native_temporary_directory() as directory:
-            output_dir = Path(directory) / "sources"
-            source_manifest = fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
-            self.assertEqual([item["id"] for item in source_manifest["profiles"]], list(profile_ids))
+        for profile_id in profile_ids:
+            with self.subTest(profile=profile_id):
+                result = subprocess.run(
+                    [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
+                    cwd=REPO_ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    timeout=120,
+                )
+                self.assertEqual(result.returncode, 0, msg=result.stderr)
+                payload = json.loads(result.stdout)
+                form = surface_preview.validate_envelope(payload)
+                baseline_sets = []
+                component_sets = []
+                for variant_id, descriptors, _ in form.variants:
+                    with self.subTest(variant=variant_id):
+                        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                        fields = surface_preview._compile_hybrid_guide(guide)
+                        region = successor.compile_successor_region(guide, fields)
+                        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                        baseline_sets.append(fields)
+                        component_sets.append(components)
+                        all_baseline_fields.append(fields)
+                        all_successor_components.append(components)
 
-            for profile_id in profile_ids:
-                with self.subTest(profile=profile_id):
-                    result = subprocess.run(
-                        [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
-                        cwd=REPO_ROOT,
-                        text=True,
-                        capture_output=True,
-                        check=False,
-                        timeout=120,
+                baseline_only_bounds.append(
+                    surface_preview._shared_render_bounds(
+                        tuple(baseline_sets), successor.DEFAULT_CAPTURE_PADDING
                     )
-                    self.assertEqual(result.returncode, 0, msg=result.stderr)
-                    payload = json.loads(result.stdout)
-                    form = surface_preview.validate_envelope(payload)
-                    baseline_sets = []
-                    component_sets = []
-                    for variant_id, descriptors, _ in form.variants:
-                        with self.subTest(variant=variant_id):
-                            guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                            fields = surface_preview._compile_hybrid_guide(guide)
-                            region = successor.compile_successor_region(guide, fields)
-                            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
-                            baseline_sets.append(fields)
-                            component_sets.append(components)
-                            all_baseline_fields.append(fields)
-                            all_successor_components.append(components)
-
-                    baseline_only_bounds.append(
-                        surface_preview._shared_render_bounds(
-                            tuple(baseline_sets), successor.DEFAULT_CAPTURE_PADDING
-                        )
+                )
+                successor_capture_bounds.append(
+                    successor._shared_successor_capture_bounds(
+                        tuple(baseline_sets), tuple(component_sets), successor.DEFAULT_CAPTURE_PADDING
                     )
-                    successor_capture_bounds.append(
-                        successor._shared_successor_capture_bounds(
-                            tuple(baseline_sets), tuple(component_sets), successor.DEFAULT_CAPTURE_PADDING
-                        )
-                    )
+                )
 
         saw_successor_extension = False
         for baseline_bounds, capture_bounds, field_sets, component_sets in zip(
@@ -4084,49 +4097,30 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
     def test_compact_lean_local_81_cube_has_no_negative_all_positive_successor_fold(self) -> None:
         """The reproduced tail neighborhood satisfies the successor-wide invariant."""
 
-        try:
-            build = subprocess.run(
-                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=180,
-            )
-        except FileNotFoundError as exc:
-            self.skipTest(f"cargo is unavailable in this test environment: {exc}")
-        self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
-        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
-        self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
-
-        candidate_path = ROOT / "structural_profile_candidates.json"
-        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
-        with _native_temporary_directory() as directory:
-            output_dir = Path(directory) / "sources"
-            fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
-            result = subprocess.run(
-                [str(cli), "inspect-provisional-form", "--input", str(output_dir / "compact_broad_short_limb_large_head.json")],
-                cwd=REPO_ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=120,
-            )
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
-            form = surface_preview.validate_envelope(json.loads(result.stdout))
-            _, descriptors, _ = next(item for item in form.variants if item[0] == "lean-readable-v0")
-            guide = surface_preview._derive_hybrid_guides(form, descriptors)
-            region = successor.compile_successor_region(guide)
-            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
-            lower = np.asarray((-0.20, -0.10, -2.65), dtype=np.float64)
-            upper = np.asarray((0.20, 0.08, -2.30), dtype=np.float64)
-            axes = tuple(np.linspace(lower[index], upper[index], 81, dtype=np.float64) for index in range(3))
-            points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
-            values = [component.evaluate(points) for component in components]
-            all_positive = np.logical_and.reduce(tuple(value > 0.0 for value in values))
-            self.assertTrue(np.any(all_positive))
-            composed = successor._successor_smooth_union(values, successor.DEFAULT_SMOOTH_K)
-            self.assertTrue(np.all(composed[all_positive] > 0.0))
+        cli, output_dir, _ = self._ensure_generated_profile_setup()
+        result = subprocess.run(
+            [str(cli), "inspect-provisional-form", "--input", str(output_dir / "compact_broad_short_limb_large_head.json")],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        form = surface_preview.validate_envelope(json.loads(result.stdout))
+        _, descriptors, _ = next(item for item in form.variants if item[0] == "lean-readable-v0")
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        region = successor.compile_successor_region(guide)
+        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+        lower = np.asarray((-0.20, -0.10, -2.65), dtype=np.float64)
+        upper = np.asarray((0.20, 0.08, -2.30), dtype=np.float64)
+        axes = tuple(np.linspace(lower[index], upper[index], 81, dtype=np.float64) for index in range(3))
+        points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+        values = [component.evaluate(points) for component in components]
+        all_positive = np.logical_and.reduce(tuple(value > 0.0 for value in values))
+        self.assertTrue(np.any(all_positive))
+        composed = successor._successor_smooth_union(values, successor.DEFAULT_SMOOTH_K)
+        self.assertTrue(np.all(composed[all_positive] > 0.0))
 
     def test_generator_emits_explicit_successor_and_bridge_metadata(self) -> None:
         with _native_temporary_directory() as directory:
