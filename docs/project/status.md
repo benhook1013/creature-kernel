@@ -339,9 +339,9 @@ intentional neck, torso and pelvis masses, shoulder/hip transitions, tapered
 limbs, and a simplified muzzle and paws/feet. This is not a photorealistic
 anatomy, detailed-hands/faces/tissue, or current Godot-mechanics claim.
 The provisional morphology-knowledge lane is now activated as research input
-for the current anatomy checkpoint. The [morphology-knowledge
-inventory and pilot dossiers](../research/morphology-knowledge-inventory-and-pilot-dossiers.md)
-records the required functional coverage and exactly two selected pilots:
+for the current anatomy checkpoint. The linked [morphology-knowledge inventory
+and pilot dossiers](../research/morphology-knowledge-inventory-and-pilot-dossiers.md)
+document records the required functional coverage and exactly two selected pilots:
 axial and upper-root assembly, and pelvic-to-planted-hind-paw assembly. It does
 not create a schema, roadmap, architecture, supported morphology promise, or
 executable truth. Ben's direction to continue dispositioned the bounded Godot
@@ -1982,6 +1982,9 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   discovery host remains distinct from the accepted production platform.
 
 ## Historical active-work record
+
+These bullets preserve former runway instructions as inactive historical
+context; the `Active runway` above governs current continuation.
 
 - Advance direct Rust source-preparation and engine-neutral runtime-package
   prerequisites toward the bounded Godot feasibility checkpoint. Keep the

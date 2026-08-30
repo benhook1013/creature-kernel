@@ -23,9 +23,9 @@ The following open references are used for broad orientation only:
 - [Stark et al., a 3D musculoskeletal model of the dog](https://pmc.ncbi.nlm.nih.gov/articles/PMC8166944/)
   supports distinguishing connected masses, attachments, and articulated
   segments in a locomotor body model.
-- [Chi and Roth, scaling and limb posture including digitigrady](https://pmc.ncbi.nlm.nih.gov/articles/PMC2894873/)
-  supports relating body scaling to limb posture and keeping a digitigrade
-  chain distinct from a straight uniform limb.
+- [Chi and Roth, scaling and mechanics of carnivoran footpads](https://pmc.ncbi.nlm.nih.gov/articles/PMC2894873/)
+  supports footpad/contact geometry, stiffness, and load mechanics in
+  digitigrade locomotion as body size changes.
 - [Barr, *Superquadrics and Angle-Preserving Transformations*](https://authors.library.caltech.edu/records/rtr62-f2882)
   supports a compact parametric vocabulary for oriented, rounded, non-circular
   masses and useful transformations.

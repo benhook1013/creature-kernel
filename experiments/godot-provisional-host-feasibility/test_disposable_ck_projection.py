@@ -581,11 +581,12 @@ class DisposableCKProjectionTests(unittest.TestCase):
 
     def test_bounded_subprocess_timeout_kills_and_waits_for_child(self) -> None:
         pid_path = self.root / "timeout-descendant.pid"
+        ready_path = self.root / "timeout-descendant.ready"
         descendant_body = (
             "from pathlib import Path\n"
             "import os\n"
             "import time\n"
-            f"Path({str(pid_path)!r}).write_text(str(os.getpid()))\n"
+            f"Path({str(ready_path)!r}).write_text('ready')\n"
             "time.sleep(30)\n"
         )
         sleeper = self._write_executable(
@@ -603,7 +604,8 @@ class DisposableCKProjectionTests(unittest.TestCase):
             projection.ProjectionError, "timed out after 2.0 seconds"
         ):
             projection._bounded_subprocess([str(sleeper)])
-        self.assertTrue(pid_path.is_file(), "descendant did not start")
+        self.assertTrue(ready_path.is_file(), "descendant did not start")
+        self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
         descendant_pid = int(pid_path.read_text())
         deadline = projection.time.monotonic() + 2.0
         while projection.time.monotonic() < deadline:

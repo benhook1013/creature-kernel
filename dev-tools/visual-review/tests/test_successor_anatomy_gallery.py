@@ -49,7 +49,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             raise AssertionError(f"inspection CLI is missing: {cls.creature_kernel}")
 
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(prefix="ck-successor-anatomy-tests-", dir="/tmp")
+        self.temp = tempfile.TemporaryDirectory(prefix="ck-successor-anatomy-tests-")
         self.root = Path(self.temp.name)
         self.source_dir = self.root / "sources"
         profile_generator.write_sources(
@@ -281,6 +281,30 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                     "growing identity source",
                     repository_path=False,
                 )
+
+    def test_failed_inspection_reports_exit_status_before_parsing_stdout(self) -> None:
+        manifest, _manifest_bytes, records = adapter._validate_source_manifest(self.source_manifest)
+        profile, source_ref, _source_value, source_bytes = records[0]
+        inspection_root = self.root / "failed-inspection"
+        inspection_root.mkdir()
+        with patch.object(
+            adapter,
+            "_run_inspection",
+            return_value=(b"not-json", b"boom", 7),
+        ), patch.object(adapter, "_parse_inspection") as parse:
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "exited with status 7: boom",
+            ):
+                adapter._inspect_profile(
+                    profile,
+                    source_ref,
+                    source_bytes,
+                    self.creature_kernel,
+                    inspection_root,
+                    manifest["source"]["base_namespace"],
+                )
+        parse.assert_not_called()
 
     def test_pinning_survives_original_path_replacement_and_propagates_digest(self) -> None:
         original_path = self.root / "creature-kernel"

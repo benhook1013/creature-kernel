@@ -471,12 +471,15 @@ def _inspect_profile(
         stdout, stderr, returncode = _run_inspection(
             [str(executable), "inspect-provisional-form", "--input", str(input_copy)]
         )
-        payload = _parse_inspection(stdout)
     except ProvisionalFormPublishError as exc:
         _fail(f"{profile_id} inspect-provisional-form failed: {exc}")
     if returncode != 0:
         detail = stderr.decode("utf-8", errors="replace").strip()[:240]
         _fail(f"{profile_id} inspect-provisional-form exited with status {returncode}{': ' + detail if detail else ''}")
+    try:
+        payload = _parse_inspection(stdout)
+    except ProvisionalFormPublishError as exc:
+        _fail(f"{profile_id} inspect-provisional-form failed: {exc}")
     if payload.get("format") != common.PROVISIONAL_FORM_V11_FORMAT:
         _fail(f"{profile_id} inspect-provisional-form did not produce the current v11 envelope")
     try:

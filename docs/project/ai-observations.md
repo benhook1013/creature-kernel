@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 19 open observations
+Status: Operational inbox; 20 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -12,12 +12,13 @@ is the default writer. The main thread records a durable recurring pattern
 before the work round closes and reports an existing match as a recurrence
 rather than duplicating it.
 
-Ordinary work does not read this inbox. During an intentional tooling or
-instruction-maintenance round, resolve, promote, or remove entries
-deliberately. Close repeated issues with a concrete bounded repository
-wrapper, preflight, active-instruction, or other tool fix when available;
-restating an observation is not closure. Git preserves the history of removed
-entries.
+Ordinary work does not use this inbox as general guidance; qualifying
+operational friction is checked narrowly here for duplicates and recording.
+During an intentional tooling or instruction-maintenance round, resolve,
+promote, or remove entries deliberately. Close repeated issues with a concrete
+bounded repository wrapper, preflight, active-instruction, or other tool fix
+when available; restating an observation is not closure. Git preserves the
+history of removed entries.
 
 Copyable entry scaffold:
 
@@ -100,3 +101,7 @@ Copyable entry scaffold:
 - `2026-08-30 00:25 NZST`: Mocked and skip-gated checks concealed a package consumer mismatch
   - Observation: Package unit tests mocked validation and process launch while the real Godot integration class was conditionally skipped, so the suite stayed green even though the producer's five-field source record was rejected by the consumer's three-field validator.
   - Expected pattern: For each new transport shape, keep a real producer-to-consumer scenario whose unavailable prerequisites are reported as missing coverage, and do not treat mocked transport checks as evidence of consumption compatibility.
+
+- `2026-08-30 14:43 NZST`: One deterministic mesh test consumed multiple foreground minutes
+  - Observation: A focused successor test that performs eight 56-cubed mesh builds remained CPU-bound after 2m31s and was interrupted during its second build; the complete successor file later took 9m25s.
+  - Expected pattern: Reserve repeated full-resolution deterministic mesh construction for consolidated candidate validation, and use focused semantic or numerical regressions during active implementation unless the mesh result itself is under test.
