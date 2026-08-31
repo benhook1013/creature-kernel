@@ -472,7 +472,14 @@ def _bootstrap_successor_contract() -> tuple[dict[str, Any], str | None]:
 
     try:
         return _read_successor_contract(), None
-    except (OSError, SyntaxError, UnicodeError, RecursionError, SurfacePreviewPublishError) as exc:
+    except (
+        OSError,
+        SyntaxError,
+        UnicodeError,
+        ValueError,
+        RecursionError,
+        SurfacePreviewPublishError,
+    ) as exc:
         detail = str(exc)
         if len(detail) > _MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH:
             detail = detail[:_MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH - 3] + "..."

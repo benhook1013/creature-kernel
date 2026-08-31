@@ -615,7 +615,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         original_temporary_directory = tempfile.TemporaryDirectory
         observed: dict[str, Path] = {}
 
-        def capture_temporary_directory(*args: object, **kwargs: object):
+        def capture_temporary_directory(*args: object, **kwargs: object) -> tempfile.TemporaryDirectory[str]:
             temporary = original_temporary_directory(*args, **kwargs)
             observed["path"] = Path(temporary.name)
             return temporary

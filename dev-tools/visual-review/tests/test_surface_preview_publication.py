@@ -3831,6 +3831,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             staged_source_path.unlink()
         elif mode == "syntax-invalid":
             staged_source_path.write_text("def (", encoding="utf-8")
+        elif mode == "null-byte-source":
+            staged_source_path.write_bytes(b"SUCCESSOR_REGION_ID = 'null-byte-source'\n\x00")
         elif mode == "oversized-source":
             (staged_visual_review / "sitecustomize.py").write_text(
                 "import ast\n"
@@ -4070,6 +4072,43 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         completed.stderr,
                     )
                 self.assertNotIn("Traceback", completed.stderr)
+
+    def test_null_byte_successor_source_defers_bootstrap_failure_to_publication(self) -> None:
+        staged_repository, staged_publisher = self._stage_publisher_contract_source(
+            "null-byte-source"
+        )
+        publication_root = self.directory / "null-byte-reviews"
+        surface_preview_launcher = (
+            HERE.parents[1]
+            / "experiments"
+            / "current-form-surface-preview"
+            / "surface_preview_launcher.sh"
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [
+                str(surface_preview_launcher),
+                str(staged_publisher),
+                "--root",
+                str(publication_root),
+                "--input",
+                str(self.input),
+            ],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2, completed.stderr)
+        self.assertEqual(completed.stdout, "")
+        self.assertIn(
+            "successor contract bootstrap failed: source code string cannot contain null bytes",
+            completed.stderr,
+        )
+        self.assertNotIn("Traceback", completed.stderr)
+        self.assertFalse(publication_root.exists())
 
     def test_successor_contract_rejects_symlink_source_before_open(self) -> None:
         target = self.directory / "successor-target.py"
