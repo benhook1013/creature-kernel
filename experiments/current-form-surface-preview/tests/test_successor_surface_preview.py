@@ -857,6 +857,14 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             )
         except FileNotFoundError as exc:
             raise unittest.SkipTest(f"cargo is unavailable in this test environment: {exc}") from exc
+        except subprocess.TimeoutExpired as exc:
+            stdout = getattr(exc, "stdout", None) or ""
+            stderr = getattr(exc, "stderr", None) or ""
+            raise AssertionError(
+                "could not build the inspection CLI: "
+                f"cargo build timed out after {exc.timeout} seconds; "
+                f"stdout tail={stdout[-2000:]!r}; stderr tail={stderr[-2000:]!r}"
+            ) from exc
         if build.returncode != 0:
             raise AssertionError(build.stderr[-2000:])
 

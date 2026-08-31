@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 29 open observations
+Status: Operational inbox; 30 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -131,7 +131,7 @@ Copyable entry scaffold:
   - Expected pattern: When a long-running session disappears, inspect live processes and the exact output target before retrying; terminate only the verified orphan process, then publish any retry to a fresh temporary path.
 
 - `2026-08-29 23:10 NZST`: Bounded subprocess cleanup ignored descendants
-  - Observation: A projection-tool review found that timeout and final cleanup killed only the direct child, allowing a descendant that inherited pipes or resources to outlive the bounded command. A later hosted review found the same lifecycle gap on successful leader exit in both the projection and surface publisher: each could reap the leader before terminating a surviving private-group descendant, weakening snapshot integrity and releasing the PGID anchor before the final signal. The first safe success-path correction then imposed the full 0.5-second grace on every successful publisher child and increased the 61-test suite from roughly 54 seconds to 331.289 seconds; immediate success-path escalation restored it to 63 tests in 51.994 seconds while timeout/error cleanup retained the grace period.
+  - Observation: A projection-tool review found that timeout and final cleanup killed only the direct child, allowing a descendant that inherited pipes or resources to outlive the bounded command. A later hosted review found the same lifecycle gap on successful leader exit in both the projection and surface publisher: each could reap the leader before terminating a surviving private-group descendant, weakening snapshot integrity and releasing the PGID anchor before the final signal. The first safe success-path correction then imposed the full 0.5-second grace on every successful publisher child and, in one local run, increased the 61-test suite from roughly 54 seconds to 331.289 seconds; in a separate local run, immediate success-path escalation restored it to 63 tests in 51.994 seconds while timeout/error cleanup retained the grace period.
   - Expected pattern: On POSIX, launch bounded subprocesses in a dedicated session/process group, observe leader status without reaping, terminate that exact group on every exit path, and reap only after the final signal. Regression-test a descendant rather than only the direct child; use immediate escalation for leftover descendants after successful leader exit and retain grace only for timeout/error cleanup.
 
 - `2026-08-30 00:04 NZST`: Diagnostic output pipeline masked a failing test status

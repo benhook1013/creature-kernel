@@ -135,7 +135,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             [["inspect-provisional-form", "--input"]] * 5,
         )
         self.assertEqual(len({command[0] for command in commands}), 1)
-        self.assertTrue(all(command[0] != str(creature_kernel or self.creature_kernel) for command in commands))
+        self.assertTrue(all(command[0] != str(creature_kernel) for command in commands))
         self.assertEqual(len({command[-1] for command in commands}), 5)
         self.assertEqual(
             [form.source["document"] for form, _ in (call.args for call in build_variant.call_args_list)],

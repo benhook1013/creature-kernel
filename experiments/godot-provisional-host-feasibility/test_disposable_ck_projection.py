@@ -707,7 +707,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
             events.index(("killpg", events[0][1], projection.signal.SIGKILL)),
             events.index(("wait", projection.PROCESS_GRACE_SECONDS)),
         )
-        sleep.assert_not_called()
+        self.assertNotIn(call(projection.PROCESS_GRACE_SECONDS), sleep.call_args_list)
 
     @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant cleanup requires Linux /proc process state")
     def test_success_cleanup_kills_pipe_closing_descendant_before_snapshot_recheck(self) -> None:

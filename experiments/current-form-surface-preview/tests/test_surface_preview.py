@@ -2447,6 +2447,14 @@ class SurfacePreviewTests(unittest.TestCase):
             )
         except FileNotFoundError as exc:
             self.skipTest(f"cargo is unavailable in this test environment: {exc}")
+        except subprocess.TimeoutExpired as exc:
+            stdout = getattr(exc, "stdout", None) or ""
+            stderr = getattr(exc, "stderr", None) or ""
+            raise AssertionError(
+                "could not build the inspection CLI: "
+                f"cargo build timed out after {exc.timeout} seconds; "
+                f"stdout tail={stdout[-2000:]!r}; stderr tail={stderr[-2000:]!r}"
+            ) from exc
         self.assertEqual(build.returncode, 0, msg=build.stderr[-2000:])
         self.assertTrue(cli.is_file(), msg=f"built inspection CLI is missing: {cli}")
 
