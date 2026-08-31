@@ -141,3 +141,7 @@ Copyable entry scaffold:
 - `2026-08-30 00:25 NZST`: Mocked and skip-gated checks concealed a package consumer mismatch
   - Observation: Package unit tests mocked validation and process launch while the real Godot integration class was conditionally skipped, so the suite stayed green even though the producer's five-field source record was rejected by the consumer's three-field validator.
   - Expected pattern: For each new transport shape, keep a real producer-to-consumer scenario whose unavailable prerequisites are reported as missing coverage, and do not treat mocked transport checks as evidence of consumption compatibility.
+
+- `2026-08-31 12:26 NZST`: WSL tempfile selected a DrvFS path for POSIX FIFO tests
+  - Observation: Under WSL, Python `tempfile` resolved to a Windows-mounted DrvFS path where `os.mkfifo` exists but failed with `ENOTSUP`, so POSIX-only tests need to distinguish API/platform support from filesystem capability.
+  - Expected pattern: For POSIX-only tests, check both `os.mkfifo`/platform support and filesystem capability, or use a verified native-Linux temp root rather than assuming Python's tempfile path supports FIFOs.

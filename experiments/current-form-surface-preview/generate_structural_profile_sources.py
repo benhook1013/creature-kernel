@@ -566,10 +566,6 @@ def _validate_candidate(
         if mode == DEFAULT_GENERATION_MODE:
             raise ProfileGenerationError("active mode requires the exact five-profile ID/order tuple")
         raise ProfileGenerationError("historical mode requires the exact frozen four-profile order")
-    if mode == DEFAULT_GENERATION_MODE and profile_ids[0] != STANDARD_NEUTRAL_PROFILE_ID:
-        raise ProfileGenerationError(
-            f"the first profile must be the {STANDARD_NEUTRAL_PROFILE_ID} neutral reference"
-        )
     if mode == DEFAULT_GENERATION_MODE:
         neutral = profiles[0]
         if any(scale != 1000 for scale in neutral["dimension_scales"].values()):

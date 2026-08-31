@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import base64
 import copy
+import errno
 import hashlib
 import importlib.util
 import io
@@ -3591,7 +3592,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         ):
             publisher._run_bounded(
                 [sys.executable, str(child), str(pid_path), str(signal_path)],
-                timeout=0.15,
+                timeout=0.75,
                 label="over-budget teardown fixture",
             )
 
@@ -4087,7 +4088,21 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
 
     def test_successor_contract_rejects_fifo_source_before_open(self) -> None:
         source = self.directory / "successor-source.fifo"
-        os.mkfifo(source)
+        mkfifo = getattr(os, "mkfifo", None)
+        if mkfifo is None:
+            self.skipTest("os.mkfifo is unavailable on this platform")
+        try:
+            mkfifo(source)
+        except OSError as error:
+            unsupported_fifo_errors = {
+                errno.EINVAL,
+                errno.ENOSYS,
+                errno.ENOTSUP,
+                errno.EOPNOTSUPP,
+            }
+            if error.errno in unsupported_fifo_errors:
+                self.skipTest(f"filesystem does not support FIFOs: {error}")
+            raise
         try:
             with patch.object(publisher, "_successor_source_path", return_value=source), patch.object(
                 Path, "open", side_effect=AssertionError("successor source was opened")

@@ -86,9 +86,8 @@ Continue in this order:
 
 1. Complete consolidated validation of the integrated local fix set, including
    docs, whitespace, diff, and formatting checks.
-2. Commit and push a fresh immutable head, resolve the six hosted threads with
-   evidence-based fix or rejection replies, and preserve that reviewed remote
-   head.
+2. Commit and push a fresh immutable head, preserve the six already-resolved
+   hosted threads as resolved, and address only findings from the fresh review.
 3. Await fresh current-head CI and launch hosted and committed-diff CLI review
    in parallel; preserve the immutable head through that cycle.
 4. If hosted review tapers, publish and technically verify a fresh exact-five
