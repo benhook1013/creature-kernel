@@ -3482,8 +3482,10 @@ def _embed_boundary_connector(
     support = float(profile[0])
     if not math.isfinite(lateral_forward_length) or not math.isfinite(support) or support <= 0.0:
         _fail(f"{where} cannot embed a degenerate boundary connector")
+    if lateral_forward_length > GUIDE_TOLERANCE and support >= lateral_forward_length:
+        _fail(f"{where} support radius consumes its boundary-to-child span")
     if inward_direction is None:
-        if lateral_forward_length <= 1.0e-12 or support >= lateral_forward_length:
+        if lateral_forward_length <= GUIDE_TOLERANCE:
             _fail(f"{where} support radius consumes its boundary-to-child span")
         lateral_direction = lateral_forward / lateral_forward_length
         compiled_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
@@ -3559,6 +3561,8 @@ def _embed_boundary_connector(
             inset = support * radial_length / clearance
             if not math.isfinite(inset):
                 _fail(f"{where} cannot certify full support inside the boundary ellipse")
+            if lateral_forward_length > GUIDE_TOLERANCE and inset >= lateral_forward_length:
+                _fail(f"{where} radial inset consumes or overshoots the boundary-to-child span")
             compiled_start = boundary + np.asarray([radial_direction[0], 0.0, radial_direction[1]]) * inset
             if (
                 not _ellipse_support_is_certified(
@@ -3583,6 +3587,13 @@ def _ellipse_support_is_certified(
     where: str,
 ) -> bool:
     """Return a conservative full-support certificate for one ellipse.
+
+    When the candidate centre lies exactly on a principal axis, parameterize
+    the support disk boundary by that axis coordinate. The ellipse equation is
+    then a quadratic on ``[-1, 1]``; evaluating both endpoints and an in-range
+    quadratic vertex gives a deterministic exact certificate for that case.
+    For a general centre, retain the homothetic certificate below. It is
+    conservative but still proves containment when it passes.
 
     For E=D(unit disk), every point c+r*u in the Euclidean support disk obeys
     ||D^-1(c+r*u)|| <= ||D^-1*c|| + r/min(a,b).  A value at most one therefore
@@ -3610,6 +3621,44 @@ def _ellipse_support_is_certified(
     ):
         _fail(f"{where} support containment controls are invalid")
     offset = center[[0, 2]] - section_center[[0, 2]]
+
+    # For a centre on a principal axis, a support-disk boundary point can be
+    # written as (axis_offset + r*t, r*sqrt(1-t*t)). Substitution into the
+    # ellipse equation leaves a quadratic in t. The endpoint and vertex check
+    # is exact for this axis-aligned case, including anisotropic ellipses.
+    if offset[1] == 0.0:
+        axis_offset = float(offset[0])
+        axis_radius = float(radii[0])
+        transverse_radius = float(radii[1])
+    elif offset[0] == 0.0:
+        axis_offset = float(offset[1])
+        axis_radius = float(radii[1])
+        transverse_radius = float(radii[0])
+    else:
+        axis_offset = None
+        axis_radius = None
+        transverse_radius = None
+    if axis_offset is not None and axis_radius is not None and transverse_radius is not None:
+        axis_inverse_square = 1.0 / (axis_radius * axis_radius)
+        transverse_inverse_square = 1.0 / (transverse_radius * transverse_radius)
+        quadratic_a = support_value * support_value * (axis_inverse_square - transverse_inverse_square)
+        quadratic_b = 2.0 * axis_offset * support_value * axis_inverse_square
+        quadratic_c = axis_offset * axis_offset * axis_inverse_square + support_value * support_value * transverse_inverse_square
+        if all(math.isfinite(value) for value in (quadratic_a, quadratic_b, quadratic_c)):
+            candidates = (-1.0, 1.0)
+            values = [quadratic_a * t * t + quadratic_b * t + quadratic_c for t in candidates]
+            if quadratic_a != 0.0:
+                vertex = -quadratic_b / (2.0 * quadratic_a)
+                if math.isfinite(vertex) and -1.0 <= vertex <= 1.0:
+                    values.append(quadratic_a * vertex * vertex + quadratic_b * vertex + quadratic_c)
+            if not all(math.isfinite(value) for value in values):
+                _fail(f"{where} support containment certificate is non-finite")
+            if max(values) <= 1.0 + GUIDE_TOLERANCE:
+                return True
+
+    # A general-point centre has no closed-form principal-axis reduction here.
+    # Keep the conservative homothetic certificate as the fallback rather than
+    # accepting a disk whose exact containment was not established.
     normalized_center = float(np.sqrt(np.sum(np.square(offset / radii))))
     clearance = float(np.min(radii))
     certificate = normalized_center + support_value / clearance

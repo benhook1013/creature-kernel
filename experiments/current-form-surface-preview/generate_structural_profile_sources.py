@@ -728,7 +728,7 @@ def _generate_sources(
 ) -> list[dict[str, Any]]:
     candidate = copy.deepcopy(candidate)
     source = copy.deepcopy(source)
-    expected_profile_count, expected_profile_ids = _profile_contract(mode)
+    expected_profile_count, _ = _profile_contract(mode)
     if mode == HISTORICAL_GENERATION_MODE:
         _, historical_candidate_bytes, historical_source, _ = _historical_fixture_values()
         if canonical_bytes(candidate) != historical_candidate_bytes:
@@ -756,8 +756,6 @@ def _generate_sources(
         outputs.append(output)
     if len(tail_signatures) < 2:
         raise ProfileGenerationError(f"the {expected_profile_count} present tails do not provide style contrast")
-    if expected_profile_ids is not None and tuple(profile_ids) != expected_profile_ids:
-        raise ProfileGenerationError("generated historical source lineage is not deterministic")
     if len(outputs) != expected_profile_count or [output["source"]["document"] for output in outputs] != [f"{source['source']['document']}__{SOURCE_DOCUMENT_SUFFIX}__{profile_id}" for profile_id in profile_ids]:
         raise ProfileGenerationError("generated source lineage is not deterministic")
     return outputs

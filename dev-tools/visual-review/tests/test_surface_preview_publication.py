@@ -3887,6 +3887,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "SUCCESSOR_REGION_ID",
                     "SUCCESSOR_REGION_ID = _CHAINED_SUCCESSOR_REGION_ID = 'unsupported-successor-region-id'",
                 )
+            elif mode == "nested-required-assignment":
+                source = "if True:\n    SUCCESSOR_REGION_ID = 'nested-successor-region-id'\n\n" + source
+            elif mode == "nested-required-overwrite":
+                source += "\nif True:\n    SUCCESSOR_REGION_ID = 'nested-overwrite-successor-region-id'\n"
             elif mode == "duplicate-hand-name":
                 source = replace_assignment(
                     source,
@@ -3986,6 +3990,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "duplicate-required-assignment",
             "augmented-required-assignment",
             "chained-required-assignment",
+            "nested-required-assignment",
+            "nested-required-overwrite",
             "duplicate-hand-name",
             "non-monotonic-hand-profile",
             "all-positive-hand-offsets",
@@ -4039,6 +4045,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 if mode == "chained-required-assignment":
                     self.assertIn(
                         "successor contract owner uses unsupported top-level chained assignment write for SUCCESSOR_REGION_ID",
+                        completed.stderr,
+                    )
+                if mode in {"nested-required-assignment", "nested-required-overwrite"}:
+                    self.assertIn(
+                        "successor contract owner uses unsupported nested control-flow assignment write for SUCCESSOR_REGION_ID",
                         completed.stderr,
                     )
                 if mode == "zero-socket-pelvis-weight":

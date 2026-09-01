@@ -87,6 +87,27 @@ successor arm consumer separately uses the authored arm profile and shared
 upper-arm-owned elbow seam described below. No successor arm root bridge or old
 underarm support is emitted.
 
+For the fixed axis-aligned prototype, a connector endpoint on a principal axis
+of its selected torso ellipse receives a deterministic analytic disk-containment
+certificate. The certificate evaluates the ellipse quadratic at both disk
+endpoints and at any in-range interior vertex. A general-point endpoint retains
+the conservative homothetic certificate as fallback; failure to certify remains
+fail-closed. A nonzero-lateral endpoint must also have
+`support < lateral_forward_length`, even when its one-support-radius disk is analytically
+contained, so embedding cannot reverse the ordered boundary-to-child path.
+The zero-lateral pure-axial path remains available. On the corrected HEAD,
+generated `standard_neutral_reference`, `compact_broad_short_limb_large_head`,
+and `stocky_broad_chested` profiles compile, while the deliberately tall and
+slender lean-thigh profiles are rejected at their thigh root connector when
+that bounded ordering/containment proof cannot pass. This is candidate-local
+correctness evidence, not a new morphology support promise.
+
+The immutable historical sessions and captures documented below remain
+historical evidence. Their reproduction commands are qualified by their
+recorded source/configuration/implementation hashes; they do not claim exact
+reproduction from this corrected, currently uncommitted HEAD, and generated
+outputs remain disposable under `/tmp`.
+
 The manifest metrics report both source descriptor count and actual generated
 field count, including the field-memory bound used for allocation. This is
 resource accounting for the disposable preview only, not a runtime budget or

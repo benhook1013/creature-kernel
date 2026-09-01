@@ -2308,8 +2308,8 @@ class SurfacePreviewTests(unittest.TestCase):
         cage = guide.torso_cage
 
         for side, role, axial in (
-            ("left", "thigh", 0.65),
-            ("right", "upper_arm", 1.40),
+            ("left", "thigh", 0.10),
+            ("right", "upper_arm", 0.10),
         ):
             with self.subTest(side=side, role=role):
                 index = next(
@@ -2429,7 +2429,7 @@ class SurfacePreviewTests(unittest.TestCase):
                     self.assertLess(float(surface_preview._field(np.asarray([midpoint]), bridge)[0]), 0.0)
                     self.assertAlmostEqual(float(surface_preview._field(np.asarray([semantic_anchor]), torso_field)[0]), 0.0, places=12)
 
-    def test_generated_profiles_compile_lean_leg_routes_and_foot_chains(self) -> None:
+    def test_generated_profiles_compile_or_reject_lean_leg_routes_and_foot_chains(self) -> None:
         candidate_path = ROOT / "structural_profile_candidates.json"
         source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         target_dir = Path(os.environ.get("CARGO_TARGET_DIR") or REPO_ROOT / "target")
@@ -2480,6 +2480,13 @@ class SurfacePreviewTests(unittest.TestCase):
                     self.assertEqual(payload["diagnostics"], [], msg=result.stdout[:1000])
                     form = surface_preview.validate_envelope(payload)
                     _, descriptors, _ = next(item for item in form.variants if item[0] == "lean-readable-v0")
+                    if profile_id in {"tall_narrow_long_legged", "slender_long_limb"}:
+                        with self.assertRaisesRegex(
+                            surface_preview.PreviewError,
+                            r'"role":"thigh"\}\.root-bridge (?:support radius consumes its boundary-to-child span|radial inset consumes or overshoots the boundary-to-child span)',
+                        ):
+                            surface_preview._compile_hybrid_guide(surface_preview._derive_hybrid_guides(form, descriptors))
+                        continue
                     guide = surface_preview._derive_hybrid_guides(form, descriptors)
                     fields = surface_preview._compile_hybrid_guide(guide)
                     self.assertEqual(len(fields), 52)
@@ -3111,6 +3118,141 @@ class SurfacePreviewTests(unittest.TestCase):
             support,
             "anisotropic.compiled",
         ))
+
+    def test_boundary_connector_principal_axis_certificate_preserves_containment_and_order(self) -> None:
+        section = surface_preview._BoundaryConnectorContainment(
+            center=(0.0, -0.45, 0.0),
+            lateral_radius=10.0,
+            depth_radius=5.0,
+        )
+        boundary = (10.0, -0.45, 0.0)
+        inward = (-1.0, 0.0, 0.0)
+        containment = section
+        support = 0.19
+        radial_inset = support * section.lateral_radius / section.clearance
+        self.assertAlmostEqual(radial_inset, 0.38)
+
+        path = (boundary, (9.8, -2.0, 0.0))
+        self.assertAlmostEqual(float(np.linalg.norm(np.asarray(path[1])[[0, 2]] - np.asarray(boundary)[[0, 2]])), 0.2)
+        compiled = surface_preview._embed_boundary_connector(
+            path,
+            (support, support),
+            "principal-axis",
+            inward,
+            containment,
+        )
+        np.testing.assert_allclose(compiled[0], (9.81, -0.45, 0.0), atol=1.0e-12)
+        self.assertTrue(surface_preview._ellipse_support_is_certified(
+            np.asarray(compiled[0]),
+            np.asarray(section.center),
+            section.lateral_radius,
+            section.depth_radius,
+            support,
+            "principal-axis.compiled",
+        ))
+        self.assertLess(float(compiled[0][0]), float(boundary[0]))
+        self.assertGreater(float(compiled[0][0]), float(path[1][0]))
+        self.assertEqual(float(compiled[0][1]), float(boundary[1]))
+        self.assertEqual(float(compiled[1][1]), float(path[1][1]))
+
+    def test_boundary_connector_uncertifiable_general_point_uses_homothetic_fallback(self) -> None:
+        section = surface_preview._BoundaryConnectorContainment(
+            center=(0.0, -0.45, 0.0),
+            lateral_radius=10.0,
+            depth_radius=5.0,
+        )
+        diagonal = math.sqrt(0.5)
+        boundary = (10.0 * diagonal, -0.45, 5.0 * diagonal)
+        target = (boundary[0] - 0.5, -2.0, boundary[2])
+        inward, containment = surface_preview._boundary_connector_inward_direction(
+            boundary,
+            section,
+            "general-point",
+        )
+        support = 0.19
+        self.assertLess(support, float(np.linalg.norm(np.asarray(target)[[0, 2]] - np.asarray(boundary)[[0, 2]])))
+        legacy_start = np.asarray(boundary) + np.asarray(inward) * support
+        self.assertFalse(surface_preview._ellipse_support_is_certified(
+            legacy_start,
+            np.asarray(section.center),
+            section.lateral_radius,
+            section.depth_radius,
+            support,
+            "general-point.legacy",
+        ))
+        compiled = surface_preview._embed_boundary_connector(
+            (boundary, target),
+            (support, support),
+            "general-point",
+            inward,
+            containment,
+        )
+        self.assertTrue(surface_preview._ellipse_support_is_certified(
+            np.asarray(compiled[0]),
+            np.asarray(section.center),
+            section.lateral_radius,
+            section.depth_radius,
+            support,
+            "general-point.fallback",
+        ))
+        self.assertGreater(float(compiled[0][0]), float(target[0]))
+        self.assertLess(float(compiled[0][0]), float(boundary[0]))
+
+    def test_boundary_connector_principal_axis_certificate_checks_interior_vertex(self) -> None:
+        axis_offset = 1.1
+        support = 0.8
+        lateral_radius = 2.0
+        depth_radius = 1.0
+        quadratic_a = support * support * (1.0 / lateral_radius**2 - 1.0 / depth_radius**2)
+        quadratic_b = 2.0 * axis_offset * support / lateral_radius**2
+        quadratic_c = axis_offset**2 / lateral_radius**2 + support**2 / depth_radius**2
+        vertex = -quadratic_b / (2.0 * quadratic_a)
+        self.assertGreater(vertex, -1.0)
+        self.assertLess(vertex, 1.0)
+        endpoint_values = [quadratic_a * t * t + quadratic_b * t + quadratic_c for t in (-1.0, 1.0)]
+        vertex_value = quadratic_a * vertex * vertex + quadratic_b * vertex + quadratic_c
+        self.assertTrue(all(value <= 1.0 for value in endpoint_values))
+        self.assertGreater(vertex_value, 1.0)
+        self.assertFalse(surface_preview._ellipse_support_is_certified(
+            np.asarray((axis_offset, -0.45, 0.0)),
+            np.asarray((0.0, -0.45, 0.0)),
+            lateral_radius,
+            depth_radius,
+            support,
+            "principal-axis.vertex",
+        ))
+
+    def test_boundary_connector_rejects_support_at_or_beyond_nonzero_lateral_span(self) -> None:
+        section = surface_preview._BoundaryConnectorContainment(
+            center=(0.0, -0.45, 0.0),
+            lateral_radius=10.0,
+            depth_radius=5.0,
+        )
+        boundary = (10.0, -0.45, 0.0)
+        with self.assertRaisesRegex(surface_preview.PreviewError, "support radius consumes its boundary-to-child span"):
+            surface_preview._embed_boundary_connector(
+                (boundary, (9.81, -2.0, 0.0)),
+                (0.19, 0.19),
+                "support-equals-span",
+                (-1.0, 0.0, 0.0),
+                section,
+            )
+
+    def test_boundary_connector_preserves_zero_lateral_pure_axial_path(self) -> None:
+        section = surface_preview._BoundaryConnectorContainment(
+            center=(0.0, -0.45, 0.0),
+            lateral_radius=1.0,
+            depth_radius=1.0,
+        )
+        compiled = surface_preview._embed_boundary_connector(
+            ((1.0, -0.45, 0.0), (1.0, -2.0, 0.0)),
+            (0.2, 0.2),
+            "zero-lateral",
+            (-1.0, 0.0, 0.0),
+            section,
+        )
+        np.testing.assert_allclose(compiled[0], (0.8, -0.45, 0.0), atol=1.0e-12)
+        np.testing.assert_allclose(compiled[1], (1.0, -2.0, 0.0), atol=1.0e-12)
 
     def test_role_recipes_reject_nonconforming_axis_placement(self) -> None:
         payload = make_payload()

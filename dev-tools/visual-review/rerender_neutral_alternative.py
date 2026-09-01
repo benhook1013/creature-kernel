@@ -58,6 +58,25 @@ RUNTIME_IMPORT_NAMES = {
     "pillow": "PIL",
 }
 RUNTIME_MODULE_SUFFIXES = {".py", ".pyc", ".so", ".pyd", ".dll", ".dylib"}
+# Keep this inventory fixed so runtime identity does not depend on which
+# package descendants happened to be imported earlier in the process.  These
+# are the package roots, Python implementation modules, and native extension
+# entrypoints used by the preview and its renderer.
+RUNTIME_MODULE_INVENTORY = (
+    ("numpy", "numpy"),
+    ("numpy", "numpy._core"),
+    ("numpy", "numpy._core._multiarray_umath"),
+    ("scikit-image", "skimage"),
+    ("scikit-image", "skimage.measure"),
+    ("scikit-image", "skimage.measure._marching_cubes_lewiner"),
+    ("scikit-image", "skimage.measure._marching_cubes_lewiner_cy"),
+    ("scikit-image", "skimage.measure._marching_cubes_lewiner_luts"),
+    ("Pillow", "PIL"),
+    ("Pillow", "PIL.Image"),
+    ("Pillow", "PIL.ImageDraw"),
+    ("Pillow", "PIL.ImageFont"),
+    ("Pillow", "PIL._imaging"),
+)
 
 
 def _fail(message: str) -> NoReturn:
@@ -150,8 +169,8 @@ def _runtime_identity(requirements_path: Path) -> dict[str, Any]:
     """Validate the pinned experiment environment and record a bounded fingerprint.
 
     This is deliberately a narrow evidence fingerprint: it covers the pinned
-    requirement versions, the interpreter, and file hashes for currently
-    imported modules belonging to those packages. It does not capture all
+    requirement versions, the interpreter, and file hashes for a fixed
+    inventory of modules used by the preview. It does not capture all
     ambient process, OS, loader, native-library, filesystem, or machine state.
     """
 
@@ -196,30 +215,47 @@ def _runtime_identity(requirements_path: Path) -> dict[str, Any]:
             _fail(f"pinned runtime import {import_name!r} failed for {distribution}: {exc}")
         requirements.append((distribution, expected_version, installed_version, import_name))
 
-    module_paths: dict[str, set[str]] = {}
-    for _distribution, _expected_version, _installed_version, import_name in requirements:
-        module = sys.modules.get(import_name)
-        module_file = getattr(module, "__file__", None)
-        if not isinstance(module_file, str) or not module_file:
-            _fail(f"pinned runtime import {import_name!r} has no file-backed module")
-        for loaded_name, loaded_module in tuple(sys.modules.items()):
-            if loaded_name != import_name and not loaded_name.startswith(f"{import_name}."):
-                continue
-            loaded_file = getattr(loaded_module, "__file__", None)
-            if not isinstance(loaded_file, str) or not loaded_file:
-                continue
-            loaded_path = Path(loaded_file)
-            if loaded_path.suffix.lower() in RUNTIME_MODULE_SUFFIXES:
-                module_paths.setdefault(str(loaded_path), set()).add(loaded_name)
-
-    if len(module_paths) > RUNTIME_MODULE_FILE_MAX_COUNT:
+    requirements_by_distribution = {
+        _normalize_distribution_name(distribution): distribution
+        for distribution, _expected_version, _installed_version, _import_name in requirements
+    }
+    inventory_distributions = {
+        _normalize_distribution_name(distribution)
+        for distribution, _module_name in RUNTIME_MODULE_INVENTORY
+    }
+    unsupported_distributions = sorted(
+        normalized
+        for normalized in requirements_by_distribution
+        if normalized not in inventory_distributions
+    )
+    if unsupported_distributions:
         _fail(
-            "pinned runtime imported-module fingerprint exceeds the bounded file count "
+            "pinned runtime requirements have no fixed module inventory for "
+            + ", ".join(unsupported_distributions)
+        )
+
+    if len(RUNTIME_MODULE_INVENTORY) > RUNTIME_MODULE_FILE_MAX_COUNT:
+        _fail(
+            "pinned runtime fixed module inventory exceeds the bounded file count "
             f"({RUNTIME_MODULE_FILE_MAX_COUNT})"
         )
     module_files: list[dict[str, Any]] = []
-    for module_path_text in sorted(module_paths):
-        module_path = Path(module_path_text)
+    for distribution, import_name in RUNTIME_MODULE_INVENTORY:
+        if _normalize_distribution_name(distribution) not in requirements_by_distribution:
+            continue
+        try:
+            module = importlib.import_module(import_name)
+        except Exception as exc:
+            _fail(f"pinned runtime import {import_name!r} failed for {distribution}: {exc}")
+        module_file = getattr(module, "__file__", None)
+        if not isinstance(module_file, str) or not module_file:
+            _fail(f"pinned runtime import {import_name!r} has no file-backed module")
+        module_path = Path(module_file)
+        if module_path.suffix.lower() not in RUNTIME_MODULE_SUFFIXES:
+            _fail(
+                f"pinned runtime import {import_name!r} has an unsupported module file "
+                f"suffix: {module_path}"
+            )
         file_identity = _file_identity(
             module_path,
             RUNTIME_MODULE_FILE_MAX_BYTES,
@@ -228,8 +264,8 @@ def _runtime_identity(requirements_path: Path) -> dict[str, Any]:
         )
         module_files.append(
             {
-                "modules": sorted(module_paths[module_path_text]),
-                "path": module_path_text,
+                "modules": [import_name],
+                "path": str(module_path),
                 "bytes": file_identity["bytes"],
                 "sha256": file_identity["sha256"],
             }

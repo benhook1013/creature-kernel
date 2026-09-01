@@ -101,7 +101,7 @@ Exit outcomes:
   together with the provisional adapter rather than treated as earlier-stage
   claims.
 
-## Stage 4: Prove extensibility
+### Stage 4: Prove extensibility
 
 Candidate outcomes:
 

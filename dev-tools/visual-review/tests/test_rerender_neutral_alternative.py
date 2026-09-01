@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.metadata
 import json
 import stat
 import sys
@@ -289,46 +288,55 @@ class NeutralAlternativeRerenderTests(unittest.TestCase):
             self.assertRegex(module_file["sha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(calls["publish"].call_count, 0)
 
-    def test_runtime_identity_snapshots_modules_before_reading_module_files(self) -> None:
-        requirements = self.root / "requirements.txt"
-        requirements.write_text(
-            f"numpy=={importlib.metadata.version('numpy')}\n",
-            encoding="utf-8",
-        )
-        mutating_name = "numpy._runtime_identity_mutating_module"
-        added_name = "numpy._runtime_identity_added_module"
+    def test_preloaded_synthetic_package_submodule_does_not_change_runtime_identity(self) -> None:
+        requirements = rerender.EXPERIMENT_ROOT / "requirements.txt"
+        baseline_runtime = rerender._runtime_identity(requirements)
+        baseline_implementation = rerender._implementation_identity(self.creature_kernel)
+        synthetic_name = "numpy._runtime_identity_synthetic_module"
         sentinel = object()
-        previous_modules = {
-            name: sys.modules.get(name, sentinel)
-            for name in (mutating_name, added_name)
-        }
-        lookup_names: list[str] = []
-        mutating_module = ModuleType(mutating_name)
-
-        def module_getattr(name: str) -> None:
-            lookup_names.append(name)
-            sys.modules[added_name] = ModuleType(added_name)
-            return None
-
-        mutating_module.__getattr__ = module_getattr  # type: ignore[attr-defined]
-        sys.modules[mutating_name] = mutating_module
+        previous = sys.modules.get(synthetic_name, sentinel)
+        synthetic_module = ModuleType(synthetic_name)
+        synthetic_module.__file__ = baseline_runtime["module_files"][0]["path"]
+        sys.modules[synthetic_name] = synthetic_module
         try:
-            with patch.object(
-                rerender,
-                "_file_identity",
-                return_value={"bytes": 0, "sha256": "0" * 64},
-            ):
-                runtime = rerender._runtime_identity(requirements)
+            runtime = rerender._runtime_identity(requirements)
+            implementation = rerender._implementation_identity(self.creature_kernel)
         finally:
-            for name, previous in previous_modules.items():
-                if previous is sentinel:
-                    sys.modules.pop(name, None)
-                else:
-                    sys.modules[name] = previous
+            if previous is sentinel:
+                sys.modules.pop(synthetic_name, None)
+            else:
+                sys.modules[synthetic_name] = previous
 
-        self.assertEqual(lookup_names, ["__file__"])
-        self.assertEqual(runtime["requirements"][0]["import"], "numpy")
-        self.assertIsInstance(runtime["module_files"], list)
+        self.assertEqual(runtime, baseline_runtime)
+        self.assertEqual(implementation, baseline_implementation)
+
+    def test_fixed_runtime_module_change_changes_runtime_and_implementation_identity(self) -> None:
+        requirements = rerender.EXPERIMENT_ROOT / "requirements.txt"
+        baseline_runtime = rerender._runtime_identity(requirements)
+        baseline_implementation = rerender._implementation_identity(self.creature_kernel)
+        changed_path = Path(baseline_runtime["module_files"][0]["path"])
+        original_file_identity = rerender._file_identity
+
+        def changed_file_identity(path: Path, maximum: int, where: str, *, repository_path: bool):
+            identity = original_file_identity(
+                path,
+                maximum,
+                where,
+                repository_path=repository_path,
+            )
+            if path == changed_path:
+                return {**identity, "sha256": "f" * 64}
+            return identity
+
+        with patch.object(rerender, "_file_identity", side_effect=changed_file_identity):
+            changed_runtime = rerender._runtime_identity(requirements)
+            changed_implementation = rerender._implementation_identity(self.creature_kernel)
+
+        self.assertNotEqual(changed_runtime, baseline_runtime)
+        self.assertNotEqual(
+            changed_implementation["identity_sha256"],
+            baseline_implementation["identity_sha256"],
+        )
 
     def test_runtime_import_name_normalizes_distribution_variants(self) -> None:
         variants = {

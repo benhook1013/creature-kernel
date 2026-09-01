@@ -372,7 +372,7 @@ def _successor_contract_names_in_target(target: ast.expr) -> set[str]:
 
 
 def _reject_unsupported_successor_contract_write(
-    form: str, targets: list[ast.expr]
+    form: str, targets: list[ast.expr], *, scope: str = "top-level"
 ) -> None:
     names = sorted(
         {
@@ -383,9 +383,101 @@ def _reject_unsupported_successor_contract_write(
     )
     if names:
         raise SurfacePreviewPublishError(
-            f"successor contract owner uses unsupported top-level {form} write for "
+            f"successor contract owner uses unsupported {scope} {form} write for "
             f"{', '.join(names)}"
         )
+
+
+class _NestedSuccessorContractWriteVisitor(ast.NodeVisitor):
+    """Reject contract writes in module-level control-flow bodies.
+
+    Function and class bodies are separate local scopes.  Their definitions
+    are intentionally ignored here; only statements that can execute in the
+    module scope are relevant to the source-owned contract.
+    """
+
+    def _reject(self, form: str, targets: list[ast.expr]) -> None:
+        _reject_unsupported_successor_contract_write(
+            form,
+            targets,
+            scope="nested control-flow",
+        )
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        self._reject("assignment", node.targets)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        self._reject("annotated assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        self._reject("augmented assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self._reject("named expression", [node.target])
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        self._reject("loop-target assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        self._reject("loop-target assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        for item in node.items:
+            if item.optional_vars is not None:
+                self._reject("with-target assignment", [item.optional_vars])
+        self.generic_visit(node)
+
+    def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
+        for item in node.items:
+            if item.optional_vars is not None:
+                self._reject("with-target assignment", [item.optional_vars])
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if node.name in _SUCCESSOR_CONTRACT_NAMES:
+            self._reject("exception-target assignment", [ast.Name(id=node.name)])
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        return
+
+
+def _module_level_control_flow_bodies(statement: ast.stmt) -> tuple[list[ast.stmt], ...]:
+    if isinstance(statement, (ast.If, ast.For, ast.AsyncFor, ast.While)):
+        return (statement.body, statement.orelse)
+    if isinstance(statement, (ast.With, ast.AsyncWith)):
+        return (statement.body,)
+    if isinstance(statement, ast.Try):
+        return (
+            statement.body,
+            statement.orelse,
+            statement.finalbody,
+            *(handler.body for handler in statement.handlers),
+        )
+    if isinstance(statement, ast.Match):
+        return tuple(case.body for case in statement.cases)
+    return ()
+
+
+def _reject_nested_successor_contract_writes(statement: ast.stmt) -> None:
+    if not _module_level_control_flow_bodies(statement):
+        return
+    _NestedSuccessorContractWriteVisitor().visit(statement)
 
 
 def _read_successor_contract() -> dict[str, Any]:
@@ -409,6 +501,7 @@ def _read_successor_contract() -> dict[str, Any]:
     values: dict[str, Any] = {}
     assigned_contract_names: set[str] = set()
     for statement in source_tree.body:
+        _reject_nested_successor_contract_writes(statement)
         if isinstance(statement, ast.ClassDef) and statement.name == "_ProfileSweep":
             for field in statement.body:
                 if not isinstance(field, ast.AnnAssign) or field.simple != 1:
