@@ -1510,23 +1510,50 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                     prior_variant, f"v7 variant field on {prior_format}"
                 )
 
-    def test_v7_torso_profile_rejects_composed_space_cross_owner_inversion(self) -> None:
-        payload = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
-        upper_pelvis = next(
-            landmark
-            for landmark in payload["authored_landmarks"]
-            if landmark["role"] == "form_torso_profile_upper_pelvis"
+    def test_composed_space_cross_owner_inversion_is_v11_only(self) -> None:
+        format_names = (
+            common.PROVISIONAL_FORM_V7_FORMAT,
+            common.PROVISIONAL_FORM_V8_FORMAT,
+            common.PROVISIONAL_FORM_V9_FORMAT,
+            common.PROVISIONAL_FORM_V10_FORMAT,
+            common.PROVISIONAL_FORM_V11_FORMAT,
         )
-        upper_pelvis["position"][1] = 0.95
-        for variant in payload["variants"]:
-            variant["torso_profile"]["sections"][1]["position"][1] = 0.95
-        with self.assertRaisesRegex(
-            common.ValidationError,
-            r"authored_torso_profile\.sections landmarks must have strictly increasing composed body-space y",
-        ):
-            common._validate_provisional_form_envelope(
-                payload, "composed-space cross-owner torso route fixture"
+        for format_name in format_names:
+            payload = self.capsule_payload(format_name=format_name)
+            upper_pelvis = next(
+                landmark
+                for landmark in payload["authored_landmarks"]
+                if landmark["role"] == "form_torso_profile_upper_pelvis"
             )
+            upper_pelvis["position"][1] = 0.95
+            for variant in payload["variants"]:
+                variant["torso_profile"]["sections"][1]["position"][1] = 0.95
+
+            with self.subTest(path="python", format_name=format_name):
+                if format_name == common.PROVISIONAL_FORM_V11_FORMAT:
+                    with self.assertRaisesRegex(
+                        common.ValidationError,
+                        r"authored_torso_profile\.sections landmarks must have strictly increasing composed body-space y",
+                    ):
+                        common._validate_provisional_form_envelope(
+                            payload, "composed-space cross-owner torso route fixture"
+                        )
+                else:
+                    common._validate_provisional_form_envelope(
+                        payload, "historical composed-space cross-owner torso route fixture"
+                    )
+
+            with self.subTest(path="browser", format_name=format_name):
+                browser_errors = self.browser_form_errors(payload)
+                if format_name == common.PROVISIONAL_FORM_V11_FORMAT:
+                    self.assertEqual(
+                        browser_errors,
+                        [
+                            "Authored torso sections landmarks must have strictly increasing composed body-space y."
+                        ] * len(payload["variants"]),
+                    )
+                else:
+                    self.assertEqual(browser_errors, [])
 
     def test_unknown_and_malformed_payloads_fail_closed(self) -> None:
         cases = [
@@ -2571,22 +2598,6 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         valid_v7 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
         self.assertEqual(self.browser_form_errors(valid_v7), [])
 
-        composed_inversion = copy.deepcopy(valid_v7)
-        upper_pelvis = next(
-            landmark
-            for landmark in composed_inversion["authored_landmarks"]
-            if landmark["role"] == "form_torso_profile_upper_pelvis"
-        )
-        upper_pelvis["position"][1] = 0.95
-        for variant in composed_inversion["variants"]:
-            variant["torso_profile"]["sections"][1]["position"][1] = 0.95
-        self.assertEqual(
-            self.browser_form_errors(composed_inversion),
-            [
-                "Authored torso sections landmarks must have strictly increasing composed body-space y."
-            ] * len(composed_inversion["variants"]),
-        )
-
         cases = []
         unknown_envelope_field = copy.deepcopy(valid_v7)
         unknown_envelope_field["unexpected"] = True
@@ -2668,10 +2679,10 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
             with self.subTest(prior_variant_format=prior_format):
                 self.assertTrue(self.browser_form_errors(prior_variant))
 
-    def test_browser_vm_rejects_composed_torso_inputs_before_order_check(self) -> None:
-        valid_v7 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V7_FORMAT)
+    def test_browser_vm_rejects_malformed_v11_torso_inputs(self) -> None:
+        valid_v11 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V11_FORMAT)
 
-        missing_torso_owner = copy.deepcopy(valid_v7)
+        missing_torso_owner = copy.deepcopy(valid_v11)
         for variant in missing_torso_owner["variants"]:
             variant["descriptors"] = [
                 descriptor
@@ -2682,7 +2693,7 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
                 )
             ]
 
-        invalid_torso_owner = copy.deepcopy(valid_v7)
+        invalid_torso_owner = copy.deepcopy(valid_v11)
         for variant in invalid_torso_owner["variants"]:
             torso = next(
                 descriptor
@@ -2692,7 +2703,7 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
             )
             torso["reference_point"][1] = float("nan")
 
-        nonfinite_source_position = copy.deepcopy(valid_v7)
+        nonfinite_source_position = copy.deepcopy(valid_v11)
         source_landmark = next(
             landmark
             for landmark in nonfinite_source_position["authored_landmarks"]
@@ -2700,7 +2711,7 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         )
         source_landmark["position"][1] = float("nan")
 
-        missing_torso_tree = copy.deepcopy(valid_v7)
+        missing_torso_tree = copy.deepcopy(valid_v11)
         for variant in missing_torso_tree["variants"]:
             pelvis_address = next(
                 descriptor["address"]

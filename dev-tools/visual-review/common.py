@@ -4017,7 +4017,7 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         )
     canonical_points = {entry[0]: entry[1] for entry in canonical}
     canonical_parents = {entry[0]: entry[2] for entry in canonical}
-    if is_v7 or is_v8 or is_v9 or is_v10 or is_v11:
+    if is_v11:
         _validate_composed_torso_profile_order(
             torso_profile_sections,
             canonical_points,

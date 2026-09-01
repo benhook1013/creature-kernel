@@ -3242,7 +3242,7 @@
         errors.push("Every shoulder-control variant must contain exactly one left and one right upper_arm descriptor.");
       }
     });
-    if ((isV7 || isV8 || isV9 || isV10 || isV11) && torsoProfileResult.sourceSections.length === PROVISIONAL_FORM_TORSO_SECTIONS.length) {
+    if (isV11 && torsoProfileResult.sourceSections.length === PROVISIONAL_FORM_TORSO_SECTIONS.length) {
       variantDescriptorMaps.forEach(function (descriptorMap) {
         var composedTorsoOrderError = formComposedTorsoProfileOrder(
           torsoProfileResult.sourceSections,
