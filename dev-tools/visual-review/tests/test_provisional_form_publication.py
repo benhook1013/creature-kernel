@@ -1510,6 +1510,51 @@ class ProvisionalFormPublicationTests(unittest.TestCase):
                     prior_variant, f"v7 variant field on {prior_format}"
                 )
 
+    def test_composed_space_cross_owner_inversion_is_v11_only(self) -> None:
+        format_names = (
+            common.PROVISIONAL_FORM_V7_FORMAT,
+            common.PROVISIONAL_FORM_V8_FORMAT,
+            common.PROVISIONAL_FORM_V9_FORMAT,
+            common.PROVISIONAL_FORM_V10_FORMAT,
+            common.PROVISIONAL_FORM_V11_FORMAT,
+        )
+        for format_name in format_names:
+            payload = self.capsule_payload(format_name=format_name)
+            upper_pelvis = next(
+                landmark
+                for landmark in payload["authored_landmarks"]
+                if landmark["role"] == "form_torso_profile_upper_pelvis"
+            )
+            upper_pelvis["position"][1] = 0.95
+            for variant in payload["variants"]:
+                variant["torso_profile"]["sections"][1]["position"][1] = 0.95
+
+            with self.subTest(path="python", format_name=format_name):
+                if format_name == common.PROVISIONAL_FORM_V11_FORMAT:
+                    with self.assertRaisesRegex(
+                        common.ValidationError,
+                        r"authored_torso_profile\.sections landmarks must have strictly increasing composed body-space y",
+                    ):
+                        common._validate_provisional_form_envelope(
+                            payload, "composed-space cross-owner torso route fixture"
+                        )
+                else:
+                    common._validate_provisional_form_envelope(
+                        payload, "historical composed-space cross-owner torso route fixture"
+                    )
+
+            with self.subTest(path="browser", format_name=format_name):
+                browser_errors = self.browser_form_errors(payload)
+                if format_name == common.PROVISIONAL_FORM_V11_FORMAT:
+                    self.assertEqual(
+                        browser_errors,
+                        [
+                            "Authored torso sections landmarks must have strictly increasing composed body-space y."
+                        ] * len(payload["variants"]),
+                    )
+                else:
+                    self.assertEqual(browser_errors, [])
+
     def test_unknown_and_malformed_payloads_fail_closed(self) -> None:
         cases = [
             {"unknown": True},
@@ -2572,9 +2617,26 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
         non_axial = copy.deepcopy(valid_v7)
         non_axial["authored_landmarks"][0]["position"][0] = 0.1
         cases.append(non_axial)
-        non_increasing_y = copy.deepcopy(valid_v7)
-        non_increasing_y["authored_landmarks"][1]["position"][1] = non_increasing_y["authored_landmarks"][0]["position"][1]
-        cases.append(non_increasing_y)
+        non_increasing_owner_local_y = copy.deepcopy(valid_v7)
+        lower_abdomen = next(
+            landmark
+            for landmark in non_increasing_owner_local_y["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_lower_abdomen"
+        )
+        waist_abdomen = next(
+            landmark
+            for landmark in non_increasing_owner_local_y["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_waist_abdomen"
+        )
+        waist_abdomen["position"][1] = lower_abdomen["position"][1]
+        for variant in non_increasing_owner_local_y["variants"]:
+            waist_section = next(
+                section
+                for section in variant["torso_profile"]["sections"]
+                if section["name"] == "waist-abdomen"
+            )
+            waist_section["position"][1] = lower_abdomen["position"][1]
+        cases.append(non_increasing_owner_local_y)
         missing_dimension = copy.deepcopy(valid_v7)
         missing_dimension["authored_torso_profile"]["sections"][0]["dimension_indices"]["lateral"] = 0
         cases.append(missing_dimension)
@@ -2616,6 +2678,97 @@ process.stdout.write(JSON.stringify(context.__formValidation(JSON.parse(fs.readF
             )
             with self.subTest(prior_variant_format=prior_format):
                 self.assertTrue(self.browser_form_errors(prior_variant))
+
+    def test_browser_vm_rejects_malformed_v11_torso_inputs(self) -> None:
+        valid_v11 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V11_FORMAT)
+
+        missing_torso_owner = copy.deepcopy(valid_v11)
+        for variant in missing_torso_owner["variants"]:
+            variant["descriptors"] = [
+                descriptor
+                for descriptor in variant["descriptors"]
+                if not (
+                    descriptor["address"]["role"] == "torso"
+                    and descriptor["address"]["anchors"] == []
+                )
+            ]
+
+        invalid_torso_owner = copy.deepcopy(valid_v11)
+        for variant in invalid_torso_owner["variants"]:
+            torso = next(
+                descriptor
+                for descriptor in variant["descriptors"]
+                if descriptor["address"]["role"] == "torso"
+                and descriptor["address"]["anchors"] == []
+            )
+            torso["reference_point"][1] = float("nan")
+
+        nonfinite_source_position = copy.deepcopy(valid_v11)
+        source_landmark = next(
+            landmark
+            for landmark in nonfinite_source_position["authored_landmarks"]
+            if landmark["role"] == "form_torso_profile_lower_abdomen"
+        )
+        source_landmark["position"][1] = float("nan")
+
+        missing_torso_tree = copy.deepcopy(valid_v11)
+        for variant in missing_torso_tree["variants"]:
+            pelvis_address = next(
+                descriptor["address"]
+                for descriptor in variant["descriptors"]
+                if descriptor["address"]["role"] == "pelvis"
+            )
+            variant["descriptors"] = [
+                descriptor
+                for descriptor in variant["descriptors"]
+                if descriptor["address"]["role"] != "torso"
+            ]
+            for descriptor in variant["descriptors"]:
+                if (
+                    descriptor.get("parent")
+                    and descriptor["parent"]["role"] == "torso"
+                ):
+                    descriptor["parent"] = copy.deepcopy(pelvis_address)
+        neck = next(
+            descriptor
+            for descriptor in missing_torso_tree["variants"][0]["descriptors"]
+            if descriptor["address"]["role"] == "neck"
+            and descriptor["address"]["anchors"] == []
+        )
+        head = next(
+            descriptor
+            for descriptor in missing_torso_tree["variants"][0]["descriptors"]
+            if descriptor["address"]["role"] == "head"
+            and descriptor["address"]["anchors"] == []
+        )
+        missing_torso_tree["reference_scale"] = {
+            "parent": copy.deepcopy(neck["address"]),
+            "child": copy.deepcopy(head["address"]),
+            "axis_delta": [
+                head["reference_point"][axis] - neck["reference_point"][axis]
+                for axis in range(3)
+            ],
+            "squared_length": sum(
+                (head["reference_point"][axis] - neck["reference_point"][axis]) ** 2
+                for axis in range(3)
+            ),
+            "source": "exact-containment-edge",
+        }
+
+        cases = [
+            (missing_torso_owner, "descriptor parent is missing"),
+            (invalid_torso_owner, "reference_point must be a finite signed-i64 vector"),
+            (nonfinite_source_position, "position must be finite and within +/-1.0"),
+            (missing_torso_tree, "Authored torso sections owner has no validated body-space placement"),
+        ]
+        for payload, expected_error in cases:
+            with self.subTest(expected_error=expected_error):
+                errors = self.browser_form_errors(payload)
+                self.assertTrue(errors)
+                self.assertTrue(
+                    any(expected_error in error for error in errors),
+                    errors,
+                )
 
     def test_browser_vm_enforces_v8_head_neck_profile_index_contract(self) -> None:
         valid_v8 = self.capsule_payload(format_name=common.PROVISIONAL_FORM_V8_FORMAT)

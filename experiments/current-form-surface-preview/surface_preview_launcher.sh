@@ -99,6 +99,12 @@ select_temp_root() {
       printf '%s\n' "$value"
       return
     fi
+    # Windows commonly exports these paths into WSL. They are expected host
+    # noise, not a caller mistake; the native /tmp fallback below is the
+    # documented route and does not need a warning on every invocation.
+    if [[ "$value" == /mnt/?/* ]]; then
+      continue
+    fi
     warning "ignoring $variable=$value because it is not an existing writable native Linux directory"
   done
 

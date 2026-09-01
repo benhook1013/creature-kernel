@@ -4,8 +4,10 @@
 This is deliberately an adapter, not a surface renderer. It runs the current
 filled-form producer once, then the baseline and successor experiment
 generators in isolated temporary storage. Both bundles are validated against
-the same source and capture frame before four baseline/successor image pairs
-are published into the existing immutable image-review format. The result is
+the same source and fixed canvas/projection/layout frame before four
+baseline/successor image pairs are published into the existing immutable
+image-review format; successor capture bounds must contain the baseline bounds.
+The result is
 bounded technical and visual inspection evidence; it is not production
 geometry or acceptance evidence. A published gallery may serve as a named
 human checkpoint when the active runway explicitly identifies it as one.
@@ -14,6 +16,7 @@ human checkpoint when the active runway explicitly identifies it as one.
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 import hashlib
 import json
@@ -50,13 +53,588 @@ class SurfacePreviewPublishError(RuntimeError):
     """A bounded, user-facing publication failure."""
 
 
+_SUCCESSOR_CONTRACT_NAMES = (
+    "SUCCESSOR_REGION_ID",
+    "TORSO_PROFILE_OPERATION",
+    "_HEAD_NECK_PROFILE_OPERATION",
+    "_ARM_PROFILE_OPERATION",
+    "_LEG_PROFILE_OPERATION",
+    "_FOOT_PROFILE_OPERATION",
+    "_FOOT_PROFILE_SECTION_NAMES",
+    "_FOOT_PROFILE_OWNER_ROLES",
+    "_HAND_PAW_PROFILE",
+    "_HAND_PAW_SECTION_NAMES",
+    "_PROFILE_SWEEP_DEFAULT_OPERATION",
+    "_HIP_ROOT_PROFILE_OPERATION",
+    "_HIP_ROOT_BOUNDARY_SAMPLES",
+    "_HIP_ROOT_BOUNDARY_ITERATIONS",
+    "_HIP_ROOT_BOUNDARY_MAX_PARAMETER",
+    "_HIP_ROOT_SOCKET_FRACTION",
+    "_HIP_ROOT_CUP_REMAINING_FRACTION",
+    "_HIP_ROOT_PELVIS_SUPPORT_CAP",
+    "_HIP_ROOT_SOCKET_THIGH_WEIGHT",
+    "_HIP_ROOT_SOCKET_PELVIS_WEIGHT",
+    "_HIP_ROOT_CUP_THIGH_WEIGHT",
+    "_HIP_ROOT_CUP_PELVIS_WEIGHT",
+    "_HIP_ROOT_TANGENT_BLEND_FRACTION",
+    "_FORWARD_MUZZLE_COMPOSITION_OPERATION",
+    "_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES",
+    "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES",
+    "TORSO_SUPERELLIPSE_EXPONENT",
+)
+_MAX_SUCCESSOR_CONTRACT_NAMES = 32
+MAX_SUCCESSOR_SOURCE_BYTES = 512 * 1024
+_MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH = 512
+_MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH = 256
+_MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS = 4
+_MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS = 5
+_MAX_SUCCESSOR_CONTRACT_INDEX = 8
+_MAX_SUCCESSOR_CONTRACT_INTEGER = 4096
+_MAX_SUCCESSOR_CONTRACT_PARAMETER = 64.0
+_MAX_SUCCESSOR_CONTRACT_SCALE = 4.0
+_MAX_SUCCESSOR_CONTRACT_EXPONENT = 16.0
+_MAX_SUCCESSOR_HAND_PAW_OFFSET = 1.0
+_SUCCESSOR_CONTRACT_VALUES: dict[str, Any] = {}
+_SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR: str | None = None
+
+
+def _successor_contract_failure(name: str, expectation: str) -> SurfacePreviewPublishError:
+    return SurfacePreviewPublishError(
+        f"successor contract owner has invalid {name}: expected {expectation}"
+    )
+
+
+def _successor_contract_number(
+    name: str,
+    value: Any,
+    *,
+    lower: float | None = None,
+    upper: float | None = None,
+    strict_lower: bool = False,
+    strict_upper: bool = False,
+) -> float:
+    if type(value) not in {int, float}:
+        raise _successor_contract_failure(name, "a finite number")
+    try:
+        parsed = float(value)
+    except OverflowError as exc:
+        raise _successor_contract_failure(name, "a finite number") from exc
+    if not math.isfinite(parsed):
+        raise _successor_contract_failure(name, "a finite number")
+    if (
+        lower is not None
+        and (parsed <= lower if strict_lower else parsed < lower)
+    ) or (
+        upper is not None
+        and (parsed >= upper if strict_upper else parsed > upper)
+    ):
+        raise _successor_contract_failure(name, "a bounded finite number")
+    return parsed
+
+
+def _validate_successor_contract_value(name: str, value: Any) -> Any:
+    if name in {
+        "SUCCESSOR_REGION_ID",
+        "TORSO_PROFILE_OPERATION",
+        "_HEAD_NECK_PROFILE_OPERATION",
+        "_ARM_PROFILE_OPERATION",
+        "_LEG_PROFILE_OPERATION",
+        "_FOOT_PROFILE_OPERATION",
+        "_PROFILE_SWEEP_DEFAULT_OPERATION",
+        "_HIP_ROOT_PROFILE_OPERATION",
+        "_FORWARD_MUZZLE_COMPOSITION_OPERATION",
+    }:
+        if not isinstance(value, str) or not value or len(value) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH:
+            raise _successor_contract_failure(
+                name, f"a non-empty string of at most {_MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH} characters"
+            )
+        return value
+
+    if name == "_HAND_PAW_PROFILE":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS}-station tuple"
+            )
+        for station_index, station in enumerate(value):
+            if type(station) is not tuple or len(station) != 3:
+                raise _successor_contract_failure(
+                    name, f"three finite values at station {station_index}"
+                )
+            _successor_contract_number(
+                f"{name}[{station_index}][0]",
+                station[0],
+                lower=-_MAX_SUCCESSOR_HAND_PAW_OFFSET,
+                upper=_MAX_SUCCESSOR_HAND_PAW_OFFSET,
+                strict_lower=True,
+                strict_upper=True,
+            )
+            _successor_contract_number(
+                f"{name}[{station_index}][1]",
+                station[1],
+                lower=0.0,
+                upper=_MAX_SUCCESSOR_CONTRACT_SCALE,
+                strict_lower=True,
+            )
+            _successor_contract_number(
+                f"{name}[{station_index}][2]",
+                station[2],
+                lower=0.0,
+                upper=_MAX_SUCCESSOR_CONTRACT_SCALE,
+                strict_lower=True,
+            )
+        if any(
+            float(station[0]) >= float(next_station[0])
+            for station, next_station in zip(value, value[1:])
+        ):
+            raise _successor_contract_failure(name, "strictly increasing station offsets")
+        offsets = tuple(float(station[0]) for station in value)
+        if not min(offsets) < 0.0 < max(offsets):
+            raise _successor_contract_failure(
+                name, "station offsets straddling the paw center"
+            )
+        return value
+
+    if name == "_HAND_PAW_SECTION_NAMES":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_PROFILE_STATIONS}-name tuple"
+            )
+        if any(
+            not isinstance(item, str)
+            or not item
+            or len(item) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH
+            for item in value
+        ):
+            raise _successor_contract_failure(name, "non-empty bounded station names")
+        if len(set(value)) != len(value):
+            raise _successor_contract_failure(name, "unique station names")
+        return value
+
+    if name == "_FOOT_PROFILE_SECTION_NAMES":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS}-name tuple"
+            )
+        if any(
+            not isinstance(item, str)
+            or not item
+            or len(item) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH
+            for item in value
+        ):
+            raise _successor_contract_failure(name, "non-empty bounded station names")
+        if len(set(value)) != len(value):
+            raise _successor_contract_failure(name, "unique station names")
+        return value
+
+    if name == "_FOOT_PROFILE_OWNER_ROLES":
+        if type(value) is not tuple or len(value) != _MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS:
+            raise _successor_contract_failure(
+                name, f"a {_MAX_SUCCESSOR_CONTRACT_FOOT_PROFILE_STATIONS}-role tuple"
+            )
+        if any(
+            not isinstance(item, str)
+            or not item
+            or len(item) > _MAX_SUCCESSOR_CONTRACT_TEXT_LENGTH
+            for item in value
+        ):
+            raise _successor_contract_failure(name, "non-empty bounded owner roles")
+        return value
+
+    if name in {"_HIP_ROOT_BOUNDARY_SAMPLES", "_HIP_ROOT_BOUNDARY_ITERATIONS"}:
+        if type(value) is not int or not 1 <= value <= _MAX_SUCCESSOR_CONTRACT_INTEGER:
+            raise _successor_contract_failure(
+                name, f"an integer in [1, {_MAX_SUCCESSOR_CONTRACT_INTEGER}]"
+            )
+        return value
+
+    if name == "_HIP_ROOT_BOUNDARY_MAX_PARAMETER":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=_MAX_SUCCESSOR_CONTRACT_PARAMETER,
+            strict_lower=True,
+        )
+        return value
+
+    if name in {
+        "_HIP_ROOT_SOCKET_FRACTION",
+        "_HIP_ROOT_CUP_REMAINING_FRACTION",
+        "_HIP_ROOT_TANGENT_BLEND_FRACTION",
+    }:
+        _successor_contract_number(name, value, lower=0.0, upper=1.0, strict_lower=True, strict_upper=True)
+        return value
+
+    if name == "_HIP_ROOT_PELVIS_SUPPORT_CAP":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=_MAX_SUCCESSOR_CONTRACT_PARAMETER,
+            strict_lower=True,
+        )
+        return value
+
+    if name in {
+        "_HIP_ROOT_SOCKET_THIGH_WEIGHT",
+        "_HIP_ROOT_CUP_THIGH_WEIGHT",
+        "_HIP_ROOT_CUP_PELVIS_WEIGHT",
+    }:
+        _successor_contract_number(name, value, lower=0.0, upper=1.0)
+        return value
+
+    if name == "_HIP_ROOT_SOCKET_PELVIS_WEIGHT":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=1.0,
+            strict_lower=True,
+        )
+        return value
+
+    if name in {
+        "_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES",
+        "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES",
+    }:
+        if (
+            type(value) is not tuple
+            or len(value) != 3
+            or any(
+                type(item) is not int or not 0 <= item < _MAX_SUCCESSOR_CONTRACT_INDEX
+                for item in value
+            )
+            or len(set(value)) != len(value)
+        ):
+            raise _successor_contract_failure(
+                name,
+                f"three distinct section indices in [0, {_MAX_SUCCESSOR_CONTRACT_INDEX - 1}]",
+            )
+        return value
+
+    if name == "TORSO_SUPERELLIPSE_EXPONENT":
+        _successor_contract_number(
+            name,
+            value,
+            lower=0.0,
+            upper=_MAX_SUCCESSOR_CONTRACT_EXPONENT,
+            strict_lower=True,
+        )
+        return value
+
+    raise _successor_contract_failure(name, "a recognized contract value")
+
+
+def _validate_successor_contract(values: dict[str, Any]) -> dict[str, Any]:
+    if len(_SUCCESSOR_CONTRACT_NAMES) > _MAX_SUCCESSOR_CONTRACT_NAMES:
+        raise SurfacePreviewPublishError("successor contract owner name list exceeds its bound")
+    if len(set(_SUCCESSOR_CONTRACT_NAMES)) != len(_SUCCESSOR_CONTRACT_NAMES):
+        raise SurfacePreviewPublishError("successor contract owner name list contains duplicates")
+    for name in _SUCCESSOR_CONTRACT_NAMES:
+        values[name] = _validate_successor_contract_value(name, values[name])
+
+    for left_name, right_name in (
+        ("_HIP_ROOT_SOCKET_THIGH_WEIGHT", "_HIP_ROOT_SOCKET_PELVIS_WEIGHT"),
+        ("_HIP_ROOT_CUP_THIGH_WEIGHT", "_HIP_ROOT_CUP_PELVIS_WEIGHT"),
+    ):
+        if not math.isclose(
+            float(values[left_name]) + float(values[right_name]),
+            1.0,
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        ):
+            raise _successor_contract_failure(
+                f"{left_name}+{right_name}", "weights summing to 1"
+            )
+    return values
+
+
+def _successor_source_path() -> Path:
+    return (
+        Path(__file__).resolve().parents[2]
+        / "experiments"
+        / "current-form-surface-preview"
+        / "successor_surface_preview.py"
+    )
+
+
+def _successor_contract_names_in_target(target: ast.expr) -> set[str]:
+    if isinstance(target, ast.Name) and target.id in _SUCCESSOR_CONTRACT_NAMES:
+        return {target.id}
+    if isinstance(target, (ast.List, ast.Tuple)):
+        names: set[str] = set()
+        for element in target.elts:
+            names.update(_successor_contract_names_in_target(element))
+        return names
+    if isinstance(target, ast.Starred):
+        return _successor_contract_names_in_target(target.value)
+    return set()
+
+
+def _reject_unsupported_successor_contract_write(
+    form: str, targets: list[ast.expr], *, scope: str = "top-level"
+) -> None:
+    names = sorted(
+        {
+            name
+            for target in targets
+            for name in _successor_contract_names_in_target(target)
+        }
+    )
+    if names:
+        raise SurfacePreviewPublishError(
+            f"successor contract owner uses unsupported {scope} {form} write for "
+            f"{', '.join(names)}"
+        )
+
+
+class _NestedSuccessorContractWriteVisitor(ast.NodeVisitor):
+    """Reject contract writes in module-level control-flow bodies.
+
+    Function and class bodies are separate local scopes.  Their definitions
+    are intentionally ignored here; only statements that can execute in the
+    module scope are relevant to the source-owned contract.
+    """
+
+    def _reject(self, form: str, targets: list[ast.expr]) -> None:
+        _reject_unsupported_successor_contract_write(
+            form,
+            targets,
+            scope="nested control-flow",
+        )
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        self._reject("assignment", node.targets)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        self._reject("annotated assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        self._reject("augmented assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self._reject("named expression", [node.target])
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        self._reject("loop-target assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        self._reject("loop-target assignment", [node.target])
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        for item in node.items:
+            if item.optional_vars is not None:
+                self._reject("with-target assignment", [item.optional_vars])
+        self.generic_visit(node)
+
+    def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
+        for item in node.items:
+            if item.optional_vars is not None:
+                self._reject("with-target assignment", [item.optional_vars])
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if node.name in _SUCCESSOR_CONTRACT_NAMES:
+            self._reject("exception-target assignment", [ast.Name(id=node.name)])
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        return
+
+
+def _module_level_control_flow_bodies(statement: ast.stmt) -> tuple[list[ast.stmt], ...]:
+    if isinstance(statement, (ast.If, ast.For, ast.AsyncFor, ast.While)):
+        return (statement.body, statement.orelse)
+    if isinstance(statement, (ast.With, ast.AsyncWith)):
+        return (statement.body,)
+    if isinstance(statement, ast.Try):
+        return (
+            statement.body,
+            statement.orelse,
+            statement.finalbody,
+            *(handler.body for handler in statement.handlers),
+        )
+    if isinstance(statement, ast.Match):
+        return tuple(case.body for case in statement.cases)
+    return ()
+
+
+def _reject_nested_successor_contract_writes(statement: ast.stmt) -> None:
+    if not _module_level_control_flow_bodies(statement):
+        return
+    _NestedSuccessorContractWriteVisitor().visit(statement)
+
+
+def _read_successor_contract() -> dict[str, Any]:
+    """Read all required immutable contract literals from the source owner."""
+
+    successor_path = _successor_source_path()
+    if successor_path.is_symlink() or not successor_path.is_file():
+        raise SurfacePreviewPublishError(
+            "successor contract owner source must be a regular non-symlink file"
+        )
+    with successor_path.open("rb") as source_stream:
+        source_bytes = source_stream.read(MAX_SUCCESSOR_SOURCE_BYTES + 1)
+    if len(source_bytes) > MAX_SUCCESSOR_SOURCE_BYTES:
+        raise SurfacePreviewPublishError(
+            f"successor contract owner source exceeds {MAX_SUCCESSOR_SOURCE_BYTES} bytes"
+        )
+    source_tree = ast.parse(
+        source_bytes.decode("utf-8"),
+        filename=str(successor_path),
+    )
+    values: dict[str, Any] = {}
+    assigned_contract_names: set[str] = set()
+    for statement in source_tree.body:
+        _reject_nested_successor_contract_writes(statement)
+        if isinstance(statement, ast.ClassDef) and statement.name == "_ProfileSweep":
+            for field in statement.body:
+                if not isinstance(field, ast.AnnAssign) or field.simple != 1:
+                    continue
+                if not isinstance(field.target, ast.Name) or field.target.id != "profile_operation":
+                    continue
+                contract_name = "_PROFILE_SWEEP_DEFAULT_OPERATION"
+                if contract_name in assigned_contract_names:
+                    raise SurfacePreviewPublishError(
+                        f"successor contract owner defines duplicate {contract_name}"
+                    )
+                assigned_contract_names.add(contract_name)
+                if field.value is None:
+                    raise SurfacePreviewPublishError(
+                        f"successor contract owner has no literal {contract_name}"
+                    )
+                try:
+                    values[contract_name] = ast.literal_eval(field.value)
+                except (ValueError, TypeError) as exc:
+                    raise SurfacePreviewPublishError(
+                        f"successor contract owner has a non-literal {contract_name}"
+                    ) from exc
+            continue
+        if isinstance(statement, ast.Assign):
+            if len(statement.targets) != 1:
+                _reject_unsupported_successor_contract_write("chained assignment", statement.targets)
+                continue
+            target = statement.targets[0]
+            value = statement.value
+        elif isinstance(statement, ast.AugAssign):
+            _reject_unsupported_successor_contract_write("augmented assignment", [statement.target])
+            continue
+        elif isinstance(statement, ast.AnnAssign):
+            if statement.value is None or statement.simple != 1:
+                continue
+            target = statement.target
+            value = statement.value
+        else:
+            continue
+        if isinstance(target, ast.Name) and target.id in _SUCCESSOR_CONTRACT_NAMES:
+            if target.id in assigned_contract_names:
+                raise SurfacePreviewPublishError(
+                    f"successor contract owner defines duplicate {target.id}"
+                )
+            assigned_contract_names.add(target.id)
+            try:
+                values[target.id] = ast.literal_eval(value)
+            except (ValueError, TypeError) as exc:
+                raise SurfacePreviewPublishError(
+                    f"successor contract owner has a non-literal {target.id}"
+                ) from exc
+        else:
+            _reject_unsupported_successor_contract_write("assignment", [target])
+    for name in _SUCCESSOR_CONTRACT_NAMES:
+        if name not in values:
+            raise SurfacePreviewPublishError(f"successor contract owner does not define {name}")
+    return _validate_successor_contract(values)
+
+
+def _bootstrap_successor_contract() -> tuple[dict[str, Any], str | None]:
+    """Capture a bounded import-time failure for reporting at publish time."""
+
+    try:
+        return _read_successor_contract(), None
+    except (
+        OSError,
+        SyntaxError,
+        UnicodeError,
+        ValueError,
+        RecursionError,
+        SurfacePreviewPublishError,
+    ) as exc:
+        detail = str(exc)
+        if len(detail) > _MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH:
+            detail = detail[:_MAX_SUCCESSOR_CONTRACT_ERROR_LENGTH - 3] + "..."
+        return {}, f"successor contract bootstrap failed: {detail}"
+
+
+_SUCCESSOR_CONTRACT_VALUES, _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR = _bootstrap_successor_contract()
+
+
+def _raise_if_successor_contract_bootstrap_failed() -> None:
+    if _SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is not None:
+        raise SurfacePreviewPublishError(_SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR)
+
+
+def _successor_literal_for_module_initialization(name: str) -> Any:
+    """Read literals while module-level compatibility constants are initialized."""
+
+    return _SUCCESSOR_CONTRACT_VALUES.get(name)
+
+
+def _successor_literal(name: str) -> Any:
+    """Return a validated successor contract literal or fail closed."""
+
+    _raise_if_successor_contract_bootstrap_failed()
+    try:
+        return _SUCCESSOR_CONTRACT_VALUES[name]
+    except KeyError as exc:
+        raise SurfacePreviewPublishError(
+            f"successor contract does not define {name}"
+        ) from exc
+
+
 SURFACE_PREVIEW_FORMAT = "creature-kernel.disposable-surface-preview.v3"
 REGIONAL_GUIDE_FORMAT = "creature-kernel.disposable-surface-preview-regional-guide.v11"
 SUCCESSOR_PREVIEW_FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_SIDECAR_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 SUCCESSOR_MANIFEST_NAME = "successor-surface-manifest.json"
 SUCCESSOR_CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12"
+SUCCESSOR_REGION_ID = _successor_literal_for_module_initialization("SUCCESSOR_REGION_ID")
+SUCCESSOR_TORSO_PROFILE_OPERATION = _successor_literal_for_module_initialization("TORSO_PROFILE_OPERATION")
+SUCCESSOR_HEAD_NECK_PROFILE_OPERATION = _successor_literal_for_module_initialization(
+    "_HEAD_NECK_PROFILE_OPERATION"
+)
+SUCCESSOR_ARM_PROFILE_OPERATION = _successor_literal_for_module_initialization("_ARM_PROFILE_OPERATION")
+SUCCESSOR_LEG_PROFILE_OPERATION = _successor_literal_for_module_initialization("_LEG_PROFILE_OPERATION")
+SUCCESSOR_FOOT_PROFILE_OPERATION = _successor_literal_for_module_initialization("_FOOT_PROFILE_OPERATION")
+SUCCESSOR_HAND_PAW_PROFILE_OPERATION = _successor_literal_for_module_initialization(
+    "_PROFILE_SWEEP_DEFAULT_OPERATION"
+)
+SUCCESSOR_FORWARD_MUZZLE_COMPOSITION_OPERATION = _successor_literal_for_module_initialization(
+    "_FORWARD_MUZZLE_COMPOSITION_OPERATION"
+)
+SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = _successor_literal_for_module_initialization(
+    "_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES"
+)
+SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES = _successor_literal_for_module_initialization(
+    "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES"
+)
+SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT = _successor_literal_for_module_initialization(
+    "TORSO_SUPERELLIPSE_EXPONENT"
+)
 AUTHORED_TORSO_PROFILE_FORMAT = "creature-kernel.provisional-form-torso-profile.v1"
 AUTHORED_TORSO_PROFILE_FRAME_ROLE = "form_torso_profile_control"
 AUTHORED_TORSO_PROFILE_SECTION_NAMES = (
@@ -138,10 +716,12 @@ EXPECTED_GENERATOR_OWNERSHIP = (
 MAX_STDOUT_BYTES = common.MAX_STRUCTURE_JSON_BYTES
 MAX_STDERR_BYTES = 64 * 1024
 # The v9 successor manifest carries complete per-variant guide-derived leg/foot
-# metadata plus the compact exact component inventory. Keep the existing bound
-# explicit: current real publication fits it, but there is deliberately little
-# room for duplicated diagnostic metadata.
-MAX_MANIFEST_BYTES = 384 * 1024
+# metadata plus the compact exact component inventory. The current hand-paw
+# payload serializes to 408,364 bytes; 420 KiB leaves 21,716 bytes of
+# headroom, preserving the required 8 KiB while keeping the untrusted manifest
+# cap finite and tight.
+MIN_MANIFEST_HEADROOM_BYTES = 8 * 1024
+MAX_MANIFEST_BYTES = 420 * 1024
 MAX_GUIDE_BYTES = 512 * 1024
 MAX_METRICS_BYTES = 256 * 1024
 MAX_COMPONENT_BOUND_ABS = 100.0
@@ -267,8 +847,8 @@ EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS = {
     "successor-tail-tip-cap": 1,
     "successor-left-shoulder-envelope": 1,
     "successor-right-shoulder-envelope": 1,
-    "root-bridge": 2,
-    "hip-transition": 2,
+    "successor-left-hip-root-transition": 1,
+    "successor-right-hip-root-transition": 1,
 }
 EXPECTED_GUIDE_COUNTS = {
     "owners": 18,
@@ -360,33 +940,83 @@ def default_successor_generator() -> Path:
     )
 
 
-def _stop_process(process: subprocess.Popen[bytes], *, process_group_id: int | None = None) -> None:
-    if os.name == "posix" and process_group_id is not None:
+def _stop_process(
+    process: subprocess.Popen[bytes],
+    *,
+    process_group_id: int | None = None,
+    success_cleanup: bool = False,
+) -> None:
+    if os.name == "posix":
+        if process_group_id is not None:
+            try:
+                os.killpg(process_group_id, signal.SIGTERM)
+            except OSError:
+                pass
+            # Keep the direct leader unreaped so its PID/PGID remains an
+            # anchor for the final group signal.
+            if not success_cleanup:
+                time.sleep(PROCESS_GRACE_SECONDS)
+            try:
+                os.killpg(process_group_id, signal.SIGKILL)
+            except OSError:
+                pass
+        else:
+            try:
+                os.kill(process.pid, signal.SIGTERM)
+            except OSError:
+                pass
+            if not success_cleanup:
+                time.sleep(PROCESS_GRACE_SECONDS)
+            try:
+                os.kill(process.pid, signal.SIGKILL)
+            except OSError:
+                pass
+    else:
         try:
-            os.killpg(process_group_id, signal.SIGTERM)
+            process.terminate()
+        except OSError:
+            pass
+        if not success_cleanup:
+            try:
+                process.wait(timeout=PROCESS_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                pass
+        try:
+            process.kill()
         except OSError:
             pass
     try:
-        process.terminate()
-    except OSError:
-        pass
-    try:
         process.wait(timeout=PROCESS_GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        pass
-    if os.name == "posix" and process_group_id is not None:
+    except subprocess.TimeoutExpired as exc:  # pragma: no cover - defensive after SIGKILL
+        raise SurfacePreviewPublishError("process group did not terminate") from exc
+
+
+def _observe_unreaped_exit(process: subprocess.Popen[bytes]) -> int | None:
+    """Observe a POSIX leader exit without consuming its waitable status."""
+    if os.name != "posix":
+        return None
+    try:
+        waitid = os.waitid
+        options = os.WEXITED | os.WNOHANG | os.WNOWAIT
+    except AttributeError as exc:
+        raise SurfacePreviewPublishError(
+            "waitid(WNOWAIT) is unavailable for private process-group cleanup"
+        ) from exc
+    while True:
         try:
-            os.killpg(process_group_id, signal.SIGKILL)
-        except OSError:
-            pass
-    try:
-        process.kill()
-    except OSError:
-        pass
-    try:
-        process.wait(timeout=PROCESS_GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        pass
+            result = waitid(os.P_PID, process.pid, options)
+        except InterruptedError:
+            continue
+        except (ChildProcessError, OSError) as exc:
+            raise SurfacePreviewPublishError(
+                "waitid(WNOWAIT) failed during private process-group cleanup"
+            ) from exc
+        break
+    if result is None or result.si_pid == 0:
+        return None
+    if result.si_code == getattr(os, "CLD_EXITED", 1):
+        return result.si_status
+    return -result.si_status
 
 
 def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[bytes, bytes, int]:
@@ -426,18 +1056,31 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
     for stream, _, _, _ in streams.values():
         selector.register(stream, selectors.EVENT_READ)
     failure: SurfacePreviewPublishError | None = None
+    stopped = False
+
+    def stop_process(*, success_cleanup: bool = False) -> None:
+        nonlocal stopped
+        if stopped:
+            return
+        stopped = True
+        _stop_process(
+            process,
+            process_group_id=process_group_id,
+            success_cleanup=success_cleanup,
+        )
+
     try:
         deadline = time.monotonic() + timeout
         while selector.get_map():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 failure = SurfacePreviewPublishError(f"{label} timed out after {timeout:g}s")
-                _stop_process(process, process_group_id=process_group_id)
+                stop_process()
                 break
             events = selector.select(remaining)
             if not events:
                 failure = SurfacePreviewPublishError(f"{label} timed out after {timeout:g}s")
-                _stop_process(process, process_group_id=process_group_id)
+                stop_process()
                 break
             for key, _ in events:
                 stream = key.fileobj
@@ -452,23 +1095,40 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
                     failure = SurfacePreviewPublishError(
                         f"{label} {stream_name} exceeded {limit} bytes"
                     )
-                    _stop_process(process, process_group_id=process_group_id)
+                    stop_process()
                     break
                 buffer.extend(chunk)
             if failure is not None:
                 break
         if failure is not None:
             raise failure
-        try:
-            returncode = process.wait(timeout=PROCESS_GRACE_SECONDS)
-        except subprocess.TimeoutExpired as exc:
-            _stop_process(process, process_group_id=process_group_id)
-            raise SurfacePreviewPublishError(f"{label} did not exit") from exc
+        if os.name == "posix":
+            returncode: int | None = None
+            while returncode is None:
+                returncode = _observe_unreaped_exit(process)
+                if returncode is not None:
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    stop_process()
+                    raise SurfacePreviewPublishError(f"{label} did not exit")
+                time.sleep(min(0.01, remaining))
+        else:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                stop_process()
+                raise SurfacePreviewPublishError(f"{label} did not exit")
+            try:
+                returncode = process.wait(timeout=remaining)
+            except subprocess.TimeoutExpired as exc:
+                stop_process()
+                raise SurfacePreviewPublishError(f"{label} did not exit") from exc
         # Preserve the direct child's completed status, then terminate any
         # surviving process in its private session before returning the
         # captured output.  This prevents a generator grandchild from
         # mutating a validated bundle during publication.
-        _stop_process(process, process_group_id=process_group_id)
+        stop_process(success_cleanup=True)
+        assert returncode is not None
         return bytes(streams[stdout_fd][1]), bytes(streams[stderr_fd][1]), returncode
     finally:
         selector.close()
@@ -477,8 +1137,8 @@ def _run_bounded(command: list[str], *, timeout: float, label: str) -> tuple[byt
                 stream.close()
             except OSError:
                 pass
-        if process.poll() is None:
-            _stop_process(process, process_group_id=process_group_id)
+        if not stopped:
+            stop_process()
 
 
 def _read_json(path: Path, limit: int, where: str) -> dict[str, Any]:
@@ -1798,11 +2458,56 @@ def _validate_authored_torso_profile(
     if [key(item["owner"], item["role"]) for item in dimensions] != sorted(dimension_map, key=_identity_key_sort):
         raise SurfacePreviewPublishError("authored_dimensions do not use stable owner/role order")
 
+    producer_variants = producer_payload.get("variants")
+    if not isinstance(producer_variants, list) or len(producer_variants) != len(EXPECTED_VARIANTS):
+        raise SurfacePreviewPublishError("producer variants are not the canonical four variant records")
+    descriptor_reference_points: dict[str, list[int]] | None = None
+    for variant_index, raw_variant in enumerate(producer_variants):
+        variant_where = f"{where}.variants[{variant_index}]"
+        if not isinstance(raw_variant, dict) or not isinstance(raw_variant.get("descriptors"), list):
+            raise SurfacePreviewPublishError(f"{variant_where}.descriptors are invalid")
+        descriptors = raw_variant["descriptors"]
+        if len(descriptors) != EXPECTED_GUIDE_COUNTS["owners"]:
+            raise SurfacePreviewPublishError(f"{variant_where}.descriptors are invalid")
+        current_reference_points: dict[str, list[int]] = {}
+        for descriptor_index, raw_descriptor in enumerate(descriptors):
+            descriptor_where = f"{variant_where}.descriptors[{descriptor_index}]"
+            if not isinstance(raw_descriptor, dict) or not isinstance(raw_descriptor.get("address"), dict):
+                raise SurfacePreviewPublishError(f"{descriptor_where}.address is invalid")
+            descriptor_owner = _validate_address(raw_descriptor["address"], f"{descriptor_where}.address")
+            reference_point = raw_descriptor.get("reference_point")
+            if (
+                not isinstance(reference_point, list)
+                or len(reference_point) != 3
+                or any(
+                    type(component) is not int
+                    or not common.SIGNED_I64_MIN <= component <= common.SIGNED_I64_MAX
+                    for component in reference_point
+                )
+            ):
+                raise SurfacePreviewPublishError(
+                    f"{descriptor_where}.reference_point must be a signed-i64 body-space triple"
+                )
+            owner_key = _address_sort_key(descriptor_owner)
+            if owner_key in current_reference_points:
+                raise SurfacePreviewPublishError(f"{variant_where}.descriptors contain duplicate owners")
+            current_reference_points[owner_key] = list(reference_point)
+        if descriptor_reference_points is None:
+            descriptor_reference_points = current_reference_points
+        elif current_reference_points != descriptor_reference_points:
+            raise SurfacePreviewPublishError(
+                f"{variant_where}.descriptors do not preserve exact body-space placements"
+            )
+    if descriptor_reference_points is None:
+        raise SurfacePreviewPublishError("producer variants did not contain descriptors")
+
     raw_sections = profile["sections"]
     if not isinstance(raw_sections, list) or len(raw_sections) != 7:
         raise SurfacePreviewPublishError("authored_torso_profile.sections must contain exactly seven ordered sections")
     torso_lineage: list[dict[str, Any]] = []
-    previous_y: float | None = None
+    previous_owner_key: str | None = None
+    previous_local_y: float | None = None
+    previous_composed_y: float | None = None
     for index, (raw, name, owner_role) in enumerate(zip(raw_sections, AUTHORED_TORSO_PROFILE_SECTION_NAMES, AUTHORED_TORSO_PROFILE_OWNER_ROLES)):
         section_where = f"{where}.authored_torso_profile.sections[{index}]"
         if not isinstance(raw, dict) or set(raw) != {"name", "frame_index", "landmark_index", "dimension_indices", "provenance", "section_index"}:
@@ -1824,10 +2529,25 @@ def _validate_authored_torso_profile(
         expected_landmark_role = f"form_torso_profile_{name.replace('-', '_')}"
         if frame["owner"] != expected_owner or frame["role"] != AUTHORED_TORSO_PROFILE_FRAME_ROLE or landmark["owner"] != expected_owner or landmark["role"] != expected_landmark_role or landmark["frame"] != {"owner": expected_owner, "role": AUTHORED_TORSO_PROFILE_FRAME_ROLE}:
             raise SurfacePreviewPublishError(f"{section_where} does not bind its owner frame and axial landmark")
-        y = float(landmark["position"][1])
-        if previous_y is not None and y <= previous_y:
-            raise SurfacePreviewPublishError("authored torso profile axial landmarks are not strictly ordered")
-        previous_y = y
+        owner_key = _address_sort_key(expected_owner)
+        local_y = float(landmark["position"][1])
+        if owner_key == previous_owner_key and previous_local_y is not None and local_y <= previous_local_y:
+            raise SurfacePreviewPublishError(
+                "authored torso profile axial landmarks are not strictly ordered within each owner-local route"
+            )
+        reference_point = descriptor_reference_points.get(owner_key)
+        if reference_point is None:
+            raise SurfacePreviewPublishError(
+                f"{section_where} owner has no validated body-space placement"
+            )
+        composed_y = float(reference_point[1]) + local_y
+        if previous_composed_y is not None and composed_y <= previous_composed_y:
+            raise SurfacePreviewPublishError(
+                "authored torso profile axial landmarks are not strictly ordered in composed body-space y"
+            )
+        previous_owner_key = owner_key
+        previous_local_y = local_y
+        previous_composed_y = composed_y
         dimension_indices = raw["dimension_indices"]
         if not isinstance(dimension_indices, dict) or set(dimension_indices) != set(AUTHORED_TORSO_PROFILE_RADIUS_AXES):
             raise SurfacePreviewPublishError(f"{section_where}.dimension_indices is invalid")
@@ -2282,9 +3002,6 @@ def _validate_authored_torso_profile(
             })
         base_foot_lineage.append({"side": side_name, "hock_binding": expected_hock_binding, "sections": sections_lineage})
 
-    producer_variants = producer_payload.get("variants")
-    if not isinstance(producer_variants, list) or len(producer_variants) != len(EXPECTED_VARIANTS):
-        raise SurfacePreviewPublishError("producer variants are not the canonical four variant records")
     variant_bindings: dict[str, dict[str, Any]] = {}
     for raw_variant in producer_variants:
         if not isinstance(raw_variant, dict) or set(raw_variant) != {
@@ -4417,6 +5134,79 @@ def _validate_bundle(
     }
 
 
+def _validate_successor_capture_bounds(
+    successor_bounds: Any,
+    baseline_bounds: Any,
+) -> None:
+    """Require the successor capture box to contain the validated baseline box."""
+
+    def parse(value: Any, where: str) -> tuple[list[float], list[float]]:
+        if not isinstance(value, dict) or set(value) != {"min", "max"}:
+            raise SurfacePreviewPublishError(f"{where} is invalid")
+        lower = value["min"]
+        upper = value["max"]
+        if not isinstance(lower, list) or not isinstance(upper, list) or len(lower) != 3 or len(upper) != 3:
+            raise SurfacePreviewPublishError(f"{where} is not an ordered triple pair")
+        parsed_lower = [_finite_number(item, f"{where}.min[{index}]") for index, item in enumerate(lower)]
+        parsed_upper = [_finite_number(item, f"{where}.max[{index}]") for index, item in enumerate(upper)]
+        if any(lower_value >= upper_value for lower_value, upper_value in zip(parsed_lower, parsed_upper)):
+            raise SurfacePreviewPublishError(f"{where} is not an ordered triple pair")
+        return parsed_lower, parsed_upper
+
+    baseline_lower, baseline_upper = parse(baseline_bounds, "baseline shared_render_bounds")
+    successor_lower, successor_upper = parse(successor_bounds, "successor shared_render_bounds")
+    if any(
+        successor_lower[axis] > baseline_lower[axis]
+        or successor_upper[axis] < baseline_upper[axis]
+        for axis in range(3)
+    ):
+        raise SurfacePreviewPublishError(
+            "successor shared_render_bounds must contain baseline bounds"
+        )
+
+
+def _validate_complete_binding_pair(
+    baseline_binding: Any,
+    successor_binding: Any,
+    variant_id: str,
+) -> None:
+    """Allow only the successor capture bounds to differ from baseline binding."""
+
+    if not isinstance(baseline_binding, dict) or not isinstance(successor_binding, dict):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+    if set(baseline_binding) != set(successor_binding):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+    if any(
+        baseline_binding[key] != successor_binding[key]
+        for key in baseline_binding
+        if key != "capture"
+    ):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+    baseline_capture = baseline_binding.get("capture")
+    successor_capture = successor_binding.get("capture")
+    capture_keys = {"canvas", "projections", "layout", "shared_render_bounds"}
+    if (
+        not isinstance(baseline_capture, dict)
+        or not isinstance(successor_capture, dict)
+        or set(baseline_capture) != capture_keys
+        or set(successor_capture) != capture_keys
+        or any(
+            baseline_capture[key] != successor_capture[key]
+            for key in capture_keys
+            if key != "shared_render_bounds"
+        )
+    ):
+        raise SurfacePreviewPublishError(
+            f"baseline and successor canonical binding disagree for {variant_id}"
+        )
+
+
 SUCCESSOR_EXTREMITY_ORDER = (
     "left-hand-attachment", "left-hand-paw", "left-foot",
     "right-hand-attachment", "right-hand-paw", "right-foot",
@@ -4442,13 +5232,31 @@ SUCCESSOR_LIMB_STATION_NAMES = (
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
     ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
 )
+SUCCESSOR_HAND_PAW_PROFILE = _successor_literal_for_module_initialization("_HAND_PAW_PROFILE")
+SUCCESSOR_HAND_PAW_SECTION_NAMES = _successor_literal_for_module_initialization("_HAND_PAW_SECTION_NAMES")
+SUCCESSOR_FOOT_PROFILE_SECTION_NAMES = _successor_literal_for_module_initialization("_FOOT_PROFILE_SECTION_NAMES")
+SUCCESSOR_FOOT_PROFILE_OWNER_ROLES = _successor_literal_for_module_initialization("_FOOT_PROFILE_OWNER_ROLES")
+SUCCESSOR_HIP_ROOT_PROFILE_OPERATION = _successor_literal_for_module_initialization("_HIP_ROOT_PROFILE_OPERATION")
+SUCCESSOR_HIP_ROOT_CONTROLS = {
+    "boundary_samples": _successor_literal_for_module_initialization("_HIP_ROOT_BOUNDARY_SAMPLES"),
+    "boundary_iterations": _successor_literal_for_module_initialization("_HIP_ROOT_BOUNDARY_ITERATIONS"),
+    "boundary_max_parameter": _successor_literal_for_module_initialization("_HIP_ROOT_BOUNDARY_MAX_PARAMETER"),
+    "socket_fraction": _successor_literal_for_module_initialization("_HIP_ROOT_SOCKET_FRACTION"),
+    "cup_remaining_fraction": _successor_literal_for_module_initialization("_HIP_ROOT_CUP_REMAINING_FRACTION"),
+    "pelvis_support_cap": _successor_literal_for_module_initialization("_HIP_ROOT_PELVIS_SUPPORT_CAP"),
+    "socket_thigh_weight": _successor_literal_for_module_initialization("_HIP_ROOT_SOCKET_THIGH_WEIGHT"),
+    "socket_pelvis_weight": _successor_literal_for_module_initialization("_HIP_ROOT_SOCKET_PELVIS_WEIGHT"),
+    "cup_thigh_weight": _successor_literal_for_module_initialization("_HIP_ROOT_CUP_THIGH_WEIGHT"),
+    "cup_pelvis_weight": _successor_literal_for_module_initialization("_HIP_ROOT_CUP_PELVIS_WEIGHT"),
+    "tangent_blend_fraction": _successor_literal_for_module_initialization("_HIP_ROOT_TANGENT_BLEND_FRACTION"),
+}
 SUCCESSOR_EXTREMITY_STATION_NAMES = (
     ("hand-attachment-start", "hand-attachment-end"),
-    ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip"),
-    ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"),
+    SUCCESSOR_HAND_PAW_SECTION_NAMES,
+    SUCCESSOR_FOOT_PROFILE_SECTION_NAMES,
     ("hand-attachment-start", "hand-attachment-end"),
-    ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip"),
-    ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"),
+    SUCCESSOR_HAND_PAW_SECTION_NAMES,
+    SUCCESSOR_FOOT_PROFILE_SECTION_NAMES,
 )
 SUCCESSOR_TAIL_SECTION_NAMES = (
     ("tail-root-source-start", "tail-root-source-end"),
@@ -4460,7 +5268,7 @@ SUCCESSOR_TAIL_SECTION_NAMES = (
 )
 SUCCESSOR_REPLACED_BASELINE_RECIPES = (
     "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
-    "deltoid-sweep-1",
+    "deltoid-sweep-1", "root-bridge", "hip-transition",
     "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal",
     "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock",
     "paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box",
@@ -4474,17 +5282,6 @@ SUCCESSOR_TAIL_KINDS = (
     "source-centerline", "root-attachment", "root-collar-mass",
     "source-centerline", "tip-extension", "tip-cap-mass",
 )
-SUCCESSOR_RETAINED_BRIDGE_RECIPES = ("hip-transition", "root-bridge")
-SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES = {
-    "paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box",
-    "tail-segment", "tail-root-bridge", "tail-root-collar",
-    "tail-tip-extension", "tail-tip-cap",
-}
-SUCCESSOR_REQUIRED_REPLACED_RECIPES = (
-    SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES | {"deltoid-sweep-1"}
-)
-
-
 def _bounded_json(value: Any, where: str, *, depth: int = 0) -> None:
     """Keep retained experiment metadata finite and within adapter bounds."""
 
@@ -4603,6 +5400,7 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
     """Re-derive the v9 head/neck sidecar from the validated v11 guide."""
 
     head = guide["controls"]["head"]
+    axes = guide["controls"]["axes"]
     sections = head["sections"]
     connections = head["connections"]
     expected_sections = [
@@ -4630,12 +5428,62 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
         }
         for connection in connections
     ]
+    cranium_index, muzzle_root_index, muzzle_tip_index = (
+        SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+    )
+    muzzle_root_radius_index, muzzle_mid_radius_index, muzzle_tip_radius_index = (
+        SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES
+    )
+    cranium = sections[cranium_index]
+    muzzle_root = sections[muzzle_root_index]
+    muzzle_tip = sections[muzzle_tip_index]
+    muzzle_root_radius = sections[muzzle_root_radius_index]
+    muzzle_mid_radius = sections[muzzle_mid_radius_index]
+    muzzle_tip_radius = sections[muzzle_tip_radius_index]
+    forward = axes["forward"]
+    composition_root = [
+        0.5 * (
+            float(cranium["center"][axis])
+            + float(cranium["radii"]["forward"]) * float(forward[axis])
+            + float(muzzle_root["center"][axis])
+        )
+        for axis in range(3)
+    ]
+    composition_mid = [
+        0.5 * (composition_root[axis] + float(muzzle_tip["center"][axis]))
+        for axis in range(3)
+    ]
+    muzzle_composition = {
+        "operation": SUCCESSOR_FORWARD_MUZZLE_COMPOSITION_OPERATION,
+        "section_names": [
+            "muzzle-composition-root",
+            "muzzle-composition-mid",
+            "muzzle-composition-tip",
+        ],
+        "geometric_input_section_indices": list(
+            SUCCESSOR_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+        ),
+        "radius_donor_section_indices": list(
+            SUCCESSOR_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES
+        ),
+        "center_derivation": [
+            "midpoint(cranium-mid forward surface, muzzle-root center)",
+            "midpoint(derived root, muzzle-tip center)",
+            "muzzle-tip center",
+        ],
+        "centers": [composition_root, composition_mid, muzzle_tip["center"]],
+        "station_radii": [
+            muzzle_root_radius["radii"],
+            muzzle_mid_radius["radii"],
+            muzzle_tip_radius["radii"],
+        ],
+    }
     route_topology = []
     for route_name, indices, tangent_axis, transverse_axes, connection_indices in SUCCESSOR_HEAD_NECK_ROUTE_TOPOLOGY:
         route_sections = [sections[index] for index in indices]
         route_topology.append({
             "name": route_name,
-            "operation": "authored-head-neck-branched-route-profile-v1",
+            "operation": SUCCESSOR_HEAD_NECK_PROFILE_OPERATION,
             "section_indices": list(indices),
             "section_names": [section["name"] for section in route_sections],
             "connection_names": [connections[index]["name"] for index in connection_indices],
@@ -4645,10 +5493,11 @@ def _expected_successor_head_neck_metadata(guide: dict[str, Any]) -> dict[str, A
             "station_radii": [section["radii"] for section in route_sections],
             "endpoint_cap_count": 2,
             "internal_transition_count": 0,
+            "derived_compositions": [muzzle_composition] if route_name == "forward-muzzle" else [],
         })
     return {
         "profile_format": AUTHORED_HEAD_NECK_PROFILE_FORMAT,
-        "operation": "authored-head-neck-branched-route-profile-v1",
+        "operation": SUCCESSOR_HEAD_NECK_PROFILE_OPERATION,
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
         "provenance": head["provenance"],
         "sections_consumed": len(sections),
@@ -4685,7 +5534,7 @@ def _expected_successor_arm_profile_metadata(guide: dict[str, Any]) -> dict[str,
         "format": AUTHORED_ARM_PROFILE_FORMAT,
         "source": "authored_arm_profile",
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "operation": "authored-arm-profile-route-v1",
+        "operation": SUCCESSOR_ARM_PROFILE_OPERATION,
         "topology": "two-routes-per-side-shared-upper-arm-elbow-seam",
         "route_order": [item["name"] for item in routes],
         "routes": routes,
@@ -4753,7 +5602,7 @@ def _expected_successor_leg_profile_metadata(guide: dict[str, Any]) -> dict[str,
         "source": "authored_leg_profile",
         "source_format": common.PROVISIONAL_FORM_FORMAT,
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "operation": "authored-leg-profile-route-v1",
+        "operation": SUCCESSOR_LEG_PROFILE_OPERATION,
         "topology": "one-five-station-route-per-side-thigh-knee-shin-hock",
         "route_order": [item["route"] for item in sides],
         "route_kinds": [item["route_kind"] for item in sides],
@@ -4772,6 +5621,8 @@ def _expected_successor_leg_profile_metadata(guide: dict[str, Any]) -> dict[str,
 def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str, Any]:
     """Re-derive the live v9 five-station authored foot route metadata."""
 
+    section_names = SUCCESSOR_FOOT_PROFILE_SECTION_NAMES
+    owner_roles = SUCCESSOR_FOOT_PROFILE_OWNER_ROLES
     profile = guide["controls"]["foot_profile"]
     leg_profile = guide["controls"]["leg_profile"]
     paws_by_key = {
@@ -4807,7 +5658,7 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
                     "variant_provenance": source["variant_provenance"],
                 }
             elif source is None:
-                inputs = ["hock", "pad"] if index == 1 else ["pad", "toe"]
+                inputs = [section_names[0], section_names[2]] if index == 1 else [section_names[2], section_names[4]]
                 lineage = {
                     "kind": "derived-guide-midpoint",
                     "inputs": inputs,
@@ -4824,7 +5675,7 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
                     "variant_provenance": source["variant_provenance"],
                 }
             stations.append({
-                "name": ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe")[index],
+                "name": section_names[index],
                 "section_index": index,
                 "source_section_index": [AUTHORED_FOOT_PROFILE_HOCK_SECTION_INDEX, 0, 0, 1, 1][index],
                 "owner": leg_hock["owner"] if index == 0 else side["sections"][0]["owner"],
@@ -4838,7 +5689,7 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
             "route_kind": "foot-profile",
             "station_count": 5,
             "source_section_indices": [int(item["source_section_index"]) for item in stations],
-            "owner_roles": ["shin", "foot", "foot", "foot", "foot"],
+            "owner_roles": list(owner_roles),
             "stations": stations,
         })
     return {
@@ -4846,12 +5697,12 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
         "source": "authored_foot_profile",
         "source_format": common.PROVISIONAL_FORM_FORMAT,
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "operation": "authored-foot-profile-route-v1",
+        "operation": SUCCESSOR_FOOT_PROFILE_OPERATION,
         "topology": "one-five-station-hock-to-toe-route-per-side",
         "route_order": [item["route"] for item in sides],
         "route_kinds": ["foot-profile", "foot-profile"],
-        "section_names": ["hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"],
-        "owner_roles": ["shin", "foot", "foot", "foot", "foot"],
+        "section_names": list(section_names),
+        "owner_roles": list(owner_roles),
         "route_station_count": 10,
         "authored_station_count": 4,
         "route_volume_radius_count": 30,
@@ -4862,11 +5713,99 @@ def _expected_successor_foot_profile_metadata(guide: dict[str, Any]) -> dict[str
     }
 
 
+def _expected_successor_hand_paw_metadata(guide: dict[str, Any]) -> dict[str, Any]:
+    """Re-derive the live v9 four-station hand-paw route metadata."""
+
+    controls = guide["controls"]
+    axes = controls["axes"]
+    paws_by_key = {
+        (tuple(item["owner"]["anchors"]), item["owner"]["role"]): item
+        for item in controls["paws"]
+    }
+    side_metadata: list[dict[str, Any]] = []
+    for side in ("left", "right"):
+        hand = paws_by_key.get(((side,), "hand"))
+        if hand is None:
+            raise SurfacePreviewPublishError(f"validated regional guide lacks {side} hand control")
+        paw_mass = next(
+            item for item in hand["masses"] if item["control"] == "paw"
+        )
+        lateral_sign = -1.0 if side == "left" else 1.0
+        outward = [
+            lateral_sign * float(value)
+            for value in axes["lateral"]
+        ]
+        up = [float(value) for value in axes["up"]]
+        forward = [float(value) for value in axes["forward"]]
+        stations: list[dict[str, Any]] = []
+        for index, (offset, up_scale, forward_scale) in enumerate(SUCCESSOR_HAND_PAW_PROFILE):
+            axial_radius = float(paw_mass["radii"][0])
+            parsed_offset = float(offset)
+            if (
+                not math.isfinite(parsed_offset)
+                or not -_MAX_SUCCESSOR_HAND_PAW_OFFSET < parsed_offset < _MAX_SUCCESSOR_HAND_PAW_OFFSET
+            ):
+                raise SurfacePreviewPublishError(
+                    f"successor {side} hand-paw station {index} has an invalid offset"
+                )
+            residual_axial_radius = (1.0 - abs(parsed_offset)) * axial_radius
+            if not math.isfinite(residual_axial_radius) or residual_axial_radius <= 0.0:
+                raise SurfacePreviewPublishError(
+                    f"successor {side} hand-paw station {index} has a nonpositive residual axial radius"
+                )
+            center = [
+                float(paw_mass["center"][axis])
+                + parsed_offset * axial_radius * outward[axis]
+                for axis in range(3)
+            ]
+            volume_radii = [
+                residual_axial_radius,
+                float(paw_mass["radii"][1]) * up_scale,
+                float(paw_mass["radii"][2]) * forward_scale,
+            ]
+            stations.append({
+                "name": SUCCESSOR_HAND_PAW_SECTION_NAMES[index],
+                "section_index": index,
+                "owner": hand["owner"],
+                "center": center,
+                "volume_axes": [outward, up, forward],
+                "volume_radii": volume_radii,
+            })
+        side_metadata.append({
+            "side": side,
+            "route": f"{side}-hand-paw",
+            "route_kind": "hand-paw",
+            "station_count": len(stations),
+            "owner_roles": ["hand"] * len(stations),
+            "stations": stations,
+        })
+    return {
+        "representation": "four-station-full-volume-hand-paw-sweeps",
+        "operation": SUCCESSOR_HAND_PAW_PROFILE_OPERATION,
+        "route_order": [item["route"] for item in side_metadata],
+        "route_kinds": [item["route_kind"] for item in side_metadata],
+        "section_names": list(SUCCESSOR_HAND_PAW_SECTION_NAMES),
+        "owner_roles": ["hand"] * len(SUCCESSOR_HAND_PAW_SECTION_NAMES),
+        "route_station_count": sum(item["station_count"] for item in side_metadata),
+        "route_volume_axis_count": sum(
+            len(station["volume_axes"])
+            for item in side_metadata
+            for station in item["stations"]
+        ),
+        "route_volume_radius_count": sum(
+            len(station["volume_radii"])
+            for item in side_metadata
+            for station in item["stations"]
+        ),
+        "sides": side_metadata,
+    }
+
+
 def _expected_successor_region_metadata(
     guide: dict[str, Any],
     torso_controls: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build the exact structural metadata emitted by the v9 successor.
+    """Build the exact structural metadata emitted by the v16 successor region.
 
     The values are derived from the already validated regional guide.  This is
     deliberately a complete metadata binding rather than independent length
@@ -4881,6 +5820,7 @@ def _expected_successor_region_metadata(
     arm_profile = _expected_successor_arm_profile_metadata(guide)
     leg_profile = _expected_successor_leg_profile_metadata(guide)
     foot_profile = _expected_successor_foot_profile_metadata(guide)
+    hand_paw = _expected_successor_hand_paw_metadata(guide)
 
     limbs_by_key = {
         (tuple(item["owner"]["anchors"]), item["owner"]["role"]): item
@@ -4944,6 +5884,7 @@ def _expected_successor_region_metadata(
         "endpoint_cap_counts": [2] * len(SUCCESSOR_LIMB_ORDER),
         "arm_profile": arm_profile,
         "leg_profile": leg_profile,
+        "hip_root": None,
         "foot_profile": foot_profile,
     }
 
@@ -4953,22 +5894,22 @@ def _expected_successor_region_metadata(
     }
     extremity_owner_keys: list[list[dict[str, Any]]] = []
     extremity_internal_transition_counts: list[int] = []
+    hand_paw_by_side = {
+        item["side"]: item
+        for item in hand_paw["sides"]
+    }
     for side in ("left", "right"):
         hand = paws_by_key.get(((side,), "hand"))
         foot = paws_by_key.get(((side,), "foot"))
         shin = limbs_by_key.get(((side,), "shin"))
         if hand is None or foot is None or shin is None:
             raise SurfacePreviewPublishError(f"validated regional guide lacks {side} extremity controls")
-        hand_mass = hand["masses"][0]
-        lateral_sign = -1.0 if side == "left" else 1.0
-        hand_centers = [
-            [
-                float(hand_mass["center"][axis])
-                + offset * float(hand_mass["radii"][0]) * lateral_sign
-                for axis in range(3)
-            ]
-            for offset in (-0.55, -0.15, 0.35, 0.78)
-        ]
+        hand_paw_side = hand_paw_by_side.get(side)
+        if not isinstance(hand_paw_side, dict) or not isinstance(hand_paw_side.get("stations"), list):
+            raise SurfacePreviewPublishError(
+                f"validated hand-paw metadata lacks the {side} station centers"
+            )
+        hand_centers = [station["center"] for station in hand_paw_side["stations"]]
         foot_chain = foot["chain"]
         foot_masses = {
             item["control"]: item for item in foot_chain["masses"]
@@ -5012,6 +5953,7 @@ def _expected_successor_region_metadata(
         "section_owner_keys": extremity_owner_keys,
         "endpoint_cap_counts": [2] * len(SUCCESSOR_EXTREMITY_ORDER),
         "internal_transition_counts": extremity_internal_transition_counts,
+        "hand_paw": hand_paw,
     }
 
     tails = controls["tails"]
@@ -5049,8 +5991,8 @@ def _expected_successor_region_metadata(
 
     metrics_region = {
         "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-        "torso_representation": "rounded-superellipse-axial-profile-sweep-v1",
-        "torso_profile_exponent": 4.0,
+        "torso_representation": SUCCESSOR_TORSO_PROFILE_OPERATION,
+        "torso_profile_exponent": SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT,
         "torso_sections_consumed": len(torso_controls),
         "torso_section_names": list(AUTHORED_TORSO_PROFILE_SECTION_NAMES),
         "torso_section_owner_keys": [item["owner"] for item in torso_controls],
@@ -5088,7 +6030,9 @@ def _expected_successor_region_metadata(
         "limb_sweep_internal_transition_counts": limb_internal_transition_counts,
         "limb_source_owner_keys": source_owner_keys,
         "leg_profile": leg_profile,
+        "hip_root": None,
         "foot_profile": foot_profile,
+        "hand_paw": hand_paw,
         "extremity_representation": extremities["representation"],
         "extremity_sweeps_consumed": extremities["sweeps_consumed"],
         "extremity_sweep_order": extremities["sweep_order"],
@@ -5111,14 +6055,17 @@ def _expected_successor_region_metadata(
         "tail_source_owner_keys": [root["owner"], tip["owner"]],
         "tail_element_controls": None,
         "tail_tip_shared_endpoint": None,
-        "replaced_baseline_field_count": 48,
+        "replaced_baseline_field_count": sum(
+            EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"][recipe]
+            for recipe in SUCCESSOR_REPLACED_BASELINE_RECIPES
+        ),
         "replaced_baseline_recipes": list(SUCCESSOR_REPLACED_BASELINE_RECIPES),
     }
     return {
         "torso": {
-            "representation": "rounded-superellipse-axial-profile-sweep-v1",
+            "representation": SUCCESSOR_TORSO_PROFILE_OPERATION,
             "regional_guide_format": REGIONAL_GUIDE_FORMAT,
-            "superellipse_exponent": 4.0,
+            "superellipse_exponent": SUCCESSOR_TORSO_SUPERELLIPSE_EXPONENT,
             "sections_consumed": len(torso_controls),
             "section_names": list(AUTHORED_TORSO_PROFILE_SECTION_NAMES),
             "section_controls": torso_controls,
@@ -5136,6 +6083,177 @@ def _expected_successor_region_metadata(
         "tail": tail,
         "metrics_region": metrics_region,
     }
+
+
+def _validate_successor_hip_root_metadata(
+    value: Any,
+    guide: dict[str, Any],
+    leg_profile: dict[str, Any],
+) -> None:
+    """Validate the exact v16 bilateral pelvis-to-thigh metadata boundary."""
+
+    expected_fields = {
+        "operation",
+        "topology",
+        "route_order",
+        "route_kinds",
+        "section_names",
+        "section_counts",
+        "section_owner_keys",
+        "source_owner_keys",
+        "pelvis_section_names",
+        "authored_station_names",
+        "boundary_parameters",
+        "socket_parameters",
+        "tangent_blend_distances",
+        "derived_from",
+        "controls",
+        "volume_radii",
+    }
+    route_order = ["left-hip-root-transition", "right-hip-root-transition"]
+    route_kinds = ["derived-pelvis-thigh-transition"] * 2
+    section_names = ["hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"]
+    if not isinstance(value, dict) or set(value) != expected_fields:
+        raise SurfacePreviewPublishError("successor hip-root metadata has an invalid shape")
+    if (
+        value["operation"] != SUCCESSOR_HIP_ROOT_PROFILE_OPERATION
+        or value["topology"]
+        != "one-derived-four-station-pelvis-socket-cup-tangent-blend-to-authored-thigh-root-per-side"
+        or value["route_order"] != route_order
+        or value["route_kinds"] != route_kinds
+        or value["section_names"] != [section_names, section_names]
+        or value["section_counts"] != [4, 4]
+        or value["pelvis_section_names"] != ["lower-pelvis", "lower-pelvis"]
+        or value["authored_station_names"] != ["thigh-start", "thigh-start"]
+        or value["controls"] != SUCCESSOR_HIP_ROOT_CONTROLS
+    ):
+        raise SurfacePreviewPublishError("successor hip-root metadata is not the exact v16 contract")
+
+    torso_sections = guide["controls"]["torso_cage"]["sections"]
+    if not torso_sections or torso_sections[0]["name"] != "lower-pelvis":
+        raise SurfacePreviewPublishError("validated guide lacks the lower-pelvis hip-root source")
+    pelvis_owner = torso_sections[0]["owner"]
+    leg_sides = leg_profile.get("sides")
+    if not isinstance(leg_sides, list) or len(leg_sides) != 2:
+        raise SurfacePreviewPublishError("successor hip-root metadata lacks authored leg sources")
+
+    list_fields = (
+        "section_owner_keys",
+        "source_owner_keys",
+        "boundary_parameters",
+        "socket_parameters",
+        "tangent_blend_distances",
+        "derived_from",
+        "volume_radii",
+    )
+    if any(not isinstance(value[field], list) or len(value[field]) != 2 for field in list_fields):
+        raise SurfacePreviewPublishError("successor hip-root metadata lacks its exact bilateral inventory")
+
+    for index, side in enumerate(("left", "right")):
+        where = f"successor hip-root metadata[{side}]"
+        leg_side = leg_sides[index]
+        stations = leg_side.get("stations") if isinstance(leg_side, dict) else None
+        if (
+            not isinstance(leg_side, dict)
+            or leg_side.get("side") != side
+            or not isinstance(stations, list)
+            or not stations
+            or stations[0].get("name") != "thigh-start"
+        ):
+            raise SurfacePreviewPublishError(f"{where} does not bind the authored thigh start")
+        thigh_station = stations[0]
+        thigh_owner = thigh_station.get("owner")
+        if (
+            value["section_owner_keys"][index]
+            != [pelvis_owner, thigh_owner, thigh_owner, thigh_owner]
+            or value["source_owner_keys"][index] != [pelvis_owner, thigh_owner]
+        ):
+            raise SurfacePreviewPublishError(f"{where} source ownership does not bind pelvis and thigh")
+
+        boundary = _finite_number(value["boundary_parameters"][index], f"{where}.boundary_parameter")
+        socket = _finite_number(value["socket_parameters"][index], f"{where}.socket_parameter")
+        tangent_distance = _finite_number(
+            value["tangent_blend_distances"][index],
+            f"{where}.tangent_blend_distance",
+        )
+        if (
+            not 0.0 < boundary <= float(SUCCESSOR_HIP_ROOT_CONTROLS["boundary_max_parameter"])
+            or not 0.0 < socket < 1.0
+            or tangent_distance <= 0.0
+            or not math.isclose(
+                socket,
+                float(SUCCESSOR_HIP_ROOT_CONTROLS["socket_fraction"]) * boundary,
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            )
+        ):
+            raise SurfacePreviewPublishError(f"{where} derived parameters are invalid")
+
+        derived = value["derived_from"][index]
+        expected_derived = {
+            "lower_pelvis": {"section_name": "lower-pelvis", "source_section_index": 0},
+            "authored_thigh_start": {"station_name": "thigh-start", "source_station_index": 0},
+            "tangent_blend": {
+                "station_name": "thigh-tangent-blend",
+                "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent",
+                "distance": tangent_distance,
+            },
+        }
+        if derived != expected_derived:
+            raise SurfacePreviewPublishError(f"{where} derivation does not bind the v16 sources")
+
+        radii = value["volume_radii"][index]
+        radius_names = ("socket", "cup", "tangent_blend", "authored_thigh_start")
+        if not isinstance(radii, dict) or set(radii) != set(radius_names):
+            raise SurfacePreviewPublishError(f"{where} volume radii have an invalid shape")
+        parsed_radii: dict[str, list[float]] = {}
+        for name in radius_names:
+            raw = radii[name]
+            if not isinstance(raw, list) or len(raw) != 3:
+                raise SurfacePreviewPublishError(f"{where}.{name} volume radii are invalid")
+            parsed = [
+                _finite_number(component, f"{where}.{name}[{axis}]")
+                for axis, component in enumerate(raw)
+            ]
+            if any(component <= 0.0 for component in parsed):
+                raise SurfacePreviewPublishError(f"{where}.{name} volume radii are invalid")
+            parsed_radii[name] = parsed
+
+        station_radii = thigh_station.get("radii")
+        expected_thigh = (
+            [float(station_radii[axis]) for axis in AUTHORED_LEG_PROFILE_RADIUS_AXES]
+            if isinstance(station_radii, dict)
+            and set(station_radii) == set(AUTHORED_LEG_PROFILE_RADIUS_AXES)
+            else None
+        )
+        if parsed_radii["authored_thigh_start"] != expected_thigh:
+            raise SurfacePreviewPublishError(f"{where} authored volume does not bind the thigh start")
+
+        socket_thigh_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["socket_thigh_weight"])
+        socket_pelvis_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["socket_pelvis_weight"])
+        cup_thigh_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["cup_thigh_weight"])
+        cup_pelvis_weight = float(SUCCESSOR_HIP_ROOT_CONTROLS["cup_pelvis_weight"])
+        support_cap = float(SUCCESSOR_HIP_ROOT_CONTROLS["pelvis_support_cap"])
+        for axis, (socket_radius, cup_radius, blend_radius, thigh_radius) in enumerate(
+            zip(
+                parsed_radii["socket"],
+                parsed_radii["cup"],
+                parsed_radii["tangent_blend"],
+                parsed_radii["authored_thigh_start"],
+            )
+        ):
+            pelvis_support = (
+                socket_radius - socket_thigh_weight * thigh_radius
+            ) / socket_pelvis_weight
+            expected_cup = cup_thigh_weight * thigh_radius + cup_pelvis_weight * pelvis_support
+            expected_blend = 0.5 * (cup_radius + thigh_radius)
+            if (
+                pelvis_support <= 0.0
+                or pelvis_support > support_cap * thigh_radius + 1.0e-12
+                or not math.isclose(cup_radius, expected_cup, rel_tol=0.0, abs_tol=1.0e-12)
+                or not math.isclose(blend_radius, expected_blend, rel_tol=0.0, abs_tol=1.0e-12)
+            ):
+                raise SurfacePreviewPublishError(f"{where} volume radius axis {axis} is not v16-derived")
 
 
 def _validate_successor_tail_controls(
@@ -5294,7 +6412,7 @@ def _validate_successor_sidecar(
 
     capture = sidecar.get("capture")
     if not isinstance(capture, dict) or set(capture) != set(frame) or capture != frame:
-        raise SurfacePreviewPublishError("successor sidecar capture framing does not match baseline")
+        raise SurfacePreviewPublishError("successor sidecar capture framing does not match successor frame")
 
     torso = sidecar.get("torso")
     if not isinstance(torso, dict) or set(torso) != {"representation", "regional_guide_format", "superellipse_exponent", "sections_consumed", "section_names", "section_controls"}:
@@ -5323,11 +6441,31 @@ def _validate_successor_sidecar(
     expected_metadata = _expected_successor_region_metadata(
         baseline_guide, expected_torso_controls
     )
-    for key in ("torso", "shoulders", "head_neck", "limbs", "extremities"):
+    for key in ("torso", "shoulders", "head_neck", "extremities"):
         if sidecar.get(key) != expected_metadata[key]:
             raise SurfacePreviewPublishError(
                 f"successor {key.replace('_', '/')} metadata does not match the validated guide"
             )
+    limbs = sidecar.get("limbs")
+    expected_limbs = expected_metadata["limbs"]
+    if (
+        not isinstance(limbs, dict)
+        or set(limbs) != set(expected_limbs)
+        or any(
+            limbs.get(key) != expected
+            for key, expected in expected_limbs.items()
+            if key != "hip_root"
+        )
+    ):
+        raise SurfacePreviewPublishError(
+            "successor limbs metadata does not match the validated guide"
+        )
+    hip_root = limbs.get("hip_root")
+    _validate_successor_hip_root_metadata(
+        hip_root,
+        baseline_guide,
+        expected_limbs["leg_profile"],
+    )
     tail = sidecar.get("tail")
     expected_tail = expected_metadata["tail"]
     if not isinstance(tail, dict) or set(tail) != set(expected_tail) | {"controls", "tip_shared_endpoint"}:
@@ -5340,26 +6478,21 @@ def _validate_successor_sidecar(
     if not isinstance(bridge, dict) or set(bridge) != {"enabled", "consumer", "regions", "field_count", "retained_recipes"}:
         raise SurfacePreviewPublishError("successor temporary bridge metadata is missing")
     if (
-        bridge.get("enabled") is not True
-        or bridge.get("consumer") != "baseline-analytic-fields"
-        or bridge.get("regions") != ["thigh-root-connectors", "hip-transitions"]
-        or bridge.get("field_count") != 4
-        or bridge.get("retained_recipes") != list(SUCCESSOR_RETAINED_BRIDGE_RECIPES)
+        bridge.get("enabled") is not False
+        or bridge.get("consumer") != "none"
+        or bridge.get("regions") != []
+        or bridge.get("field_count") != 0
+        or bridge.get("retained_recipes") != []
     ):
         raise SurfacePreviewPublishError(
-            "successor temporary bridge must contain only two thigh-root and two hip fields"
+            "successor temporary bridge must be disabled with no retained fields"
         )
-    retained = bridge["retained_recipes"]
-    if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
-        raise SurfacePreviewPublishError("successor temporary bridge retains baseline paw, foot, or tail recipes")
 
     replaced = sidecar.get("replaced_baseline_recipes")
     if not isinstance(replaced, list) or not all(isinstance(recipe, str) and recipe for recipe in replaced):
         raise SurfacePreviewPublishError("successor replaced-baseline recipe metadata is invalid")
     if replaced != list(SUCCESSOR_REPLACED_BASELINE_RECIPES):
         raise SurfacePreviewPublishError("successor sidecar does not contain the exact replaced-baseline recipe inventory")
-    if any(recipe in SUCCESSOR_REPLACED_EXTREMITY_AND_TAIL_RECIPES for recipe in retained):
-        raise SurfacePreviewPublishError("successor sidecar retains a replaced baseline recipe")
 
     if metrics.get("consumer_id") != SUCCESSOR_CONSUMER_ID or metrics.get("successor_region_id") != SUCCESSOR_REGION_ID:
         raise SurfacePreviewPublishError("successor metrics identity does not match sidecar")
@@ -5373,6 +6506,7 @@ def _validate_successor_sidecar(
         )
     dynamic_metrics_keys = {
         "shoulder_sweep_controls",
+        "hip_root",
         "tail_element_controls",
         "tail_tip_shared_endpoint",
     }
@@ -5559,6 +6693,8 @@ def _validate_successor_sidecar(
             )
     if metrics_region["shoulder_sweep_section_owner_keys"] != expected_metrics_region["shoulder_sweep_section_owner_keys"]:
         raise SurfacePreviewPublishError("successor shoulder metrics ownership does not match the validated guide")
+    if metrics_region.get("hip_root") != hip_root:
+        raise SurfacePreviewPublishError("successor hip-root metrics disagree with the sidecar")
     if metrics_region.get("tail_element_controls") != tail["controls"] or metrics_region.get("tail_tip_shared_endpoint") != tail["tip_shared_endpoint"]:
         raise SurfacePreviewPublishError("successor tail metrics disagree with the sidecar")
     if metrics_region.get("replaced_baseline_recipes") != replaced or metrics.get("temporary_bridge") != bridge:
@@ -5668,9 +6804,14 @@ def _validate_successor_bundle(
     _validate_reference_scale(source.get("reference_scale"), "successor source.reference_scale")
 
     frame_keys = ("canvas", "projections", "layout", "shared_render_bounds")
+    if any(manifest.get(key) != baseline_manifest.get(key) for key in frame_keys[:3]):
+        raise SurfacePreviewPublishError(
+            "successor canvas, projections, and layout do not exactly match the validated baseline"
+        )
     frame = {key: manifest.get(key) for key in frame_keys}
-    if any(manifest.get(key) != baseline_manifest.get(key) for key in frame_keys):
-        raise SurfacePreviewPublishError("successor capture framing does not exactly match the validated baseline")
+    _validate_successor_capture_bounds(
+        frame["shared_render_bounds"], baseline_manifest.get("shared_render_bounds")
+    )
 
     baseline_generator = baseline_manifest.get("generator")
     if not isinstance(baseline_generator, dict) or type(baseline_generator.get("padding")) not in {int, float}:
@@ -5703,7 +6844,7 @@ def _validate_successor_bundle(
     if (
         generator.get("production_status") != "disposable exploratory proof"
         or generator.get("consumer_boundary")
-        != "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors"
+        != "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral pelvis-to-thigh socket/cup transitions, bilateral hands, digitigrade feet, and tail"
     ):
         raise SurfacePreviewPublishError("successor generator boundary metadata is invalid")
 
@@ -5728,7 +6869,7 @@ def _validate_successor_bundle(
         "successor-consumer-sidecar",
         "guide-skin-composite-png",
     ]
-    expected_frame = {key: baseline_manifest[key] for key in frame_keys}
+    expected_frame = frame
     for index, variant in enumerate(variants):
         where = f"successor.variants[{index}]"
         if not isinstance(variant, dict) or set(variant) != {"id", "profile_id", "source_variant_sha256", "metrics", "inventory"}:
@@ -5842,7 +6983,7 @@ def _validate_successor_bundle(
         _validate_component_visualization_metrics(
             metrics_payload,
             allowed_owners=profile_binding["variants"][variant_id]["descriptor_owners"],
-            expected_component_count=27,
+            expected_component_count=sum(EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS.values()),
             expected_recipe_counts=EXPECTED_SUCCESSOR_COMPONENT_RECIPE_COUNTS,
             where=where,
         )
@@ -5893,6 +7034,7 @@ def publish_surface_preview(
 ) -> dict[str, Any]:
     """Run producer and both consumers in temp space and publish four pairs."""
 
+    _raise_if_successor_contract_bootstrap_failed()
     try:
         stable_id = validate_id(review_id, "review id")
     except ValidationError as exc:
@@ -5978,8 +7120,11 @@ def publish_surface_preview(
         if set(baseline_by_id) != set(EXPECTED_VARIANTS) or set(successor_by_id) != set(EXPECTED_VARIANTS):
             raise SurfacePreviewPublishError("published baseline and successor variants do not contain the exact canonical id set")
         for variant_id in EXPECTED_VARIANTS:
-            if baseline_by_id[variant_id].get("binding") != successor_by_id[variant_id].get("binding"):
-                raise SurfacePreviewPublishError(f"baseline and successor canonical binding disagree for {variant_id}")
+            _validate_complete_binding_pair(
+                baseline_by_id[variant_id].get("binding"),
+                successor_by_id[variant_id].get("binding"),
+                variant_id,
+            )
         variant_titles = {
             "neutral-v0": "Neutral",
             "broad-soft-v0": "Broad soft",
@@ -6048,7 +7193,7 @@ def publish_surface_preview(
             "schema_version": 1,
             "id": stable_id,
             "title": title,
-            "description": "Disposable baseline-versus-successor comparison using one source and one shared capture frame; publication itself is not production geometry or acceptance evidence.",
+            "description": "Disposable baseline-versus-successor comparison using one source and shared canvas/projection/layout framing, with successor capture bounds containing baseline bounds; publication itself is not production geometry or acceptance evidence.",
             "instructions": "For each variant, compare baseline first and successor second. Appraise overall creature coherence and recognizability, connected joints/extremities/tail, silhouette, and meaningful differentiation between variants. This gallery records no acceptance decision.",
             "subject_context": {
                 "descriptor_snapshot": descriptor_snapshot,

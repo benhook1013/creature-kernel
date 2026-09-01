@@ -40,6 +40,7 @@ MAX_PROJECTION_BYTES = 4 * 1024 * 1024
 MAX_RUST_STDOUT_BYTES = 2 * 1024 * 1024
 MAX_RUST_STDERR_BYTES = 64 * 1024
 RUST_TIMEOUT_SECONDS = 120
+PROCESS_GRACE_SECONDS = 0.5
 MAX_JSON_NODES = 200_000
 MAX_JSON_DEPTH = 96
 MAX_STRING_LENGTH = 65_536
@@ -599,15 +600,82 @@ def _validated_cli_producer(
     return snapshot_path or cli_path, identity
 
 
-def _stop_process(process: subprocess.Popen[bytes]) -> None:
-    """Kill only this invocation's POSIX process group, then reap its leader."""
-    if process.poll() is None:
+def _observe_unreaped_exit(process: subprocess.Popen[bytes]) -> int | None:
+    """Observe a POSIX leader exit without consuming its waitable status."""
+    if os.name != "posix":
+        return None
+    try:
+        waitid = os.waitid
+        options = os.WEXITED | os.WNOHANG | os.WNOWAIT
+    except AttributeError as exc:
+        raise ProjectionError("Rust inspect-runtime-input waitid(WNOWAIT) is unavailable") from exc
+    while True:
         try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
+            result = waitid(os.P_PID, process.pid, options)
+        except InterruptedError:
+            continue
+        except (ChildProcessError, OSError) as exc:
+            raise ProjectionError("Rust inspect-runtime-input waitid(WNOWAIT) failed") from exc
+        break
+    if result is None or result.si_pid == 0:
+        return None
+    if result.si_code == getattr(os, "CLD_EXITED", 1):
+        return result.si_status
+    return -result.si_status
+
+
+def _stop_process(
+    process: subprocess.Popen[bytes],
+    *,
+    process_group_id: int | None = None,
+    graceful: bool = True,
+) -> None:
+    """Stop the process or retained group, then reap the direct leader."""
+    if os.name == "posix":
+        if process_group_id is not None:
+            try:
+                os.killpg(process_group_id, signal.SIGTERM)
+            except OSError:
+                pass
+            # Keep the leader unreaped so its PID/PGID remains an anchor for
+            # the final group signal. Popen.poll()/wait() must not run here.
+            if graceful:
+                time.sleep(PROCESS_GRACE_SECONDS)
+            try:
+                os.killpg(process_group_id, signal.SIGKILL)
+            except OSError:
+                pass
+        else:
+            # This is the fail-closed direct-process fallback when a safe
+            # private group identity was unavailable.
+            try:
+                os.kill(process.pid, signal.SIGTERM)
+            except OSError:
+                pass
+            if graceful:
+                time.sleep(PROCESS_GRACE_SECONDS)
+            try:
+                os.kill(process.pid, signal.SIGKILL)
+            except OSError:
+                pass
+    else:
+        # Native Windows has no POSIX process-group path here; retain direct
+        # Popen termination semantics and bounded waits.
+        try:
+            process.terminate()
+        except OSError:
+            pass
+        if graceful:
+            try:
+                process.wait(timeout=PROCESS_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                pass
+        try:
+            process.kill()
+        except OSError:
             pass
     try:
-        process.wait(timeout=5)
+        process.wait(timeout=PROCESS_GRACE_SECONDS)
     except subprocess.TimeoutExpired as exc:  # pragma: no cover - defensive after SIGKILL
         raise ProjectionError("Rust inspect-runtime-input process group did not terminate") from exc
 
@@ -622,25 +690,62 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            start_new_session=True,
+            start_new_session=(os.name == "posix"),
         )
     except OSError as exc:
         raise ProjectionError(f"Rust inspect-runtime-input subprocess failed: {type(exc).__name__}: {exc}") from exc
-    if process.stdout is None or process.stderr is None:  # pragma: no cover - Popen contract
-        _stop_process(process)
-        raise ProjectionError("Rust inspect-runtime-input subprocess did not expose bounded pipes")
-    selector = selectors.DefaultSelector()
+    process_group_id: int | None = None
+    if os.name == "posix":
+        try:
+            candidate = os.getpgid(process.pid)
+        except OSError:
+            # start_new_session makes the child PID the session/process-group
+            # ID. Retain that identity if the leader exits during setup.
+            candidate = process.pid
+        # Never signal the caller's process group, even if process setup is
+        # changed in the future or the child exits during setup.
+        if candidate > 1 and candidate not in {os.getpid(), os.getpgrp()}:
+            process_group_id = candidate
+    stopped = False
+    leader_exit_observed = False
+    leader_return_code: int | None = None
+
+    def stop_process(*, graceful: bool = True) -> None:
+        nonlocal stopped
+        if stopped:
+            return
+        stopped = True
+        _stop_process(process, process_group_id=process_group_id, graceful=graceful)
+
+    def observe_leader_exit() -> None:
+        nonlocal leader_exit_observed, leader_return_code
+        if stopped or leader_exit_observed:
+            return
+        return_code = _observe_unreaped_exit(process)
+        if return_code is None:
+            return
+        leader_exit_observed = True
+        leader_return_code = return_code
+        if return_code != 0:
+            # waitid(WNOWAIT) leaves the direct leader waitable, so the
+            # retained group is signalled before _stop_process reaps it.
+            stop_process()
+
+    selector: selectors.BaseSelector | None = None
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
     limits = {"stdout": MAX_RUST_STDOUT_BYTES, "stderr": MAX_RUST_STDERR_BYTES}
     deadline = time.monotonic() + RUST_TIMEOUT_SECONDS
     try:
+        if process.stdout is None or process.stderr is None:  # pragma: no cover - Popen contract
+            raise ProjectionError("Rust inspect-runtime-input subprocess did not expose bounded pipes")
+        selector = selectors.DefaultSelector()
         for stream, name in ((process.stdout, "stdout"), (process.stderr, "stderr")):
             os.set_blocking(stream.fileno(), False)
             selector.register(stream, selectors.EVENT_READ, name)
         while selector.get_map():
+            observe_leader_exit()
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                _stop_process(process)
                 raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
             events = selector.select(min(0.1, remaining))
             for key, _ in events:
@@ -656,27 +761,65 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
                     continue
                 remaining_capacity = limits[name] - len(buffers[name])
                 if len(chunk) > remaining_capacity:
-                    _stop_process(process)
                     raise ProjectionError(
                         f"Rust inspect-runtime-input {name} exceeds the bounded limit of {limits[name]} bytes"
                     )
                 buffers[name].extend(chunk)
+            observe_leader_exit()
+        observe_leader_exit()
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            _stop_process(process)
             raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
-        try:
-            return_code = process.wait(timeout=remaining)
-        except subprocess.TimeoutExpired as exc:
-            _stop_process(process)
-            raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds") from exc
+        if os.name == "posix":
+            # Closing both pipes does not guarantee that the direct leader has
+            # exited yet. Keep its status unreaped while giving waitid a
+            # bounded chance to observe a late nonzero exit before Popen.wait
+            # consumes the status and the retained process group loses its
+            # direct-leader anchor.
+            while not leader_exit_observed:
+                observe_leader_exit()
+                if leader_exit_observed:
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
+                time.sleep(min(0.01, remaining))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds")
+        if leader_return_code is None:
+            try:
+                return_code = process.wait(timeout=remaining)
+            except subprocess.TimeoutExpired as exc:
+                raise ProjectionError(f"Rust inspect-runtime-input timed out after {RUST_TIMEOUT_SECONDS} seconds") from exc
+        else:
+            # On POSIX, waitid(WNOWAIT) captured the leader's true status while
+            # leaving it waitable. Signal the retained private group before
+            # _stop_process reaps the leader and releases its PGID anchor.
+            return_code = leader_return_code
+        # Preserve the direct child's completed status, then terminate any
+        # surviving process in its private session before returning the
+        # captured output.  This prevents a generator grandchild from
+        # mutating a validated snapshot during the caller's post-inspection
+        # rechecks.
+        # The leader is already known to have exited, so descendants cannot
+        # benefit from the failure-path grace interval. Signal the retained
+        # group and reap immediately while its unreaped leader still anchors
+        # the PGID.
+        stop_process(graceful=False)
         return return_code, bytes(buffers["stdout"]), bytes(buffers["stderr"])
+    except BaseException as exc:
+        try:
+            stop_process()
+        except BaseException as cleanup_exc:
+            raise exc.with_traceback(exc.__traceback__) from cleanup_exc
+        raise
     finally:
-        selector.close()
+        if selector is not None:
+            selector.close()
         for stream in (process.stdout, process.stderr):
-            if not stream.closed:
+            if stream is not None and not stream.closed:
                 stream.close()
-        _stop_process(process)
 
 
 def _recheck_private_source_snapshots(

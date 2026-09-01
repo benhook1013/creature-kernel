@@ -5,9 +5,8 @@ This module is intentionally adjacent to, rather than a modification of,
 ``surface_preview.py``.  It consumes the existing private hybrid guide and
 replaces the torso/shoulder, head/neck, four limb-chain, hand/foot, and tail
 skin consumers with explicitly identified profile sweeps. Thigh/hip connector
-fields remain an explicit temporary bridge so the
-experiment can still produce a whole-body mesh without pretending that those
-connectors have been redesigned.
+fields are replaced by one derived bilateral pelvis-to-thigh transition per
+side; the experiment still does not claim to provide a production topology.
 
 The representation is exploratory and disposable.  It is not a production
 surface backend, topology contract, SDF, collision shape, or runtime API.
@@ -26,7 +25,7 @@ import os
 import shutil
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -49,12 +48,13 @@ FORMAT = "creature-kernel.disposable-successor-surface-preview.v9"
 SEMANTIC_FORMAT = "creature-kernel.disposable-surface-preview-semantic-winners.v1"
 REGIONAL_GUIDE_FORMAT = _baseline.REGIONAL_GUIDE_FORMAT
 CONSUMER_ID = "successor-surface-v1"
-SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12"
+SUCCESSOR_REGION_ID = "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16"
 TORSO_PROFILE_OPERATION = "rounded-superellipse-axial-profile-sweep-v1"
 _HEAD_NECK_PROFILE_OPERATION = "authored-head-neck-branched-route-profile-v1"
 _ARM_PROFILE_OPERATION = "authored-arm-profile-route-v1"
 _LEG_PROFILE_OPERATION = "authored-leg-profile-route-v1"
 _FOOT_PROFILE_OPERATION = "authored-foot-profile-route-v1"
+_HIP_ROOT_PROFILE_OPERATION = "derived-pelvis-thigh-socket-profile-v2"
 _FOOT_PROFILE_SECTION_NAMES = ("hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe")
 _FOOT_PROFILE_OWNER_ROLES = ("shin", "foot", "foot", "foot", "foot")
 _HEAD_NECK_ROUTE_TOPOLOGY = (
@@ -70,7 +70,10 @@ _HEAD_NECK_RADIUS_REFERENCE_INDICES = (
     (22, 23, 21), (25, 26, 24), (10, 11, 9), (7, 8, 6),
     (4, 5, 3), (16, 17, 15), (13, 14, 12), (19, 20, 18),
 )
-TORSO_SUPERELLIPSE_EXPONENT = 4.0
+# A slightly softer-than-boxy section profile keeps the authored cardinal
+# controls exact while avoiding the rounded-rectangle character of the prior
+# disposable successor.
+TORSO_SUPERELLIPSE_EXPONENT = 3.0
 DEFAULT_SAMPLES = 56
 DEFAULT_PADDING = 0.50
 # Capture framing is a baseline-compatible concern, separate from the
@@ -78,6 +81,9 @@ DEFAULT_PADDING = 0.50
 # generator so the two consumers cannot silently drift apart.
 DEFAULT_CAPTURE_PADDING = _baseline.DEFAULT_PADDING
 DEFAULT_SMOOTH_K = 0.10
+_FORWARD_MUZZLE_COMPOSITION_OPERATION = "successor-local-forward-muzzle-envelope-v1"
+_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = (3, 5, 7)
+_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES = (5, 6, 7)
 MAX_SAMPLES = 96
 MAX_VOXELS = 96**3
 MAX_FIELD_VALUES = 16_000_000
@@ -109,15 +115,15 @@ class _ProfileSection:
     transverse_axes: tuple[tuple[float, float, float], tuple[float, float, float]]
     transverse_radii: tuple[float, float]
     path_length: float
-    # Only the successor torso profile populates this optional triple.  The
-    # generic limb/head/tail sweeps retain their existing two-radius profile.
-    # The first value is lateral, the second is +forward/anterior, and the
-    # third is -forward/posterior.
+    # Only the successor torso profile populates this asymmetric cardinal
+    # triple: lateral, +forward/anterior, and -forward/posterior. Other routes
+    # leave it unset even when they populate the generic station-volume fields
+    # below.
     torso_cardinal_radii: tuple[float, float, float] | None = None
     axial_position: float | None = None
     # Generic station-volume extension.  Head/neck route stations retain the
-    # authored radius along their route tangent here; ordinary two-radius
-    # sweeps leave it unset and therefore retain their existing evaluator.
+    # authored radius along their route tangent here; full-volume authored
+    # routes and hand paws may retain all three source-derived radii below.
     tangent_radius: float | None = None
     source_section_index: int | None = None
     station_volume_axes: tuple[
@@ -174,8 +180,13 @@ class _ProfileSweep:
     sections: tuple[_ProfileSection, ...]
     endpoint_caps: tuple[_ProfileEndpointCap, _ProfileEndpointCap]
     internal_transitions: tuple[_ProfileJointTransition, ...] = ()
-    _validated: bool = field(default=False, compare=False, repr=False)
+    # Validation is a private per-instance cache. Keep it out of ``__init__``
+    # so dataclasses.replace() cannot copy a trusted flag onto changed fields.
+    _validated: bool = field(default=False, init=False, compare=False, repr=False)
     profile_operation: str = "symmetric-ellipse"
+    # Successor-local composition primitives remain private derived geometry;
+    # authored route sections and their source records stay in ``sections``.
+    derived_sweeps: tuple[_ProfileSweep, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.internal_transitions:
@@ -311,6 +322,30 @@ class _LimbChainSweep:
 
 
 @dataclass(frozen=True)
+class _HipRootTransition:
+    """One derived, bilateral-side pelvis-to-authored-thigh transition."""
+
+    name: str
+    side: str
+    owner: Any
+    source_owners: tuple[Any, Any]
+    sweep: _ProfileSweep
+    pelvis_section_name: str
+    authored_station_name: str
+    boundary_parameter: float
+    socket_parameter: float
+    tangent_blend_distance: float
+    socket_volume_radii: tuple[float, float, float]
+    cup_volume_radii: tuple[float, float, float]
+    tangent_blend_volume_radii: tuple[float, float, float]
+    authored_volume_radii: tuple[float, float, float]
+
+    @property
+    def sections_consumed(self) -> int:
+        return len(self.sweep.sections)
+
+
+@dataclass(frozen=True)
 class _TailElement:
     """One explicitly named, source-owned successor tail element.
 
@@ -352,9 +387,8 @@ class SuccessorRegion:
     """Explicit successor torso/shoulder/head/neck/limb/extremity/tail representation.
 
     ``bridge_fields`` are untouched baseline fields for all regions outside
-    this successor region.  They are kept here, rather than silently folded
-    into the successor, so the remaining root/hip connector consumers have a
-    stable extension point and the temporary boundary remains inspectable.
+    this successor region.  The successor currently consumes every baseline
+    field in this guide, including one derived hip-root transition per side.
     """
 
     consumer_id: str
@@ -369,6 +403,7 @@ class SuccessorRegion:
     leg_profile: Any | None = None
     foot_profile: Any | None = None
     limb_sweeps: tuple[_LimbChainSweep, ...] = ()
+    hip_root_transitions: tuple[_HipRootTransition, ...] = ()
     extremity_sweeps: tuple[_ExtremitySweep, ...] = ()
     tail_elements: tuple[_TailElement, ...] = ()
 
@@ -401,6 +436,12 @@ class SuccessorRegion:
         """The two shared authored leg-profile routes."""
 
         return tuple(item for item in self.limb_sweeps if item.is_leg_profile_route)
+
+    @property
+    def hip_root_sweeps(self) -> tuple[_HipRootTransition, ...]:
+        """The two derived pelvis-to-thigh socket/cup transitions."""
+
+        return self.hip_root_transitions
 
     @property
     def hand_sweeps(self) -> tuple[_ExtremitySweep, ...]:
@@ -524,11 +565,18 @@ def _frame_from_tangent(
 def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
     """Fail closed on malformed profile frames, spans, path lengths or caps."""
 
-    if sweep._validated:
-        return
-    sections = sweep.sections
-    if len(sections) < 2:
-        _fail("profile sweep requires at least two ordered sections")
+    if type(sweep.derived_sweeps) is not tuple or len(sweep.derived_sweeps) > 1:
+        _fail("profile sweep must contain at most one bounded derived composition")
+    if sweep.derived_sweeps and sweep.profile_operation != _HEAD_NECK_PROFILE_OPERATION:
+        _fail("only a head/neck route may contain a derived composition")
+    for derived in sweep.derived_sweeps:
+        if not isinstance(derived, _ProfileSweep) or derived is sweep:
+            _fail("profile derived composition must be a distinct profile sweep")
+        if derived.derived_sweeps:
+            _fail("profile derived compositions cannot be nested")
+        if derived.profile_operation != _HEAD_NECK_PROFILE_OPERATION:
+            _fail("profile derived composition has an invalid operation")
+        _validate_profile_sweep(derived)
     if sweep.profile_operation not in {
         "symmetric-ellipse",
         TORSO_PROFILE_OPERATION,
@@ -536,8 +584,14 @@ def _validate_profile_sweep(sweep: _ProfileSweep) -> None:
         _ARM_PROFILE_OPERATION,
         _LEG_PROFILE_OPERATION,
         _FOOT_PROFILE_OPERATION,
+        _HIP_ROOT_PROFILE_OPERATION,
     }:
         _fail(f"profile sweep has unknown profile operation {sweep.profile_operation!r}")
+    if sweep._validated:
+        return
+    sections = sweep.sections
+    if len(sections) < 2:
+        _fail("profile sweep requires at least two ordered sections")
     is_head_neck_route = sweep.profile_operation == _HEAD_NECK_PROFILE_OPERATION
     is_authored_profile_route = sweep.profile_operation in {
         _ARM_PROFILE_OPERATION,
@@ -801,9 +855,27 @@ def _make_profile_sweep(guide: Any) -> _ProfileSweep:
             axial_position=axial_positions[index] if axial_positions[index] is not None else path_length,
         ))
     ordered = tuple(sections)
+    end_cap_radius = min(ordered[-1].cardinal_radii or ordered[-1].transverse_radii)
+    head = getattr(guide, "head_guide", None)
+    head_profile = getattr(head, "profile", None)
+    if head_profile is not None:
+        head_sections = tuple(getattr(head_profile, "sections", ()))
+        if head_sections:
+            neck_collar = head_sections[0]
+            collar_center = _vec3(neck_collar.center, "head/neck collar center")
+            center_gap = float(np.linalg.norm(collar_center - centers[-1]))
+            if not math.isfinite(center_gap) or center_gap <= _DEGENERATE_TOLERANCE:
+                _fail("successor torso/head composition has a degenerate neck-collar gap")
+            collar_radii = tuple(float(value) for value in neck_collar.radii)
+            _finite_positive(collar_radii, "head/neck collar radii")
+            # Keep the cap attached to the authored torso endpoint and let it
+            # overlap the lower half of the authored collar volume.  The
+            # upper collar/neck stations remain outside the torso so the neck
+            # can read without producing a pinched or disconnected root.
+            end_cap_radius = min(end_cap_radius, center_gap + 0.5 * collar_radii[1])
     caps = (
         _ProfileEndpointCap("start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent), ordered[0].transverse_axes, ordered[0].transverse_radii, min(ordered[0].cardinal_radii or ordered[0].transverse_radii)),
-        _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, min(ordered[-1].cardinal_radii or ordered[-1].transverse_radii)),
+        _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, end_cap_radius),
     )
     sweep = _ProfileSweep(ordered, caps, profile_operation=TORSO_PROFILE_OPERATION)
     _validate_profile_sweep(sweep)
@@ -818,12 +890,12 @@ def _make_loft(guide: Any) -> _ProfileSweep:
 
 
 def _shoulder_torso_boundary(
-    loft: _ProfileSweep,
+    loft: Any,
     side: Any,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return a local interior station and exact loft boundary on the peak ray."""
 
-    _validate_profile_sweep(loft)
+    _validate_torso_attachment_envelope(loft)
     torso_center = _vec3(
         loft.sections[-1].center,
         f"{side.side}.shoulder.torso-ray-origin",
@@ -834,22 +906,22 @@ def _shoulder_torso_boundary(
     if not math.isfinite(target_distance) or target_distance <= _DEGENERATE_TOLERANCE:
         _fail(f"{side.side} shoulder torso-boundary ray is degenerate")
     ray = displacement / target_distance
-    origin_value = float(_loft_field(torso_center.reshape(1, 3), loft)[0])
+    origin_value = float(_torso_attachment_field(torso_center.reshape(1, 3), loft)[0])
     if not math.isfinite(origin_value) or origin_value >= 0.0:
         _fail(f"{side.side} shoulder torso-boundary ray does not start inside the loft")
 
     lower = 0.0
     upper = target_distance
-    upper_value = float(_loft_field((torso_center + upper * ray).reshape(1, 3), loft)[0])
+    upper_value = float(_torso_attachment_field((torso_center + upper * ray).reshape(1, 3), loft)[0])
     while upper_value < 0.0 and upper < target_distance * _SHOULDER_BOUNDARY_MAX_EXTENSION:
         upper = min(upper * 1.5, target_distance * _SHOULDER_BOUNDARY_MAX_EXTENSION)
-        upper_value = float(_loft_field((torso_center + upper * ray).reshape(1, 3), loft)[0])
+        upper_value = float(_torso_attachment_field((torso_center + upper * ray).reshape(1, 3), loft)[0])
     if not math.isfinite(upper_value) or upper_value < 0.0:
         _fail(f"{side.side} shoulder torso-boundary ray has no bounded loft exit")
     for _ in range(_SHOULDER_BOUNDARY_ITERATIONS):
         midpoint = 0.5 * (lower + upper)
         midpoint_value = float(
-            _loft_field((torso_center + midpoint * ray).reshape(1, 3), loft)[0]
+            _torso_attachment_field((torso_center + midpoint * ray).reshape(1, 3), loft)[0]
         )
         if not math.isfinite(midpoint_value):
             _fail(f"{side.side} shoulder torso-boundary bisection became non-finite")
@@ -858,13 +930,13 @@ def _shoulder_torso_boundary(
         else:
             upper = midpoint
     boundary = torso_center + 0.5 * (lower + upper) * ray
-    boundary_value = float(_loft_field(boundary.reshape(1, 3), loft)[0])
+    boundary_value = float(_torso_attachment_field(boundary.reshape(1, 3), loft)[0])
     if not math.isfinite(boundary_value) or abs(boundary_value) > _SHOULDER_BOUNDARY_TOLERANCE:
         _fail(f"{side.side} shoulder torso boundary did not converge")
 
     overlap = max(float(side.vertical_radius), 0.10)
     interior = boundary - overlap * ray
-    interior_value = float(_loft_field(interior.reshape(1, 3), loft)[0])
+    interior_value = float(_torso_attachment_field(interior.reshape(1, 3), loft)[0])
     if not math.isfinite(interior_value) or interior_value >= 0.0:
         _fail(f"{side.side} shoulder torso-interior station is not inside the loft")
     return interior, boundary
@@ -874,7 +946,7 @@ def _make_shoulder_sweep(
     side: Any,
     torso_owner: Any,
     upper_arm: Any,
-    loft: _ProfileSweep,
+    loft: Any,
 ) -> _ShoulderEnvelopeSweep:
     """Build one disposable five-section authored shoulder envelope.
 
@@ -979,7 +1051,7 @@ def _make_shoulder_sweep(
 
 def _make_shoulder_sweeps(
     guide: Any,
-    loft: _ProfileSweep,
+    loft: Any,
 ) -> tuple[_ShoulderEnvelopeSweep, ...]:
     """Build exactly one source-owned shoulder envelope per bilateral side."""
 
@@ -1046,6 +1118,22 @@ _HAND_PAW_PROFILE = (
     (0.78, 0.55, 0.60),
 )
 _HAND_PAW_SECTION_NAMES = ("hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip")
+
+# The hip-root transition is deliberately shared across all profiles.  Its
+# fixed values bound the first-exit search, control how far inside the measured
+# pelvis boundary the socket starts, and set the tangent seam blend; all
+# positions and radii come from the current guide fields.
+_HIP_ROOT_SOCKET_FRACTION = 0.62
+_HIP_ROOT_CUP_REMAINING_FRACTION = 0.55
+_HIP_ROOT_TANGENT_BLEND_FRACTION = 0.50
+_HIP_ROOT_BOUNDARY_SAMPLES = 64
+_HIP_ROOT_BOUNDARY_ITERATIONS = 64
+_HIP_ROOT_BOUNDARY_MAX_PARAMETER = 4.0
+_HIP_ROOT_PELVIS_SUPPORT_CAP = 1.20
+_HIP_ROOT_SOCKET_THIGH_WEIGHT = 0.68
+_HIP_ROOT_SOCKET_PELVIS_WEIGHT = 0.32
+_HIP_ROOT_CUP_THIGH_WEIGHT = 0.82
+_HIP_ROOT_CUP_PELVIS_WEIGHT = 0.18
 
 
 def _make_transition_sweep(
@@ -1279,7 +1367,7 @@ def _guide_reference_scale_for_connection(guide: Any) -> float:
     return scale
 
 
-def _derive_successor_tail_attachment_start(guide: Any, loft: _ProfileSweep) -> np.ndarray:
+def _derive_successor_tail_attachment_start(guide: Any, loft: Any) -> np.ndarray:
     """Find the successor-loft boundary on the guide attachment ray.
 
     The guide attachment start is a baseline-parent boundary point.  It is
@@ -1289,7 +1377,7 @@ def _derive_successor_tail_attachment_start(guide: Any, loft: _ProfileSweep) -> 
     section centre by a fixed, bounded bisection.
     """
 
-    _validate_profile_sweep(loft)
+    _validate_torso_attachment_envelope(loft)
     tails = tuple(guide.tail_guides)
     if len(tails) != 2 or tails[0].root_attachment_centerline is None:
         _fail("successor tail attachment ray requires the canonical root guide")
@@ -1303,12 +1391,12 @@ def _derive_successor_tail_attachment_start(guide: Any, loft: _ProfileSweep) -> 
     ray = ray_vector / ray_length
 
     lower = 0.0
-    lower_value = float(_loft_field(interior.reshape(1, 3), loft)[0])
+    lower_value = float(_torso_attachment_field(interior.reshape(1, 3), loft)[0])
     if not math.isfinite(lower_value) or lower_value >= 0.0:
         _fail("successor tail attachment ray does not start inside the loft")
     upper = ray_length
     upper_point = interior + upper * ray
-    upper_value = float(_loft_field(upper_point.reshape(1, 3), loft)[0])
+    upper_value = float(_torso_attachment_field(upper_point.reshape(1, 3), loft)[0])
     if not math.isfinite(upper_value):
         _fail("successor tail attachment ray boundary query is non-finite")
     if upper_value < 0.0:
@@ -1318,7 +1406,7 @@ def _derive_successor_tail_attachment_start(guide: Any, loft: _ProfileSweep) -> 
     else:
         for _ in range(_SUCCESSOR_TAIL_ATTACHMENT_BISECTION_ITERATIONS):
             midpoint = 0.5 * (lower + upper)
-            midpoint_value = float(_loft_field((interior + midpoint * ray).reshape(1, 3), loft)[0])
+            midpoint_value = float(_torso_attachment_field((interior + midpoint * ray).reshape(1, 3), loft)[0])
             if not math.isfinite(midpoint_value):
                 _fail("successor tail attachment bisection became non-finite")
             if midpoint_value < 0.0:
@@ -1326,7 +1414,7 @@ def _derive_successor_tail_attachment_start(guide: Any, loft: _ProfileSweep) -> 
             else:
                 upper = midpoint
         boundary = interior + 0.5 * (lower + upper) * ray
-    boundary_value = float(_loft_field(boundary.reshape(1, 3), loft)[0])
+    boundary_value = float(_torso_attachment_field(boundary.reshape(1, 3), loft)[0])
     if not math.isfinite(boundary_value) or abs(boundary_value) > _SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE:
         _fail("successor tail attachment boundary did not converge")
     if float(np.dot(boundary - interior, ray)) <= 0.0:
@@ -1336,7 +1424,7 @@ def _derive_successor_tail_attachment_start(guide: Any, loft: _ProfileSweep) -> 
     return boundary
 
 
-def _make_tail_elements(guide: Any, loft: _ProfileSweep | None = None) -> tuple[_TailElement, ...]:
+def _make_tail_elements(guide: Any, loft: Any | None = None) -> tuple[_TailElement, ...]:
     """Build the fixed six-element, source-owned successor tail topology."""
 
     source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
@@ -1433,7 +1521,7 @@ def _make_tail_elements(guide: Any, loft: _ProfileSweep | None = None) -> tuple[
     return result
 
 
-def _validate_tail_elements(guide: Any, elements: tuple[_TailElement, ...], loft: _ProfileSweep | None = None) -> None:
+def _validate_tail_elements(guide: Any, elements: tuple[_TailElement, ...], loft: Any | None = None) -> None:
     """Fail closed on tail ownership, topology, exact controls, and joins."""
 
     if tuple(item.name for item in elements) != _TAIL_ELEMENT_ORDER:
@@ -1470,7 +1558,7 @@ def _validate_tail_elements(guide: Any, elements: tuple[_TailElement, ...], loft
     actual_successor_start = _vec3(root_attachment.sweep.sections[0].center, "tail-root successor attachment start")
     if not np.allclose(actual_successor_start, expected_successor_start, rtol=0.0, atol=_SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE):
         _fail("tail-root successor attachment start is not the derived loft boundary")
-    successor_start_value = float(_loft_field(actual_successor_start.reshape(1, 3), loft)[0])
+    successor_start_value = float(_torso_attachment_field(actual_successor_start.reshape(1, 3), loft)[0])
     if not math.isfinite(successor_start_value) or abs(successor_start_value) > _SUCCESSOR_TAIL_ATTACHMENT_BOUNDARY_TOLERANCE:
         _fail("tail-root successor attachment start is not on the successor loft boundary")
     interior = _vec3(loft.sections[0].center, "tail-root successor attachment interior centre")
@@ -1765,8 +1853,100 @@ def _make_authored_head_neck_route_sweep(
         ),
     )
     sweep = _ProfileSweep(ordered, caps, profile_operation=_HEAD_NECK_PROFILE_OPERATION)
+    if recipe == "forward-muzzle":
+        sweep = replace(
+            sweep,
+            derived_sweeps=(_make_forward_muzzle_composition_sweep(profile),),
+        )
     _validate_profile_sweep(sweep)
     return _RegionalProfileSweep(recipe, ordered[0].owner, sweep)
+
+
+def _make_forward_muzzle_composition_sweep(profile: Any) -> _ProfileSweep:
+    """Derive a longer, continuous muzzle envelope from authored stations.
+
+    The authored eight-station route remains the primary sweep.  This private
+    composition envelope uses only its cranium/muzzle centres and radii: its
+    root is the midpoint between the cranium's forward surface and the
+    authored muzzle root, its middle bisects that derived root and the
+    authored tip, and its tip remains at the authored tip centre.  The
+    existing authored tip cap therefore retains the terminal reach.  The
+    envelope is shared across variants without fixture coordinates or
+    profile-specific controls.
+    """
+
+    axes = profile.axes
+    forward = _unit(_vec3(axes.forward, "forward muzzle composition axis"), "forward muzzle composition axis")
+    lateral = _unit(_vec3(axes.lateral, "forward muzzle composition lateral axis"), "forward muzzle composition lateral axis")
+    up = _unit(_vec3(axes.up, "forward muzzle composition up axis"), "forward muzzle composition up axis")
+    by_index = {int(section.section_index): section for section in profile.sections}
+    cranium_index, muzzle_root_index, muzzle_tip_index = _FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+    root_radius_donor_index, mid_radius_donor_index, tip_radius_donor_index = (
+        _FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES
+    )
+    try:
+        cranium = by_index[cranium_index]
+        muzzle_root = by_index[muzzle_root_index]
+        muzzle_tip = by_index[muzzle_tip_index]
+        radius_donors = tuple(
+            by_index[index]
+            for index in (root_radius_donor_index, mid_radius_donor_index, tip_radius_donor_index)
+        )
+    except KeyError as exc:
+        _fail(f"forward muzzle composition is missing authored section {exc.args[0]}")
+
+    cranium_center = _vec3(cranium.center, "forward muzzle composition cranium center")
+    root_center = 0.5 * (
+        cranium_center + float(cranium.radii[2]) * forward
+        + _vec3(muzzle_root.center, "forward muzzle composition root center")
+    )
+    tip_center = _vec3(muzzle_tip.center, "forward muzzle composition tip center")
+    forward_progress = float(np.dot(tip_center - root_center, forward))
+    if not math.isfinite(forward_progress) or forward_progress <= _DEGENERATE_TOLERANCE:
+        _fail("forward muzzle composition root must precede authored tip along forward axis")
+    mid_center = 0.5 * (root_center + tip_center)
+    composition_centers = (
+        ("muzzle-composition-root", root_center),
+        ("muzzle-composition-mid", mid_center),
+        ("muzzle-composition-tip", tip_center),
+    )
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, ((name, center), radius_source) in enumerate(zip(composition_centers, radius_donors)):
+        radii = tuple(float(value) for value in radius_source.radii)
+        _finite_positive(radii, f"{name}.authored-radii")
+        if index:
+            span = float(np.linalg.norm(center - _vec3(sections[-1].center, f"{name}.previous-center")))
+            if not math.isfinite(span) or span <= _DEGENERATE_TOLERANCE:
+                _fail(f"{name} follows a degenerate derived span")
+            path_length += span
+        sections.append(_ProfileSection(
+            name=name,
+            owner=radius_source.owner,
+            center=tuple(float(value) for value in center),
+            tangent=tuple(float(value) for value in forward),
+            transverse_axes=(tuple(float(value) for value in lateral), tuple(float(value) for value in up)),
+            transverse_radii=(radii[0], radii[1]),
+            path_length=path_length,
+            tangent_radius=radii[2],
+            source_section_index=int(radius_source.section_index),
+        ))
+    ordered = tuple(sections)
+    caps = (
+        _ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-value for value in forward),
+            ordered[0].transverse_axes, ordered[0].transverse_radii,
+            float(ordered[0].tangent_radius),
+        ),
+        _ProfileEndpointCap(
+            "end", ordered[-1].center, tuple(float(value) for value in forward),
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii,
+            float(ordered[-1].tangent_radius),
+        ),
+    )
+    sweep = _ProfileSweep(ordered, caps, profile_operation=_HEAD_NECK_PROFILE_OPERATION)
+    _validate_profile_sweep(sweep)
+    return sweep
 
 
 def _make_head_neck_sweeps(guide: Any) -> tuple[_RegionalProfileSweep, ...]:
@@ -1859,6 +2039,22 @@ def _head_neck_route_json(item: _RegionalProfileSweep) -> dict[str, Any]:
         "station_radii": [full_radii(section) for section in item.sweep.sections],
         "endpoint_cap_count": len(item.sweep.endpoint_caps),
         "internal_transition_count": len(item.sweep.internal_transitions),
+        "derived_compositions": [
+            {
+                "operation": _FORWARD_MUZZLE_COMPOSITION_OPERATION,
+                "section_names": list(derived.names),
+                "geometric_input_section_indices": list(_FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES),
+                "radius_donor_section_indices": list(_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES),
+                "center_derivation": [
+                    "midpoint(cranium-mid forward surface, muzzle-root center)",
+                    "midpoint(derived root, muzzle-tip center)",
+                    "muzzle-tip center",
+                ],
+                "centers": [[float(value) for value in section.center] for section in derived.sections],
+                "station_radii": [full_radii(section) for section in derived.sections],
+            }
+            for derived in item.sweep.derived_sweeps
+        ],
     }
 
 
@@ -2653,8 +2849,22 @@ def _validate_extremity_sweeps(
             _fail(f"{side} hand paw must have four stations and two outer caps")
         outward = _vec3(hand.axes.lateral, f"{side}.hand-paw.outward-axis") * (-1.0 if side == "left" else 1.0)
         outward = _unit(outward, f"{side}.hand-paw.outward-axis")
-        for index, (section, control) in enumerate(zip(paw.sweep.sections, _HAND_PAW_PROFILE)):
-            expected_center = _vec3(hand.paw_center, f"{side}.paw-center") + float(control[0]) * float(hand.paw_radii[0]) * outward
+        expected_station_axes = (
+            tuple(float(value) for value in outward),
+            tuple(float(value) for value in hand.axes.up),
+            tuple(float(value) for value in hand.axes.forward),
+        )
+        controls = _validated_hand_paw_profile(
+            _HAND_PAW_PROFILE,
+            f"{side}.hand-paw owner {hand.owner.key}",
+        )
+        for index, (section, control) in enumerate(zip(paw.sweep.sections, controls)):
+            offset, station_axial_radius = _hand_paw_station_axial_radius(
+                control[0],
+                float(hand.paw_radii[0]),
+                f"{side}.hand-paw.section[{index}]",
+            )
+            expected_center = _vec3(hand.paw_center, f"{side}.paw-center") + offset * float(hand.paw_radii[0]) * outward
             if not np.array_equal(_vec3(section.center, f"{side}.hand-paw.section[{index}]"), expected_center):
                 _fail(f"{side} hand paw section {index} does not follow shared outward offsets")
             expected_radii = (float(hand.paw_radii[1]) * control[1], float(hand.paw_radii[2]) * control[2])
@@ -2664,6 +2874,15 @@ def _validate_extremity_sweeps(
                 _fail(f"{side} hand paw path must point outward, never reverse")
             if section.transverse_axes != (tuple(float(value) for value in hand.axes.up), tuple(float(value) for value in hand.axes.forward)):
                 _fail(f"{side} hand paw must use guide up/forward transverse axes")
+            if section.station_volume_axes != expected_station_axes:
+                _fail(f"{side} hand paw station {index} lost its source-derived volume axes")
+            expected_station_radii = (
+                station_axial_radius,
+                float(hand.paw_radii[1]) * float(control[1]),
+                float(hand.paw_radii[2]) * float(control[2]),
+            )
+            if section.station_volume_radii != expected_station_radii:
+                _fail(f"{side} hand paw station {index} lost its source-derived volume radii")
         hand_center = np.asarray(hand.paw_center, dtype=np.float64).reshape(1, 3)
         if float(_profile_sweep_field(hand_center, paw.sweep)[0]) > 0.0:
             _fail(f"{side} hand paw must contain its exact guide paw center")
@@ -2797,6 +3016,323 @@ def _make_limb_sweeps(guide: Any) -> tuple[_LimbChainSweep, ...]:
     return tuple(sweeps)
 
 
+def _support_radius(
+    direction: np.ndarray,
+    axes: tuple[np.ndarray, np.ndarray, np.ndarray],
+    radii: tuple[float, float, float],
+    where: str,
+) -> float:
+    """Return an ellipsoid's finite support radius in one derived direction."""
+
+    direction = _unit(np.asarray(direction, dtype=np.float64), f"{where}.direction")
+    _finite_positive(tuple(float(value) for value in radii), f"{where}.radii")
+    support = math.sqrt(sum((float(np.dot(direction, axis)) * radius) ** 2 for axis, radius in zip(axes, radii)))
+    if not math.isfinite(support) or support <= 0.0:
+        _fail(f"{where} produced an invalid support radius")
+    return support
+
+
+def _hip_root_boundary_parameter(
+    loft: Any,
+    origin: np.ndarray,
+    target: np.ndarray,
+    where: str,
+) -> float:
+    """Find the first lower-pelvis field exit on the pelvis-to-thigh ray."""
+
+    direction = target - origin
+    if float(np.linalg.norm(direction)) <= _DEGENERATE_TOLERANCE:
+        _fail(f"{where} pelvis-to-thigh ray is degenerate")
+    lower_pelvis_field = _lower_pelvis_field_for_envelope(loft)
+    origin_value = float(lower_pelvis_field(origin.reshape(1, 3), loft)[0])
+    if not math.isfinite(origin_value) or origin_value >= 0.0:
+        _fail(f"{where} lower-pelvis origin is not inside the lower-pelvis region")
+
+    # Find the first exit rather than assuming the union of the lower-pelvis
+    # cap and its adjacent span is monotonic along every authored thigh ray.
+    parameters = np.linspace(
+        0.0,
+        _HIP_ROOT_BOUNDARY_MAX_PARAMETER,
+        _HIP_ROOT_BOUNDARY_SAMPLES + 1,
+    )
+    points = origin + parameters[:, None] * direction
+    values = lower_pelvis_field(points, loft)
+    if not np.all(np.isfinite(values)):
+        _fail(f"{where} lower-pelvis boundary samples became non-finite")
+    exit_indices = np.flatnonzero((values[:-1] < 0.0) & (values[1:] >= 0.0))
+    if not len(exit_indices):
+        _fail(f"{where} lower-pelvis boundary samples did not bracket a first exit")
+    first_exit = int(exit_indices[0])
+    lower = float(parameters[first_exit])
+    upper = float(parameters[first_exit + 1])
+    for _ in range(_HIP_ROOT_BOUNDARY_ITERATIONS):
+        midpoint = 0.5 * (lower + upper)
+        value = float(lower_pelvis_field((origin + midpoint * direction).reshape(1, 3), loft)[0])
+        if not math.isfinite(value):
+            _fail(f"{where} lower-pelvis boundary search became non-finite")
+        if value < 0.0:
+            lower = midpoint
+        else:
+            upper = midpoint
+    boundary = 0.5 * (lower + upper)
+    boundary_value = float(lower_pelvis_field((origin + boundary * direction).reshape(1, 3), loft)[0])
+    if not math.isfinite(boundary_value) or abs(boundary_value) > _SHOULDER_BOUNDARY_TOLERANCE:
+        _fail(f"{where} lower-pelvis boundary did not converge")
+    return boundary
+
+
+def _make_hip_root_transition(
+    loft: _ProfileSweep,
+    leg: _LimbChainSweep,
+    side: str,
+) -> _HipRootTransition:
+    """Build one shared lower-pelvis socket/cup route for an authored thigh."""
+
+    if len(loft.sections) < 2 or loft.sections[0].name != "lower-pelvis":
+        _fail(f"{side} hip-root transition requires the successor lower-pelvis section")
+    pelvis = loft.sections[0]
+    cardinal = pelvis.cardinal_radii
+    if cardinal is None:
+        _fail(f"{side} hip-root transition requires lower-pelvis cardinal radii")
+    thigh_start = leg.sweep.sections[0]
+    if thigh_start.station_volume_axes is None or thigh_start.station_volume_radii is None:
+        _fail(f"{side} hip-root transition requires the authored thigh-start volume")
+
+    volume_axes = tuple(
+        _unit(_vec3(axis, f"{side}.hip-root.volume-axis[{index}]"), f"{side}.hip-root.volume-axis[{index}]")
+        for index, axis in enumerate(thigh_start.station_volume_axes)
+    )
+    thigh_volume = tuple(float(value) for value in thigh_start.station_volume_radii)
+    if len(volume_axes) != 3 or len(thigh_volume) != 3:
+        _fail(f"{side} hip-root transition thigh-start volume must have three axes and radii")
+    _finite_positive(thigh_volume, f"{side}.hip-root.thigh-start-volume")
+
+    origin = _vec3(pelvis.center, f"{side}.hip-root.pelvis-origin")
+    target = _vec3(thigh_start.center, f"{side}.hip-root.thigh-start")
+    boundary_parameter = _hip_root_boundary_parameter(loft, origin, target, f"{side}.hip-root")
+    socket_parameter = _HIP_ROOT_SOCKET_FRACTION * boundary_parameter
+    cup_parameter = socket_parameter + _HIP_ROOT_CUP_REMAINING_FRACTION * (1.0 - socket_parameter)
+    if not 0.0 < socket_parameter < cup_parameter < 1.0:
+        _fail(f"{side} hip-root transition parameters are not ordered")
+
+    pelvis_support = np.asarray(
+        tuple(
+            _torso_cap_radial_distance_for_envelope(
+                loft,
+                axis,
+                loft.endpoint_caps[0],
+                cardinal,
+                f"{side}.hip-root.pelvis-support[{index}]",
+            )
+            for index, axis in enumerate(volume_axes)
+        ),
+        dtype=np.float64,
+    )
+    capped_pelvis_support = np.minimum(
+        pelvis_support,
+        _HIP_ROOT_PELVIS_SUPPORT_CAP * np.asarray(thigh_volume, dtype=np.float64),
+    )
+    socket_volume = tuple(float(value) for value in (
+        _HIP_ROOT_SOCKET_THIGH_WEIGHT * np.asarray(thigh_volume)
+        + _HIP_ROOT_SOCKET_PELVIS_WEIGHT * capped_pelvis_support
+    ))
+    cup_volume = tuple(float(value) for value in (
+        _HIP_ROOT_CUP_THIGH_WEIGHT * np.asarray(thigh_volume)
+        + _HIP_ROOT_CUP_PELVIS_WEIGHT * capped_pelvis_support
+    ))
+    _finite_positive(socket_volume, f"{side}.hip-root.socket-volume")
+    _finite_positive(cup_volume, f"{side}.hip-root.cup-volume")
+
+    socket_center = origin + socket_parameter * (target - origin)
+    cup_center = origin + cup_parameter * (target - origin)
+    authored_tangent = _vec3(thigh_start.tangent, f"{side}.hip-root.authored-thigh-tangent")
+    authored_tangent = _unit(authored_tangent, f"{side}.hip-root.authored-thigh-tangent")
+    cup_to_target = target - cup_center
+    tangent_projection = float(np.dot(cup_to_target, authored_tangent))
+    if not math.isfinite(tangent_projection) or tangent_projection <= _DEGENERATE_TOLERANCE:
+        _fail(f"{side} hip-root cup leaves no forward span for the authored thigh tangent")
+    tangent_blend_distance = _HIP_ROOT_TANGENT_BLEND_FRACTION * tangent_projection
+    if not math.isfinite(tangent_blend_distance) or tangent_blend_distance <= _DEGENERATE_TOLERANCE:
+        _fail(f"{side} hip-root tangent blend distance is invalid")
+    tangent_blend_center = target - tangent_blend_distance * authored_tangent
+    tangent_blend_volume = tuple(
+        float(0.5 * (cup + thigh)) for cup, thigh in zip(cup_volume, thigh_volume)
+    )
+    _finite_positive(tangent_blend_volume, f"{side}.hip-root.tangent-blend-volume")
+    centers = (socket_center, cup_center, tangent_blend_center, target)
+    owners = (pelvis.owner, thigh_start.owner, thigh_start.owner, thigh_start.owner)
+    volumes = (socket_volume, cup_volume, tangent_blend_volume, thigh_volume)
+    sections: list[_ProfileSection] = []
+    path_length = 0.0
+    for index, (name, owner, center, volume) in enumerate(zip(
+        ("hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"), owners, centers, volumes,
+    )):
+        current = _vec3(center, f"{side}.hip-root.{name}.center")
+        if index:
+            previous = _vec3(centers[index - 1], f"{side}.hip-root.previous-center")
+            span = float(np.linalg.norm(current - previous))
+            if span <= _DEGENERATE_TOLERANCE:
+                _fail(f"{side}.hip-root.{name} follows a degenerate span")
+            path_length += span
+        if index == 0:
+            direction = _vec3(centers[1], f"{side}.hip-root.next-center") - current
+        elif index == len(centers) - 1:
+            # The final transition station is the exact authored thigh-start
+            # frame.  Its preceding derived blend station is placed on that
+            # tangent so the ordered centerline and the authored frame agree.
+            tangent = authored_tangent
+            first = _vec3(thigh_start.transverse_axes[0], f"{side}.hip-root.authored-thigh-first-axis")
+            second = _vec3(thigh_start.transverse_axes[1], f"{side}.hip-root.authored-thigh-second-axis")
+            station_radii = (
+                _support_radius(first, volume_axes, volume, f"{side}.hip-root.{name}.first-support"),
+                _support_radius(second, volume_axes, volume, f"{side}.hip-root.{name}.second-support"),
+            )
+            tangent_radius = _support_radius(tangent, volume_axes, volume, f"{side}.hip-root.{name}.tangent-support")
+            sections.append(_ProfileSection(
+                name=name,
+                owner=owner,
+                center=tuple(float(value) for value in current),
+                tangent=tuple(float(value) for value in tangent),
+                transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
+                transverse_radii=station_radii,
+                path_length=path_length,
+                tangent_radius=tangent_radius,
+                station_volume_axes=tuple(tuple(float(value) for value in axis) for axis in volume_axes),
+                station_volume_radii=tuple(float(value) for value in volume),
+            ))
+            continue
+        else:
+            direction = _vec3(centers[index + 1], f"{side}.hip-root.next-center") - _vec3(centers[index - 1], f"{side}.hip-root.previous-center")
+        tangent, first, second = _frame_from_tangent(
+            direction,
+            volume_axes[0],
+            volume_axes[1],
+            f"{side}.hip-root.{name}",
+        )
+        station_radii = (
+            _support_radius(first, volume_axes, volume, f"{side}.hip-root.{name}.first-support"),
+            _support_radius(second, volume_axes, volume, f"{side}.hip-root.{name}.second-support"),
+        )
+        tangent_radius = _support_radius(tangent, volume_axes, volume, f"{side}.hip-root.{name}.tangent-support")
+        sections.append(_ProfileSection(
+            name=name,
+            owner=owner,
+            center=tuple(float(value) for value in current),
+            tangent=tuple(float(value) for value in tangent),
+            transverse_axes=(tuple(float(value) for value in first), tuple(float(value) for value in second)),
+            transverse_radii=station_radii,
+            path_length=path_length,
+            tangent_radius=tangent_radius,
+            station_volume_axes=tuple(tuple(float(value) for value in axis) for axis in volume_axes),
+            station_volume_radii=tuple(float(value) for value in volume),
+        ))
+
+    ordered = tuple(sections)
+    sweep = _ProfileSweep(
+        ordered,
+        (
+            _ProfileEndpointCap("start", ordered[0].center, tuple(-float(value) for value in ordered[0].tangent), ordered[0].transverse_axes, ordered[0].transverse_radii, min(*ordered[0].transverse_radii, ordered[0].tangent_radius or min(ordered[0].transverse_radii))),
+            _ProfileEndpointCap("end", ordered[-1].center, ordered[-1].tangent, ordered[-1].transverse_axes, ordered[-1].transverse_radii, min(*ordered[-1].transverse_radii, ordered[-1].tangent_radius or min(ordered[-1].transverse_radii))),
+        ),
+        profile_operation=_HIP_ROOT_PROFILE_OPERATION,
+    )
+    _validate_profile_sweep(sweep)
+    socket_value = float(_lower_pelvis_field_for_envelope(loft)(np.asarray(ordered[0].center).reshape(1, 3), loft)[0])
+    if not math.isfinite(socket_value) or socket_value >= -_FRAME_TOLERANCE:
+        _fail(f"{side} hip-root socket does not start inside the lower-pelvis profile")
+    side_sign = -1.0 if side == "left" else 1.0
+    signed_lateral = [side_sign * float(center[0]) for center in centers]
+    if any(right + _FRAME_TOLERANCE < left for left, right in zip(signed_lateral, signed_lateral[1:])):
+        _fail(f"{side} hip-root transition reverses its inward-to-thigh lateral order")
+    return _HipRootTransition(
+        name=f"{side}-hip-root-transition",
+        side=side,
+        owner=thigh_start.owner,
+        source_owners=(pelvis.owner, thigh_start.owner),
+        sweep=sweep,
+        pelvis_section_name=pelvis.name,
+        authored_station_name=thigh_start.name,
+        boundary_parameter=float(boundary_parameter),
+        socket_parameter=float(socket_parameter),
+        tangent_blend_distance=float(tangent_blend_distance),
+        socket_volume_radii=socket_volume,
+        cup_volume_radii=cup_volume,
+        tangent_blend_volume_radii=tangent_blend_volume,
+        authored_volume_radii=thigh_volume,
+    )
+
+
+def _make_hip_root_transitions(
+    guide: Any,
+    loft: _ProfileSweep,
+    limb_sweeps: tuple[_LimbChainSweep, ...],
+) -> tuple[_HipRootTransition, ...]:
+    """Build exactly one data-derived successor hip root on each side."""
+
+    legs = {item.chain_name: item for item in limb_sweeps if item.is_leg_profile_route}
+    if tuple(sorted(legs)) != ("left-leg", "right-leg"):
+        _fail("successor hip-root transition inventory requires both authored leg routes")
+    result = tuple(_make_hip_root_transition(loft, legs[f"{side}-leg"], side) for side in ("left", "right"))
+    if tuple(item.name for item in result) != ("left-hip-root-transition", "right-hip-root-transition"):
+        _fail("successor hip-root transition order is unstable")
+    if any(item.source_owners[0] is not guide.torso_cage.pelvis_owner for item in result):
+        _fail("successor hip-root transitions must retain the canonical pelvis owner")
+    return result
+
+
+def _hand_paw_offset(offset: Any, where: str) -> float:
+    """Validate one authored hand-paw offset before using its support."""
+
+    try:
+        offset_value = float(offset)
+    except (OverflowError, TypeError, ValueError):
+        _fail(f"{where} offset must be finite and have absolute value less than one")
+    if not math.isfinite(offset_value) or abs(offset_value) >= 1.0:
+        _fail(f"{where} offset must be finite and have absolute value less than one")
+    return offset_value
+
+
+def _validated_hand_paw_profile(profile: Any, where: str) -> tuple[tuple[float, Any, Any], ...]:
+    """Validate the four source-owned offsets and their required straddle."""
+
+    try:
+        controls = tuple(profile)
+    except TypeError:
+        _fail(f"{where} authored profile must contain exactly four controls")
+    if len(controls) != len(_HAND_PAW_SECTION_NAMES):
+        _fail(f"{where} authored profile must contain exactly four controls")
+    validated: list[tuple[float, Any, Any]] = []
+    offsets: list[float] = []
+    for index, control in enumerate(controls):
+        try:
+            values = tuple(control)
+        except TypeError:
+            _fail(f"{where} control {index} must contain an offset and two transverse scales")
+        if len(values) != 3:
+            _fail(f"{where} control {index} must contain an offset and two transverse scales")
+        offset = _hand_paw_offset(values[0], f"{where}.section[{index}]")
+        offsets.append(offset)
+        validated.append((offset, values[1], values[2]))
+    if any(right <= left for left, right in zip(offsets, offsets[1:])):
+        _fail(f"{where} authored offsets must be strictly increasing")
+    if min(offsets) >= 0.0 or max(offsets) <= 0.0:
+        _fail(f"{where} authored offsets must straddle the paw center")
+    return tuple(validated)
+
+
+def _hand_paw_station_axial_radius(offset: Any, axial_radius: float, where: str) -> tuple[float, float]:
+    """Validate one authored hand-paw offset and derive its residual support."""
+
+    offset_value = _hand_paw_offset(offset, where)
+    try:
+        residual_radius = (1.0 - abs(offset_value)) * float(axial_radius)
+    except (OverflowError, TypeError, ValueError):
+        _fail(f"{where} residual axial radius must be finite and strictly positive")
+    if not math.isfinite(residual_radius) or residual_radius <= 0.0:
+        _fail(f"{where} residual axial radius must be finite and strictly positive")
+    return offset_value, residual_radius
+
+
 def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
     """Build the four-station outward hand profile from exact paw controls."""
 
@@ -2815,32 +3351,51 @@ def _make_hand_paw_sweep(paw: Any, side: str) -> _ProfileSweep:
     paw_radii = _vec3(paw.paw_radii, f"{side}.hand-paw.radii")
     _finite_positive(tuple(float(value) for value in paw_radii), f"{side}.hand-paw.radii")
     axial_radius = float(paw_radii[0])
+    station_axes = (
+        tuple(float(value) for value in outward),
+        tuple(float(value) for value in up),
+        tuple(float(value) for value in forward),
+    )
     sections: list[_ProfileSection] = []
+    station_axial_radii: list[float] = []
     path_length = 0.0
-    for index, (offset, up_scale, forward_scale) in enumerate(_HAND_PAW_PROFILE):
-        center = centre + float(offset) * axial_radius * outward
+    controls = _validated_hand_paw_profile(
+        _HAND_PAW_PROFILE,
+        f"{side}.hand-paw owner {paw.owner.key}",
+    )
+    for index, (offset, up_scale, forward_scale) in enumerate(controls):
+        offset, station_axial_radius = _hand_paw_station_axial_radius(
+            offset,
+            axial_radius,
+            f"{side}.hand-paw.section[{index}]",
+        )
+        center = centre + offset * axial_radius * outward
         radii = (float(paw_radii[1]) * float(up_scale), float(paw_radii[2]) * float(forward_scale))
         _finite_positive(radii, f"{side}.hand-paw.section[{index}].radii")
         if index:
-            path_length += abs(float(_HAND_PAW_PROFILE[index][0] - _HAND_PAW_PROFILE[index - 1][0])) * axial_radius
+            previous_offset = controls[index - 1][0]
+            path_length += abs(offset - previous_offset) * axial_radius
         sections.append(_ProfileSection(
             _HAND_PAW_SECTION_NAMES[index], paw.owner,
             tuple(float(value) for value in center),
             tuple(float(value) for value in outward),
             (tuple(float(value) for value in up), tuple(float(value) for value in forward)),
             radii, path_length,
+            station_volume_axes=station_axes,
+            station_volume_radii=(station_axial_radius, radii[0], radii[1]),
         ))
+        station_axial_radii.append(station_axial_radius)
     ordered = tuple(sections)
     caps = (
         _ProfileEndpointCap(
             "start", ordered[0].center, tuple(-float(value) for value in outward),
             ordered[0].transverse_axes, ordered[0].transverse_radii,
-            min(min(ordered[0].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[0][0])) * axial_radius),
+            min(min(ordered[0].transverse_radii), 0.85 * station_axial_radii[0]),
         ),
         _ProfileEndpointCap(
             "end", ordered[-1].center, ordered[-1].tangent,
             ordered[-1].transverse_axes, ordered[-1].transverse_radii,
-            min(min(ordered[-1].transverse_radii), 0.85 * (1.0 - abs(_HAND_PAW_PROFILE[-1][0])) * axial_radius),
+            min(min(ordered[-1].transverse_radii), 0.85 * station_axial_radii[-1]),
         ),
     )
     sweep = _ProfileSweep(ordered, caps)
@@ -3029,6 +3584,86 @@ def _point_to_segment_distance(point: Any, start: Any, end: Any) -> float:
     return float(np.linalg.norm(point_vector - (start_vector + t * axis)))
 
 
+def _connector_cage_context(
+    cage: Any,
+    boundary: tuple[float, float, float],
+    where: str,
+) -> Any:
+    """Independently select the cage ellipse at one connector root height."""
+
+    boundary_point = _vec3(boundary, f"{where} cage connector root")
+    shape = _baseline._torso_cage_shape(cage)
+    axial = float(boundary_point[1])
+    heights = shape["heights"]
+    if axial <= float(heights[0]):
+        section = cage.sections[0]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    elif axial >= float(heights[-1]):
+        section = cage.sections[-1]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    else:
+        sampled_center, sampled_lateral, sampled_depth = _baseline._torso_cage_sample_controls(shape, axial)
+        center = tuple(float(value) for value in np.asarray(sampled_center).reshape(3))
+        lateral_radius = float(np.asarray(sampled_lateral))
+        depth_radius = float(np.asarray(sampled_depth))
+    return _baseline._BoundaryConnectorContainment(
+        center=tuple(float(value) for value in center),
+        lateral_radius=float(lateral_radius),
+        depth_radius=float(depth_radius),
+    )
+
+
+def _compiled_limb_connector_path(
+    guide: Any,
+    limb: Any,
+    path: tuple[tuple[float, float, float], tuple[float, float, float]],
+    profile: tuple[float, ...],
+    where: str,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Reconstruct a baseline-owned limb connector with its cage context."""
+
+    if limb.root_centerline is None:
+        _fail(f"{where} root controls are incomplete")
+    role = limb.owner.key[3]
+    if role not in {"upper_arm", "thigh"}:
+        _fail(f"{where} root connector has no owning cage boundary")
+    boundary_section = _connector_cage_context(guide.torso_cage, path[0], where)
+    inward_direction, clearance = _baseline._boundary_connector_inward_direction(
+        path[0],
+        boundary_section,
+        where,
+    )
+    return _baseline._embed_boundary_connector(
+        path,
+        profile,
+        where,
+        inward_direction,
+        clearance,
+    )
+
+
+def _compiled_limb_root_path(
+    guide: Any,
+    limb: Any,
+    where: str,
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Reconstruct the baseline-owned root path with its cage context."""
+
+    if limb.root_centerline is None or limb.root_thickness is None:
+        _fail(f"{where} root controls are incomplete")
+    return _compiled_limb_connector_path(
+        guide,
+        limb,
+        limb.root_centerline,
+        limb.root_thickness,
+        where,
+    )
+
+
 def _validate_limb_bridge_inventory(
     guide: Any,
     baseline_fields: tuple[Any, ...],
@@ -3102,11 +3737,7 @@ def _validate_limb_bridge_inventory(
             if proximal.root_centerline is None or proximal.root_thickness is None or len(root_fields) != 1:
                 _fail(f"{side}-{kind} must retain one source-owned root bridge")
             root_shape = root_fields[0].shape
-            root_path = _baseline._embed_boundary_connector(
-                proximal.root_centerline,
-                proximal.root_thickness,
-                f"{side}-{kind}.root",
-            )
+            root_path = _compiled_limb_root_path(guide, proximal, f"{side}-{kind}.root")
             _require_path_shape(root_shape, root_path, proximal.root_thickness, f"{side}-{kind} root connector")
             if kind != "arm":
                 _require_exact_same_point(root_shape.get("to"), start, f"{side}-{kind} root connector")
@@ -3114,7 +3745,9 @@ def _validate_limb_bridge_inventory(
                 hip_fields = tuple(field for field in baseline_fields if field.recipe == "hip-transition" and field.owner is proximal.owner)
                 if proximal.hip_centerline is None or proximal.hip_thickness is None or len(hip_fields) != 1:
                     _fail(f"{side}-{kind} must retain one source-owned hip transition")
-                hip_path = _baseline._embed_boundary_connector(
+                hip_path = _compiled_limb_connector_path(
+                    guide,
+                    proximal,
                     proximal.hip_centerline,
                     proximal.hip_thickness,
                     f"{side}-{kind}.hip",
@@ -3188,8 +3821,9 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
 
     The torso cage, one authored shoulder envelope per side, two authored head/neck route fields,
     four bilateral limb chains, ten bilateral hand/foot fields, and six tail
-    fields are replaced. Every other baseline field is carried as a named
-    temporary bridge: two thigh-root bridges and two hip transitions.
+    fields are replaced. The old thigh-root bridge and hip-transition fields
+    are consumed only as validated source evidence; successor skin uses one
+    derived pelvis-to-thigh socket/cup transition per side.
     """
 
     _baseline._validate_hybrid_guide(guide)
@@ -3199,7 +3833,8 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         baseline_fields = _baseline._compile_hybrid_guide(guide)
     replaced = (
         "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
-        "deltoid-sweep-1", *_LIMB_CHAIN_BASELINE_RECIPES, *_EXTREMITY_BASELINE_RECIPES, *_TAIL_BASELINE_RECIPES,
+        "deltoid-sweep-1", "root-bridge", "hip-transition",
+        *_LIMB_CHAIN_BASELINE_RECIPES, *_EXTREMITY_BASELINE_RECIPES, *_TAIL_BASELINE_RECIPES,
     )
     torso_fields = tuple(field for field in baseline_fields if field.recipe == "torso-cage")
     expected_torso_owner = guide.torso_cage.torso_owner
@@ -3232,6 +3867,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     foot_profile = _validate_foot_profile_guide(guide)
     _validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
     loft = _make_loft(guide)
+    hip_root_transitions = _make_hip_root_transitions(guide, loft, limb_sweeps)
     shoulder_sweeps = _make_shoulder_sweeps(guide, loft)
     upper_arm_owner_ids = {id(side.owner) for side in guide.shoulder_frame.sides}
     replaced_fields = tuple(
@@ -3241,13 +3877,13 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
     )
     bridge = tuple(
         field for field in bridge_before_tail
-        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1", *_EXTREMITY_BASELINE_RECIPES}
+        if field.recipe not in {"torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar", "deltoid-sweep-1", *_EXTREMITY_BASELINE_RECIPES, "root-bridge", "hip-transition"}
         and not (field.recipe == "root-bridge" and id(field.owner) in upper_arm_owner_ids)
     )
     if len(bridge) + len(replaced_fields) != len(baseline_fields):
         _fail("baseline bridge selection lost fields")
-    if len(bridge) != 4 or tuple(field.recipe for field in bridge).count("root-bridge") != 2 or tuple(field.recipe for field in bridge).count("hip-transition") != 2:
-        _fail("successor bridge must contain exactly two thigh root bridges and two hip transitions")
+    if bridge:
+        _fail("successor bridge unexpectedly retains baseline fields")
     head_neck_sweeps = _make_head_neck_sweeps(guide)
     tail_elements = _make_tail_elements(guide, loft)
     source_keys = {descriptor.key for descriptor in guide.source_descriptors}
@@ -3266,6 +3902,7 @@ def compile_successor_region(guide: Any, baseline_fields: tuple[Any, ...] | None
         leg_profile=leg_profile,
         foot_profile=foot_profile,
         limb_sweeps=limb_sweeps,
+        hip_root_transitions=hip_root_transitions,
         extremity_sweeps=extremity_sweeps,
         tail_elements=tail_elements,
     )
@@ -3318,14 +3955,20 @@ def _shape_preserving_slopes(path: np.ndarray, values: np.ndarray) -> np.ndarray
 
     path = np.asarray(path, dtype=np.float64)
     values = np.asarray(values, dtype=np.float64)
-    if path.ndim != 1 or values.shape != (path.size, 3) or path.size < 2:
-        _fail("torso profile interpolation controls have invalid dimensions")
+    if (
+        path.ndim != 1
+        or values.ndim != 2
+        or values.shape[0] != path.size
+        or values.shape[1] < 1
+        or path.size < 2
+    ):
+        _fail("profile interpolation controls have invalid dimensions")
     if not np.all(np.isfinite(path)) or not np.all(np.isfinite(values)) or np.any(np.diff(path) <= 0.0):
-        _fail("torso profile interpolation controls are invalid")
+        _fail("profile interpolation controls are invalid")
     spacing = np.diff(path)
     secants = np.diff(values, axis=0) / spacing[:, None]
     if not np.all(np.isfinite(secants)):
-        _fail("torso profile interpolation secants are not finite")
+        _fail("profile interpolation secants are not finite")
     slopes = np.zeros_like(values)
     if path.size == 2:
         slopes[0] = secants[0]
@@ -3334,10 +3977,15 @@ def _shape_preserving_slopes(path: np.ndarray, values: np.ndarray) -> np.ndarray
     for index in range(1, path.size - 1):
         previous = secants[index - 1]
         following = secants[index]
-        if np.all(previous * following > 0.0):
-            left_weight = 2.0 * spacing[index] + spacing[index - 1]
-            right_weight = spacing[index] + 2.0 * spacing[index - 1]
-            slopes[index] = (left_weight + right_weight) / (left_weight / previous + right_weight / following)
+        monotone = previous * following > 0.0
+        left_weight = 2.0 * spacing[index] + spacing[index - 1]
+        right_weight = spacing[index] + 2.0 * spacing[index - 1]
+        safe_previous = np.where(monotone, previous, 1.0)
+        safe_following = np.where(monotone, following, 1.0)
+        candidate = (left_weight + right_weight) / (
+            left_weight / safe_previous + right_weight / safe_following
+        )
+        slopes[index] = np.where(monotone, candidate, 0.0)
     first = ((2.0 * spacing[0] + spacing[1]) * secants[0] - spacing[0] * secants[1]) / (spacing[0] + spacing[1])
     first = np.where(first * secants[0] <= 0.0, 0.0, first)
     first = np.where(
@@ -3355,7 +4003,7 @@ def _shape_preserving_slopes(path: np.ndarray, values: np.ndarray) -> np.ndarray
     slopes[0] = first
     slopes[-1] = last
     if not np.all(np.isfinite(slopes)):
-        _fail("torso profile interpolation slopes are not finite")
+        _fail("profile interpolation slopes are not finite")
     return slopes
 
 
@@ -3376,6 +4024,57 @@ def _shape_preserving_sample(path: np.ndarray, values: np.ndarray, slopes: np.nd
     h01 = -2.0 * t**3 + 3.0 * t**2
     h11 = t**3 - t**2
     return h00[..., None] * left + h10[..., None] * width[..., None] * left_slope + h01[..., None] * right + h11[..., None] * width[..., None] * right_slope
+
+
+def _torso_span_profile_exponent(left: _ProfileSection, right: _ProfileSection) -> float:
+    """Select the shared section-role easing for one torso span."""
+
+    left_width = float(left.cardinal_radii[0])
+    right_width = float(right.cardinal_radii[0])
+    width_increases = right_width > left_width
+    width_decreases = right_width < left_width
+    exponent = 1.0
+    if left.owner is not right.owner:
+        exponent = 0.72 if width_decreases else 1.28 if width_increases else 1.0
+    elif right.name == "waist-abdomen":
+        exponent = 0.82 if width_decreases else 1.18 if width_increases else 1.0
+    elif left.name == "waist-abdomen":
+        exponent = 1.28 if width_increases else 0.82 if width_decreases else 1.0
+    elif left.name == "upper-abdomen" and right.name == "lower-ribcage":
+        exponent = 1.12 if width_increases else 0.90 if width_decreases else 1.0
+    elif left.name == "lower-ribcage" and right.name == "upper-ribcage-shoulder":
+        exponent = 0.88 if width_increases else 1.12 if width_decreases else 1.0
+    return exponent
+
+
+def _torso_span_profile_remap(t: np.ndarray, exponent: float) -> np.ndarray:
+    """Remap one normalized span parameter with unit endpoint slopes."""
+
+    normalized = np.asarray(t, dtype=np.float64)
+    k = 16.0 * (0.5 ** exponent - 0.5)
+    return normalized + k * normalized**2 * (1.0 - normalized)**2
+
+
+def _torso_span_profile_remap_derivative(t: np.ndarray, exponent: float) -> np.ndarray:
+    """Evaluate the analytic derivative of the normalized span remap."""
+
+    normalized = np.asarray(t, dtype=np.float64)
+    k = 16.0 * (0.5 ** exponent - 0.5)
+    return 1.0 + 2.0 * k * normalized * (1.0 - normalized) * (1.0 - 2.0 * normalized)
+
+
+def _torso_span_profile_parameter(left: _ProfileSection, right: _ProfileSection, t: np.ndarray) -> np.ndarray:
+    """Shape the shared axial progression into linked regional masses.
+
+    The seven authored stations remain the only profile controls.  These
+    fixed section-role easings only decide where an existing transition is
+    felt: pelvis fullness contracts early into the long abdominal bridge,
+    the waist stays contracted before expanding, and the upper ribcage takes
+    the stronger final expansion.  The direction is checked from the
+    existing lateral controls so profile variants retain their own identity.
+    """
+
+    return _torso_span_profile_remap(t, _torso_span_profile_exponent(left, right))
 
 
 def _torso_superellipse_field(
@@ -3426,7 +4125,8 @@ def _torso_span_field(
     else:
         _, first, second = _interpolated_span_frame(left, right, t)
     span_length = math.sqrt(length_sq)
-    query_path = float(left.path_length) + t * span_length
+    profile_t = _torso_span_profile_parameter(left, right, t)
+    query_path = float(left.path_length) + profile_t * span_length
     local_radii = _shape_preserving_sample(path, radii, slopes, query_path)
     offset = points - centre
     lateral_distance = np.sum(offset * first, axis=-1)
@@ -3453,6 +4153,56 @@ def _torso_cap_field(points: np.ndarray, cap: _ProfileEndpointCap, cardinal_radi
     )
 
 
+def _torso_cap_radial_distance(
+    direction: np.ndarray,
+    cap: _ProfileEndpointCap,
+    cardinal_radii: tuple[float, float, float],
+    where: str,
+) -> float:
+    """Return the exact radial distance to one consumed torso endpoint cap."""
+
+    ray = _unit(np.asarray(direction, dtype=np.float64), f"{where}.direction")
+    lateral_radius, anterior_radius, posterior_radius = (
+        float(value) for value in cardinal_radii
+    )
+    _finite_positive(
+        (lateral_radius, anterior_radius, posterior_radius, float(cap.axial_radius)),
+        f"{where}.radii",
+    )
+    lateral = float(np.dot(ray, _vec3(cap.transverse_axes[0], f"{where}.lateral-axis")))
+    forward = float(np.dot(ray, _vec3(cap.transverse_axes[1], f"{where}.forward-axis")))
+    axial = float(np.dot(ray, _vec3(cap.outward_tangent, f"{where}.axial-axis")))
+    forward_radius = anterior_radius if forward >= 0.0 else posterior_radius
+    denominator = (
+        abs(lateral / lateral_radius) ** TORSO_SUPERELLIPSE_EXPONENT
+        + abs(forward / forward_radius) ** TORSO_SUPERELLIPSE_EXPONENT
+        + abs(axial / float(cap.axial_radius)) ** TORSO_SUPERELLIPSE_EXPONENT
+    )
+    distance = denominator ** (-1.0 / TORSO_SUPERELLIPSE_EXPONENT)
+    if not math.isfinite(distance) or distance <= 0.0:
+        _fail(f"{where} produced an invalid torso-cap radial distance")
+    return distance
+
+
+def _lower_pelvis_field(points: np.ndarray, loft: _ProfileSweep) -> np.ndarray:
+    """Evaluate only the lower-pelvis cap and its adjacent consumed span."""
+
+    _validate_profile_sweep(loft)
+    if len(loft.sections) < 2 or loft.sections[0].name != "lower-pelvis":
+        _fail("lower-pelvis field requires the canonical first torso section")
+    points = np.asarray(points, dtype=np.float64)
+    if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
+        _fail("lower-pelvis query points must be finite three-vectors")
+    cardinal = np.asarray([section.cardinal_radii for section in loft.sections], dtype=np.float64)
+    path = np.asarray([section.path_length for section in loft.sections], dtype=np.float64)
+    slopes = _shape_preserving_slopes(path, cardinal)
+    values = (
+        _torso_span_field(points, loft.sections[0], loft.sections[1], path, cardinal, slopes),
+        _torso_cap_field(points, loft.endpoint_caps[0], tuple(float(value) for value in cardinal[0])),
+    )
+    return np.min(np.stack(values, axis=0), axis=0)
+
+
 def _torso_profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray:
     """Evaluate one finite seven-section asymmetric torso field."""
 
@@ -3470,7 +4220,37 @@ def _torso_profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.n
     return np.min(np.stack(values, axis=0), axis=0)
 
 
-def _profile_span_field(points: np.ndarray, left: _ProfileSection, right: _ProfileSection) -> np.ndarray:
+def _profile_span_radii(
+    left: _ProfileSection,
+    right: _ProfileSection,
+    t: np.ndarray,
+    route_interpolation: tuple[np.ndarray, np.ndarray, np.ndarray] | None,
+) -> np.ndarray:
+    """Sample one span's transverse radii without inventing route extrema."""
+
+    if route_interpolation is None:
+        result = (
+            (1.0 - t)[..., None] * np.asarray(left.transverse_radii, dtype=np.float64)
+            + t[..., None] * np.asarray(right.transverse_radii, dtype=np.float64)
+        )
+    else:
+        path, controls, slopes = route_interpolation
+        query = (
+            (1.0 - t) * float(left.path_length)
+            + t * float(right.path_length)
+        )
+        result = _shape_preserving_sample(path, controls, slopes, query)
+    if not np.all(np.isfinite(result)) or np.any(result <= 0.0):
+        _fail("profile span interpolation produced invalid radii")
+    return result
+
+
+def _profile_span_field(
+    points: np.ndarray,
+    left: _ProfileSection,
+    right: _ProfileSection,
+    route_interpolation: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+) -> np.ndarray:
     start = _vec3(left.center, "profile span start")
     end = _vec3(right.center, "profile span end")
     axis = end - start
@@ -3489,7 +4269,7 @@ def _profile_span_field(points: np.ndarray, left: _ProfileSection, right: _Profi
         second = np.broadcast_to(_vec3(left.transverse_axes[1], "profile span transverse axis"), points.shape)
     else:
         _, first, second = _interpolated_span_frame(left, right, t)
-    radii = (1.0 - t)[..., None] * np.asarray(left.transverse_radii, dtype=np.float64) + t[..., None] * np.asarray(right.transverse_radii, dtype=np.float64)
+    radii = _profile_span_radii(left, right, t, route_interpolation)
     offset = points - centre
     first_distance = np.sum(offset * first, axis=-1) / radii[..., 0]
     second_distance = np.sum(offset * second, axis=-1) / radii[..., 1]
@@ -3563,8 +4343,18 @@ def _profile_transition_field(points: np.ndarray, transition: _ProfileJointTrans
     return (np.sqrt(axial**2 + transverse_first**2 + transverse_second**2) - 1.0) * min(*transition.transverse_radii, transition.axial_radius)
 
 
-def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray:
-    """Evaluate finite tapered spans and oriented endpoint caps by minimum."""
+def _profile_sweep_field(
+    points: np.ndarray,
+    sweep: _ProfileSweep,
+    *,
+    include_station_volumes: bool = True,
+) -> np.ndarray:
+    """Evaluate finite tapered spans and oriented endpoint caps by minimum.
+
+    Derived head/muzzle compositions contribute only their synthetic spans and
+    caps. Their stations are interpolation controls, not additional authored
+    volumes that may mask the primary route's source-owned controls.
+    """
 
     if sweep.profile_operation == TORSO_PROFILE_OPERATION:
         return _torso_profile_sweep_field(points, sweep)
@@ -3572,16 +4362,38 @@ def _profile_sweep_field(points: np.ndarray, sweep: _ProfileSweep) -> np.ndarray
     points = np.asarray(points, dtype=np.float64)
     if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
         _fail("profile sweep query points must be finite three-vectors")
+    route_interpolation = None
+    if sweep.profile_operation in {
+        _ARM_PROFILE_OPERATION,
+        _LEG_PROFILE_OPERATION,
+        _FOOT_PROFILE_OPERATION,
+    }:
+        path = np.asarray([section.path_length for section in sweep.sections], dtype=np.float64)
+        controls = np.asarray(
+            [section.transverse_radii for section in sweep.sections],
+            dtype=np.float64,
+        )
+        route_interpolation = (path, controls, _shape_preserving_slopes(path, controls))
+    span_values = []
+    for left, right in zip(sweep.sections, sweep.sections[1:]):
+        if float(np.linalg.norm(np.asarray(right.center) - np.asarray(left.center))) <= _DEGENERATE_TOLERANCE:
+            _fail("profile span has degenerate centres")
+        span_values.append(_profile_span_field(points, left, right, route_interpolation))
     values = [
-        *(_profile_span_field(points, left, right) for left, right in zip(sweep.sections, sweep.sections[1:])),
+        *span_values,
         *(_profile_transition_field(points, transition) for transition in sweep.internal_transitions),
         *(_profile_cap_field(points, cap) for cap in sweep.endpoint_caps),
-        *(
+    ]
+    if include_station_volumes:
+        values.extend(
             _profile_station_volume_field(points, section)
             for section in sweep.sections
             if section.tangent_radius is not None or section.station_volume_radii is not None
-        ),
-    ]
+        )
+    values.extend(
+        _profile_sweep_field(points, derived, include_station_volumes=False)
+        for derived in sweep.derived_sweeps
+    )
     return np.min(np.stack(values, axis=0), axis=0)
 
 
@@ -3693,10 +4505,11 @@ def _successor_region_field(points: np.ndarray, region: SuccessorRegion, smooth_
     values = [_loft_field(points, region.loft)]
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.head_neck_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.limb_sweeps)
+    values.extend(_profile_sweep_field(points, item.sweep) for item in region.hip_root_transitions)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.extremity_sweeps)
     values.extend(_profile_sweep_field(points, item.sweep) for item in region.tail_elements)
     values.extend(_shoulder_sweep_field(points, item) for item in region.shoulder_sweeps)
-    return _baseline._smooth_union(values, smooth_k)
+    return _successor_smooth_union(values, smooth_k)
 
 
 def _arm_profile_lineage_json(lineage: Any) -> dict[str, Any]:
@@ -3861,6 +4674,69 @@ def _leg_profile_metadata(region: SuccessorRegion) -> dict[str, Any]:
     }
 
 
+def _hip_root_metadata(region: SuccessorRegion) -> dict[str, Any]:
+    """Serialize the derived bilateral pelvis-to-thigh socket controls."""
+
+    routes = region.hip_root_transitions
+    if tuple(item.name for item in routes) != ("left-hip-root-transition", "right-hip-root-transition"):
+        _fail("successor hip-root metadata route order is unstable")
+    return {
+        "operation": _HIP_ROOT_PROFILE_OPERATION,
+        "topology": "one-derived-four-station-pelvis-socket-cup-tangent-blend-to-authored-thigh-root-per-side",
+        "route_order": [item.name for item in routes],
+        "route_kinds": ["derived-pelvis-thigh-transition", "derived-pelvis-thigh-transition"],
+        "section_names": [list(item.sweep.names) for item in routes],
+        "section_counts": [item.sections_consumed for item in routes],
+        "section_owner_keys": [
+            [_baseline._address_json(owner.key) for owner in item.sweep.owners]
+            for item in routes
+        ],
+        "source_owner_keys": [
+            [_baseline._address_json(owner.key) for owner in item.source_owners]
+            for item in routes
+        ],
+        "pelvis_section_names": [item.pelvis_section_name for item in routes],
+        "authored_station_names": [item.authored_station_name for item in routes],
+        "boundary_parameters": [float(item.boundary_parameter) for item in routes],
+        "socket_parameters": [float(item.socket_parameter) for item in routes],
+        "tangent_blend_distances": [float(item.tangent_blend_distance) for item in routes],
+        "derived_from": [
+            {
+                "lower_pelvis": {"section_name": item.pelvis_section_name, "source_section_index": 0},
+                "authored_thigh_start": {"station_name": item.authored_station_name, "source_station_index": 0},
+                "tangent_blend": {
+                    "station_name": "thigh-tangent-blend",
+                    "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent",
+                    "distance": float(item.tangent_blend_distance),
+                },
+            }
+            for item in routes
+        ],
+        "controls": {
+            "boundary_samples": _HIP_ROOT_BOUNDARY_SAMPLES,
+            "boundary_iterations": _HIP_ROOT_BOUNDARY_ITERATIONS,
+            "boundary_max_parameter": _HIP_ROOT_BOUNDARY_MAX_PARAMETER,
+            "socket_fraction": _HIP_ROOT_SOCKET_FRACTION,
+            "cup_remaining_fraction": _HIP_ROOT_CUP_REMAINING_FRACTION,
+            "pelvis_support_cap": _HIP_ROOT_PELVIS_SUPPORT_CAP,
+            "socket_thigh_weight": _HIP_ROOT_SOCKET_THIGH_WEIGHT,
+            "socket_pelvis_weight": _HIP_ROOT_SOCKET_PELVIS_WEIGHT,
+            "cup_thigh_weight": _HIP_ROOT_CUP_THIGH_WEIGHT,
+            "cup_pelvis_weight": _HIP_ROOT_CUP_PELVIS_WEIGHT,
+            "tangent_blend_fraction": _HIP_ROOT_TANGENT_BLEND_FRACTION,
+        },
+        "volume_radii": [
+            {
+                    "socket": [float(value) for value in item.socket_volume_radii],
+                    "cup": [float(value) for value in item.cup_volume_radii],
+                    "tangent_blend": [float(value) for value in item.tangent_blend_volume_radii],
+                    "authored_thigh_start": [float(value) for value in item.authored_volume_radii],
+            }
+            for item in routes
+        ],
+    }
+
+
 def _foot_profile_lineage_json(lineage: Any) -> dict[str, Any]:
     return {
         "base": int(lineage.base),
@@ -3974,6 +4850,60 @@ def _foot_profile_metadata(region: SuccessorRegion) -> dict[str, Any]:
     }
 
 
+def _hand_paw_metadata(region: SuccessorRegion) -> dict[str, Any]:
+    """Serialize the exact compiled full-volume hand-paw station controls."""
+
+    routes = tuple(item for item in region.extremity_sweeps if item.kind == "hand-paw")
+    if tuple(item.name for item in routes) != ("left-hand-paw", "right-hand-paw"):
+        _fail("successor hand-paw metadata route order is unstable")
+    side_metadata: list[dict[str, Any]] = []
+    for route in routes:
+        if route.section_names != _HAND_PAW_SECTION_NAMES:
+            _fail(f"{route.side} hand-paw metadata station order is unstable")
+        station_metadata: list[dict[str, Any]] = []
+        for index, section in enumerate(route.sweep.sections):
+            axes = section.station_volume_axes
+            radii = section.station_volume_radii
+            if axes is None or radii is None:
+                _fail(f"{route.side} hand-paw metadata station {index} is missing its full volume")
+            station_metadata.append({
+                "name": section.name,
+                "section_index": index,
+                "owner": _baseline._address_json(section.owner.key),
+                "center": [float(value) for value in section.center],
+                "volume_axes": [[float(value) for value in axis] for axis in axes],
+                "volume_radii": [float(value) for value in radii],
+            })
+        side_metadata.append({
+            "side": route.side,
+            "route": route.name,
+            "route_kind": route.kind,
+            "station_count": len(route.sweep.sections),
+            "owner_roles": [section.owner.key[3] for section in route.sweep.sections],
+            "stations": station_metadata,
+        })
+    return {
+        "representation": "four-station-full-volume-hand-paw-sweeps",
+        "operation": routes[0].sweep.profile_operation,
+        "route_order": [item.name for item in routes],
+        "route_kinds": [item.kind for item in routes],
+        "section_names": list(_HAND_PAW_SECTION_NAMES),
+        "owner_roles": ["hand"] * len(_HAND_PAW_SECTION_NAMES),
+        "route_station_count": sum(len(item.sweep.sections) for item in routes),
+        "route_volume_axis_count": sum(
+            len(section.station_volume_axes or ())
+            for item in routes
+            for section in item.sweep.sections
+        ),
+        "route_volume_radius_count": sum(
+            len(section.station_volume_radii or ())
+            for item in routes
+            for section in item.sweep.sections
+        ),
+        "sides": side_metadata,
+    }
+
+
 def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]:
     profile_lower, profile_upper = _profile_sweep_bounds(region.loft)
     mins = [profile_lower]
@@ -3986,6 +4916,10 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
         maxs.append(upper)
+    for item in region.hip_root_transitions:
+        lower, upper = _profile_sweep_bounds(item.sweep)
+        mins.append(lower)
+        maxs.append(upper)
     for item in region.extremity_sweeps:
         lower, upper = _profile_sweep_bounds(item.sweep)
         mins.append(lower)
@@ -3995,14 +4929,24 @@ def _bounds_for_region(region: SuccessorRegion) -> tuple[np.ndarray, np.ndarray]
         mins.append(lower)
         maxs.append(upper)
     for item in region.shoulder_sweeps:
-        lower, upper = _profile_sweep_bounds(item.sweep)
+        lower, upper = _profile_sweep_bounds(item.sweep, interpolated_frames=False)
         mins.append(lower)
         maxs.append(upper)
     return np.min(np.stack(mins), axis=0), np.max(np.stack(maxs), axis=0)
 
 
-def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]:
-    """Return conservative finite world-axis bounds including both caps."""
+def _profile_sweep_bounds(
+    sweep: _ProfileSweep,
+    *,
+    interpolated_frames: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return conservative finite world-axis bounds including both caps.
+
+    Shoulder spans opt out because their evaluator derives a fresh frame from
+    each finite centerline span.  All ordinary profile spans use the
+    interpolated station frame, whose possible tangent-plane leakage is
+    included below.
+    """
 
     _validate_profile_sweep(sweep)
     lower: list[np.ndarray] = []
@@ -4026,13 +4970,33 @@ def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]
     for left, right in zip(sweep.sections, sweep.sections[1:]):
         left_center = _vec3(left.center, "profile span bounds start")
         right_center = _vec3(right.center, "profile span bounds end")
+        if float(np.linalg.norm(right_center - left_center)) <= _DEGENERATE_TOLERANCE:
+            _fail("profile span bounds have degenerate centres")
         radius = math.hypot(
             max(left.transverse_radii[0], right.transverse_radii[0]),
             max(left.transverse_radii[1], right.transverse_radii[1]),
         )
-        # Interpolated frames can tilt out of the endpoint planes. Expanding
-        # every world axis by the two maximum transverse radii's Euclidean
-        # norm conservatively encloses any oriented elliptical cross-section.
+        if interpolated_frames:
+            span_axis = _unit(right_center - left_center, "profile span bounds centerline")
+            left_alignment = float(np.dot(span_axis, _vec3(left.tangent, "profile span bounds left tangent")))
+            right_alignment = float(np.dot(span_axis, _vec3(right.tangent, "profile span bounds right tangent")))
+            if left_alignment * right_alignment <= 0.0:
+                _fail("profile span bounds cannot enclose a frame interpolation crossing the span plane")
+            alignment = min(abs(left_alignment), abs(right_alignment))
+            if not math.isfinite(alignment) or alignment <= _DEGENERATE_TOLERANCE:
+                _fail("profile span bounds have insufficient centerline/frame alignment")
+            # The finite-span gate is perpendicular to the centerline, while
+            # the interpolated field frame is perpendicular to its
+            # interpolated tangent.  For a fixed interpolation parameter,
+            # write the omitted tangent coordinate from the centerline-plane
+            # constraint.  The resulting transverse support is bounded by
+            # this derived factor; using the minimum endpoint alignment is
+            # conservative for the normalized linear tangent interpolation
+            # used by the evaluator.
+            frame_leak = math.sqrt(max(0.0, 1.0 - alignment * alignment)) / alignment
+            radius *= 1.0 + frame_leak
+        if not math.isfinite(radius) or radius <= 0.0:
+            _fail("profile span bounds produced an invalid interpolated-frame support")
         lower.append(np.minimum(left_center, right_center) - radius)
         upper.append(np.maximum(left_center, right_center) + radius)
     for transition in sweep.internal_transitions:
@@ -4051,7 +5015,33 @@ def _profile_sweep_bounds(sweep: _ProfileSweep) -> tuple[np.ndarray, np.ndarray]
         extent = np.abs(outward) * cap.axial_radius + np.abs(first) * cap.transverse_radii[0] + np.abs(second) * cap.transverse_radii[1]
         lower.append(center - extent)
         upper.append(center + extent)
+    for derived in sweep.derived_sweeps:
+        derived_lower, derived_upper = _profile_sweep_bounds(derived, interpolated_frames=interpolated_frames)
+        lower.append(derived_lower)
+        upper.append(derived_upper)
     return np.min(np.stack(lower), axis=0), np.max(np.stack(upper), axis=0)
+
+
+def _historical_v9_recipe_signature_json(
+    signature: tuple[tuple[Any, str], ...],
+) -> list[list[Any]]:
+    """Serialize the retained v9 recipe projection exactly as historically emitted."""
+
+    return [
+        [list(field_key[0]), list(field_key[1]), field_key[2], field_key[3], recipe]
+        for field_key, recipe in signature
+    ]
+
+
+def _recipe_signature_json(
+    signature: tuple[tuple[Any, str], ...],
+) -> list[list[Any]]:
+    """Serialize source recipe entries without flattening AddressKey fields."""
+
+    return [
+        [_baseline._address_json(field_key), recipe]
+        for field_key, recipe in signature
+    ]
 
 
 def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Component, ...]:
@@ -4079,6 +5069,16 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             True,
             lambda points, current=item.sweep: _loft_owner_keys(points, current),
         ))
+    for item in region.hip_root_transitions:
+        bounds = _profile_sweep_bounds(item.sweep)
+        components.append(_Component(
+            item.owner,
+            f"successor-{item.name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            bounds,
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
     for item in region.extremity_sweeps:
         bounds = _profile_sweep_bounds(item.sweep)
         components.append(_Component(
@@ -4100,7 +5100,7 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             lambda points, current=item.sweep: _loft_owner_keys(points, current),
         ))
     for item in region.shoulder_sweeps:
-        bounds = _profile_sweep_bounds(item.sweep)
+        bounds = _profile_sweep_bounds(item.sweep, interpolated_frames=False)
         components.append(_Component(
             item.owner,
             f"successor-{item.recipe}",
@@ -4123,11 +5123,11 @@ def _make_components(region: SuccessorRegion, smooth_k: float) -> tuple[_Compone
             bounds = (np.minimum(start, end) - radius, np.maximum(start, end) + radius)
         components.append(_Component(field.owner, field.recipe, lambda points, current=field: _baseline._field(points, current), bounds, False))
     if len(components) < 2:
-        _fail("successor full-body consumer has no temporary bridge")
+        _fail("successor full-body consumer has too few components")
     return tuple(components)
 
 
-_EXPECTED_COMPONENT_COUNT = 27
+_EXPECTED_COMPONENT_COUNT = 25
 
 
 def _make_render_components(components: tuple[_Component, ...]) -> tuple[Any, ...]:
@@ -4152,16 +5152,83 @@ def _make_render_components(components: tuple[_Component, ...]) -> tuple[Any, ..
     return tuple(render_components)
 
 
+def _successor_smooth_union(values: list[np.ndarray], smooth_k: float) -> np.ndarray:
+    """Fold successor operands while preserving the positive-field invariant.
+
+    For each binary step whose minimum is positive, the correction is at most
+    half that minimum.  Therefore two positive operands remain positive, and
+    that fact is preserved by induction over the complete successor fold. For
+    zero or negative minima, retain the original uncapped polynomial
+    correction. Baseline composition intentionally keeps its historical
+    unguarded operator.
+    """
+
+    if not values:
+        _fail("successor composition requires a non-empty operand list")
+    if not math.isfinite(float(smooth_k)) or smooth_k <= 0.0:
+        _fail("successor smooth-k must be finite and positive")
+    result = np.asarray(values[0], dtype=np.float64).copy()
+    if np.any(np.isnan(result)) or np.any(np.isneginf(result)):
+        _fail("successor composition inputs must not contain NaN or negative infinity")
+    for current in values[1:]:
+        current = np.asarray(current, dtype=np.float64)
+        if current.shape != result.shape or np.any(np.isnan(current)) or np.any(np.isneginf(current)):
+            _fail("successor composition inputs must be shape-matched without NaN or negative infinity")
+        finite_pair = np.isfinite(result) & np.isfinite(current)
+        difference = np.full_like(result, np.inf)
+        np.subtract(result, current, out=difference, where=finite_pair)
+        difference = np.abs(difference)
+        h = np.maximum(float(smooth_k) - difference, 0.0)
+        correction = (h**3) / (6.0 * float(smooth_k) * float(smooth_k))
+        minimum = np.minimum(result, current)
+        positive_minimum = minimum > 0.0
+        correction = np.where(
+            positive_minimum,
+            np.minimum(correction, 0.5 * minimum),
+            correction,
+        )
+        result = minimum - correction
+    return result
+
+
 def _evaluate_components(points: np.ndarray, components: tuple[_Component, ...], smooth_k: float) -> np.ndarray:
     values = [component.evaluate(points) for component in components]
-    return _baseline._smooth_union(values, smooth_k)
+    return _successor_smooth_union(values, smooth_k)
 
 
 def _combined_bounds(components: tuple[_Component, ...], padding: float) -> tuple[np.ndarray, np.ndarray]:
+    if not components:
+        _fail("successor sampling requires a non-empty component inventory")
     lower = np.min(np.stack([item.bounds[0] for item in components]), axis=0) - padding
     upper = np.max(np.stack([item.bounds[1] for item in components]), axis=0) + padding
     if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
         _fail("successor sampling bounds are invalid")
+    return lower, upper
+
+
+def _shared_successor_capture_bounds(
+    baseline_field_sets: tuple[tuple[Any, ...], ...],
+    component_sets: tuple[tuple[_Component, ...], ...],
+    padding: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Union baseline and successor consumer bounds for one capture frame."""
+
+    if len(baseline_field_sets) == 0 or len(baseline_field_sets) != len(component_sets):
+        _fail("successor capture bounds require matching non-empty variant sets")
+    if not math.isfinite(float(padding)) or padding < 0.0:
+        _fail("successor capture padding must be finite and non-negative")
+    baseline_lower, baseline_upper = _baseline._shared_render_bounds(baseline_field_sets, 0.0)
+    component_bounds = tuple(_combined_bounds(components, 0.0) for components in component_sets)
+    lower = np.min(
+        np.stack((baseline_lower, *(bounds[0] for bounds in component_bounds))),
+        axis=0,
+    ) - float(padding)
+    upper = np.max(
+        np.stack((baseline_upper, *(bounds[1] for bounds in component_bounds))),
+        axis=0,
+    ) + float(padding)
+    if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)) or np.any(upper <= lower):
+        _fail("successor shared capture bounds are invalid")
     return lower, upper
 
 
@@ -4277,7 +5344,9 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "head_neck": _head_neck_metadata(region),
             "arm_profile": _arm_profile_metadata(region),
             "leg_profile": _leg_profile_metadata(region),
+            "hip_root": _hip_root_metadata(region),
             "foot_profile": _foot_profile_metadata(region),
+            "hand_paw": _hand_paw_metadata(region),
             "limb_representation": "shared-guide-derived-authored-arm-and-leg-profile-routes",
             "limb_sweeps_consumed": len(region.limb_sweeps),
             "limb_sweep_order": [item.chain_name for item in region.limb_sweeps],
@@ -4336,19 +5405,1554 @@ def build_variant(form: Any, descriptors: tuple[Any, ...], samples: int = DEFAUL
             "replaced_baseline_recipes": list(region.replaced_baseline_recipes),
         },
         "temporary_bridge": {
-            "enabled": True,
-            "consumer": "baseline-analytic-fields",
-            "regions": ["thigh-root-connectors", "hip-transitions"],
+            "enabled": False,
+            "consumer": "none",
+            "regions": [],
             "field_count": len(region.bridge_fields),
             "retained_recipes": sorted({field.recipe for field in region.bridge_fields}),
         },
-        "baseline_recipe_signature": [[list(field_key[0]), list(field_key[1]), field_key[2], field_key[3], recipe] for field_key, recipe in baseline_signature],
+        "baseline_recipe_signature": _historical_v9_recipe_signature_json(baseline_signature),
         "source_descriptor_count": len(descriptors),
         "component_count_for_sampling": len(components),
         "grid": {"samples_per_axis": samples, "axis_order": ["x", "y", "z"], "bounds_min": lower.tolist(), "bounds_max": upper.tolist(), "spacing": [float(axis[1] - axis[0]) for axis in axes]},
     })
     metrics["component_visualization"] = _baseline._component_visualization_metadata(render_components)
     return SuccessorMesh(vertices, faces, normals, tuple(labels), metrics, region, metrics["grid"], render_components)
+
+
+# ---------------------------------------------------------------------------
+# Private neutral-only alternative candidate
+# ---------------------------------------------------------------------------
+#
+# The v9 successor above is retained as the rejected baseline.  This candidate
+# is deliberately represented by different records and evaluators: its torso
+# is an axial polar/elliptical envelope and its lower body is one component
+# with bilateral compact-support seam corridors.  It is intentionally an
+# in-memory experiment.  The v9 generator, CLI, and bundle format remain the
+# addressable baseline and are not silently changed by this candidate.
+
+ALTERNATIVE_FORMAT = "creature-kernel.disposable-successor-surface-preview.neutral-alternative.v1"
+ALTERNATIVE_CONSUMER_ID = "successor-surface-neutral-alternative-v1"
+ALTERNATIVE_REGION_ID = "successor-neutral-axial-envelope-hip-corridor-v1"
+ALTERNATIVE_TORSO_OPERATION = "polar-elliptical-axial-envelope-v1"
+ALTERNATIVE_LOWER_BODY_OPERATION = "lower-body-local-hip-corridor-composition-v1"
+ALTERNATIVE_CORRIDOR_OPERATION = "bilateral-compact-support-hip-seam-corridor-v1"
+ALTERNATIVE_NECK_ROOT_OPERATION = "source-derived-neck-root-flare-v1"
+ALTERNATIVE_NECK_ROOT_RECIPE = "vertical-neck-cranium"
+ALTERNATIVE_NEUTRAL_PROFILE_ID = "neutral-v0"
+ALTERNATIVE_MIN_SAMPLES = 56
+_ALTERNATIVE_CAP_ROOT_ITERATIONS = 64
+ALTERNATIVE_TORSO_INTERVALS = (
+    ("pelvis", 0, 2),
+    ("abdominal-bridge", 2, 4),
+    ("ribcage", 4, 6),
+)
+ALTERNATIVE_COMPONENT_COUNT = 19
+
+
+@dataclass(frozen=True)
+class _AlternativeTorsoInterval:
+    """One axial interval named from the existing seven guide stations."""
+
+    name: str
+    start_index: int
+    end_index: int
+    start_axial: float
+    end_axial: float
+
+
+@dataclass(frozen=True)
+class _AlternativeTorsoEnvelope:
+    """Continuous asymmetric polar/elliptical torso envelope."""
+
+    operation: str
+    sections: tuple[_ProfileSection, ...]
+    intervals: tuple[_AlternativeTorsoInterval, ...]
+    axial_axis: tuple[float, float, float]
+    lateral_axis: tuple[float, float, float]
+    forward_axis: tuple[float, float, float]
+    axial_positions: tuple[float, ...]
+    cardinal_radii: tuple[tuple[float, float, float], ...]
+    source_lineages: tuple[tuple[Any, Any, Any], ...]
+    slopes: np.ndarray
+    endpoint_caps: tuple[_ProfileEndpointCap, _ProfileEndpointCap]
+    endpoint_cap_sources: tuple[tuple[str, str], tuple[str, str]]
+    endpoint_cap_distances: tuple[float, float]
+
+    @property
+    def centers(self) -> np.ndarray:
+        return np.asarray([section.center for section in self.sections], dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class _AlternativeHipSeamCorridor:
+    """Finite analytic support corridor for one pelvis/thigh seam."""
+
+    name: str
+    side: str
+    source_owners: tuple[Any, ...]
+    start_center: tuple[float, float, float]
+    end_center: tuple[float, float, float]
+    start_radius: float
+    end_radius: float
+    hip_route: _HipRootTransition
+    leg_route: _LimbChainSweep
+    foot_route: _ExtremitySweep
+    planted_support_centers: tuple[tuple[float, float, float], ...]
+    planted_support_radii: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class _AlternativeLowerBody:
+    """One lower-body operand with local bilateral seam composition."""
+
+    operation: str
+    torso: _AlternativeTorsoEnvelope
+    corridors: tuple[_AlternativeHipSeamCorridor, ...]
+
+    @property
+    def hip_routes(self) -> tuple[_HipRootTransition, ...]:
+        return tuple(item.hip_route for item in self.corridors)
+
+    @property
+    def leg_routes(self) -> tuple[_LimbChainSweep, ...]:
+        return tuple(item.leg_route for item in self.corridors)
+
+    @property
+    def foot_routes(self) -> tuple[_ExtremitySweep, ...]:
+        return tuple(item.foot_route for item in self.corridors)
+
+
+@dataclass(frozen=True)
+class _AlternativeNeckRootFlare:
+    """One derived torso-to-authored-neck attachment within the neck route."""
+
+    operation: str
+    owner: Any
+    source_owners: tuple[Any, ...]
+    sweep: _ProfileSweep
+    attachment_station: _ProfileSection
+    neck_collar_station: _ProfileSection
+    neck_collar_radii: tuple[float, float, float]
+    head_base_radii: tuple[float, float, float]
+    shoulder_root_support: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class NeutralAlternativeRegion:
+    """Private candidate region reusing non-lower-body successor consumers."""
+
+    consumer_id: str
+    region_id: str
+    torso: _AlternativeTorsoEnvelope
+    lower_body: _AlternativeLowerBody
+    shoulder_sweeps: tuple[_ShoulderEnvelopeSweep, ...]
+    head_neck_sweeps: tuple[_RegionalProfileSweep, ...]
+    arm_sweeps: tuple[_LimbChainSweep, ...]
+    extremity_sweeps: tuple[_ExtremitySweep, ...]
+    tail_elements: tuple[_TailElement, ...]
+    neck_root_flare: _AlternativeNeckRootFlare
+    source_owners: tuple[Any, ...]
+    baseline_recipe_signature: tuple[tuple[Any, str], ...]
+
+
+def _validate_torso_attachment_envelope(envelope: Any) -> None:
+    """Validate either the retained v9 profile or the alternative envelope."""
+
+    if isinstance(envelope, _AlternativeTorsoEnvelope):
+        if envelope.operation != ALTERNATIVE_TORSO_OPERATION:
+            _fail("alternative torso envelope has an invalid operation")
+        if len(envelope.sections) != 7 or len(envelope.intervals) != 3:
+            _fail("alternative torso envelope must contain seven sections and three intervals")
+        if tuple(item.name for item in envelope.intervals) != tuple(item[0] for item in ALTERNATIVE_TORSO_INTERVALS):
+            _fail("alternative torso interval names are unstable")
+        if (
+            len(envelope.axial_positions) != 7
+            or len(envelope.cardinal_radii) != 7
+            or len(envelope.source_lineages) != 7
+        ):
+            _fail("alternative torso envelope controls are incomplete")
+        if not np.all(np.isfinite(np.asarray(envelope.slopes, dtype=np.float64))):
+            _fail("alternative torso envelope slopes are not finite")
+        expected_cap_sources = (
+            ("lower-pelvis", "upper-pelvis"),
+            ("upper-ribcage-shoulder", "neck-collar"),
+        )
+        if envelope.endpoint_cap_sources != expected_cap_sources or len(envelope.endpoint_cap_distances) != 2:
+            _fail("alternative torso endpoint-cap sources are incomplete")
+        lower_axial_spacing = float(envelope.axial_positions[1] - envelope.axial_positions[0])
+        if not math.isfinite(lower_axial_spacing) or lower_axial_spacing <= _DEGENERATE_TOLERANCE:
+            _fail("alternative torso lower endpoint axial spacing is invalid")
+        if not math.isclose(
+            float(envelope.endpoint_cap_distances[0]),
+            lower_axial_spacing,
+            rel_tol=0.0,
+            abs_tol=_FRAME_TOLERANCE,
+        ):
+            _fail("alternative torso lower endpoint cap lost its axial source distance")
+        torso_axial_span = float(envelope.axial_positions[-1] - envelope.axial_positions[0])
+        cap_bound = _SHOULDER_BOUNDARY_MAX_EXTENSION * max(
+            torso_axial_span,
+            min(float(value) for value in envelope.cardinal_radii[0]),
+            min(float(value) for value in envelope.cardinal_radii[-1]),
+        )
+        if not math.isfinite(cap_bound) or cap_bound <= 0.0:
+            _fail("alternative torso endpoint cap bound is invalid")
+        for index, (cap, distance) in enumerate(zip(envelope.endpoint_caps, envelope.endpoint_cap_distances)):
+            _finite_positive((float(distance), float(cap.axial_radius)), f"alternative torso endpoint cap[{index}] axial distance")
+            if not math.isclose(float(cap.axial_radius), float(distance), rel_tol=0.0, abs_tol=_FRAME_TOLERANCE):
+                _fail(f"alternative torso endpoint cap[{index}] lost its source axial distance")
+            if float(distance) > cap_bound + _FRAME_TOLERANCE:
+                _fail(f"alternative torso endpoint cap[{index}] axial distance is unbounded")
+        for section, lineages in zip(envelope.sections, envelope.source_lineages):
+            if (
+                section.source_section_index is None
+                or not 0 <= int(section.source_section_index) < len(envelope.sections)
+                or section.cardinal_radii is None
+                or len(section.cardinal_radii) != 3
+                or len(lineages) != 3
+            ):
+                _fail(f"alternative torso section {section.name} source controls are incomplete")
+            expected_roles = tuple(
+                _baseline.TORSO_PROFILE_DIMENSION_PREFIX
+                + section.name.replace("-", "_")
+                + "_"
+                + suffix
+                for suffix in _baseline.TORSO_PROFILE_DIMENSION_SUFFIXES
+            )
+            for lineage, expected_role in zip(lineages, expected_roles):
+                if (
+                    lineage.reference != (section.owner.key, expected_role)
+                    or lineage.reference_index < 0
+                    or lineage.consumed_section != section.name
+                    or set(lineage.provenance) != {"source", "document", "namespace"}
+                ):
+                    _fail(f"alternative torso section {section.name} lost source control lineage")
+        return
+    _validate_profile_sweep(envelope)
+
+
+def _alternative_torso_cap_field(
+    points: np.ndarray,
+    cap: _ProfileEndpointCap,
+    cardinal: tuple[float, float, float],
+) -> np.ndarray:
+    """Evaluate one asymmetric elliptical axial end cap."""
+
+    offset = points - _vec3(cap.center, "alternative torso cap center")
+    lateral_axis = _vec3(cap.transverse_axes[0], "alternative torso cap lateral axis")
+    forward_axis = _vec3(cap.transverse_axes[1], "alternative torso cap forward axis")
+    axial_axis = _vec3(cap.outward_tangent, "alternative torso cap axial axis")
+    lateral = np.sum(offset * lateral_axis, axis=-1)
+    forward = np.sum(offset * forward_axis, axis=-1)
+    axial = np.sum(offset * axial_axis, axis=-1)
+    lateral_radius, anterior_radius, posterior_radius = (float(value) for value in cardinal)
+    forward_radius = _alternative_forward_radius(forward, anterior_radius, posterior_radius)
+    normalized = np.sqrt(
+        (lateral / lateral_radius) ** 2
+        + (forward / forward_radius) ** 2
+        + (axial / float(cap.axial_radius)) ** 2
+    )
+    return (normalized - 1.0) * min(lateral_radius, anterior_radius, posterior_radius, float(cap.axial_radius))
+
+
+def _alternative_forward_radius(
+    forward: np.ndarray | float,
+    anterior_radius: np.ndarray | float,
+    posterior_radius: np.ndarray | float,
+) -> np.ndarray:
+    """Blend authored anterior/posterior radii with a bounded C1 polar transition."""
+
+    anterior = np.asarray(anterior_radius, dtype=np.float64)
+    posterior = np.asarray(posterior_radius, dtype=np.float64)
+    if not np.all(np.isfinite(anterior)) or not np.all(anterior > 0.0) or not np.all(np.isfinite(posterior)) or not np.all(posterior > 0.0):
+        _fail("alternative polar forward radii must be finite and positive")
+    width = np.minimum(anterior, posterior)
+    normalized = np.clip(np.asarray(forward, dtype=np.float64) / width, -1.0, 1.0)
+    # This cubic has zero slope at the authored cardinal endpoints and is
+    # differentiable through the anterior/posterior mid-plane.
+    blend = 0.5 + 0.75 * normalized - 0.25 * normalized**3
+    return posterior + blend * (anterior - posterior)
+
+
+def _alternative_torso_span_field(
+    points: np.ndarray,
+    envelope: _AlternativeTorsoEnvelope,
+    interval_index: int,
+) -> np.ndarray:
+    """Evaluate one finite axial span with C1 cardinal-radius curvature."""
+
+    left = envelope.sections[interval_index]
+    right = envelope.sections[interval_index + 1]
+    path = np.asarray(envelope.axial_positions, dtype=np.float64)
+    cardinal = np.asarray(envelope.cardinal_radii, dtype=np.float64)
+    axial_axis = _vec3(envelope.axial_axis, "alternative torso axial axis")
+    origin = _vec3(envelope.sections[0].center, "alternative torso axial origin")
+    query = np.sum((points - origin) * axial_axis, axis=-1)
+    left_path = float(path[interval_index])
+    right_path = float(path[interval_index + 1])
+    width = right_path - left_path
+    if not math.isfinite(width) or width <= _DEGENERATE_TOLERANCE:
+        _fail("alternative torso axial span is degenerate")
+    raw_t = (query - left_path) / width
+    t = np.clip(raw_t, 0.0, 1.0)
+    left_center = _vec3(left.center, "alternative torso span left center")
+    right_center = _vec3(right.center, "alternative torso span right center")
+    center = left_center + t[..., None] * (right_center - left_center)
+    local_cardinal = _shape_preserving_sample(
+        path,
+        cardinal,
+        envelope.slopes,
+        np.clip(query, path[0], path[-1]),
+    )
+    offset = points - center
+    lateral = np.sum(offset * _vec3(envelope.lateral_axis, "alternative torso lateral axis"), axis=-1)
+    forward = np.sum(offset * _vec3(envelope.forward_axis, "alternative torso forward axis"), axis=-1)
+    forward_radius = _alternative_forward_radius(forward, local_cardinal[..., 1], local_cardinal[..., 2])
+    normalized = np.sqrt(
+        (lateral / local_cardinal[..., 0]) ** 2
+        + (forward / forward_radius) ** 2
+    )
+    radial = (normalized - 1.0) * np.min(local_cardinal, axis=-1)
+    return np.where((raw_t >= 0.0) & (raw_t <= 1.0), radial, np.inf)
+
+
+def _alternative_torso_field(
+    points: np.ndarray,
+    envelope: _AlternativeTorsoEnvelope,
+    *,
+    interval_indices: tuple[int, ...] | None = None,
+) -> np.ndarray:
+    """Evaluate the alternative torso without the v9 superellipse."""
+
+    _validate_torso_attachment_envelope(envelope)
+    points = np.asarray(points, dtype=np.float64)
+    if points.shape[-1] != 3 or not np.all(np.isfinite(points)):
+        _fail("alternative torso query points must be finite three-vectors")
+    if interval_indices is None:
+        interval_indices = tuple(range(len(envelope.sections) - 1))
+    values = [_alternative_torso_span_field(points, envelope, index) for index in interval_indices]
+    path = np.asarray(envelope.axial_positions, dtype=np.float64)
+    origin = _vec3(envelope.sections[0].center, "alternative torso axial origin")
+    axial = np.sum((points - origin) * _vec3(envelope.axial_axis, "alternative torso axial axis"), axis=-1)
+    cardinal = envelope.cardinal_radii
+    if interval_indices and interval_indices[0] == 0:
+        values.append(
+            np.where(
+                axial <= path[0],
+                _alternative_torso_cap_field(points, envelope.endpoint_caps[0], cardinal[0]),
+                np.inf,
+            )
+        )
+    if interval_indices and interval_indices[-1] == len(envelope.sections) - 2:
+        values.append(
+            np.where(
+                axial >= path[-1],
+                _alternative_torso_cap_field(points, envelope.endpoint_caps[1], cardinal[-1]),
+                np.inf,
+            )
+        )
+    return np.min(np.stack(values, axis=0), axis=0)
+
+
+def _alternative_lower_pelvis_field(points: np.ndarray, envelope: _AlternativeTorsoEnvelope) -> np.ndarray:
+    """Evaluate only the first pelvis interval and its outer cap."""
+
+    return _alternative_torso_field(points, envelope, interval_indices=(0,))
+
+
+def _torso_attachment_field(points: np.ndarray, envelope: Any) -> np.ndarray:
+    if isinstance(envelope, _AlternativeTorsoEnvelope):
+        return _alternative_torso_field(points, envelope)
+    return _loft_field(points, envelope)
+
+
+def _lower_pelvis_field_for_envelope(envelope: Any) -> Callable[[np.ndarray, Any], np.ndarray]:
+    if isinstance(envelope, _AlternativeTorsoEnvelope):
+        return lambda points, current: _alternative_lower_pelvis_field(points, current)
+    return _lower_pelvis_field
+
+
+def _torso_cap_radial_distance_for_envelope(
+    envelope: Any,
+    direction: np.ndarray,
+    cap: _ProfileEndpointCap,
+    cardinal: tuple[float, float, float],
+    where: str,
+) -> float:
+    """Select the candidate or retained-v9 endpoint support."""
+
+    if not isinstance(cap, _ProfileEndpointCap):
+        _fail(f"{where} has an invalid torso endpoint cap")
+    if isinstance(envelope, _AlternativeTorsoEnvelope):
+        return _alternative_cap_radial_distance(direction, cap, cardinal, where)
+    return _torso_cap_radial_distance(direction, cap, cardinal, where)
+
+
+def _make_alternative_torso_envelope(guide: Any) -> _AlternativeTorsoEnvelope:
+    """Derive the seven-station candidate envelope from guide controls only."""
+
+    guide_sections = tuple(guide.torso_cage.sections)
+    if len(guide_sections) != 7:
+        _fail("alternative torso envelope requires exactly seven guide stations")
+    if guide.torso_cage.axes != guide.topology.axes:
+        _fail("alternative torso envelope axes must match guide topology")
+    axes = guide.topology.axes
+    axial_axis = _unit(_vec3(axes.up, "alternative torso axial axis"), "alternative torso axial axis")
+    lateral_axis = _unit(_vec3(axes.lateral, "alternative torso lateral axis"), "alternative torso lateral axis")
+    forward_axis = _unit(_vec3(axes.forward, "alternative torso forward axis"), "alternative torso forward axis")
+    centers = tuple(
+        _vec3(_guide_member(section, "center", f"alternative torso section[{index}]"), f"alternative torso section[{index}].center")
+        for index, section in enumerate(guide_sections)
+    )
+    axial_positions = tuple(float(np.dot(center - centers[0], axial_axis)) for center in centers)
+    if any(not math.isfinite(value) for value in axial_positions) or any(
+        right <= left for left, right in zip(axial_positions, axial_positions[1:])
+    ):
+        _fail("alternative torso axial positions must be finite and strictly increasing")
+    # Full guide validation belongs to the region boundary.  This envelope
+    # constructor only consumes the exact collar station needed for its upper
+    # axial cap, which also keeps the scalar construction frame-independent.
+    try:
+        head_profile = guide.head_guide.profile
+        head_sections = tuple(head_profile.sections)
+    except (AttributeError, TypeError, ValueError) as exc:
+        _fail(f"alternative torso endpoint cap is missing its head/neck source: {exc}")
+    if tuple(section.name for section in head_sections) != _baseline.HEAD_NECK_PROFILE_SECTION_NAMES:
+        _fail("alternative torso endpoint cap requires the exact authored head/neck station order")
+    neck_collar = next(
+        (section for section in head_sections if section.name == "neck-collar"),
+        None,
+    )
+    if neck_collar is None:
+        _fail("alternative torso endpoint cap requires the authored neck-collar station")
+    lower_cap_distance = float(axial_positions[1] - axial_positions[0])
+    upper_attachment_vector = _vec3(neck_collar.center, "alternative torso neck-collar center") - centers[-1]
+    upper_cap_distance = float(np.dot(upper_attachment_vector, axial_axis))
+    if not math.isfinite(lower_cap_distance) or lower_cap_distance <= _DEGENERATE_TOLERANCE:
+        _fail("alternative torso lower endpoint cap distance is invalid")
+    if not math.isfinite(upper_cap_distance) or upper_cap_distance <= _DEGENERATE_TOLERANCE:
+        _fail("alternative torso upper endpoint cap distance is not a positive axial attachment")
+    lateral_residual = float(np.dot(upper_attachment_vector, lateral_axis))
+    forward_residual = float(np.dot(upper_attachment_vector, forward_axis))
+    transverse_residual = math.hypot(lateral_residual, forward_residual)
+    if not math.isfinite(transverse_residual) or transverse_residual > _FRAME_TOLERANCE:
+        _fail("alternative torso upper endpoint cap has material lateral/forward residual")
+    source_by_key = {descriptor.key: descriptor for descriptor in guide.source_descriptors}
+    sections: list[_ProfileSection] = []
+    cardinal_controls: list[tuple[float, float, float]] = []
+    source_lineages: list[tuple[Any, Any, Any]] = []
+    path = np.asarray(axial_positions, dtype=np.float64)
+    for index, source in enumerate(guide_sections):
+        owner = _guide_member(source, "owner", f"alternative torso section[{index}]")
+        if source_by_key.get(owner.key) is not owner:
+            _fail("alternative torso section owner is not canonical")
+        expected_owner = guide.torso_cage.pelvis_owner if index < 2 else guide.torso_cage.torso_owner
+        if owner is not expected_owner:
+            _fail("alternative torso section lost its canonical pelvis/torso owner")
+        cardinal = _torso_section_cardinal_radii(source, str(_guide_member(source, "name", f"alternative torso section[{index}]")))
+        cardinal_controls.append(cardinal)
+        source_lineages.append((source.lateral_lineage, source.anterior_lineage, source.posterior_lineage))
+        tangent = tuple(float(value) for value in axial_axis)
+        sections.append(_ProfileSection(
+            name=str(_guide_member(source, "name", f"alternative torso section[{index}]")),
+            owner=owner,
+            center=tuple(float(value) for value in centers[index]),
+            tangent=tangent,
+            transverse_axes=(tuple(float(value) for value in lateral_axis), tuple(float(value) for value in forward_axis)),
+            transverse_radii=(cardinal[0], max(cardinal[1], cardinal[2])),
+            path_length=float(path[index]),
+            torso_cardinal_radii=cardinal,
+            axial_position=float(path[index]),
+            source_section_index=index,
+        ))
+    slopes = _shape_preserving_slopes(path, np.asarray(cardinal_controls, dtype=np.float64))
+    intervals = tuple(
+        _AlternativeTorsoInterval(name, start, end, float(path[start]), float(path[end]))
+        for name, start, end in ALTERNATIVE_TORSO_INTERVALS
+    )
+    endpoint_caps = (
+        _ProfileEndpointCap(
+            "start", sections[0].center, tuple(-float(value) for value in axial_axis),
+            sections[0].transverse_axes, sections[0].transverse_radii,
+            lower_cap_distance,
+        ),
+        _ProfileEndpointCap(
+            "end", sections[-1].center, tuple(float(value) for value in axial_axis),
+            sections[-1].transverse_axes, sections[-1].transverse_radii,
+            upper_cap_distance,
+        ),
+    )
+    envelope = _AlternativeTorsoEnvelope(
+        ALTERNATIVE_TORSO_OPERATION,
+        tuple(sections),
+        intervals,
+        tuple(float(value) for value in axial_axis),
+        tuple(float(value) for value in lateral_axis),
+        tuple(float(value) for value in forward_axis),
+        tuple(float(value) for value in path),
+        tuple(cardinal_controls),
+        tuple(source_lineages),
+        slopes,
+        endpoint_caps,
+        (
+            ("lower-pelvis", "upper-pelvis"),
+            ("upper-ribcage-shoulder", "neck-collar"),
+        ),
+        (lower_cap_distance, upper_cap_distance),
+    )
+    _validate_torso_attachment_envelope(envelope)
+    return envelope
+
+
+def _alternative_cap_radial_distance(
+    direction: np.ndarray,
+    cap: _ProfileEndpointCap,
+    cardinal: tuple[float, float, float],
+    where: str,
+) -> float:
+    """Return the bounded ray/root support distance of the candidate cap."""
+
+    ray = _unit(np.asarray(direction, dtype=np.float64), f"{where}.direction")
+    lateral_radius, anterior_radius, posterior_radius = (float(value) for value in cardinal)
+    axial_radius = float(cap.axial_radius)
+    _finite_positive(
+        (lateral_radius, anterior_radius, posterior_radius, axial_radius),
+        f"{where}.radii",
+    )
+    center = _vec3(cap.center, f"{where}.center")
+
+    def cap_value(distance: float) -> float:
+        point = center + distance * ray
+        value = float(
+            _alternative_torso_cap_field(
+                point.reshape(1, 3),
+                cap,
+                (lateral_radius, anterior_radius, posterior_radius),
+            )[0]
+        )
+        if not math.isfinite(value):
+            _fail(f"{where} cap root query became non-finite")
+        return value
+
+    lower = 0.0
+    lower_value = cap_value(lower)
+    if lower_value >= 0.0:
+        _fail(f"{where} cap root does not start inside the cap")
+    # The actual cap field is star-shaped about its centre.  At the largest
+    # authored radius every normalized coordinate cannot be below one, so
+    # this is a deterministic finite bracket for every unit ray.
+    upper = max(lateral_radius, anterior_radius, posterior_radius, axial_radius)
+    upper_value = cap_value(upper)
+    if upper_value < 0.0:
+        _fail(f"{where} cap root has no bounded exit")
+    for _ in range(_ALTERNATIVE_CAP_ROOT_ITERATIONS):
+        midpoint = 0.5 * (lower + upper)
+        midpoint_value = cap_value(midpoint)
+        if midpoint_value < 0.0:
+            lower = midpoint
+        else:
+            upper = midpoint
+    support = 0.5 * (lower + upper)
+    support_value = cap_value(support)
+    if abs(support_value) > _SHOULDER_BOUNDARY_TOLERANCE:
+        _fail(f"{where} cap root did not converge")
+    return float(support)
+
+
+def _alternative_station_support_radius(section: _ProfileSection, where: str) -> float:
+    """Derive a conservative support radius from one existing route station."""
+
+    if section.station_volume_radii is not None:
+        radii = tuple(float(value) for value in section.station_volume_radii)
+    else:
+        radii = tuple(float(value) for value in section.transverse_radii)
+        if section.tangent_radius is not None:
+            radii = radii + (float(section.tangent_radius),)
+    _finite_positive(radii, f"{where}.radii")
+    radius = max(radii)
+    if not math.isfinite(radius) or radius <= 0.0:
+        _fail(f"{where} produced an invalid support radius")
+    return float(radius)
+
+
+def _make_alternative_hip_corridor(
+    torso: _AlternativeTorsoEnvelope,
+    hip_route: _HipRootTransition,
+    leg_route: _LimbChainSweep,
+    foot_route: _ExtremitySweep,
+    side: str,
+) -> _AlternativeHipSeamCorridor:
+    """Derive compact support for the pelvis-to-planted-foot composition."""
+
+    pelvis = torso.sections[0]
+    thigh = leg_route.sweep.sections[0]
+    start = _vec3(pelvis.center, f"{side}.alternative hip corridor start")
+    end = _vec3(thigh.center, f"{side}.alternative hip corridor end")
+    direction = end - start
+    if float(np.linalg.norm(direction)) <= _DEGENERATE_TOLERANCE:
+        _fail(f"{side}.alternative hip corridor has a degenerate centerline")
+    start_radius = _alternative_cap_radial_distance(
+        direction,
+        torso.endpoint_caps[0],
+        torso.cardinal_radii[0],
+        f"{side}.alternative hip corridor pelvis support",
+    )
+    if thigh.station_volume_axes is None or thigh.station_volume_radii is None:
+        _fail(f"{side}.alternative hip corridor is missing the authored thigh frame volume")
+    axes = tuple(
+        _unit(_vec3(axis, f"{side}.alternative hip corridor thigh axis[{index}]"), f"{side}.alternative hip corridor thigh axis[{index}]")
+        for index, axis in enumerate(thigh.station_volume_axes)
+    )
+    end_radius = _support_radius(
+        direction,
+        axes,
+        tuple(float(value) for value in thigh.station_volume_radii),
+        f"{side}.alternative hip corridor thigh support",
+    )
+    _finite_positive((start_radius, end_radius), f"{side}.alternative hip corridor radii")
+    planted_sections = tuple(leg_route.sweep.sections) + tuple(foot_route.sweep.sections[1:])
+    if len(planted_sections) < 2:
+        _fail(f"{side}.alternative lower-leg/foot support route is incomplete")
+    planted_support_centers = tuple(
+        tuple(float(value) for value in _vec3(section.center, f"{side}.alternative lower-leg/foot support[{index}].center"))
+        for index, section in enumerate(planted_sections)
+    )
+    planted_support_radii = tuple(
+        _alternative_station_support_radius(section, f"{side}.alternative lower-leg/foot support[{index}]")
+        for index, section in enumerate(planted_sections)
+    )
+    source_owners: list[Any] = []
+    for owner in (
+        pelvis.owner,
+        *hip_route.source_owners,
+        *leg_route.source_owners,
+        *foot_route.source_owners,
+    ):
+        if not any(owner is existing for existing in source_owners):
+            source_owners.append(owner)
+    return _AlternativeHipSeamCorridor(
+        name=f"{side}-hip-seam-corridor",
+        side=side,
+        source_owners=tuple(source_owners),
+        start_center=tuple(float(value) for value in start),
+        end_center=tuple(float(value) for value in end),
+        start_radius=float(start_radius),
+        end_radius=float(end_radius),
+        hip_route=hip_route,
+        leg_route=leg_route,
+        foot_route=foot_route,
+        planted_support_centers=planted_support_centers,
+        planted_support_radii=planted_support_radii,
+    )
+
+
+def _alternative_tapered_support_field(
+    points: np.ndarray,
+    start: np.ndarray,
+    end: np.ndarray,
+    start_radius: float,
+    end_radius: float,
+    where: str,
+) -> np.ndarray:
+    """Evaluate one finite tapered isotropic support segment."""
+
+    axis = end - start
+    length = float(np.linalg.norm(axis))
+    if not math.isfinite(length) or length <= _DEGENERATE_TOLERANCE:
+        _fail(f"{where} centerline is degenerate")
+    raw_t = np.sum((points - start) * axis, axis=-1) / (length * length)
+    t = np.clip(raw_t, 0.0, 1.0)
+    center = start + t[..., None] * axis
+    radius = (1.0 - t) * float(start_radius) + t * float(end_radius)
+    axis_unit = axis / length
+    axial_component = np.sum((points - center) * axis_unit, axis=-1, keepdims=True)
+    perpendicular = points - center - axial_component * axis_unit
+    radial = np.sum(perpendicular * perpendicular, axis=-1) / (radius * radius)
+    outside_axial = np.maximum(np.maximum(-raw_t, raw_t - 1.0), 0.0) * length
+    normalized = np.sqrt(radial + (outside_axial / radius) ** 2)
+    return (normalized - 1.0) * radius
+
+
+def _alternative_polyline_support_field(
+    points: np.ndarray,
+    centers: tuple[tuple[float, float, float], ...],
+    radii: tuple[float, ...],
+    where: str,
+) -> np.ndarray:
+    """Evaluate finite support around an existing planted route polyline."""
+
+    if len(centers) < 2 or len(centers) != len(radii):
+        _fail(f"{where} requires matching route centers and radii")
+    values = []
+    for index, (start_value, end_value, start_radius, end_radius) in enumerate(zip(
+        centers,
+        centers[1:],
+        radii,
+        radii[1:],
+    )):
+        start = _vec3(start_value, f"{where}[{index}].start")
+        end = _vec3(end_value, f"{where}[{index}].end")
+        values.append(_alternative_tapered_support_field(
+            points,
+            start,
+            end,
+            float(start_radius),
+            float(end_radius),
+            f"{where}[{index}]",
+        ))
+    return np.min(np.stack(values, axis=0), axis=0)
+
+
+def _alternative_corridor_support_fields(
+    points: np.ndarray,
+    corridor: _AlternativeHipSeamCorridor,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Evaluate the independent hip and lower-leg/foot support envelopes."""
+
+    start = _vec3(corridor.start_center, "alternative corridor start")
+    end = _vec3(corridor.end_center, "alternative corridor end")
+    hip_support = _alternative_tapered_support_field(
+        points,
+        start,
+        end,
+        float(corridor.start_radius),
+        float(corridor.end_radius),
+        "alternative hip corridor",
+    )
+    planted_support = _alternative_polyline_support_field(
+        points,
+        corridor.planted_support_centers,
+        corridor.planted_support_radii,
+        "alternative lower-leg/foot support",
+    )
+    return hip_support, planted_support
+
+
+def _alternative_corridor_field(points: np.ndarray, corridor: _AlternativeHipSeamCorridor) -> np.ndarray:
+    """Evaluate hip and planted-foot support with compact local authority."""
+
+    hip_support, planted_support = _alternative_corridor_support_fields(points, corridor)
+    return np.minimum(hip_support, planted_support)
+
+
+def _alternative_corridor_blend_weight(
+    points: np.ndarray,
+    corridor: _AlternativeHipSeamCorridor,
+    corridor_values: np.ndarray | None = None,
+) -> np.ndarray:
+    """Return a C1 compact-support weight from the raw locality mask."""
+
+    if corridor_values is None:
+        corridor_values = _alternative_corridor_field(points, corridor)
+    corridor_values = np.asarray(corridor_values, dtype=np.float64)
+    if np.any(~np.isfinite(corridor_values)):
+        _fail("alternative corridor blend support values are not finite")
+    # The raw support field is authority for locality only.  Normalize it to a
+    # bounded interval, then use smoothstep so the gate and its first normal
+    # derivative both close at the compact mask boundary.
+    support_radius = max(
+        float(corridor.start_radius),
+        float(corridor.end_radius),
+        *tuple(float(value) for value in corridor.planted_support_radii),
+    )
+    if not math.isfinite(support_radius) or support_radius <= 0.0:
+        _fail("alternative corridor blend support radius is invalid")
+    u = np.clip(-corridor_values / support_radius, 0.0, 1.0)
+    return u * u * (3.0 - 2.0 * u)
+
+
+def _alternative_lower_body_field(
+    points: np.ndarray,
+    lower_body: _AlternativeLowerBody,
+    smooth_k: float,
+) -> np.ndarray:
+    """Compose torso/hip/leg locally, using corridors only as locality masks."""
+
+    torso_values = _alternative_torso_field(points, lower_body.torso)
+    result = torso_values.copy()
+    for corridor in lower_body.corridors:
+        hip_values = _profile_sweep_field(points, corridor.hip_route.sweep)
+        leg_values = _profile_sweep_field(points, corridor.leg_route.sweep)
+        foot_values = _profile_sweep_field(points, corridor.foot_route.sweep)
+        corridor_values = _alternative_corridor_field(points, corridor)
+        # Corridor and planted supports are authority-only locality masks. They
+        # never enter the geometry fold, so support cannot create a surface.
+        local = _successor_smooth_union([
+            torso_values,
+            hip_values,
+            leg_values,
+            foot_values,
+        ], smooth_k)
+        # Outside the mask retain the exact torso/leg/foot minimum. The hip
+        # route contributes only where the raw compact corridor says it may.
+        outside = np.minimum(np.minimum(torso_values, leg_values), foot_values)
+        weight = _alternative_corridor_blend_weight(points, corridor, corridor_values)
+        result = np.minimum(result, outside + weight * (local - outside))
+    return result
+
+
+def _alternative_lower_body_owner_keys(
+    points: np.ndarray,
+    lower_body: _AlternativeLowerBody,
+    smooth_k: float,
+) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
+    """Attribute lower-body vertices to existing source owners only."""
+
+    torso_values = _alternative_torso_field(points, lower_body.torso)
+    labels: list[tuple[str, tuple[str, ...], str, str]] = []
+    for index in range(points.shape[0]):
+        point = points[index:index + 1]
+        torso_owner = _alternative_torso_owner_key(points[index], lower_body.torso)
+        candidates = [(float(torso_values[index]), 0, torso_owner)]
+        for corridor in lower_body.corridors:
+            hip = float(_profile_sweep_field(point, corridor.hip_route.sweep)[0])
+            leg = float(_profile_sweep_field(point, corridor.leg_route.sweep)[0])
+            foot = float(_profile_sweep_field(point, corridor.foot_route.sweep)[0])
+            hip_owner = _loft_owner_keys(point, corridor.hip_route.sweep)[0]
+            leg_owner = _loft_owner_keys(point, corridor.leg_route.sweep)[0]
+            foot_owner = _loft_owner_keys(point, corridor.foot_route.sweep)[0]
+            corridor_value = float(_alternative_corridor_field(point, corridor)[0])
+            local = float(_successor_smooth_union([
+                np.asarray((torso_values[index],)),
+                np.asarray((hip,)),
+                np.asarray((leg,)),
+                np.asarray((foot,)),
+            ], smooth_k)[0])
+            outside = float(np.minimum(np.minimum(torso_values[index], leg), foot))
+            weight = float(_alternative_corridor_blend_weight(point, corridor, np.asarray((corridor_value,)))[0])
+            composed = float(np.minimum(float(torso_values[index]), outside + weight * (local - outside)))
+            if weight > 0.0:
+                # Smooth composition can lower the scalar below every operand;
+                # attribution still follows the lowest source operand, with a
+                # torso-first tie break so torso-dominant seam samples retain
+                # their actual torso section owner.
+                source = min(
+                    (
+                        (float(torso_values[index]), 0, torso_owner),
+                        (hip, 1, hip_owner),
+                        (leg, 2, leg_owner),
+                        (foot, 3, foot_owner),
+                    ),
+                    key=lambda item: (item[0], item[1], item[2]),
+                )
+            else:
+                source = min(
+                    (
+                        (float(torso_values[index]), 0, torso_owner),
+                        (leg, 2, leg_owner),
+                        (foot, 3, foot_owner),
+                    ),
+                    key=lambda item: (item[0], item[1], item[2]),
+                )
+            candidates.append((composed, source[1], source[2]))
+        labels.append(min(candidates, key=lambda item: (item[0], item[1], item[2]))[2])
+    return tuple(labels)
+
+
+def _alternative_shoulder_root_support(guide: Any, where: str) -> tuple[float, float, float]:
+    """Derive one isotropic support bound from the existing shoulder roots."""
+
+    upper_arms = tuple(
+        item
+        for item in guide.limb_guides
+        if item.owner.key[3] == "upper_arm"
+    )
+    if len(upper_arms) != 2 or any(item.root_thickness is None for item in upper_arms):
+        _fail(f"{where} requires both authored shoulder roots")
+    supports = [
+        float(value)
+        for item in upper_arms
+        for value in item.root_thickness
+    ]
+    central_profile = tuple(float(value) for value in guide.shoulder_frame.central_profile)
+    _finite_positive(tuple(supports) + central_profile, f"{where}.controls")
+    support = max(*supports, *central_profile)
+    _finite_positive((support,), f"{where}.radius")
+    return (support, support, support)
+
+
+def _make_alternative_neck_root_flare(
+    guide: Any,
+    torso: _AlternativeTorsoEnvelope,
+    vertical_route: _RegionalProfileSweep,
+) -> _AlternativeNeckRootFlare:
+    """Prepend a source-derived torso flare to the authored vertical route."""
+
+    profile = _validate_authored_head_neck_guide(guide)
+    collar_source = next((section for section in profile.sections if section.name == "neck-collar"), None)
+    head_base_source = next((section for section in profile.sections if section.name == "head-base"), None)
+    if collar_source is None or head_base_source is None:
+        _fail("alternative neck-root flare requires neck-collar and head-base stations")
+    if vertical_route.recipe != ALTERNATIVE_NECK_ROOT_RECIPE or not vertical_route.sweep.sections:
+        _fail("alternative neck-root flare requires the existing vertical neck route")
+    authored_collar = vertical_route.sweep.sections[0]
+    if authored_collar.name != "neck-collar" or authored_collar.center != collar_source.center:
+        _fail("alternative neck-root flare lost the exact authored neck-collar endpoint")
+    torso_top = torso.sections[-1]
+    # The source-derived upper torso cap already closes at the neck-collar
+    # centre for the neutral fixture.  Start the flare at the exact authored
+    # upper-ribcage/shoulder station instead of manufacturing a zero-length
+    # boundary-to-collar span.  This keeps the derived route inside the torso
+    # until the cap narrows, then lets it widen the collar root locally.
+    attachment_center = _vec3(torso_top.center, "alternative neck-root torso attachment")
+    shoulder_root_support = _alternative_shoulder_root_support(guide, "alternative neck-root shoulder-root support")
+    collar_radii = tuple(float(value) for value in collar_source.radii)
+    head_base_radii = tuple(float(value) for value in head_base_source.radii)
+    _finite_positive(collar_radii + head_base_radii + shoulder_root_support, "alternative neck-root source controls")
+    attachment_radii = tuple(
+        max(collar_radii[index], head_base_radii[index], shoulder_root_support[index])
+        for index in range(3)
+    )
+    _finite_positive(attachment_radii, "alternative neck-root attachment radii")
+    attachment_vector = _vec3(authored_collar.center, "alternative neck-root collar center") - attachment_center
+    attachment_length = float(np.linalg.norm(attachment_vector))
+    if not math.isfinite(attachment_length) or attachment_length <= _DEGENERATE_TOLERANCE:
+        _fail("alternative neck-root flare path is degenerate")
+    tangent = tuple(float(value) for value in authored_collar.tangent)
+    transverse_axes = authored_collar.transverse_axes
+    attachment = _ProfileSection(
+        name="neck-root-attachment",
+        owner=torso_top.owner,
+        center=tuple(float(value) for value in attachment_center),
+        tangent=tangent,
+        transverse_axes=transverse_axes,
+        transverse_radii=(attachment_radii[0], attachment_radii[2]),
+        path_length=0.0,
+        tangent_radius=attachment_radii[1],
+        source_section_index=int(torso_top.source_section_index),
+    )
+    collar = replace(authored_collar, path_length=attachment_length)
+    if attachment.tangent_radius is None or collar.tangent_radius is None:
+        _fail("alternative neck-root flare endpoint cap is missing its source-derived tangent radius")
+    flare = _ProfileSweep(
+        (attachment, collar),
+        (
+            _ProfileEndpointCap(
+                "start",
+                attachment.center,
+                tuple(-float(value) for value in tangent),
+                attachment.transverse_axes,
+                attachment.transverse_radii,
+                float(attachment.tangent_radius),
+            ),
+            _ProfileEndpointCap(
+                "end",
+                collar.center,
+                tangent,
+                collar.transverse_axes,
+                collar.transverse_radii,
+                float(collar.tangent_radius),
+            ),
+        ),
+        profile_operation=_HEAD_NECK_PROFILE_OPERATION,
+    )
+    _validate_profile_sweep(flare)
+    source_owners: list[Any] = []
+    for owner in (
+        torso_top.owner,
+        collar_source.owner,
+        head_base_source.owner,
+        *tuple(item.owner for item in guide.limb_guides if item.owner.key[3] == "upper_arm"),
+    ):
+        if not any(owner is existing for existing in source_owners):
+            source_owners.append(owner)
+    return _AlternativeNeckRootFlare(
+        ALTERNATIVE_NECK_ROOT_OPERATION,
+        torso_top.owner,
+        tuple(source_owners),
+        flare,
+        attachment,
+        collar,
+        collar_radii,
+        head_base_radii,
+        shoulder_root_support,
+    )
+
+
+def _alternative_head_neck_owner_keys(
+    points: np.ndarray,
+    route: _ProfileSweep,
+    flare: _AlternativeNeckRootFlare,
+) -> tuple[tuple[str, tuple[str, ...], str, str], ...]:
+    """Attribute the derived flare to its existing torso owner at its root."""
+
+    primary = _loft_owner_keys(points, route)
+    attachment = _vec3(flare.attachment_station.center, "alternative neck-root attribution attachment")
+    collar = _vec3(flare.neck_collar_station.center, "alternative neck-root attribution collar")
+    values: list[tuple[str, tuple[str, ...], str, str]] = []
+    for point, primary_owner in zip(np.asarray(points, dtype=np.float64).reshape(-1, 3), primary):
+        if float(np.dot(point - attachment, point - attachment)) <= float(np.dot(point - collar, point - collar)):
+            values.append(flare.attachment_station.owner.key)
+        else:
+            values.append(primary_owner)
+    return tuple(values)
+
+
+def _alternative_torso_owner_key(point: np.ndarray, envelope: _AlternativeTorsoEnvelope) -> tuple[str, ...]:
+    """Choose the nearest authored station owner for a torso-dominant sample."""
+
+    origin = _vec3(envelope.sections[0].center, "alternative torso owner origin")
+    axis = _vec3(envelope.axial_axis, "alternative torso owner axis")
+    axial = float(np.dot(np.asarray(point, dtype=np.float64) - origin, axis))
+    index = int(np.argmin(np.abs(np.asarray(envelope.axial_positions, dtype=np.float64) - axial)))
+    return envelope.sections[index].owner.key
+
+
+def _alternative_corridor_bounds(
+    corridor: _AlternativeHipSeamCorridor,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Enclose the raw corridor mask and its source-derived route centres."""
+
+    start = _vec3(corridor.start_center, "alternative corridor bounds start")
+    end = _vec3(corridor.end_center, "alternative corridor bounds end")
+    _finite_positive((float(corridor.start_radius), float(corridor.end_radius)), "alternative corridor bounds radius")
+    support_centers = np.asarray(corridor.planted_support_centers, dtype=np.float64)
+    if support_centers.ndim != 2 or support_centers.shape[1] != 3:
+        _fail("alternative planted support bounds centers are invalid")
+    _finite_positive(tuple(float(value) for value in corridor.planted_support_radii), "alternative planted support bounds radii")
+    centers = np.vstack((start, end, support_centers))
+    extent = max(
+        float(corridor.start_radius),
+        float(corridor.end_radius),
+        *(float(value) for value in corridor.planted_support_radii),
+    )
+    return np.min(centers, axis=0) - extent, np.max(centers, axis=0) + extent
+
+
+def _alternative_lower_body_bounds(
+    region: NeutralAlternativeRegion,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Bound torso, corridor support, and the authored lower-body routes."""
+
+    lowers: list[np.ndarray] = []
+    uppers: list[np.ndarray] = []
+    torso_lower, torso_upper = _alternative_torso_bounds(region.torso)
+    lowers.append(torso_lower)
+    uppers.append(torso_upper)
+    for corridor in region.lower_body.corridors:
+        corridor_lower, corridor_upper = _alternative_corridor_bounds(corridor)
+        lowers.append(corridor_lower)
+        uppers.append(corridor_upper)
+        for sweep in (corridor.hip_route.sweep, corridor.leg_route.sweep):
+            route_lower, route_upper = _profile_sweep_bounds(sweep)
+            lowers.append(route_lower)
+            uppers.append(route_upper)
+        foot_lower, foot_upper = _profile_sweep_bounds(corridor.foot_route.sweep)
+        lowers.append(foot_lower)
+        uppers.append(foot_upper)
+    return np.min(np.stack(lowers), axis=0), np.max(np.stack(uppers), axis=0)
+
+
+def _alternative_region_bounds(
+    region: NeutralAlternativeRegion,
+) -> tuple[np.ndarray, np.ndarray]:
+    lower, upper = _alternative_torso_bounds(region.torso)
+    lowers = [lower]
+    uppers = [upper]
+    for corridor in region.lower_body.corridors:
+        corridor_lower, corridor_upper = _alternative_corridor_bounds(corridor)
+        lowers.append(corridor_lower)
+        uppers.append(corridor_upper)
+        for sweep in (corridor.hip_route.sweep, corridor.leg_route.sweep):
+            current_lower, current_upper = _profile_sweep_bounds(sweep)
+            lowers.append(current_lower)
+            uppers.append(current_upper)
+        current_lower, current_upper = _profile_sweep_bounds(corridor.foot_route.sweep)
+        lowers.append(current_lower)
+        uppers.append(current_upper)
+    for item in (*region.head_neck_sweeps, *region.arm_sweeps, *region.extremity_sweeps, *region.tail_elements):
+        current_lower, current_upper = _profile_sweep_bounds(item.sweep)
+        lowers.append(current_lower)
+        uppers.append(current_upper)
+    for item in region.shoulder_sweeps:
+        current_lower, current_upper = _profile_sweep_bounds(item.sweep, interpolated_frames=False)
+        lowers.append(current_lower)
+        uppers.append(current_upper)
+    return np.min(np.stack(lowers), axis=0), np.max(np.stack(uppers), axis=0)
+
+
+def _alternative_torso_bounds(envelope: _AlternativeTorsoEnvelope) -> tuple[np.ndarray, np.ndarray]:
+    """Conservatively bound the continuous axial envelope from source controls."""
+
+    centers = envelope.centers
+    lateral = max(float(value[0]) for value in envelope.cardinal_radii)
+    forward = max(max(float(value[1]), float(value[2])) for value in envelope.cardinal_radii)
+    transverse_extent = (
+        np.abs(_vec3(envelope.lateral_axis, "alternative bounds lateral axis")) * lateral
+        + np.abs(_vec3(envelope.forward_axis, "alternative bounds forward axis")) * forward
+    )
+    lower = [np.min(centers, axis=0) - transverse_extent]
+    upper = [np.max(centers, axis=0) + transverse_extent]
+    for cap in envelope.endpoint_caps:
+        center = _vec3(cap.center, "alternative torso cap bounds center")
+        outward = _vec3(cap.outward_tangent, "alternative torso cap bounds outward axis")
+        first = _vec3(cap.transverse_axes[0], "alternative torso cap bounds transverse axis")
+        second = _vec3(cap.transverse_axes[1], "alternative torso cap bounds transverse axis")
+        _finite_positive(
+            tuple(float(value) for value in cap.transverse_radii) + (float(cap.axial_radius),),
+            "alternative torso cap bounds radii",
+        )
+        extent = (
+            np.abs(outward) * float(cap.axial_radius)
+            + np.abs(first) * float(cap.transverse_radii[0])
+            + np.abs(second) * float(cap.transverse_radii[1])
+        )
+        lower.append(center - extent)
+        upper.append(center + extent)
+    return np.min(np.stack(lower), axis=0), np.max(np.stack(upper), axis=0)
+
+
+def _alternative_torso_control_metadata(
+    envelope: _AlternativeTorsoEnvelope,
+) -> list[dict[str, Any]]:
+    """Serialize every candidate torso control with its source lineage."""
+
+    metadata: list[dict[str, Any]] = []
+    for section, lineages in zip(envelope.sections, envelope.source_lineages):
+        cardinal = section.cardinal_radii
+        if section.source_section_index is None or cardinal is None or len(cardinal) != 3 or len(lineages) != 3:
+            _fail(f"alternative torso section {section.name} source metadata is incomplete")
+        controls: dict[str, Any] = {}
+        for axis, value, lineage in zip(
+            ("lateral", "anterior", "posterior"),
+            cardinal,
+            lineages,
+        ):
+            controls[axis] = {
+                "value": float(value),
+                "reference": {
+                    "owner": _baseline._address_json(lineage.reference[0]),
+                    "role": lineage.reference[1],
+                    "index": int(lineage.reference_index),
+                },
+                "provenance": dict(lineage.provenance),
+                "consumed_section": lineage.consumed_section,
+            }
+        metadata.append({
+            "name": section.name,
+            "source_section_index": int(section.source_section_index),
+            "owner": _baseline._address_json(section.owner.key),
+            "center": [float(value) for value in section.center],
+            "axial_position": float(section.axial_position),
+            "controls": controls,
+        })
+    return metadata
+
+
+def _alternative_neck_root_metadata(flare: _AlternativeNeckRootFlare) -> dict[str, Any]:
+    """Serialize the alternative-only source-derived neck-root attachment."""
+
+    def station_json(section: _ProfileSection) -> dict[str, Any]:
+        if section.tangent_radius is None:
+            _fail(f"alternative neck-root station {section.name} is missing its axial radius")
+        return {
+            "name": section.name,
+            "owner": _baseline._address_json(section.owner.key),
+            "center": [float(value) for value in section.center],
+            "transverse_radii": [float(value) for value in section.transverse_radii],
+            "tangent_radius": float(section.tangent_radius),
+            "source_section_index": int(section.source_section_index),
+        }
+
+    return {
+        "operation": flare.operation,
+        "route": ALTERNATIVE_NECK_ROOT_RECIPE,
+        "derived_composition_count": 1,
+        "attachment_station": station_json(flare.attachment_station),
+        "exact_authored_end_station": station_json(flare.neck_collar_station),
+        "source_controls": {
+            "neck_collar_radii": [float(value) for value in flare.neck_collar_radii],
+            "head_base_radii": [float(value) for value in flare.head_base_radii],
+            "shoulder_root_support": [float(value) for value in flare.shoulder_root_support],
+        },
+        "source_owner_keys": [
+            _baseline._address_json(owner.key)
+            for owner in flare.source_owners
+        ],
+        "attachment_boundary": "exact-upper-ribcage-shoulder-station-to-authored-neck-collar",
+        "ownership": "attachment=existing-torso-owner; end=authored-neck-owner",
+    }
+
+
+def _make_neutral_alternative_region(
+    form: Any,
+    descriptors: tuple[Any, ...],
+    guide: Any,
+) -> NeutralAlternativeRegion:
+    """Compile the candidate from the form's exact canonical neutral tuple."""
+
+    _validate_neutral_alternative_identity(form, descriptors)
+    source_descriptors = getattr(guide, "source_descriptors", None)
+    if (
+        type(source_descriptors) is not tuple
+        or len(source_descriptors) != len(descriptors)
+        or any(actual is not expected for actual, expected in zip(source_descriptors, descriptors))
+    ):
+        _fail("neutral alternative guide must retain the exact canonical descriptor objects")
+    _baseline._validate_hybrid_guide(guide)
+    # The private region boundary owns the baseline compilation. A caller may
+    # provide a guide for reuse, but never a precompiled field tuple that could
+    # silently alter the consumed inventory or recipe signature.
+    baseline_fields = _baseline._compile_hybrid_guide(guide)
+    torso = _make_alternative_torso_envelope(guide)
+    _validate_authored_head_neck_guide(guide)
+    _validate_arm_profile_guide(guide)
+    _validate_leg_profile_guide(guide)
+    _validate_foot_profile_guide(guide)
+    limb_sweeps = _make_limb_sweeps(guide)
+    _validate_limb_bridge_inventory(guide, baseline_fields, limb_sweeps)
+    _validate_extremity_baseline_fields(guide, baseline_fields)
+    extremity_sweeps = _make_extremity_sweeps(guide, limb_sweeps)
+    _validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
+    legs = tuple(item for item in limb_sweeps if item.is_leg_profile_route)
+    hip_routes = tuple(_make_hip_root_transition(torso, leg, side) for side, leg in zip(("left", "right"), legs))
+    if tuple(item.name for item in hip_routes) != ("left-hip-root-transition", "right-hip-root-transition"):
+        _fail("alternative hip route order is unstable")
+    feet = tuple(item for item in extremity_sweeps if item.kind == "foot-chain")
+    if tuple(item.name for item in feet) != ("left-foot", "right-foot"):
+        _fail("alternative planted foot route order is unstable")
+    corridors = tuple(
+        _make_alternative_hip_corridor(torso, hip_route, leg, foot, side)
+        for side, hip_route, leg, foot in zip(("left", "right"), hip_routes, legs, feet)
+    )
+    lower_body = _AlternativeLowerBody(ALTERNATIVE_LOWER_BODY_OPERATION, torso, corridors)
+    shoulders = _make_shoulder_sweeps(guide, torso)
+    head_neck_sweeps = list(_make_head_neck_sweeps(guide))
+    vertical_index = next(
+        (index for index, item in enumerate(head_neck_sweeps) if item.recipe == ALTERNATIVE_NECK_ROOT_RECIPE),
+        None,
+    )
+    if vertical_index is None:
+        _fail("alternative region is missing the existing vertical neck route")
+    neck_root_flare = _make_alternative_neck_root_flare(
+        guide,
+        torso,
+        head_neck_sweeps[vertical_index],
+    )
+    head_neck_sweeps[vertical_index] = replace(
+        head_neck_sweeps[vertical_index],
+        sweep=replace(
+            head_neck_sweeps[vertical_index].sweep,
+            derived_sweeps=(neck_root_flare.sweep,),
+        ),
+    )
+    tail_elements = _make_tail_elements(guide, torso)
+    baseline_signature = tuple((field.owner.key, field.recipe) for field in baseline_fields)
+    source_keys = {descriptor.key for descriptor in guide.source_descriptors}
+    all_source_owners = (
+        tuple(guide.source_descriptors)
+        + tuple(owner for item in limb_sweeps for owner in item.source_owners)
+        + tuple(owner for item in extremity_sweeps for owner in item.source_owners)
+        + tuple(item.owner for item in tail_elements)
+    )
+    if any(owner.key not in source_keys for owner in all_source_owners):
+        _fail("alternative region lost source descriptor lineage")
+    return NeutralAlternativeRegion(
+        ALTERNATIVE_CONSUMER_ID,
+        ALTERNATIVE_REGION_ID,
+        torso,
+        lower_body,
+        shoulders,
+        tuple(head_neck_sweeps),
+        tuple(item for item in limb_sweeps if item.is_arm_profile_route),
+        extremity_sweeps,
+        tail_elements,
+        neck_root_flare,
+        tuple(guide.source_descriptors),
+        baseline_signature,
+    )
+
+
+def _validate_neutral_alternative_identity(form: Any, descriptors: tuple[Any, ...]) -> str:
+    """Require the exact canonical neutral descriptor tuple from the form."""
+
+    variants = getattr(form, "variants", None)
+    if type(variants) is not tuple or not variants:
+        _fail("neutral alternative requires a form with a canonical neutral-v0 variant")
+    canonical_variant = variants[0]
+    if (
+        type(canonical_variant) is not tuple
+        or len(canonical_variant) != 3
+        or canonical_variant[0] != ALTERNATIVE_NEUTRAL_PROFILE_ID
+        or type(canonical_variant[1]) is not tuple
+        or not canonical_variant[1]
+        or any(getattr(descriptor, "profile_id", None) != ALTERNATIVE_NEUTRAL_PROFILE_ID for descriptor in canonical_variant[1])
+    ):
+        _fail("neutral alternative form does not contain the canonical neutral-v0 descriptor tuple")
+    canonical_descriptors = canonical_variant[1]
+    if (
+        type(descriptors) is not tuple
+        or descriptors is not canonical_descriptors
+        or len(descriptors) != len(canonical_descriptors)
+        or any(actual is not expected for actual, expected in zip(descriptors, canonical_descriptors))
+    ):
+        _fail(
+            "neutral alternative accepts only the canonical neutral-v0 descriptor tuple "
+            "belonging to the supplied form"
+        )
+    return ALTERNATIVE_NEUTRAL_PROFILE_ID
+
+
+def _make_alternative_components(region: NeutralAlternativeRegion, smooth_k: float) -> tuple[_Component, ...]:
+    """Create one lower-body operand plus the reused non-lower-body operands."""
+
+    lower_bounds = _alternative_lower_body_bounds(region)
+    components: list[_Component] = [
+        _Component(
+            region.lower_body.torso.sections[0].owner,
+            ALTERNATIVE_LOWER_BODY_OPERATION,
+            lambda points, current=region.lower_body, k=smooth_k: _alternative_lower_body_field(points, current, k),
+            lower_bounds,
+            True,
+            lambda points, current=region.lower_body, k=smooth_k: _alternative_lower_body_owner_keys(points, current, k),
+        )
+    ]
+    for item in region.head_neck_sweeps:
+        if item.recipe == ALTERNATIVE_NECK_ROOT_RECIPE:
+            attribution = lambda points, current=item.sweep, flare=region.neck_root_flare: _alternative_head_neck_owner_keys(points, current, flare)
+        else:
+            attribution = lambda points, current=item.sweep: _loft_owner_keys(points, current)
+        components.append(_Component(
+            item.owner,
+            f"alternative-{item.recipe}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            _profile_sweep_bounds(item.sweep),
+            True,
+            attribution,
+        ))
+    for item in region.arm_sweeps:
+        components.append(_Component(
+            item.sweep.sections[0].owner,
+            f"alternative-{item.chain_name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            _profile_sweep_bounds(item.sweep),
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
+    for item in region.extremity_sweeps:
+        if item.kind == "foot-chain":
+            continue
+        components.append(_Component(
+            item.sweep.sections[0].owner,
+            f"alternative-{item.name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            _profile_sweep_bounds(item.sweep),
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
+    for item in region.tail_elements:
+        components.append(_Component(
+            item.owner,
+            f"alternative-{item.name}",
+            lambda points, current=item.sweep: _profile_sweep_field(points, current),
+            _profile_sweep_bounds(item.sweep),
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
+    for item in region.shoulder_sweeps:
+        components.append(_Component(
+            item.owner,
+            f"alternative-{item.recipe}",
+            lambda points, current=item: _shoulder_sweep_field(points, current),
+            _profile_sweep_bounds(item.sweep, interpolated_frames=False),
+            True,
+            lambda points, current=item.sweep: _loft_owner_keys(points, current),
+        ))
+    if len(components) != ALTERNATIVE_COMPONENT_COUNT:
+        _fail(f"alternative component inventory must contain exactly {ALTERNATIVE_COMPONENT_COUNT} components")
+    recipes = tuple(component.recipe for component in components)
+    if any("-leg" in recipe or "hip-root-transition" in recipe or recipe == "successor-torso-loft" for recipe in recipes):
+        _fail("alternative global fold contains an old lower-body operand")
+    return tuple(components)
+
+
+def _make_alternative_render_components(components: tuple[_Component, ...]) -> tuple[Any, ...]:
+    if type(components) is not tuple or len(components) != ALTERNATIVE_COMPONENT_COUNT:
+        _fail("alternative render-component inventory is incomplete")
+    return tuple(
+        _baseline._make_render_component(
+            component.owner.key,
+            component.recipe,
+            component.evaluate,
+            component.bounds,
+            "successor/alternative-exact-component",
+            debug_identity=f"alternative:{component.recipe}",
+        )
+        for component in components
+    )
+
+
+def build_neutral_alternative_variant(
+    form: Any,
+    descriptors: tuple[Any, ...],
+    samples: int = DEFAULT_SAMPLES,
+    padding: float = DEFAULT_PADDING,
+    smooth_k: float = DEFAULT_SMOOTH_K,
+) -> SuccessorMesh:
+    """Build the bounded neutral alternative in memory using shared checks."""
+
+    if (
+        type(samples) is not int
+        or samples < ALTERNATIVE_MIN_SAMPLES
+        or samples > MAX_SAMPLES
+        or samples**3 > MAX_VOXELS
+    ):
+        _fail(
+            "alternative samples-per-axis must be an integer between "
+            f"{ALTERNATIVE_MIN_SAMPLES} and {MAX_SAMPLES}"
+        )
+    if not math.isfinite(float(padding)) or padding < 0.0 or not math.isfinite(float(smooth_k)) or smooth_k <= 0.0:
+        _fail("alternative padding and smooth-k must be finite and valid")
+    profile_id = _validate_neutral_alternative_identity(form, descriptors)
+    guide = _baseline._derive_hybrid_guides(form, descriptors)
+    region = _make_neutral_alternative_region(form, descriptors, guide)
+    components = _make_alternative_components(region, smooth_k)
+    render_components = _make_alternative_render_components(components)
+    if len(components) * samples**3 > MAX_FIELD_VALUES:
+        _fail("alternative field sampling configuration exceeds bounded limits")
+    lower, upper = _combined_bounds(components, padding)
+    axes = tuple(np.linspace(lower[index], upper[index], samples, dtype=np.float64) for index in range(3))
+    points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+    field = _evaluate_components(points, components, smooth_k)
+    if not np.all(np.isfinite(field)) or float(np.min(field)) >= 0.0 or float(np.max(field)) <= 0.0:
+        _fail("alternative field has no finite zero crossing")
+    if np.any(field[(0, -1), :, :] <= 0) or np.any(field[:, (0, -1), :] <= 0) or np.any(field[:, :, (0, -1)] <= 0):
+        _fail("alternative field reaches the sampling domain boundary")
+    try:
+        raw_vertices, raw_faces, _, _ = marching_cubes(
+            field,
+            level=0.0,
+            spacing=tuple(float(axis[1] - axis[0]) for axis in axes),
+            gradient_direction="descent",
+            allow_degenerate=False,
+        )
+    except Exception as exc:
+        raise SuccessorPreviewError(f"alternative surface extraction failed: {exc}") from exc
+    vertices = np.asarray(raw_vertices, dtype=np.float64) + lower
+    faces = np.asarray(raw_faces, dtype=np.int64)
+    faces, normals, volume = _orient_mesh(vertices, faces, axes, components, smooth_k)
+    labels: list[tuple[str, tuple[str, ...], str, str]] = []
+    for vertex in vertices:
+        values = [float(component.evaluate(vertex.reshape(1, 3))[0]) for component in components]
+        winner_index = int(np.argmin(values))
+        winner = components[winner_index]
+        if winner.attribution is not None:
+            labels.append(winner.attribution(vertex.reshape(1, 3))[0])
+        else:
+            labels.append(winner.owner.key)
+    metrics = _baseline._mesh_checks(vertices, faces, labels, (lower, upper), volume)
+    metrics.update({
+        "candidate_identity": {
+            "format": ALTERNATIVE_FORMAT,
+            "consumer_id": ALTERNATIVE_CONSUMER_ID,
+            "region_id": ALTERNATIVE_REGION_ID,
+            "profile_id": profile_id,
+            "profile_scope": "neutral-only-bounded-candidate",
+            "visual_status": "technical-only-not-a-visual-pass",
+        },
+        "operation_metadata": {
+            "torso": {
+                "operation": ALTERNATIVE_TORSO_OPERATION,
+                "intervals": [
+                    {
+                        "name": item.name,
+                        "start_section": region.torso.sections[item.start_index].name,
+                        "end_section": region.torso.sections[item.end_index].name,
+                        "start_index": item.start_index,
+                        "end_index": item.end_index,
+                    }
+                    for item in region.torso.intervals
+                ],
+                "sections_consumed": len(region.torso.sections),
+                "cardinal_controls": _alternative_torso_control_metadata(region.torso),
+                "endpoint_caps": [
+                    {
+                        "side": cap.side,
+                        "axial_radius": float(cap.axial_radius),
+                        "source_sections": list(source_sections),
+                        "source_distance": float(distance),
+                    }
+                    for cap, source_sections, distance in zip(
+                        region.torso.endpoint_caps,
+                        region.torso.endpoint_cap_sources,
+                        region.torso.endpoint_cap_distances,
+                    )
+                ],
+            },
+            "lower_body": {
+                "operation": ALTERNATIVE_LOWER_BODY_OPERATION,
+                "global_operand": "one-composed-lower-body",
+                "smooth_k": float(smooth_k),
+                "corridor_operation": ALTERNATIVE_CORRIDOR_OPERATION,
+                "support_role": "authority-only-locality-mask; never-a-geometry-operand",
+                "blend_gate": "bounded-normalization-then-C1-smoothstep",
+                "corridor_order": [item.name for item in region.lower_body.corridors],
+                "corridor_start_end": [
+                    {
+                        "start": list(item.start_center),
+                        "end": list(item.end_center),
+                        "start_radius": item.start_radius,
+                        "end_radius": item.end_radius,
+                    }
+                    for item in region.lower_body.corridors
+                ],
+                "corridor_source_owner_keys": [
+                    [_baseline._address_json(owner.key) for owner in item.source_owners]
+                    for item in region.lower_body.corridors
+                ],
+                "corridor_support_bounds": [
+                    {
+                        "min": _alternative_corridor_bounds(item)[0].tolist(),
+                        "max": _alternative_corridor_bounds(item)[1].tolist(),
+                    }
+                    for item in region.lower_body.corridors
+                ],
+                "planted_foot_routes": [
+                    {
+                        "name": item.foot_route.name,
+                        "station_names": list(item.foot_route.sweep.names),
+                        "source_owner_keys": [
+                            _baseline._address_json(owner.key)
+                            for owner in item.foot_route.source_owners
+                        ],
+                        "hock_binding": {
+                            "leg_endpoint": list(item.leg_route.sweep.sections[-1].center),
+                            "foot_start": list(item.foot_route.sweep.sections[0].center),
+                        },
+                    }
+                    for item in region.lower_body.corridors
+                ],
+            },
+            "neck_root": _alternative_neck_root_metadata(region.neck_root_flare),
+            "reused": {
+                "head_neck": len(region.head_neck_sweeps),
+                "shoulders": len(region.shoulder_sweeps),
+                "arms": len(region.arm_sweeps),
+                "extremities": len(region.extremity_sweeps),
+                "tail_elements": len(region.tail_elements),
+            },
+            "baseline_recipe_signature": _recipe_signature_json(region.baseline_recipe_signature),
+            "global_fold_recipes": [component.recipe for component in components],
+        },
+        "component_count_for_sampling": len(components),
+        "grid": {
+            "samples_per_axis": samples,
+            "minimum_samples_per_axis": ALTERNATIVE_MIN_SAMPLES,
+            "axis_order": ["x", "y", "z"],
+            "bounds_min": lower.tolist(),
+            "bounds_max": upper.tolist(),
+            "spacing": [float(axis[1] - axis[0]) for axis in axes],
+        },
+    })
+    metrics["component_visualization"] = _baseline._component_visualization_metadata(render_components)
+    return SuccessorMesh(vertices, faces, normals, tuple(labels), metrics, region, metrics["grid"], render_components)
+
+
+# Explicitly preserve the rejected v9 entry points for focused regression and
+# provenance consumers.  The aliases do not change the old implementation.
+build_rejected_v9_variant = build_variant
+compile_rejected_v9_region = compile_successor_region
 
 
 def _canonical(value: Any) -> bytes:
@@ -4424,17 +7028,25 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
     form = _baseline.validate_envelope(value)
 
     # Prepare every private guide and its canonical baseline field set before
-    # any mesh is published.  The capture frame deliberately follows the
-    # baseline consumer's bounds rather than the successor's mesh bounds so
-    # the two consumers remain directly comparable across all four variants.
+    # any mesh is published.  The capture frame is shared across all variants
+    # and covers every field consumer, including successor-only geometry.
     prepared: list[tuple[str, tuple[Any, ...], dict[str, Any], Any, tuple[Any, ...]]] = []
+    successor_component_sets: list[tuple[_Component, ...]] = []
     for variant_id, descriptors, raw_variant in form.variants:
         guide = _baseline._derive_hybrid_guides(form, descriptors)
         _baseline._validate_hybrid_guide(guide)
         fields = _baseline._compile_hybrid_guide(guide)
         prepared.append((variant_id, descriptors, raw_variant, guide, fields))
-    shared_render_bounds = _baseline._shared_render_bounds(
-        tuple(item[4] for item in prepared), DEFAULT_CAPTURE_PADDING
+        successor_component_sets.append(
+            _make_components(
+                compile_successor_region(guide, fields),
+                smooth_k,
+            )
+        )
+    shared_render_bounds = _shared_successor_capture_bounds(
+        tuple(item[4] for item in prepared),
+        tuple(successor_component_sets),
+        DEFAULT_CAPTURE_PADDING,
     )
     for _, _, _, guide, _ in prepared:
         _baseline._validate_hybrid_guide(guide, shared_render_bounds)
@@ -4519,6 +7131,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.limb_sweeps],
                     "arm_profile": _arm_profile_metadata(mesh.representation),
                     "leg_profile": _leg_profile_metadata(mesh.representation),
+                    "hip_root": _hip_root_metadata(mesh.representation),
                     "foot_profile": _foot_profile_metadata(mesh.representation),
                 },
                 "extremities": {
@@ -4534,6 +7147,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
                     ],
                     "endpoint_cap_counts": [len(item.sweep.endpoint_caps) for item in mesh.representation.extremity_sweeps],
                     "internal_transition_counts": [len(item.sweep.internal_transitions) for item in mesh.representation.extremity_sweeps],
+                    "hand_paw": mesh.metrics["successor_region"]["hand_paw"],
                 },
                 "tail": {
                     "representation": "shared-guide-derived-profile-sweep-elements",
@@ -4583,7 +7197,7 @@ def generate(input_path: Path, output: Path, *, samples: int = DEFAULT_SAMPLES, 
             "canvas": canvas,
             "layout": layout,
             "projections": projections,
-            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof", "component_visualization": {"mode": "exact-consumed-component-zero-isosurfaces", "samples_per_axis": 32, "stage": "pre-smooth-union", "colour_identity": "sha256-source-owner-and-recipe"}},
+            "generator": {"samples_per_axis": samples, "padding": padding, "capture_padding": DEFAULT_CAPTURE_PADDING, "smooth_k": smooth_k, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral pelvis-to-thigh socket/cup transitions, bilateral hands, digitigrade feet, and tail", "production_status": "disposable exploratory proof", "component_visualization": {"mode": "exact-consumed-component-zero-isosurfaces", "samples_per_axis": 32, "stage": "pre-smooth-union", "colour_identity": "sha256-source-owner-and-recipe"}},
             "variants": records,
         }
         manifest_path = stage / "successor-surface-manifest.json"

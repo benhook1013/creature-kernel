@@ -5,6 +5,7 @@ import importlib.util
 import hashlib
 import json
 import math
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -18,6 +19,7 @@ from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_SPEC = importlib.util.spec_from_file_location("successor_fixture", Path(__file__).with_name("test_surface_preview.py"))
 assert FIXTURE_SPEC and FIXTURE_SPEC.loader
 fixture = importlib.util.module_from_spec(FIXTURE_SPEC)
@@ -49,6 +51,149 @@ def _serialized_torso_section_controls(region: successor.SuccessorRegion) -> lis
         }
         for section in region.loft.sections
     ]
+
+
+EXPECTED_EXACT_COMPONENT_COUNT = 25
+EXPECTED_REPLACED_BASELINE_FIELD_COUNT = 52
+REJECTED_V9_GOLDEN_SIGNATURE = "d0a64d05453a2ddc0e226c83d9daf0bcc085f223ea6e2babc39d0333997a7283"
+
+
+def _independent_recipe_signature(fields: tuple[object, ...]) -> list[list[object]]:
+    """Build the expected recipe signature from baseline fields and key fields."""
+
+    result = []
+    for field in fields:
+        key = field.owner.key  # type: ignore[attr-defined]
+        result.append([
+            {
+                "namespace": key[0],
+                "anchors": list(key[1]),
+                "kind": key[2],
+                "role": key[3],
+            },
+            field.recipe,  # type: ignore[attr-defined]
+        ])
+    return result
+
+
+def _historical_flattened_recipe_signature(fields: tuple[object, ...]) -> list[list[object]]:
+    """Build the retained v9 recipe signature in its historical shape."""
+
+    return [
+        [list(field.owner.key[0]), list(field.owner.key[1]), field.owner.key[2], field.owner.key[3], field.recipe]  # type: ignore[attr-defined]
+        for field in fields
+    ]
+
+
+def _mesh_behavior_signature(mesh: successor.SuccessorMesh) -> str:
+    """Hash the in-memory rejected-v9 behavior without writing an artifact."""
+
+    digest = hashlib.sha256()
+    for name, value, dtype in (
+        ("vertices", mesh.vertices, "<f8"),
+        ("faces", mesh.faces, "<i8"),
+        ("normals", mesh.normals, "<f8"),
+    ):
+        array = np.asarray(value).astype(dtype, copy=False)
+        digest.update(name.encode("ascii"))
+        digest.update(json.dumps(array.shape, separators=(",", ":")).encode("ascii"))
+        digest.update(array.tobytes(order="C"))
+    digest.update(json.dumps(mesh.labels, separators=(",", ":")).encode("utf-8"))
+    digest.update(json.dumps(mesh.metrics, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _expected_successor_region_metadata(metrics: dict[str, object]) -> dict[str, object]:
+    """Return the exact sidecar region metadata projected from emitted metrics."""
+
+    metrics_region = metrics["successor_region"]
+    return {
+        "successor_region_id": metrics["successor_region_id"],
+        "torso": {
+            "representation": metrics_region["torso_representation"],
+            "regional_guide_format": metrics_region["regional_guide_format"],
+            "superellipse_exponent": metrics_region["torso_profile_exponent"],
+            "sections_consumed": metrics_region["torso_sections_consumed"],
+            "section_names": metrics_region["torso_section_names"],
+            "section_controls": metrics_region["torso_section_controls"],
+        },
+        "shoulders": {
+            "representation": metrics_region["shoulder_representation"],
+            "sweeps_consumed": metrics_region["shoulder_sweeps_consumed"],
+            "sweep_order": metrics_region["shoulder_sweep_order"],
+            "section_counts": metrics_region["shoulder_sweep_section_counts"],
+            "section_names": metrics_region["shoulder_sweep_section_names"],
+        },
+        "head_neck": metrics_region["head_neck"],
+        "limbs": {
+            "representation": metrics_region["limb_representation"],
+            "sweeps_consumed": metrics_region["limb_sweeps_consumed"],
+            "sweep_order": metrics_region["limb_sweep_order"],
+            "route_kinds": metrics_region["limb_sweep_route_kinds"],
+            "station_counts": metrics_region["limb_sweep_station_counts"],
+            "station_names": metrics_region["limb_sweep_station_names"],
+            "section_owner_keys": metrics_region["limb_sweep_section_owner_keys"],
+            "station_owner_keys": metrics_region["limb_sweep_station_owner_keys"],
+            "endpoint_cap_counts": metrics_region["limb_sweep_endpoint_cap_counts"],
+            "arm_profile": metrics_region["arm_profile"],
+            "leg_profile": metrics_region["leg_profile"],
+            "hip_root": metrics_region["hip_root"],
+            "foot_profile": metrics_region["foot_profile"],
+        },
+        "extremities": {
+            "representation": metrics_region["extremity_representation"],
+            "sweeps_consumed": metrics_region["extremity_sweeps_consumed"],
+            "sweep_order": metrics_region["extremity_sweep_order"],
+            "sweep_kinds": metrics_region["extremity_sweep_kinds"],
+            "station_counts": metrics_region["extremity_sweep_station_counts"],
+            "station_names": metrics_region["extremity_sweep_station_names"],
+            "section_owner_keys": metrics_region["extremity_sweep_section_owner_keys"],
+            "endpoint_cap_counts": metrics_region["extremity_sweep_endpoint_cap_counts"],
+            "internal_transition_counts": metrics_region["extremity_sweep_internal_transition_counts"],
+            "hand_paw": metrics_region["hand_paw"],
+        },
+        "tail": {
+            "representation": metrics_region["tail_representation"],
+            "elements_consumed": metrics_region["tail_elements_consumed"],
+            "element_order": metrics_region["tail_element_order"],
+            "element_kinds": metrics_region["tail_element_kinds"],
+            "section_counts": metrics_region["tail_element_section_counts"],
+            "section_names": metrics_region["tail_element_section_names"],
+            "owner_keys": metrics_region["tail_element_owner_keys"],
+            "endpoint_cap_counts": metrics_region["tail_element_endpoint_cap_counts"],
+            "internal_transition_counts": metrics_region["tail_element_internal_transition_counts"],
+            "controls": metrics_region["tail_element_controls"],
+            "tip_shared_endpoint": metrics_region["tail_tip_shared_endpoint"],
+        },
+        "temporary_bridge": metrics["temporary_bridge"],
+        "replaced_baseline_recipes": metrics_region["replaced_baseline_recipes"],
+    }
+
+
+def _fake_successor_build_variant(form: object, descriptors: tuple[object, ...], **_kwargs: object) -> successor.SuccessorMesh:
+    """Build the minimal valid mesh double shared by generator cleanup tests."""
+
+    guide = surface_preview._derive_hybrid_guides(form, descriptors)
+    fields = surface_preview._compile_hybrid_guide(guide)
+    region = successor.compile_successor_region(guide, fields)
+    metrics = {
+        "successor_region": {
+            "torso_section_controls": _serialized_torso_section_controls(region),
+            "hand_paw": successor._hand_paw_metadata(region),
+            "tail_element_controls": [],
+            "tail_tip_shared_endpoint": {},
+        },
+        "temporary_bridge": {"enabled": False, "field_count": 0},
+    }
+    return successor.SuccessorMesh(
+        np.empty((0, 3), dtype=np.float64),
+        np.empty((0, 3), dtype=np.int64),
+        np.empty((0, 3), dtype=np.float64),
+        (),
+        metrics,
+        region,
+        {},
+    )
 
 
 class _TestOwner:
@@ -179,6 +324,51 @@ def _rotated_between_sections_profile_sweep() -> successor._ProfileSweep:
         successor._ProfileEndpointCap("end", sections[-1].center, (0.0, 1.0, 0.0), right_axes, sections[-1].transverse_radii, 0.8),
     )
     return successor._ProfileSweep(sections, caps)
+
+
+def _anisotropic_interpolated_frame_profile_sweep() -> successor._ProfileSweep:
+    """Build a finite span whose station frame is tilted from its centerline."""
+
+    owner = _TestOwner("anisotropic-interpolated")
+    centers = ((0.0, 0.0, 0.0), (0.0, 1.0, 0.0), (1.0, 2.0, 0.0))
+    tangents = (
+        (0.0, 1.0, 0.0),
+        (5.0 ** -0.5, 2.0 * 5.0 ** -0.5, 0.0),
+        (2.0 ** -0.5, 2.0 ** -0.5, 0.0),
+    )
+    sections = []
+    for index, (center, tangent, radii) in enumerate(zip(
+        centers,
+        tangents,
+        ((0.18, 0.30), (0.22, 0.63), (0.57, 0.19)),
+    )):
+        _, first, second = successor._frame_from_tangent(
+            np.asarray(tangent, dtype=np.float64),
+            np.asarray((1.0, 0.0, 0.0), dtype=np.float64),
+            np.asarray((0.0, 0.0, 1.0), dtype=np.float64),
+            f"test-anisotropic[{index}]",
+        )
+        sections.append(successor._ProfileSection(
+            name=f"anisotropic-{index}",
+            owner=owner,
+            center=center,
+            tangent=tangent,
+            transverse_axes=(tuple(first), tuple(second)),
+            transverse_radii=radii,
+            path_length=float(index),
+        ))
+    ordered = tuple(sections)
+    caps = (
+        successor._ProfileEndpointCap(
+            "start", ordered[0].center, tuple(-value for value in ordered[0].tangent),
+            ordered[0].transverse_axes, ordered[0].transverse_radii, 0.19,
+        ),
+        successor._ProfileEndpointCap(
+            "end", ordered[-1].center, ordered[-1].tangent,
+            ordered[-1].transverse_axes, ordered[-1].transverse_radii, 0.19,
+        ),
+    )
+    return successor._ProfileSweep(ordered, caps)
 
 
 _HEAD_NECK_AXIS_INDEX = {"lateral": 0, "up": 1, "forward": 2}
@@ -472,7 +662,104 @@ def _foot_station_volume_signature(route: successor._ExtremitySweep, index: int)
     ))
 
 
+def _mutate_hand_paw_radius(guide: object, side_index: int, axis: int = 2, factor: float = 1.37) -> object:
+    """Perturb one bilateral hand guide radius without changing the other hand."""
+
+    paws = list(guide.paw_guides)  # type: ignore[attr-defined]
+    side = ("left", "right")[side_index]
+    paw_index = next(
+        index for index, paw in enumerate(paws)
+        if paw.owner.key[1] == (side,) and paw.owner.key[3] == "hand"
+    )
+    paw = paws[paw_index]
+    assert paw.paw_radii is not None
+    radii = list(paw.paw_radii)
+    radii[axis] *= factor
+    paws[paw_index] = replace(paw, paw_radii=tuple(radii))
+    return replace(guide, paw_guides=tuple(paws))  # type: ignore[attr-defined]
+
+
+def _hand_paw_baseline_world_probes(route: successor._ExtremitySweep) -> np.ndarray:
+    """Derive fixed world-space probes from an unperturbed hand-paw route."""
+
+    probes = []
+    for section in route.sweep.sections:
+        center = np.asarray(section.center, dtype=np.float64)
+        axes = section.station_volume_axes
+        radii = section.station_volume_radii
+        assert axes is not None and radii is not None
+        for axis in range(3):
+            direction = np.asarray(axes[axis], dtype=np.float64)
+            for sign in (-1.0, 1.0):
+                probes.append(center + sign * 0.8 * float(radii[axis]) * direction)
+    return np.asarray(probes, dtype=np.float64)
+
+
+def _hand_paw_fixed_world_field_signature(
+    route: successor._ExtremitySweep,
+    probes: np.ndarray,
+) -> np.ndarray:
+    """Evaluate a route at fixed baseline-derived world-space probes only."""
+
+    return successor._profile_sweep_field(probes, route.sweep)
+
+
 class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
+    def test_shape_preserving_slopes_are_componentwise_for_mixed_and_flat_controls(self) -> None:
+        path = np.asarray((0.0, 1.0, 3.0, 6.0), dtype=np.float64)
+        controls = np.asarray((
+            (1.0, 1.0, 1.0),
+            (2.0, 1.0, 0.5),
+            (4.0, 0.5, 0.5),
+            (5.0, 0.25, 1.0),
+        ), dtype=np.float64)
+        slopes = successor._shape_preserving_slopes(path, controls)
+        self.assertGreater(slopes[1, 0], 0.0)
+        self.assertGreater(slopes[2, 0], 0.0)
+        self.assertEqual(slopes[1, 1], 0.0)
+        self.assertLess(slopes[2, 1], 0.0)
+        self.assertEqual(slopes[1, 2], 0.0)
+        self.assertEqual(slopes[2, 2], 0.0)
+        for index in range(len(path) - 1):
+            samples = np.linspace(path[index], path[index + 1], 65)
+            interpolated = successor._shape_preserving_sample(
+                path, controls, slopes, samples
+            )
+            lower = np.minimum(controls[index], controls[index + 1])
+            upper = np.maximum(controls[index], controls[index + 1])
+            self.assertTrue(np.all(interpolated >= lower - 1.0e-12))
+            self.assertTrue(np.all(interpolated <= upper + 1.0e-12))
+
+    def test_torso_profile_parameter_remap_is_finite_strictly_monotone_and_exact(self) -> None:
+        exponents = (0.72, 0.82, 0.88, 0.90, 1.0, 1.12, 1.18, 1.28)
+        samples = np.linspace(0.0, 1.0, 4097, dtype=np.float64)
+        for exponent in exponents:
+            mapped = successor._torso_span_profile_remap(samples, exponent)
+            self.assertTrue(np.all(np.isfinite(mapped)))
+            self.assertTrue(np.all(np.diff(mapped) > 0.0))
+            self.assertEqual(float(successor._torso_span_profile_remap(np.asarray((0.0,)), exponent)[0]), 0.0)
+            self.assertEqual(float(successor._torso_span_profile_remap(np.asarray((1.0,)), exponent)[0]), 1.0)
+            midpoint = successor._torso_span_profile_remap(np.asarray((0.5,)), exponent)[0]
+            self.assertEqual(float(midpoint), 0.5 ** exponent)
+
+    def test_torso_profile_parameter_remap_has_unit_endpoint_slopes_and_bounded_subunit_derivatives(self) -> None:
+        exponents = (0.72, 0.82, 0.88, 0.90, 1.0, 1.12, 1.18, 1.28)
+        endpoints = np.asarray((0.0, 1.0), dtype=np.float64)
+        endpoint_slopes = {
+            exponent: successor._torso_span_profile_remap_derivative(endpoints, exponent)
+            for exponent in exponents
+        }
+        for slopes in endpoint_slopes.values():
+            np.testing.assert_allclose(slopes, 1.0, rtol=0.0, atol=1.0e-15)
+
+        subunit_exponents = tuple(exponent for exponent in exponents if exponent < 1.0)
+        samples = np.linspace(0.0, 1.0, 4097, dtype=np.float64)
+        for exponent in subunit_exponents:
+            derivative = successor._torso_span_profile_remap_derivative(samples, exponent)
+            self.assertTrue(np.all(np.isfinite(derivative)))
+            self.assertGreater(float(np.min(derivative)), 0.6)
+            self.assertLess(float(np.max(derivative)), 1.4)
+
     def test_torso_profile_hits_exact_cardinals_and_has_finite_outside_caps(self) -> None:
         sweep = _test_torso_profile_sweep()
         for section in sweep.sections:
@@ -524,6 +811,52 @@ class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
         ellipse_value = (math.sqrt(0.75**2 + 0.75**2) - 1.0) * min(lateral, anterior, posterior)
         self.assertLess(rounded_value, ellipse_value - 1.0e-3)
 
+    def test_torso_profile_eases_mass_transitions_without_losing_authored_cardinals(self) -> None:
+        base = _test_torso_profile_sweep()
+        controls = (
+            (1.50, 0.85, 0.60),
+            (1.35, 0.78, 0.56),
+            (1.05, 0.62, 0.50),
+            (0.90, 0.52, 0.42),
+            (1.125, 0.65, 0.50),
+            (1.40, 0.85, 0.65),
+            (1.50, 0.90, 0.70),
+        )
+        sweep = replace(
+            base,
+            sections=tuple(
+                replace(
+                    section,
+                    transverse_radii=(radii[0], max(radii[1], radii[2])),
+                    torso_cardinal_radii=radii,
+                )
+                for section, radii in zip(base.sections, controls)
+            ),
+        )
+
+        def linear_lateral_midpoint_value(index: int) -> float:
+            left, right = sweep.sections[index:index + 2]
+            center = (np.asarray(left.center) + np.asarray(right.center)) / 2.0
+            linear_radius = (left.cardinal_radii[0] + right.cardinal_radii[0]) / 2.0
+            point = center + linear_radius * np.asarray(left.transverse_axes[0])
+            return float(successor._loft_field(point.reshape(1, 3), sweep)[0])
+
+        # The old linear station progression put the pelvis-to-abdomen
+        # midpoint exactly on the boundary.  Role-level easing now leaves a
+        # measurable contracted bridge and delays the waist-to-abdomen rise.
+        self.assertGreater(linear_lateral_midpoint_value(1), 1.0e-3)
+        self.assertGreater(linear_lateral_midpoint_value(3), 1.0e-3)
+        for section in sweep.sections:
+            center = np.asarray(section.center)
+            lateral_axis, forward_axis = (np.asarray(axis) for axis in section.transverse_axes)
+            lateral, anterior, posterior = section.cardinal_radii
+            points = np.asarray((
+                center + lateral * lateral_axis,
+                center + anterior * forward_axis,
+                center - posterior * forward_axis,
+            ))
+            np.testing.assert_allclose(successor._loft_field(points, sweep), 0.0, rtol=0.0, atol=1.0e-12)
+
     def test_torso_profile_is_invariant_under_fixed_frame_rotation_and_translation(self) -> None:
         angle_x, angle_y = 0.31, -0.47
         rx = np.asarray(((1.0, 0.0, 0.0), (0.0, math.cos(angle_x), -math.sin(angle_x)), (0.0, math.sin(angle_x), math.cos(angle_x))))
@@ -542,8 +875,177 @@ class SuccessorTorsoProfileNumericalTests(unittest.TestCase):
 
 
 class SuccessorSurfacePreviewTests(unittest.TestCase):
+    _generated_profile_tempdir: tempfile.TemporaryDirectory | None = None
+    _generated_profile_cli: Path | None = None
+    _generated_profile_output_dir: Path | None = None
+    _generated_profile_manifest: dict[str, object] | None = None
+
     def setUp(self) -> None:
         self.form = surface_preview.validate_envelope(fixture.make_varied_payload())
+
+    @classmethod
+    def _ensure_generated_profile_setup(cls) -> tuple[Path, Path, dict[str, object]]:
+        if (
+            cls._generated_profile_cli is not None
+            and cls._generated_profile_output_dir is not None
+            and cls._generated_profile_manifest is not None
+        ):
+            return cls._generated_profile_cli, cls._generated_profile_output_dir, cls._generated_profile_manifest
+
+        try:
+            build = subprocess.run(
+                ["cargo", "build", "-q", "-p", "creature-kernel-cli"],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as exc:
+            raise unittest.SkipTest(f"cargo is unavailable in this test environment: {exc}") from exc
+        except subprocess.TimeoutExpired as exc:
+            stdout = getattr(exc, "stdout", None) or ""
+            stderr = getattr(exc, "stderr", None) or ""
+            raise AssertionError(
+                "could not build the inspection CLI: "
+                f"cargo build timed out after {exc.timeout} seconds; "
+                f"stdout tail={stdout[-2000:]!r}; stderr tail={stderr[-2000:]!r}"
+            ) from exc
+        if build.returncode != 0:
+            raise AssertionError(build.stderr[-2000:])
+
+        cli = REPO_ROOT / "target" / "debug" / "creature-kernel"
+        if not cli.is_file():
+            raise AssertionError(f"built inspection CLI is missing: {cli}")
+
+        candidate_path = ROOT / "structural_profile_candidates.json"
+        source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        tempdir = _native_temporary_directory()
+        cls._generated_profile_tempdir = tempdir
+        output_dir = Path(tempdir.name) / "sources"
+        source_manifest = fixture.profile_generator.write_sources(candidate_path, source_path, output_dir)
+        cls._generated_profile_cli = cli
+        cls._generated_profile_output_dir = output_dir
+        cls._generated_profile_manifest = source_manifest
+        return cli, output_dir, source_manifest
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        tempdir = cls._generated_profile_tempdir
+        cls._generated_profile_tempdir = None
+        cls._generated_profile_cli = None
+        cls._generated_profile_output_dir = None
+        cls._generated_profile_manifest = None
+        if tempdir is not None:
+            tempdir.cleanup()
+        super().tearDownClass()
+
+    def _assert_shoulder_socket_support_contract(
+        self,
+        guide: object,
+        region: successor.SuccessorRegion,
+        context: str,
+    ) -> None:
+        """Check conservative nested socket support against the authored route."""
+
+        arm_routes = {item.chain_name: item for item in region.arm_sweeps}
+        for shoulder in region.shoulder_sweeps:
+            with self.subTest(context=context, side=shoulder.side):
+                route = arm_routes[f"{shoulder.side}-upper-arm-route"]
+                socket = shoulder.sweep.sections[3]
+                authored_side = next(item for item in guide.arm_profile.sides if item.side == shoulder.side)
+                authored_start = authored_side.sections[0]
+                route_start = route.source_stations[0]
+                socket_radius = float(socket.transverse_radii[0])
+                self.assertEqual(socket.transverse_radii[1], socket_radius)
+                self.assertEqual(socket.center, route.sweep.sections[0].center)
+                self.assertEqual(socket.center, route_start.center)
+                self.assertEqual(route_start.center, authored_start.center)
+                self.assertEqual(route_start.radii, authored_start.radii)
+                self.assertGreater(socket_radius, 0.0)
+                self.assertLessEqual(socket_radius, min(float(value) for value in authored_start.radii))
+                self.assertLessEqual(
+                    float(successor._profile_sweep_field(
+                        np.asarray(socket.center, dtype=np.float64).reshape(1, 3),
+                        route.sweep,
+                    )[0]),
+                    0.0,
+                )
+                # This scalar is conservative nested support for the authored
+                # route; it is not a second parameter source driving that route.
+
+    def test_shoulder_transition_volume_overlaps_torso_and_arm_with_bounded_axilla_smooth_min(self) -> None:
+        """The five-section sweep carries the shoulder transition through axilla.
+
+        The axilla check decomposes the already-consumed torso, shoulder, and
+        authored arm fields before applying the bounded successor smooth-min.
+        It documents an existing transition volume, not a missing bridge field.
+        """
+
+        expected_names = (
+            "torso-interior", "torso-boundary", "authored-shoulder",
+            "upper-arm-socket", "upper-arm-midpoint",
+        )
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                arm_routes = {item.chain_name: item for item in region.arm_sweeps}
+                for shoulder, side in zip(region.shoulder_sweeps, guide.shoulder_frame.sides):
+                    with self.subTest(side=side.side):
+                        sections = shoulder.sweep.sections
+                        self.assertEqual(len(sections), 5)
+                        self.assertEqual(shoulder.sweep.names, expected_names)
+
+                        boundary = np.asarray(sections[1].center, dtype=np.float64)
+                        interior = np.asarray(sections[0].center, dtype=np.float64)
+                        boundary_value = float(successor._loft_field(
+                            boundary.reshape(1, 3), region.loft,
+                        )[0])
+                        boundary_shoulder_value = float(successor._shoulder_sweep_field(
+                            boundary.reshape(1, 3), shoulder,
+                        )[0])
+                        self.assertLessEqual(
+                            boundary_value,
+                            successor._SHOULDER_BOUNDARY_TOLERANCE,
+                        )
+                        self.assertLess(boundary_shoulder_value, 0.0)
+                        self.assertLess(
+                            float(successor._loft_field(
+                                (boundary + 0.5 * (interior - boundary)).reshape(1, 3),
+                                region.loft,
+                            )[0]),
+                            0.0,
+                        )
+
+                        route = arm_routes[f"{side.side}-upper-arm-route"]
+                        socket = np.asarray(sections[3].center, dtype=np.float64)
+                        socket_shoulder_value = float(successor._shoulder_sweep_field(
+                            socket.reshape(1, 3), shoulder,
+                        )[0])
+                        self.assertLessEqual(
+                            float(successor._profile_sweep_field(socket.reshape(1, 3), route.sweep)[0]),
+                            0.0,
+                        )
+                        self.assertLess(socket_shoulder_value, 0.0)
+
+                        axilla = np.asarray(side.axilla_anchor, dtype=np.float64).reshape(1, 3)
+                        decomposed = [
+                            successor._loft_field(axilla, region.loft),
+                            successor._shoulder_sweep_field(axilla, shoulder),
+                            successor._profile_sweep_field(axilla, route.sweep),
+                        ]
+                        self.assertTrue(all(np.all(np.isfinite(value)) for value in decomposed))
+                        composed = float(successor._successor_smooth_union(
+                            decomposed, successor.DEFAULT_SMOOTH_K,
+                        )[0])
+                        minimum = min(float(value[0]) for value in decomposed)
+                        correction = minimum - composed
+                        self.assertGreaterEqual(correction, -1.0e-12)
+                        self.assertLessEqual(
+                            correction,
+                            (len(decomposed) - 1) * successor.DEFAULT_SMOOTH_K / 6.0 + 1.0e-12,
+                        )
 
     def test_successor_consumes_authored_five_section_shoulder_envelopes(self) -> None:
         expected_names = (
@@ -629,13 +1131,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                         0.0,
                     )
 
-            self.assertEqual(len(region.bridge_fields), 4)
-            self.assertEqual(sum(field.recipe == "root-bridge" for field in region.bridge_fields), 2)
-            self.assertEqual(sum(field.recipe == "hip-transition" for field in region.bridge_fields), 2)
-            self.assertEqual(
-                {field.owner.key[3] for field in region.bridge_fields if field.recipe == "root-bridge"},
-                {"thigh"},
-            )
+            self.assertEqual(len(region.bridge_fields), 0)
+            self.assertEqual(tuple(item.name for item in region.hip_root_sweeps), (
+                "left-hip-root-transition", "right-hip-root-transition",
+            ))
             self.assertFalse(any(field.recipe == "deltoid-sweep-1" for field in region.bridge_fields))
             self.assertFalse(any(
                 field.recipe == "root-bridge" and field.owner.key[3] == "upper_arm"
@@ -910,10 +1409,237 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                             section.transverse_axes,
                             (tuple(hand.axes.up), tuple(hand.axes.forward)),
                         )
+                        self.assertEqual(
+                            section.station_volume_axes,
+                            (tuple(outward), tuple(hand.axes.up), tuple(hand.axes.forward)),
+                        )
+                        self.assertEqual(
+                            section.station_volume_radii,
+                            (
+                                (1.0 - abs(control[0])) * hand.paw_radii[0],
+                                hand.paw_radii[1] * control[1],
+                                hand.paw_radii[2] * control[2],
+                            ),
+                        )
+                    stripped = replace(
+                        item.sweep,
+                        sections=tuple(
+                            replace(section, station_volume_axes=None, station_volume_radii=None)
+                            for section in item.sweep.sections
+                        ),
+                    )
+                    start = np.asarray(item.sweep.sections[0].center, dtype=np.float64)
+                    station_probe = (start - 0.4 * hand.paw_radii[0] * outward).reshape(1, 3)
+                    self.assertLess(float(successor._profile_sweep_field(station_probe, item.sweep)[0]), 0.0)
+                    self.assertGreater(float(successor._profile_sweep_field(station_probe, stripped)[0]), 0.0)
+                    full_lower, full_upper = successor._profile_sweep_bounds(item.sweep)
+                    self.assertTrue(np.all(station_probe[0] >= full_lower))
+                    self.assertTrue(np.all(station_probe[0] <= full_upper))
                     paw_center = np.asarray(hand.paw_center).reshape(1, 3)
                     self.assertLess(float(successor._profile_sweep_field(paw_center, item.sweep)[0]), 0.0)
                 forearm_end = np.asarray(arm.sweep.sections[-1].center).reshape(1, 3)
                 self.assertLess(float(successor._profile_sweep_field(forearm_end, item.sweep)[0]), 0.0)
+
+    def test_hand_paw_axial_station_support_is_positive_bounded_and_reaches_authored_extent(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                paws = {
+                    (item.owner.key[1][0], item.owner.key[3]): item
+                    for item in guide.paw_guides
+                }
+                for route in region.hand_sweeps:
+                    if route.kind != "hand-paw":
+                        continue
+                    hand = paws[(route.side, "hand")]
+                    axial_radius = float(hand.paw_radii[0])
+                    intervals = []
+                    for section, (offset, _up_scale, _forward_scale) in zip(
+                        route.sweep.sections,
+                        successor._HAND_PAW_PROFILE,
+                    ):
+                        offset = float(offset)
+                        residual_radius = (1.0 - abs(offset)) * axial_radius
+                        self.assertTrue(math.isfinite(residual_radius))
+                        self.assertLess(abs(offset), 1.0)
+                        self.assertGreater(residual_radius, 0.0)
+                        self.assertEqual(section.station_volume_radii[0], residual_radius)
+                        intervals.append((
+                            offset * axial_radius - residual_radius,
+                            offset * axial_radius + residual_radius,
+                        ))
+
+                    for lower, upper in intervals:
+                        self.assertGreaterEqual(lower, -axial_radius - 1.0e-12)
+                        self.assertLessEqual(upper, axial_radius + 1.0e-12)
+                    self.assertAlmostEqual(min(lower for lower, _upper in intervals), -axial_radius, places=12)
+                    self.assertAlmostEqual(max(upper for _lower, upper in intervals), axial_radius, places=12)
+
+    def test_hand_paw_invalid_endpoint_and_out_of_range_offsets_fail_closed(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        hand = next(item for item in guide.paw_guides if item.owner.key[1:] == (("left",), "part", "hand"))
+        canonical_controls = tuple(successor._HAND_PAW_PROFILE)
+        cases = {}
+        for name, index, invalid_offset in (
+            ("negative-endpoint", 0, -1.0),
+            ("positive-endpoint", 3, 1.0),
+            ("out-of-range", 2, 1.01),
+            ("non-finite", 1, math.nan),
+        ):
+            controls = list(canonical_controls)
+            _old_offset, up_scale, forward_scale = controls[index]
+            controls[index] = (invalid_offset, up_scale, forward_scale)
+            cases[name] = tuple(controls)
+        for name, offsets in (
+            ("all-positive", (0.01, 0.15, 0.35, 0.78)),
+            ("all-negative", (-0.55, -0.35, -0.15, -0.01)),
+            ("non-monotonic", (-0.55, 0.35, -0.15, 0.78)),
+        ):
+            cases[name] = tuple(
+                (offset, control[1], control[2])
+                for offset, control in zip(offsets, canonical_controls)
+            )
+        for name, controls in cases.items():
+            with self.subTest(name=name), mock.patch.object(
+                successor,
+                "_HAND_PAW_PROFILE",
+                tuple(controls),
+            ), self.assertRaisesRegex(successor.SuccessorPreviewError, "offset|straddle"):
+                successor._make_hand_paw_sweep(hand, "left")
+
+        limb_sweeps = successor._make_limb_sweeps(guide)
+        extremity_sweeps = successor._make_extremity_sweeps(guide, limb_sweeps)
+        for name in ("all-positive", "all-negative"):
+            with self.subTest(source_owner_invariant=name), mock.patch.object(
+                successor,
+                "_HAND_PAW_PROFILE",
+                cases[name],
+            ), self.assertRaisesRegex(successor.SuccessorPreviewError, "straddle"):
+                successor._validate_extremity_sweeps(guide, limb_sweeps, extremity_sweeps)
+
+    def test_hand_paw_station_volumes_remain_active_after_axial_support_correction(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                paws = {
+                    (item.owner.key[1][0], item.owner.key[3]): item
+                    for item in guide.paw_guides
+                }
+                for route in region.hand_sweeps:
+                    if route.kind != "hand-paw":
+                        continue
+                    hand = paws[(route.side, "hand")]
+                    stripped = replace(
+                        route.sweep,
+                        sections=tuple(
+                            replace(item, station_volume_axes=None, station_volume_radii=None)
+                            for item in route.sweep.sections
+                        ),
+                    )
+                    outward = np.asarray(route.sweep.sections[0].station_volume_axes[0], dtype=np.float64)
+                    for endpoint_index, probe_distance in ((0, 0.4), (3, 0.2)):
+                        with self.subTest(side=route.side, endpoint=endpoint_index):
+                            section = route.sweep.sections[endpoint_index]
+                            direction = -outward if endpoint_index == 0 else outward
+                            station_probe = (
+                                np.asarray(section.center, dtype=np.float64)
+                                + probe_distance * float(hand.paw_radii[0]) * direction
+                            ).reshape(1, 3)
+                            self.assertLess(
+                                float(successor._profile_sweep_field(station_probe, route.sweep)[0]),
+                                0.0,
+                            )
+                            self.assertGreater(
+                                float(successor._profile_sweep_field(station_probe, stripped)[0]),
+                                0.0,
+                            )
+
+    def test_hand_paw_metadata_retains_exact_compiled_full_volume_controls(self) -> None:
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                metadata = successor._hand_paw_metadata(region)
+
+                self.assertEqual(metadata["representation"], "four-station-full-volume-hand-paw-sweeps")
+                self.assertEqual(metadata["operation"], region.hand_sweeps[1].sweep.profile_operation)
+                self.assertEqual(metadata["route_order"], ["left-hand-paw", "right-hand-paw"])
+                self.assertEqual(metadata["route_kinds"], ["hand-paw", "hand-paw"])
+                self.assertEqual(metadata["section_names"], list(successor._HAND_PAW_SECTION_NAMES))
+                self.assertEqual(metadata["owner_roles"], ["hand"] * 4)
+                self.assertEqual(metadata["route_station_count"], 8)
+                self.assertEqual(metadata["route_volume_axis_count"], 24)
+                self.assertEqual(metadata["route_volume_radius_count"], 24)
+                hand_routes = tuple(item for item in region.hand_sweeps if item.kind == "hand-paw")
+                paws = {
+                    (item.owner.key[1][0], item.owner.key[3]): item
+                    for item in guide.paw_guides
+                }
+                for side_metadata, route in zip(metadata["sides"], hand_routes):
+                    self.assertEqual(side_metadata["side"], route.side)
+                    self.assertEqual(side_metadata["route"], route.name)
+                    self.assertEqual(side_metadata["route_kind"], route.kind)
+                    self.assertEqual(side_metadata["station_count"], 4)
+                    self.assertEqual(side_metadata["owner_roles"], ["hand"] * 4)
+                    hand = paws[(route.side, "hand")]
+                    for index, (station_metadata, section) in enumerate(zip(side_metadata["stations"], route.sweep.sections)):
+                        self.assertEqual(station_metadata["name"], section.name)
+                        self.assertEqual(station_metadata["section_index"], index)
+                        self.assertEqual(
+                            station_metadata["owner"],
+                            surface_preview._address_json(section.owner.key),
+                        )
+                        self.assertEqual(station_metadata["center"], list(section.center))
+                        self.assertEqual(
+                            station_metadata["volume_axes"],
+                            [list(axis) for axis in section.station_volume_axes],
+                        )
+                        self.assertEqual(station_metadata["volume_radii"], list(section.station_volume_radii))
+                        offset = float(successor._HAND_PAW_PROFILE[index][0])
+                        self.assertEqual(
+                            station_metadata["volume_radii"][0],
+                            (1.0 - abs(offset)) * float(hand.paw_radii[0]),
+                        )
+                mesh = successor.build_variant(self.form, descriptors, padding=0.5)
+                self.assertEqual(mesh.metrics["successor_region"]["hand_paw"], metadata)
+
+    def test_hand_paw_guide_radius_perturbation_is_one_sided_bilaterally(self) -> None:
+        guide = surface_preview._derive_hybrid_guides(self.form, self.form.variants[0][1])
+        baseline = {
+            item.side: item
+            for item in successor.compile_successor_region(guide).hand_sweeps
+            if item.kind == "hand-paw"
+        }
+        baseline_probes = {
+            side: _hand_paw_baseline_world_probes(route)
+            for side, route in baseline.items()
+        }
+        baseline_fields = {
+            side: _hand_paw_fixed_world_field_signature(route, baseline_probes[side])
+            for side, route in baseline.items()
+        }
+        for side_index, selected_side in enumerate(("left", "right")):
+            changed_guide = _mutate_hand_paw_radius(guide, side_index)
+            changed = {
+                item.side: item
+                for item in successor.compile_successor_region(changed_guide).hand_sweeps
+                if item.kind == "hand-paw"
+            }
+            other_side = "right" if selected_side == "left" else "left"
+            np.testing.assert_array_equal(
+                _hand_paw_fixed_world_field_signature(changed[other_side], baseline_probes[other_side]),
+                baseline_fields[other_side],
+            )
+            self.assertGreater(
+                float(np.max(np.abs(
+                    _hand_paw_fixed_world_field_signature(changed[selected_side], baseline_probes[selected_side])
+                    - baseline_fields[selected_side]
+                ))),
+                1.0e-8,
+            )
 
     def test_foot_sweeps_retain_exact_chain_controls_and_forward_contact_order(self) -> None:
         for _, descriptors, _ in self.form.variants:
@@ -1076,23 +1802,17 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         baseline = surface_preview._compile_hybrid_guide(guide)
         region = successor.compile_successor_region(guide, baseline)
         self.assertEqual(len(baseline), 52)
-        self.assertEqual(len(region.bridge_fields), 4)
-        self.assertEqual(len(baseline) - len(region.bridge_fields), 48)
-        self.assertEqual(len(region.replaced_baseline_recipes), 28)
-        self.assertEqual(sum(field.recipe in region.replaced_baseline_recipes for field in baseline), 46)
+        self.assertEqual(len(region.bridge_fields), 0)
+        self.assertEqual(len(baseline) - len(region.bridge_fields), 52)
+        self.assertEqual(len(region.replaced_baseline_recipes), 30)
+        self.assertEqual(sum(field.recipe in region.replaced_baseline_recipes for field in baseline), 52)
         self.assertEqual(
             sum(field.recipe in successor._EXTREMITY_BASELINE_RECIPES for field in baseline),
             10,
         )
         self.assertEqual(
             {field.recipe for field in region.bridge_fields},
-            {"root-bridge", "hip-transition"},
-        )
-        self.assertEqual(sum(field.recipe == "root-bridge" for field in region.bridge_fields), 2)
-        self.assertEqual(sum(field.recipe == "hip-transition" for field in region.bridge_fields), 2)
-        self.assertEqual(
-            {field.owner.key[3] for field in region.bridge_fields if field.recipe == "root-bridge"},
-            {"thigh"},
+            set(),
         )
         self.assertEqual(sum(field.recipe in successor._TAIL_BASELINE_RECIPES for field in baseline), 6)
         self.assertFalse(any(field.recipe in successor._TAIL_BASELINE_RECIPES for field in region.bridge_fields))
@@ -1250,6 +1970,82 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             attributed = component.attribution(points)  # type: ignore[misc]
             self.assertEqual(tuple(address[3] for address in attributed), tuple(section.owner.key[3] for section in item.sweep.sections))
             self.assertTrue(all(address == item.owner.key for address in attributed))
+
+    def test_successor_binary_fold_preserves_tiny_positive_inputs_for_permutations_and_triples(self) -> None:
+        """The successor-wide correction cap prevents every positive ghost fold."""
+
+        extension = np.asarray((0.027064596942855276,), dtype=np.float64)
+        cap = np.asarray((0.004857914517354351,), dtype=np.float64)
+        raw = surface_preview._smooth_union([extension, cap], successor.DEFAULT_SMOOTH_K)
+        self.assertLess(float(raw[0]), 0.0)
+
+        tiny = (1.0e-12, 2.0e-12, 3.0e-12)
+        from itertools import permutations
+        for order in permutations(tiny):
+            with self.subTest(order=order):
+                composed = successor._successor_smooth_union(
+                    [np.asarray((value,), dtype=np.float64) for value in order],
+                    successor.DEFAULT_SMOOTH_K,
+                )
+                self.assertTrue(np.all(np.isfinite(composed)))
+                self.assertGreater(float(composed[0]), 0.0)
+
+        counterexample = successor._successor_smooth_union(
+            [np.asarray((0.001426,), dtype=np.float64), np.asarray((0.001426,), dtype=np.float64)],
+            successor.DEFAULT_SMOOTH_K,
+        )
+        self.assertGreater(float(counterexample[0]), 0.0)
+        for order in permutations((0.001426, 0.0027, 0.0041)):
+            with self.subTest(triple_order=order):
+                composed = successor._successor_smooth_union(
+                    [np.asarray((value,), dtype=np.float64) for value in order],
+                    successor.DEFAULT_SMOOTH_K,
+                )
+                self.assertGreater(float(composed[0]), 0.0)
+
+    def test_successor_smooth_union_keeps_zero_equal_input_polynomial(self) -> None:
+        smooth_k = successor.DEFAULT_SMOOTH_K
+        actual = successor._successor_smooth_union(
+            [np.asarray((0.0,), dtype=np.float64), np.asarray((0.0,), dtype=np.float64)],
+            smooth_k,
+        )
+        self.assertAlmostEqual(float(actual[0]), -smooth_k / 6.0, places=15)
+
+    def test_successor_smooth_union_keeps_negative_equal_input_polynomial(self) -> None:
+        smooth_k = successor.DEFAULT_SMOOTH_K
+        value = -0.001426
+        actual = successor._successor_smooth_union(
+            [np.asarray((value,), dtype=np.float64), np.asarray((value,), dtype=np.float64)],
+            smooth_k,
+        )
+        self.assertAlmostEqual(float(actual[0]), value - smooth_k / 6.0, places=15)
+
+    def test_successor_smooth_union_keeps_uncapped_polynomial_for_non_positive_pairwise_minima(self) -> None:
+        smooth_k = successor.DEFAULT_SMOOTH_K
+
+        def polynomial_pair(left: float, right: float) -> float:
+            minimum = min(left, right)
+            difference = abs(left - right)
+            h = max(smooth_k - difference, 0.0)
+            return minimum - (h**3) / (6.0 * smooth_k * smooth_k)
+
+        cases = (
+            ("positive-zero", (0.025, 0.0)),
+            ("positive-negative", (0.025, -0.012)),
+            ("multi-fold", (0.025, 0.0, 0.012, -0.004)),
+        )
+        for name, values in cases:
+            with self.subTest(case=name):
+                expected = polynomial_pair(values[0], values[1])
+                self.assertLessEqual(min(values[0], values[1]), 0.0)
+                for value in values[2:]:
+                    self.assertLessEqual(min(expected, value), 0.0)
+                    expected = polynomial_pair(expected, value)
+                actual = successor._successor_smooth_union(
+                    [np.asarray((value,), dtype=np.float64) for value in values],
+                    smooth_k,
+                )
+                self.assertAlmostEqual(float(actual[0]), expected, places=15)
 
     def test_tail_validation_rejects_inventory_axes_controls_joins_and_malformed_baseline(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -1569,6 +2365,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
     def test_authored_station_radius_and_position_are_skin_driving(self) -> None:
         """A valid terminal radius and crown position must change route fields."""
 
+        derived_station_mask_observed = False
         for _, descriptors, _ in self.form.variants:
             guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
             profile = guide.head_guide.profile
@@ -1604,7 +2401,33 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
             radius_probe = (muzzle_tip + 0.75 * profile.sections[7].radii[2] * forward).reshape(1, 3)
             original_radius_value = successor._profile_sweep_field(radius_probe, original_routes["forward-muzzle"].sweep)
-            changed_radius_value = successor._profile_sweep_field(radius_probe, changed_radius_routes["forward-muzzle"].sweep)
+            changed_muzzle = changed_radius_routes["forward-muzzle"].sweep
+            changed_radius_value = successor._profile_sweep_field(radius_probe, changed_muzzle)
+            original_primary_only = replace(
+                original_routes["forward-muzzle"].sweep,
+                derived_sweeps=(),
+            )
+            primary_only = replace(changed_muzzle, derived_sweeps=())
+            self.assertGreater(
+                float(np.max(np.abs(
+                    successor._profile_sweep_field(radius_probe, original_primary_only)
+                    - successor._profile_sweep_field(radius_probe, primary_only)
+                ))),
+                1.0e-8,
+            )
+            derived = changed_muzzle.derived_sweeps[0]
+            expected_composition = np.minimum(
+                successor._profile_sweep_field(radius_probe, primary_only),
+                successor._profile_sweep_field(radius_probe, derived, include_station_volumes=False),
+            )
+            np.testing.assert_allclose(changed_radius_value, expected_composition, rtol=0.0, atol=1.0e-12)
+            composition_with_synthetic_station_volumes = np.minimum(
+                successor._profile_sweep_field(radius_probe, primary_only),
+                successor._profile_sweep_field(radius_probe, derived),
+            )
+            derived_station_mask_observed = derived_station_mask_observed or bool(np.max(np.abs(
+                expected_composition - composition_with_synthetic_station_volumes
+            )) > 1.0e-8)
             self.assertGreater(float(np.max(np.abs(original_radius_value - changed_radius_value))), 1.0e-8)
 
             position_guide = mutate_profile(4, center_delta=(0.18, 0.0, 0.0))
@@ -1615,6 +2438,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             original_position_value = successor._profile_sweep_field(crown_probe, original_routes["vertical-neck-cranium"].sweep)
             changed_position_value = successor._profile_sweep_field(crown_probe, changed_position_routes["vertical-neck-cranium"].sweep)
             self.assertGreater(float(np.max(np.abs(original_position_value - changed_position_value))), 1.0e-8)
+        self.assertTrue(derived_station_mask_observed)
 
     def test_head_neck_sweeps_are_consumed_by_components_and_composed_field(self) -> None:
         expected_recipes = {"vertical-neck-cranium", "forward-muzzle"}
@@ -1649,6 +2473,219 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     composed_value = float(successor._successor_region_field(representative, region, 0.10)[0])
                     without_value = float(successor._successor_region_field(representative, without_item, 0.10)[0])
                     self.assertGreater(abs(composed_value - without_value), 1.0e-8)
+
+    def test_head_neck_composition_exposes_neck_and_extends_forward_muzzle(self) -> None:
+        """Derived composition must expose the authored route without changing its records."""
+
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                profile = guide.head_guide.profile
+                region = successor.compile_successor_region(guide)
+
+                torso_top = np.asarray(region.loft.sections[-1].center, dtype=np.float64)
+                neck_collar = np.asarray(profile.sections[0].center, dtype=np.float64)
+                collar_gap = float(np.linalg.norm(neck_collar - torso_top))
+                self.assertGreater(collar_gap, successor._DEGENERATE_TOLERANCE)
+                neck_upper = np.asarray(profile.sections[1].center, dtype=np.float64)
+                self.assertGreater(region.loft.endpoint_caps[-1].axial_radius, collar_gap)
+                self.assertGreater(float(successor._loft_field(neck_upper.reshape(1, 3), region.loft)[0]), 0.0)
+
+                neck_connection = np.linspace(torso_top, neck_collar, 17)
+                self.assertTrue(np.all(
+                    successor._successor_region_field(neck_connection, region, successor.DEFAULT_SMOOTH_K) < 0.0
+                ))
+
+                muzzle = next(item for item in region.head_neck_sweeps if item.recipe == "forward-muzzle")
+                self.assertEqual(len(muzzle.sweep.derived_sweeps), 1)
+                composition = muzzle.sweep.derived_sweeps[0]
+                expected_geometric_indices = (3, 5, 7)
+                expected_geometric_names = ("cranium-mid", "muzzle-root", "muzzle-tip")
+                expected_radius_donor_indices = (5, 6, 7)
+                expected_radius_donor_names = ("muzzle-root", "muzzle-mid", "muzzle-tip")
+                expected_composition_names = (
+                    "muzzle-composition-root",
+                    "muzzle-composition-mid",
+                    "muzzle-composition-tip",
+                )
+                self.assertEqual(
+                    tuple(profile.sections[index].name for index in expected_geometric_indices),
+                    expected_geometric_names,
+                )
+                self.assertEqual(
+                    tuple(profile.sections[index].name for index in expected_radius_donor_indices),
+                    expected_radius_donor_names,
+                )
+                self.assertEqual(
+                    tuple(section.source_section_index for section in composition.sections),
+                    expected_radius_donor_indices,
+                )
+                self.assertEqual(
+                    tuple(section.name for section in composition.sections),
+                    expected_composition_names,
+                )
+                forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
+                expected_root_center = 0.5 * (
+                    np.asarray(profile.sections[3].center, dtype=np.float64)
+                    + float(profile.sections[3].radii[2]) * forward
+                    + np.asarray(profile.sections[5].center, dtype=np.float64)
+                )
+                expected_mid_center = 0.5 * (
+                    expected_root_center + np.asarray(profile.sections[7].center, dtype=np.float64)
+                )
+                np.testing.assert_allclose(
+                    np.asarray(composition.sections[0].center, dtype=np.float64),
+                    expected_root_center,
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                np.testing.assert_allclose(
+                    np.asarray(composition.sections[1].center, dtype=np.float64),
+                    expected_mid_center,
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                np.testing.assert_allclose(
+                    np.asarray(composition.sections[2].center, dtype=np.float64),
+                    np.asarray(profile.sections[7].center, dtype=np.float64),
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                forward_progress = np.asarray([
+                    float(np.dot(np.asarray(section.center, dtype=np.float64), forward))
+                    for section in composition.sections
+                ])
+                self.assertTrue(np.all(np.diff(forward_progress) > successor._DEGENERATE_TOLERANCE))
+                authored_tip = np.asarray(profile.sections[7].center, dtype=np.float64)
+                authored_tip_radius = float(profile.sections[7].radii[2])
+                self.assertEqual(forward_progress[-1], float(np.dot(authored_tip, forward)))
+                inside_authored_tip_cap = authored_tip + 0.75 * authored_tip_radius * forward
+                self.assertLess(
+                    float(successor._profile_sweep_field(
+                        inside_authored_tip_cap.reshape(1, 3), muzzle.sweep,
+                    )[0]),
+                    0.0,
+                )
+                beyond_authored_tip_cap = authored_tip + 1.25 * authored_tip_radius * forward
+                self.assertGreater(
+                    float(successor._profile_sweep_field(
+                        beyond_authored_tip_cap.reshape(1, 3), muzzle.sweep,
+                    )[0]),
+                    0.0,
+                )
+
+                route_metadata = successor._head_neck_metadata(region)["route_topology"]
+                forward_metadata = next(item for item in route_metadata if item["name"] == "forward-muzzle")
+                self.assertEqual(len(forward_metadata["derived_compositions"]), 1)
+                self.assertEqual(
+                    forward_metadata["derived_compositions"][0]["operation"],
+                    successor._FORWARD_MUZZLE_COMPOSITION_OPERATION,
+                )
+                self.assertEqual(
+                    forward_metadata["derived_compositions"][0]["geometric_input_section_indices"],
+                    list(expected_geometric_indices),
+                )
+                self.assertEqual(
+                    forward_metadata["derived_compositions"][0]["radius_donor_section_indices"],
+                    list(expected_radius_donor_indices),
+                )
+
+    def test_forward_muzzle_radius_donors_drive_all_stations_independently_of_centers(self) -> None:
+        """Each donor binding must affect its own station without changing geometry inputs."""
+
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        profile = guide.head_guide.profile
+        geometric_indices = successor._FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+        donor_indices = (0, 1, 2)
+
+        with mock.patch.object(
+            successor,
+            "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES",
+            donor_indices,
+        ):
+            composition = successor._make_forward_muzzle_composition_sweep(profile)
+
+        forward = np.asarray(guide.topology.axes.forward, dtype=np.float64)
+        cranium = profile.sections[geometric_indices[0]]
+        muzzle_root = profile.sections[geometric_indices[1]]
+        muzzle_tip = profile.sections[geometric_indices[2]]
+        expected_centers = (
+            0.5 * (
+                np.asarray(cranium.center, dtype=np.float64)
+                + float(cranium.radii[2]) * forward
+                + np.asarray(muzzle_root.center, dtype=np.float64)
+            ),
+            0.5 * (
+                0.5 * (
+                    np.asarray(cranium.center, dtype=np.float64)
+                    + float(cranium.radii[2]) * forward
+                    + np.asarray(muzzle_root.center, dtype=np.float64)
+                )
+                + np.asarray(muzzle_tip.center, dtype=np.float64)
+            ),
+            np.asarray(muzzle_tip.center, dtype=np.float64),
+        )
+        for section, donor_index, expected_center in zip(composition.sections, donor_indices, expected_centers):
+            donor = profile.sections[donor_index]
+            np.testing.assert_array_equal(np.asarray(section.center), expected_center)
+            self.assertEqual(section.source_section_index, donor_index)
+            self.assertIs(section.owner, donor.owner)
+            self.assertEqual(section.transverse_radii, (donor.radii[0], donor.radii[1]))
+            self.assertEqual(section.tangent_radius, donor.radii[2])
+
+    def test_forward_muzzle_composition_rejects_crossing_authored_controls(self) -> None:
+        """A schema-valid cranium radius must not make the derived root run past the tip."""
+
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        original_cranium_radius = guide.head_guide.profile.sections[3].radii[2]
+        crossing_guide = _mutate_head_neck_radius(
+            guide,
+            section_index=3,
+            axis="forward",
+            factor=5.0 / original_cranium_radius,
+        )
+        successor._validate_authored_head_neck_guide(crossing_guide)
+
+        profile = crossing_guide.head_guide.profile
+        forward = np.asarray(crossing_guide.topology.axes.forward, dtype=np.float64)
+        cranium = profile.sections[3]
+        muzzle_root = profile.sections[5]
+        muzzle_tip = profile.sections[7]
+        derived_root = 0.5 * (
+            np.asarray(cranium.center, dtype=np.float64)
+            + float(cranium.radii[2]) * forward
+            + np.asarray(muzzle_root.center, dtype=np.float64)
+        )
+        self.assertLess(
+            float(np.dot(np.asarray(muzzle_tip.center, dtype=np.float64) - derived_root, forward)),
+            -successor._DEGENERATE_TOLERANCE,
+        )
+
+        with self.assertRaisesRegex(
+            successor.SuccessorPreviewError,
+            "forward muzzle composition root must precede authored tip along forward axis",
+        ):
+            successor._make_head_neck_sweeps(crossing_guide)
+
+    def test_profile_derived_composition_is_single_level_and_head_only(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        region = successor.compile_successor_region(guide)
+        muzzle = next(item.sweep for item in region.head_neck_sweeps if item.recipe == "forward-muzzle")
+        composition = muzzle.derived_sweeps[0]
+
+        cases = (
+            replace(muzzle, derived_sweeps=(composition, composition)),
+            replace(region.loft, derived_sweeps=(composition,)),
+            replace(muzzle, derived_sweeps=(replace(composition, derived_sweeps=(composition,)),)),
+        )
+        for malformed in cases:
+            with self.subTest(operation=malformed.profile_operation), self.assertRaises(
+                successor.SuccessorPreviewError,
+            ):
+                successor._validate_profile_sweep(malformed)
 
     def test_authored_arm_routes_have_exact_shared_five_station_profile_and_elbow_ownership(self) -> None:
         expected_order = (
@@ -1706,6 +2743,91 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(upper.source_stations[-1].owner.key[3], "upper_arm")
             topologies.append(tuple(topology))
         self.assertEqual(len(set(topologies)), 1)
+
+    def test_authored_route_span_tapers_are_shape_preserving_exact_and_bounded(self) -> None:
+        expected_operations = {
+            successor._ARM_PROFILE_OPERATION,
+            successor._LEG_PROFILE_OPERATION,
+            successor._FOOT_PROFILE_OPERATION,
+        }
+        for variant_id, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            routes = (*region.arm_sweeps, *region.leg_sweeps, *region.foot_sweeps)
+            self.assertEqual(
+                {route.sweep.profile_operation for route in routes},
+                expected_operations,
+            )
+            for route in routes:
+                sweep = route.sweep
+                path = np.asarray(
+                    [section.path_length for section in sweep.sections],
+                    dtype=np.float64,
+                )
+                controls = np.asarray(
+                    [section.transverse_radii for section in sweep.sections],
+                    dtype=np.float64,
+                )
+                interpolation = (
+                    path,
+                    controls,
+                    successor._shape_preserving_slopes(path, controls),
+                )
+                for left, right in zip(sweep.sections, sweep.sections[1:]):
+                    with self.subTest(
+                        variant=variant_id,
+                        operation=sweep.profile_operation,
+                        left=left.name,
+                        right=right.name,
+                    ):
+                        t = np.linspace(0.0, 1.0, 17)
+                        radii = successor._profile_span_radii(
+                            left,
+                            right,
+                            t,
+                            interpolation,
+                        )
+                        np.testing.assert_allclose(
+                            radii[0], left.transverse_radii, rtol=0.0, atol=1.0e-12
+                        )
+                        np.testing.assert_allclose(
+                            radii[-1], right.transverse_radii, rtol=0.0, atol=1.0e-12
+                        )
+                        lower = np.minimum(left.transverse_radii, right.transverse_radii)
+                        upper = np.maximum(left.transverse_radii, right.transverse_radii)
+                        self.assertTrue(np.all(radii >= lower - 1.0e-12))
+                        self.assertTrue(np.all(radii <= upper + 1.0e-12))
+
+                        start = np.asarray(left.center, dtype=np.float64)
+                        end = np.asarray(right.center, dtype=np.float64)
+                        centers = start + t[:, None] * (end - start)
+                        np.testing.assert_allclose(
+                            successor._profile_span_field(
+                                centers,
+                                left,
+                                right,
+                                interpolation,
+                            ),
+                            -np.minimum(radii[:, 0], radii[:, 1]),
+                            rtol=0.0,
+                            atol=1.0e-12,
+                        )
+                for section in sweep.sections:
+                    self.assertIsNotNone(section.station_volume_axes)
+                    self.assertIsNotNone(section.station_volume_radii)
+                    station_axes = section.station_volume_axes or ()
+                    station_radii = section.station_volume_radii or ()
+                    center = np.asarray(section.center, dtype=np.float64)
+                    boundaries = np.asarray([
+                        center + float(radius) * np.asarray(axis, dtype=np.float64)
+                        for axis, radius in zip(station_axes, station_radii)
+                    ])
+                    np.testing.assert_allclose(
+                        successor._profile_station_volume_field(boundaries, section),
+                        0.0,
+                        rtol=0.0,
+                        atol=1.0e-12,
+                    )
 
     def test_authored_leg_routes_have_exact_topology_ownership_and_seams(self) -> None:
         expected_names = ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint")
@@ -1841,28 +2963,24 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(successor.SuccessorPreviewError):
                 successor._make_leg_profile_sweeps(replace(guide, leg_profile=invalid_profile))
 
-    def test_bridge_inventory_retains_expected_four_thigh_and_hip_connectors(self) -> None:
+    def test_hip_root_transitions_replace_baseline_connectors_and_preserve_authored_routes(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
         baseline = surface_preview._compile_hybrid_guide(guide)
         region = successor.compile_successor_region(guide, baseline)
-        expected_bridge_recipes = {"root-bridge", "hip-transition"}
-        self.assertEqual(len(region.bridge_fields), 4)
-        self.assertEqual(len(baseline) - len(region.bridge_fields), 48)
-        self.assertEqual({field.recipe for field in region.bridge_fields}, expected_bridge_recipes)
-        self.assertNotIn("deltoid-sweep-1", {field.recipe for field in region.bridge_fields})
-        self.assertFalse(any(
-            field.recipe in {"anterior-support", "posterior-support", "upper-arm-root-bridge"}
-            for field in region.bridge_fields
+        self.assertEqual(len(region.bridge_fields), 0)
+        self.assertEqual(len(baseline) - len(region.bridge_fields), 52)
+        self.assertEqual(tuple(item.name for item in region.hip_root_sweeps), (
+            "left-hip-root-transition", "right-hip-root-transition",
         ))
         self.assertFalse(any(
             component.recipe in {"successor-deltoid-sweep-1", "successor-anterior-support", "successor-posterior-support", "successor-upper-arm-root-bridge"}
             for component in successor._make_components(region, successor.DEFAULT_SMOOTH_K)
         ))
-        self.assertEqual(len(region.replaced_baseline_recipes), 28)
+        self.assertEqual(len(region.replaced_baseline_recipes), 30)
         self.assertEqual(
             sum(field.recipe in region.replaced_baseline_recipes for field in baseline),
-            46,
+            52,
         )
         self.assertEqual(
             sum(field.recipe in successor._LIMB_CHAIN_BASELINE_RECIPES for field in baseline),
@@ -1874,14 +2992,33 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         for side in ("left", "right"):
             arm = chains[f"{side}-forearm-route"]
             leg = chains[f"{side}-leg"]
-            self.assertFalse(any(
-                field.recipe == "root-bridge" and field.owner is inventory[(side, "upper_arm")].owner
-                for field in region.bridge_fields
+            self.assertTrue(all(field.recipe not in {"root-bridge", "hip-transition"} for field in region.bridge_fields))
+            hip = next(item for item in region.hip_root_sweeps if item.side == side)
+            self.assertIs(hip.owner, inventory[(side, "thigh")].owner)
+            self.assertEqual(hip.source_owners, (guide.torso_cage.pelvis_owner, inventory[(side, "thigh")].owner))
+            self.assertEqual(hip.sweep.names, ("hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"))
+            self.assertLess(
+                float(successor._lower_pelvis_field(np.asarray(hip.sweep.sections[0].center).reshape(1, 3), region.loft)[0]),
+                -successor._FRAME_TOLERANCE,
+            )
+            self.assertEqual(hip.sweep.sections[-1].center, leg.sweep.sections[0].center)
+            np.testing.assert_allclose(
+                hip.sweep.sections[-1].tangent,
+                leg.sweep.sections[0].tangent,
+                rtol=0.0,
+                atol=1.0e-12,
+            )
+            self.assertEqual(
+                hip.sweep.sections[-1].transverse_axes,
+                leg.sweep.sections[0].transverse_axes,
+            )
+            self.assertTrue(all(
+                successor._profile_sweep_field(np.asarray(section.center).reshape(1, 3), hip.sweep)[0] <= 0.0
+                for section in hip.sweep.sections
             ))
-            leg_root = next(field for field in region.bridge_fields if field.recipe == "root-bridge" and field.owner is inventory[(side, "thigh")].owner)
-            np.testing.assert_allclose(leg_root.shape["to"], leg.sweep.sections[0].center, rtol=0.0, atol=1.0e-12)
-            hip = next(field for field in region.bridge_fields if field.recipe == "hip-transition" and field.owner is inventory[(side, "thigh")].owner)
-            self.assertTrue(np.all(np.isfinite(hip.shape["from"])))
+            for source, consumed in zip(leg.source_stations, leg.sweep.sections):
+                self.assertEqual(consumed.owner, source.owner)
+                self.assertEqual(consumed.station_volume_radii, tuple(float(value) for value in source.radii))
             hand = next(item for item in region.hand_sweeps if item.side == side and item.kind == "hand-attachment")
             self.assertLessEqual(
                 float(successor._profile_sweep_field(np.asarray(arm.sweep.sections[-1].center).reshape(1, 3), hand.sweep)[0]),
@@ -1891,6 +3028,324 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             np.testing.assert_allclose(foot.sweep.sections[0].center, leg.sweep.sections[-1].center, rtol=0.0, atol=1.0e-12)
             foot_guide = next(item for item in guide.paw_guides if item.owner.key[1] == (side,) and item.owner.key[3] == "foot")
             np.testing.assert_allclose(foot_guide.foot_chain.hock_anchor, foot.sweep.sections[0].center, rtol=0.0, atol=1.0e-12)
+
+    def test_hip_root_transitions_are_bilateral_bounded_and_continuous_for_all_variants(self) -> None:
+        for _, descriptors, _ in self.form.variants:
+            guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+            region = successor.compile_successor_region(guide)
+            for consumed, source in zip(region.loft.sections, guide.torso_cage.sections):
+                self.assertIs(consumed.owner, source.owner)
+                self.assertEqual(consumed.center, source.center)
+                self.assertEqual(consumed.cardinal_radii, (
+                    source.lateral_radius,
+                    source.anterior_radius,
+                    source.posterior_radius,
+                ))
+            arm_routes = {item.chain_name: item for item in region.arm_sweeps}
+            for side in guide.arm_profile.sides:
+                for route_name, stations in (
+                    (f"{side.side}-upper-arm-route", side.sections[:3]),
+                    (f"{side.side}-forearm-route", (side.sections[2], *side.sections[3:])),
+                ):
+                    route = arm_routes[route_name]
+                    self.assertEqual(
+                        tuple(section.center for section in route.sweep.sections),
+                        tuple(station.center for station in stations),
+                    )
+                    self.assertEqual(
+                        tuple(section.station_volume_radii for section in route.sweep.sections),
+                        tuple(station.radii for station in stations),
+                    )
+            transitions = {item.side: item for item in region.hip_root_sweeps}
+            legs = {item.chain_name.split("-", 1)[0]: item for item in region.leg_sweeps}
+            self.assertEqual(set(transitions), {"left", "right"})
+            left = transitions["left"]
+            right = transitions["right"]
+            for left_section, right_section in zip(left.sweep.sections, right.sweep.sections):
+                np.testing.assert_allclose(
+                    np.asarray(left_section.center) * np.asarray((-1.0, 1.0, 1.0)),
+                    np.asarray(right_section.center),
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                self.assertEqual(left_section.station_volume_radii, right_section.station_volume_radii)
+
+            for side, transition in transitions.items():
+                leg = legs[side]
+                authored_start = leg.sweep.sections[0]
+                sections = transition.sweep.sections
+                self.assertEqual(transition.sweep.profile_operation, successor._HIP_ROOT_PROFILE_OPERATION)
+                self.assertEqual(transition.sweep.names, ("hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"))
+                self.assertEqual(transition.source_owners, (guide.torso_cage.pelvis_owner, authored_start.owner))
+                self.assertGreater(transition.boundary_parameter, 0.0)
+                self.assertGreater(transition.socket_parameter, 0.0)
+                self.assertLess(transition.socket_parameter, transition.boundary_parameter + successor._FRAME_TOLERANCE)
+                self.assertEqual(sections[-1].center, authored_start.center)
+                self.assertEqual(sections[-1].station_volume_radii, authored_start.station_volume_radii)
+                self.assertEqual(sections[-1].station_volume_axes, authored_start.station_volume_axes)
+                np.testing.assert_allclose(sections[-1].tangent, authored_start.tangent, rtol=0.0, atol=1.0e-12)
+                self.assertEqual(sections[-1].transverse_axes, authored_start.transverse_axes)
+                self.assertGreater(transition.tangent_blend_distance, 0.0)
+                self.assertEqual(
+                    sections[-2].station_volume_radii,
+                    transition.tangent_blend_volume_radii,
+                )
+                np.testing.assert_allclose(
+                    np.asarray(sections[-2].center),
+                    np.asarray(authored_start.center) - transition.tangent_blend_distance * np.asarray(authored_start.tangent),
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                guide_leg = next(item for item in guide.leg_profile.sides if item.side == side)
+                self.assertEqual(
+                    tuple(section.center for section in leg.sweep.sections),
+                    tuple(station.center for station in guide_leg.sections),
+                )
+                self.assertEqual(
+                    tuple(section.owner for section in leg.sweep.sections),
+                    tuple(station.owner for station in guide_leg.sections),
+                )
+                self.assertEqual(
+                    tuple(section.station_volume_radii for section in leg.sweep.sections),
+                    tuple(station.radii for station in guide_leg.sections),
+                )
+
+                pelvis_origin = np.asarray(region.loft.sections[0].center)
+                thigh_target = np.asarray(authored_start.center)
+                boundary_point = pelvis_origin + transition.boundary_parameter * (thigh_target - pelvis_origin)
+                self.assertAlmostEqual(
+                    float(successor._lower_pelvis_field(boundary_point.reshape(1, 3), region.loft)[0]),
+                    0.0,
+                    delta=successor._SHOULDER_BOUNDARY_TOLERANCE,
+                )
+                socket_value = float(successor._lower_pelvis_field(
+                    np.asarray(sections[0].center).reshape(1, 3), region.loft,
+                )[0])
+                self.assertLess(socket_value, -successor._FRAME_TOLERANCE)
+                for section in sections:
+                    self.assertTrue(np.all(np.isfinite(np.asarray(section.center))))
+                    self.assertTrue(np.all(np.isfinite(np.asarray(section.station_volume_radii))))
+                    self.assertLessEqual(
+                        max(section.station_volume_radii),
+                        successor._HIP_ROOT_PELVIS_SUPPORT_CAP * max(authored_start.station_volume_radii) + successor._FRAME_TOLERANCE,
+                    )
+                    self.assertLessEqual(
+                        float(successor._profile_sweep_field(np.asarray(section.center).reshape(1, 3), transition.sweep)[0]),
+                        0.0,
+                    )
+                join_point = np.asarray(authored_start.center).reshape(1, 3)
+                self.assertLessEqual(float(successor._profile_sweep_field(join_point, transition.sweep)[0]), 0.0)
+                self.assertLessEqual(float(successor._profile_sweep_field(join_point, leg.sweep)[0]), 0.0)
+                signed_lateral = [
+                    (-1.0 if side == "left" else 1.0) * float(section.center[0])
+                    for section in sections
+                ]
+                signed_target = (-1.0 if side == "left" else 1.0) * float(authored_start.center[0])
+                self.assertAlmostEqual(signed_lateral[-1], signed_target, places=12)
+                self.assertLess(signed_lateral[0], signed_target)
+                self.assertTrue(all(
+                    earlier <= later + successor._FRAME_TOLERANCE
+                    for earlier, later in zip(signed_lateral, signed_lateral[1:])
+                ))
+                self.assertTrue(all(value <= signed_target + successor._FRAME_TOLERANCE for value in signed_lateral))
+
+    def test_hip_root_render_bounds_enclose_each_fixture_variant(self) -> None:
+        """Hip components must keep the exact render-boundary invariant."""
+
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant_id=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                region = successor.compile_successor_region(guide)
+                for transition in region.hip_root_sweeps:
+                    lower, upper = successor._profile_sweep_bounds(transition.sweep)
+                    padded_lower = lower - surface_preview.FIELD_COMPONENT_PADDING
+                    padded_upper = upper + surface_preview.FIELD_COMPONENT_PADDING
+                    axes = tuple(
+                        np.linspace(
+                            padded_lower[index],
+                            padded_upper[index],
+                            surface_preview.FIELD_COMPONENT_SAMPLES,
+                            dtype=np.float64,
+                        )
+                        for index in range(3)
+                    )
+                    points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+                    values = successor._profile_sweep_field(points, transition.sweep)
+                    boundary = np.concatenate((
+                        values[0, :, :].ravel(), values[-1, :, :].ravel(),
+                        values[:, 0, :].ravel(), values[:, -1, :].ravel(),
+                        values[:, :, 0].ravel(), values[:, :, -1].ravel(),
+                    ))
+                    self.assertTrue(np.all(np.isfinite(boundary)))
+                    self.assertTrue(np.all(boundary > 0.0))
+
+    def test_limb_connector_validation_reuses_baseline_cage_embedding_for_all_variants(self) -> None:
+        """Root and hip bridge checks must match the emitted baseline controls."""
+
+        for variant_id, descriptors, _ in self.form.variants:
+            with self.subTest(variant_id=variant_id):
+                guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+                baseline = surface_preview._compile_hybrid_guide(guide)
+                baseline_by_slot = {
+                    (field.owner.key[1][0], field.owner.key[3], field.recipe): field
+                    for field in baseline
+                    if field.recipe in {"root-bridge", "hip-transition"}
+                }
+                for side in ("left", "right"):
+                    for role in ("upper_arm", "thigh"):
+                        limb = next(
+                            item
+                            for item in guide.limb_guides
+                            if item.owner.key[1:] == ((side,), "part", role)
+                        )
+                        connectors = [("root_centerline", "root-bridge")]
+                        if role == "thigh":
+                            connectors.append(("hip_centerline", "hip-transition"))
+                        for attribute, recipe in connectors:
+                            path = getattr(limb, attribute)
+                            profile = getattr(limb, attribute.replace("centerline", "thickness"))
+                            self.assertIsNotNone(path)
+                            self.assertIsNotNone(profile)
+                            expected = successor._compiled_limb_connector_path(
+                                guide,
+                                limb,
+                                path,
+                                profile,
+                                f"test.{side}.{role}.{recipe}",
+                            )
+                            shape = baseline_by_slot[(side, role, recipe)].shape
+                            self.assertEqual(tuple(shape["from"]), expected[0])
+                            self.assertEqual(tuple(shape["to"]), expected[1])
+
+    def test_successor_reconstructs_in_span_connectors_independently(self) -> None:
+        form = self.form
+        _, descriptors, _ = form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        cage = guide.torso_cage
+
+        for side, role, axial in (
+            ("left", "thigh", 0.65),
+            ("right", "upper_arm", 1.40),
+        ):
+            with self.subTest(side=side, role=role):
+                index = next(
+                    index
+                    for index, limb in enumerate(guide.limb_guides)
+                    if limb.owner.key[1:] == ((side,), "part", role)
+                )
+                limb = guide.limb_guides[index]
+                direction = (-1.0, 0.0, 0.0) if side == "left" else (1.0, 0.0, 0.0)
+                root_anchor = surface_preview._torso_cage_boundary_anchor(cage, axial, direction)
+                changes = {
+                    "root_centerline": (
+                        tuple(float(value) for value in root_anchor),
+                        limb.root_centerline[1],
+                    ),
+                }
+                if role == "thigh":
+                    hip_anchor = surface_preview._torso_cage_boundary_anchor(cage, axial - 0.10, direction)
+                    changes["hip_centerline"] = (
+                        tuple(float(value) for value in hip_anchor),
+                        limb.hip_centerline[1],
+                    )
+                changed_limb = replace(limb, **changes)
+                changed_limbs = list(guide.limb_guides)
+                changed_limbs[index] = changed_limb
+                changed_guide = replace(guide, limb_guides=tuple(changed_limbs))
+
+                baseline = surface_preview._compile_hybrid_guide(changed_guide)
+                baseline_by_slot = {
+                    (field.owner.key[1][0], field.owner.key[3], field.recipe): field
+                    for field in baseline
+                    if field.recipe in {"root-bridge", "hip-transition"}
+                }
+                connectors = [("root_centerline", "root-bridge")]
+                if role == "thigh":
+                    connectors.append(("hip_centerline", "hip-transition"))
+                for attribute, recipe in connectors:
+                    path = getattr(changed_limb, attribute)
+                    profile = getattr(changed_limb, attribute.replace("centerline", "thickness"))
+                    expected = successor._compiled_limb_connector_path(
+                        changed_guide,
+                        changed_limb,
+                        path,
+                        profile,
+                        f"test.{side}.{role}.{recipe}",
+                    )
+                    shape = baseline_by_slot[(side, role, recipe)].shape
+                    self.assertEqual(tuple(shape["from"]), expected[0])
+                    self.assertEqual(tuple(shape["to"]), expected[1])
+                    self.assertAlmostEqual(float(expected[0][1]), float(path[0][1]), places=12)
+
+                region = successor.compile_successor_region(changed_guide, baseline)
+                self.assertEqual(region.bridge_fields, ())
+
+                drifted = list(baseline)
+                root_index = next(
+                    index
+                    for index, field in enumerate(drifted)
+                    if field.owner is changed_limb.owner and field.recipe == "root-bridge"
+                )
+                root_field = drifted[root_index]
+                drifted[root_index] = replace(
+                    root_field,
+                    shape={
+                        **root_field.shape,
+                        "from": tuple(value + (0.01 if axis == 0 else 0.0) for axis, value in enumerate(root_field.shape["from"])),
+                    },
+                )
+                with self.assertRaises(successor.SuccessorPreviewError):
+                    successor.compile_successor_region(changed_guide, tuple(drifted))
+
+    def test_arm_root_validation_consumes_baseline_cage_normal_embedding(self) -> None:
+        """A compact-like root span must retain the baseline compiled endpoint."""
+
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        upper_index = next(
+            index
+            for index, limb in enumerate(guide.limb_guides)
+            if limb.owner.key[1:] == (("left",), "part", "upper_arm")
+        )
+        upper = guide.limb_guides[upper_index]
+        assert upper.root_centerline is not None
+
+        # The child target points back across the authored branch-facing ray.
+        # This is the relationship that makes the cage-normal embedding differ
+        # from the legacy authored-direction reconstruction without changing
+        # any authored arm-profile stations or ownership.
+        compact_like_target = (-2.0, upper.root_centerline[1][1], upper.root_centerline[1][2])
+        compact_like_upper = replace(
+            upper,
+            root_centerline=(upper.root_centerline[0], compact_like_target),
+        )
+        limbs = list(guide.limb_guides)
+        limbs[upper_index] = compact_like_upper
+        compact_like_guide = replace(guide, limb_guides=tuple(limbs))
+
+        baseline = surface_preview._compile_hybrid_guide(compact_like_guide)
+        baseline_root = next(
+            field
+            for field in baseline
+            if field.recipe == "root-bridge" and field.owner is compact_like_upper.owner
+        )
+        legacy_path = surface_preview._embed_boundary_connector(
+            compact_like_upper.root_centerline,
+            compact_like_upper.root_thickness,
+            "test.legacy-arm-root",
+        )
+        self.assertNotEqual(tuple(baseline_root.shape["from"]), legacy_path[0])
+        self.assertEqual(
+            tuple(baseline_root.shape["from"]),
+            successor._compiled_limb_root_path(compact_like_guide, compact_like_upper, "test.arm-root")[0],
+        )
+
+        region = successor.compile_successor_region(compact_like_guide, baseline)
+        self.assertEqual(region.bridge_fields, ())
+        self.assertTrue(all(
+            field.recipe != "root-bridge" or field.owner is not compact_like_upper.owner
+            for field in region.bridge_fields
+        ))
 
     def test_limb_components_consume_all_chains_with_dynamic_section_ownership(self) -> None:
         for _, descriptors, _ in self.form.variants:
@@ -2042,6 +3497,44 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(successor.SuccessorPreviewError, "hand guide axes"):
             successor.compile_successor_region(rotated_guide, baseline)
 
+    def test_extremity_validation_rejects_compiled_hand_volume_drift_and_incomplete_controls(self) -> None:
+        _, descriptors, _ = self.form.variants[0]
+        guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
+        limb_sweeps = successor._make_limb_sweeps(guide)
+        extremity_sweeps = successor._make_extremity_sweeps(guide, limb_sweeps)
+        hand_paw = next(item for item in extremity_sweeps if item.name == "left-hand-paw")
+        section = hand_paw.sweep.sections[2]
+        assert section.station_volume_axes is not None and section.station_volume_radii is not None
+        drifted_axes = (
+            section.station_volume_axes[1],
+            section.station_volume_axes[0],
+            section.station_volume_axes[2],
+        )
+        drifted_radii = tuple(
+            value + (0.1 if index == 2 else 0.0)
+            for index, value in enumerate(section.station_volume_radii)
+        )
+        cases = {
+            "axes-drift": replace(section, station_volume_axes=drifted_axes),
+            "radii-drift": replace(section, station_volume_radii=drifted_radii),
+            "axes-incomplete": replace(section, station_volume_axes=None),
+            "radii-incomplete": replace(section, station_volume_radii=None),
+        }
+        for name, malformed_section in cases.items():
+            malformed_sweep = replace(
+                hand_paw.sweep,
+                sections=hand_paw.sweep.sections[:2] + (malformed_section,) + hand_paw.sweep.sections[3:],
+            )
+            malformed_extremities = tuple(
+                replace(item, sweep=malformed_sweep) if item is hand_paw else item
+                for item in extremity_sweeps
+            )
+            with self.subTest(name=name), self.assertRaisesRegex(
+                successor.SuccessorPreviewError,
+                "source-derived volume",
+            ):
+                successor._validate_extremity_sweeps(guide, limb_sweeps, malformed_extremities)
+
     def test_extremity_rejects_metatarsal_endpoint_drift_from_pad(self) -> None:
         _, descriptors, _ = self.form.variants[0]
         guide = surface_preview._derive_hybrid_guides(self.form, descriptors)
@@ -2168,9 +3661,13 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertEqual(mesh.metrics["consumer_id"], successor.CONSUMER_ID)
         self.assertEqual(mesh.metrics["successor_region"]["torso_sections_consumed"], 7)
-        self.assertTrue(mesh.metrics["temporary_bridge"]["enabled"])
-        self.assertEqual(mesh.metrics["temporary_bridge"]["field_count"], 4)
-        self.assertEqual(mesh.metrics["successor_region"]["replaced_baseline_field_count"], 48)
+        self.assertFalse(mesh.metrics["temporary_bridge"]["enabled"])
+        self.assertEqual(mesh.metrics["temporary_bridge"]["field_count"], 0)
+        self.assertEqual(
+            mesh.metrics["baseline_recipe_signature"],
+            _historical_flattened_recipe_signature(surface_preview._compile_hybrid_guide(guide)),
+        )
+        self.assertEqual(mesh.metrics["successor_region"]["replaced_baseline_field_count"], 52)
         self.assertNotEqual(mesh.metrics["consumer_id"], "creature-kernel.disposable-surface-preview.v2")
         self.assertEqual(len(mesh.vertices.shape), 2)
         self.assertEqual(mesh.vertices.shape[1], 3)
@@ -2187,8 +3684,8 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         baseline = surface_preview._compile_hybrid_guide(guide)
         region = successor.compile_successor_region(guide, baseline)
         exact_components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
-        self.assertEqual(len(exact_components), 27)
-        self.assertEqual(len(region.bridge_fields), 4)
+        self.assertEqual(len(exact_components), EXPECTED_EXACT_COMPONENT_COUNT)
+        self.assertEqual(len(region.bridge_fields), 0)
         exact_torso_bounds = successor._profile_sweep_bounds(region.loft)
         aggregate_region_bounds = successor._bounds_for_region(region)
 
@@ -2202,8 +3699,8 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         with mock.patch.object(surface_preview, "_make_render_component", side_effect=recording_adapter):
             render_components = successor._make_render_components(exact_components)
 
-        self.assertEqual(len(render_components), 27)
-        self.assertEqual(len(calls), 27)
+        self.assertEqual(len(render_components), EXPECTED_EXACT_COMPONENT_COUNT)
+        self.assertEqual(len(calls), EXPECTED_EXACT_COMPONENT_COUNT)
         adapted_torso_bounds = render_components[0].bounds
         np.testing.assert_array_equal(adapted_torso_bounds[0], exact_torso_bounds[0])
         np.testing.assert_array_equal(adapted_torso_bounds[1], exact_torso_bounds[1])
@@ -2225,7 +3722,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(kwargs["debug_identity"], f"{'successor' if exact.successor else 'bridge'}:{exact.recipe}")
             self.assertIn("successor/", args[4])
 
-        self.assertEqual(sum(not component.successor for component in exact_components), 4)
+        self.assertEqual(sum(not component.successor for component in exact_components), 0)
         self.assertEqual(
             {component.recipe for component in exact_components if not component.successor},
             {field.recipe for field in region.bridge_fields},
@@ -2240,7 +3737,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertNotIn(f"successor-{guide_only_recipe}", generic_recipes)
         self.assertFalse(generic_recipes & set(region.replaced_baseline_recipes))
 
-        with self.assertRaisesRegex(successor.SuccessorPreviewError, "exactly 27"):
+        with self.assertRaisesRegex(
+            successor.SuccessorPreviewError,
+            f"exactly {EXPECTED_EXACT_COMPONENT_COUNT}",
+        ):
             successor._make_render_components(exact_components[:-1])
 
     def test_successor_build_retains_exact_render_inventory_and_render_receives_it(self) -> None:
@@ -2257,7 +3757,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             mesh = successor.build_variant(self.form, descriptors, padding=0.5)
         self.assertEqual(len(exact_inventory), 1)
         exact_components = exact_inventory[0]
-        self.assertEqual(len(mesh.render_components), 27)
+        self.assertEqual(len(mesh.render_components), EXPECTED_EXACT_COMPONENT_COUNT)
         for exact, adapted in zip(exact_components, mesh.render_components):
             self.assertIs(adapted.evaluate, exact.evaluate)
             self.assertIs(adapted.bounds, exact.bounds)
@@ -2275,7 +3775,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 )
         extract.assert_called_once()
         self.assertIs(extract.call_args.args[0], mesh.render_components)
-        self.assertEqual(mesh.metrics["component_visualization"]["component_count"], 27)
+        self.assertEqual(
+            mesh.metrics["component_visualization"]["component_count"],
+            EXPECTED_EXACT_COMPONENT_COUNT,
+        )
 
     def test_successor_preserves_section_source_ownership_in_attribution(self) -> None:
         _, descriptors, _ = self.form.variants[0]
@@ -2390,6 +3893,61 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 [len(item["sections"]) for item in limb_metrics["arm_profile"]["stations"]],
                 [5, 5],
             )
+            self.assertEqual(
+                limb_metrics["hip_root"],
+                {
+                    "operation": successor._HIP_ROOT_PROFILE_OPERATION,
+                    "topology": "one-derived-four-station-pelvis-socket-cup-tangent-blend-to-authored-thigh-root-per-side",
+                    "route_order": ["left-hip-root-transition", "right-hip-root-transition"],
+                    "route_kinds": ["derived-pelvis-thigh-transition", "derived-pelvis-thigh-transition"],
+                    "section_names": [
+                        ["hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"],
+                        ["hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"],
+                    ],
+                    "section_counts": [4, 4],
+                    "section_owner_keys": limb_metrics["hip_root"]["section_owner_keys"],
+                    "pelvis_section_names": ["lower-pelvis", "lower-pelvis"],
+                    "authored_station_names": ["thigh-start", "thigh-start"],
+                    "boundary_parameters": limb_metrics["hip_root"]["boundary_parameters"],
+                    "socket_parameters": limb_metrics["hip_root"]["socket_parameters"],
+                    "tangent_blend_distances": limb_metrics["hip_root"]["tangent_blend_distances"],
+                    "source_owner_keys": limb_metrics["hip_root"]["source_owner_keys"],
+                    "derived_from": [
+                        {
+                            "lower_pelvis": {"section_name": "lower-pelvis", "source_section_index": 0},
+                            "authored_thigh_start": {"station_name": "thigh-start", "source_station_index": 0},
+                            "tangent_blend": {
+                                "station_name": "thigh-tangent-blend",
+                                "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent",
+                                "distance": limb_metrics["hip_root"]["tangent_blend_distances"][0],
+                            },
+                        },
+                        {
+                            "lower_pelvis": {"section_name": "lower-pelvis", "source_section_index": 0},
+                            "authored_thigh_start": {"station_name": "thigh-start", "source_station_index": 0},
+                            "tangent_blend": {
+                                "station_name": "thigh-tangent-blend",
+                                "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent",
+                                "distance": limb_metrics["hip_root"]["tangent_blend_distances"][1],
+                            },
+                        },
+                    ],
+                    "controls": {
+                        "boundary_samples": successor._HIP_ROOT_BOUNDARY_SAMPLES,
+                        "boundary_iterations": successor._HIP_ROOT_BOUNDARY_ITERATIONS,
+                        "boundary_max_parameter": successor._HIP_ROOT_BOUNDARY_MAX_PARAMETER,
+                        "socket_fraction": successor._HIP_ROOT_SOCKET_FRACTION,
+                        "cup_remaining_fraction": successor._HIP_ROOT_CUP_REMAINING_FRACTION,
+                        "pelvis_support_cap": successor._HIP_ROOT_PELVIS_SUPPORT_CAP,
+                        "socket_thigh_weight": successor._HIP_ROOT_SOCKET_THIGH_WEIGHT,
+                        "socket_pelvis_weight": successor._HIP_ROOT_SOCKET_PELVIS_WEIGHT,
+                        "cup_thigh_weight": successor._HIP_ROOT_CUP_THIGH_WEIGHT,
+                        "cup_pelvis_weight": successor._HIP_ROOT_CUP_PELVIS_WEIGHT,
+                        "tangent_blend_fraction": successor._HIP_ROOT_TANGENT_BLEND_FRACTION,
+                    },
+                    "volume_radii": limb_metrics["hip_root"]["volume_radii"],
+                },
+            )
             self.assertEqual(limb_metrics["extremity_sweeps_consumed"], 6)
             self.assertEqual(
                 limb_metrics["extremity_sweep_order"],
@@ -2414,9 +3972,9 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             self.assertEqual(limb_metrics["tail_element_section_counts"], [2, 2, 3, 2, 2, 3])
             self.assertEqual(limb_metrics["tail_element_endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
             self.assertEqual(limb_metrics["tail_element_internal_transition_counts"], [0, 0, 0, 0, 0, 0])
-            self.assertEqual(limb_metrics["replaced_baseline_field_count"], 48)
-            self.assertEqual(len(limb_metrics["replaced_baseline_recipes"]), 28)
-            self.assertEqual(first.metrics["temporary_bridge"]["field_count"], 4)
+            self.assertEqual(limb_metrics["replaced_baseline_field_count"], 52)
+            self.assertEqual(len(limb_metrics["replaced_baseline_recipes"]), 30)
+            self.assertEqual(first.metrics["temporary_bridge"]["field_count"], 0)
             np.testing.assert_array_equal(first.vertices, second.vertices)
             np.testing.assert_array_equal(first.faces, second.faces)
             np.testing.assert_array_equal(first.normals, second.normals)
@@ -2455,6 +4013,172 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertEqual(successor.DEFAULT_CAPTURE_PADDING, surface_preview.DEFAULT_PADDING)
         np.testing.assert_array_equal(successor_bounds[0], baseline_bounds[0])
         np.testing.assert_array_equal(successor_bounds[1], baseline_bounds[1])
+
+    def test_generated_structural_profiles_compile_successor_inventory_without_rendering(self) -> None:
+        """Every generated profile and actual preview variant reaches the successor inventory."""
+
+        cli, output_dir, source_manifest = self._ensure_generated_profile_setup()
+        profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
+        self.assertEqual(profile_ids[0], "standard_neutral_reference")
+        self.assertEqual([item["id"] for item in source_manifest["profiles"]], list(profile_ids))
+
+        for profile_id in profile_ids:
+            with self.subTest(profile=profile_id):
+                result = subprocess.run(
+                    [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
+                    cwd=REPO_ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    timeout=120,
+                )
+                self.assertEqual(result.returncode, 0, msg=result.stderr)
+                payload = json.loads(result.stdout)
+                self.assertEqual(payload["status"], "success", msg=result.stdout[:1000])
+                self.assertEqual(payload["diagnostics"], [], msg=result.stdout[:1000])
+                form = surface_preview.validate_envelope(payload)
+                self.assertEqual(
+                    tuple(variant_id for variant_id, _, _ in form.variants),
+                    tuple(surface_preview.VARIANT_IDS),
+                )
+
+                for variant_id, descriptors, _ in form.variants:
+                    with self.subTest(variant=variant_id):
+                        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                        baseline = surface_preview._compile_hybrid_guide(guide)
+                        region = successor.compile_successor_region(guide, baseline)
+                        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+
+                        self._assert_shoulder_socket_support_contract(
+                            guide, region, f"{profile_id}/{variant_id}"
+                        )
+
+                        self.assertEqual(region.consumer_id, successor.CONSUMER_ID)
+                        self.assertEqual(region.region_id, successor.SUCCESSOR_REGION_ID)
+                        self.assertTrue(region.region_id.endswith("-v16"))
+                        self.assertEqual(
+                            sum(component.recipe == "successor-torso-loft" for component in components),
+                            1,
+                        )
+                        self.assertEqual(len(components), EXPECTED_EXACT_COMPONENT_COUNT)
+                        self.assertEqual(region.bridge_fields, ())
+                        self.assertEqual(
+                            sum(field.recipe in region.replaced_baseline_recipes for field in baseline),
+                            EXPECTED_REPLACED_BASELINE_FIELD_COUNT,
+                        )
+                        self.assertEqual(
+                            {item.side for item in region.hip_root_sweeps},
+                            {"left", "right"},
+                        )
+                        self.assertEqual(len(region.hip_root_sweeps), 2)
+                        self.assertEqual(
+                            tuple(item.name for item in region.hip_root_sweeps),
+                            ("left-hip-root-transition", "right-hip-root-transition"),
+                        )
+                        self.assertEqual(len(region.shoulder_sweeps), 2)
+                        self.assertEqual(len(region.head_neck_sweeps), 2)
+                        self.assertEqual(len(region.arm_sweeps), 4)
+                        self.assertEqual(len(region.leg_sweeps), 2)
+                        self.assertEqual(len(region.hand_sweeps), 4)
+                        self.assertEqual(len(region.foot_sweeps), 2)
+                        self.assertEqual(len(region.tail_elements), 6)
+
+    def test_generated_profile_capture_bounds_contain_all_baseline_and_successor_components(self) -> None:
+        """All 5x4 generated consumers fit the shared successor capture frame."""
+
+        cli, output_dir, _ = self._ensure_generated_profile_setup()
+        profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
+        baseline_only_bounds = []
+        successor_capture_bounds = []
+        all_baseline_fields = []
+        all_successor_components = []
+
+        for profile_id in profile_ids:
+            with self.subTest(profile=profile_id):
+                result = subprocess.run(
+                    [str(cli), "inspect-provisional-form", "--input", str(output_dir / f"{profile_id}.json")],
+                    cwd=REPO_ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    timeout=120,
+                )
+                self.assertEqual(result.returncode, 0, msg=result.stderr)
+                payload = json.loads(result.stdout)
+                form = surface_preview.validate_envelope(payload)
+                baseline_sets = []
+                component_sets = []
+                for variant_id, descriptors, _ in form.variants:
+                    with self.subTest(variant=variant_id):
+                        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                        fields = surface_preview._compile_hybrid_guide(guide)
+                        region = successor.compile_successor_region(guide, fields)
+                        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                        baseline_sets.append(fields)
+                        component_sets.append(components)
+                        all_baseline_fields.append(fields)
+                        all_successor_components.append(components)
+
+                baseline_only_bounds.append(
+                    surface_preview._shared_render_bounds(
+                        tuple(baseline_sets), successor.DEFAULT_CAPTURE_PADDING
+                    )
+                )
+                successor_capture_bounds.append(
+                    successor._shared_successor_capture_bounds(
+                        tuple(baseline_sets), tuple(component_sets), successor.DEFAULT_CAPTURE_PADDING
+                    )
+                )
+
+        saw_successor_extension = False
+        for baseline_bounds, capture_bounds, field_sets, component_sets in zip(
+            baseline_only_bounds,
+            successor_capture_bounds,
+            (all_baseline_fields[index:index + 4] for index in range(0, len(all_baseline_fields), 4)),
+            (all_successor_components[index:index + 4] for index in range(0, len(all_successor_components), 4)),
+        ):
+            self.assertTrue(np.all(capture_bounds[0] <= baseline_bounds[0]))
+            self.assertTrue(np.all(capture_bounds[1] >= baseline_bounds[1]))
+            for fields in field_sets:
+                for field in fields:
+                    lower, upper = surface_preview._field_bounds(field)
+                    self.assertTrue(np.all(capture_bounds[0] <= lower))
+                    self.assertTrue(np.all(capture_bounds[1] >= upper))
+            for components in component_sets:
+                for component in components:
+                    self.assertTrue(np.all(capture_bounds[0] <= component.bounds[0]))
+                    self.assertTrue(np.all(capture_bounds[1] >= component.bounds[1]))
+                    if np.any(component.bounds[1] > baseline_bounds[1]):
+                        saw_successor_extension = True
+        self.assertTrue(saw_successor_extension)
+
+    def test_compact_lean_local_81_cube_has_no_negative_all_positive_successor_fold(self) -> None:
+        """The reproduced tail neighborhood satisfies the successor-wide invariant."""
+
+        cli, output_dir, _ = self._ensure_generated_profile_setup()
+        result = subprocess.run(
+            [str(cli), "inspect-provisional-form", "--input", str(output_dir / "compact_broad_short_limb_large_head.json")],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        form = surface_preview.validate_envelope(json.loads(result.stdout))
+        _, descriptors, _ = next(item for item in form.variants if item[0] == "lean-readable-v0")
+        guide = surface_preview._derive_hybrid_guides(form, descriptors)
+        region = successor.compile_successor_region(guide)
+        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+        lower = np.asarray((-0.20, -0.10, -2.65), dtype=np.float64)
+        upper = np.asarray((0.20, 0.08, -2.30), dtype=np.float64)
+        axes = tuple(np.linspace(lower[index], upper[index], 81, dtype=np.float64) for index in range(3))
+        points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+        values = [component.evaluate(points) for component in components]
+        all_positive = np.logical_and.reduce(tuple(value > 0.0 for value in values))
+        self.assertTrue(np.any(all_positive))
+        composed = successor._successor_smooth_union(values, successor.DEFAULT_SMOOTH_K)
+        self.assertTrue(np.all(composed[all_positive] > 0.0))
 
     def test_generator_emits_explicit_successor_and_bridge_metadata(self) -> None:
         with _native_temporary_directory() as directory:
@@ -2522,8 +4246,19 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 )
                 for _, descriptors, _ in self.form.variants
             )
-            expected_bounds = surface_preview._shared_render_bounds(
-                canonical_fields, successor.DEFAULT_CAPTURE_PADDING
+            canonical_components = tuple(
+                successor._make_components(
+                    successor.compile_successor_region(
+                        surface_preview._derive_hybrid_guides(self.form, descriptors),
+                    ),
+                    successor.DEFAULT_SMOOTH_K,
+                )
+                for _, descriptors, _ in self.form.variants
+            )
+            expected_bounds = successor._shared_successor_capture_bounds(
+                canonical_fields,
+                canonical_components,
+                successor.DEFAULT_CAPTURE_PADDING,
             )
             baseline_default_bounds = surface_preview._shared_render_bounds(
                 canonical_fields, surface_preview.DEFAULT_PADDING
@@ -2532,10 +4267,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 "min": [float(value) for value in expected_bounds[0]],
                 "max": [float(value) for value in expected_bounds[1]],
             }
-            self.assertEqual(expected_bounds_json, {
-                "min": [float(value) for value in baseline_default_bounds[0]],
-                "max": [float(value) for value in baseline_default_bounds[1]],
-            })
+            self.assertTrue(np.any(expected_bounds[0] < baseline_default_bounds[0]) or np.any(expected_bounds[1] > baseline_default_bounds[1]))
             self.assertEqual(first_manifest["shared_render_bounds"], expected_bounds_json)
             self.assertEqual(first_manifest["canvas"], {"width": surface_preview.CANVAS[0], "height": surface_preview.CANVAS[1], "mode": "RGB"})
             self.assertEqual(first_manifest["projections"], surface_preview._projection_json())
@@ -2627,10 +4359,46 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                     image.verify()
                 sidecar = json.loads((variant_dir / "successor.json").read_text())
                 metrics_payload = json.loads((variant_dir / "metrics.json").read_text())
+                expected_region_metadata = _expected_successor_region_metadata(metrics_payload)
+                self.assertEqual(
+                    {
+                        key: sidecar[key]
+                        for key in expected_region_metadata
+                    },
+                    expected_region_metadata,
+                )
+                self.assertEqual(
+                    expected_region_metadata["successor_region_id"],
+                    successor.SUCCESSOR_REGION_ID,
+                )
+                self.assertTrue(
+                    expected_region_metadata["successor_region_id"].endswith("-v16")
+                )
+                self.assertIn("hip_root", expected_region_metadata["limbs"])
+                self.assertEqual(
+                    metrics_payload["successor_region"]["replaced_baseline_field_count"],
+                    EXPECTED_REPLACED_BASELINE_FIELD_COUNT,
+                )
+                self.assertEqual(
+                    metrics_payload["temporary_bridge"],
+                    {
+                        "enabled": False,
+                        "consumer": "none",
+                        "regions": [],
+                        "field_count": 0,
+                        "retained_recipes": [],
+                    },
+                )
                 self.assertEqual(metrics_payload["component_visualization"], variant["metrics"]["component_visualization"])
-                self.assertEqual(metrics_payload["component_visualization"]["component_count"], 27)
+                self.assertEqual(
+                    metrics_payload["component_visualization"]["component_count"],
+                    EXPECTED_EXACT_COMPONENT_COUNT,
+                )
                 self.assertEqual(metrics_payload["component_visualization"]["resolution"]["samples_per_axis"], 32)
-                self.assertEqual(len(metrics_payload["component_visualization"]["components"]), 27)
+                self.assertEqual(
+                    len(metrics_payload["component_visualization"]["components"]),
+                    EXPECTED_EXACT_COMPONENT_COUNT,
+                )
                 sampling_lower, sampling_upper = expected_sampling_bounds[variant["id"]]
                 self.assertEqual(
                     metrics_payload["grid"]["bounds_min"],
@@ -2706,6 +4474,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["limbs"]["arm_profile"]["format"], surface_preview.AUTHORED_ARM_PROFILE_FORMAT)
                 self.assertEqual(sidecar["limbs"]["arm_profile"]["regional_guide_format"], successor.REGIONAL_GUIDE_FORMAT)
                 self.assertEqual(sidecar["limbs"]["arm_profile"]["route_order"], ["left-upper-arm-route", "left-forearm-route", "right-upper-arm-route", "right-forearm-route"])
+                self.assertEqual(sidecar["limbs"]["hip_root"], metrics_payload["successor_region"]["hip_root"])
                 self.assertEqual(sidecar["extremities"]["sweeps_consumed"], 6)
                 self.assertEqual(
                     sidecar["extremities"]["sweep_order"],
@@ -2718,6 +4487,10 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["extremities"]["station_counts"], [2, 4, 5, 2, 4, 5])
                 self.assertEqual(sidecar["extremities"]["endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
                 self.assertEqual(sidecar["extremities"]["internal_transition_counts"], [0, 0, 1, 0, 0, 1])
+                self.assertEqual(
+                    sidecar["extremities"]["hand_paw"],
+                    metrics_payload["successor_region"]["hand_paw"],
+                )
                 self.assertEqual(sidecar["tail"]["representation"], "shared-guide-derived-profile-sweep-elements")
                 self.assertEqual(sidecar["tail"]["elements_consumed"], 6)
                 self.assertEqual(
@@ -2731,9 +4504,9 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 self.assertEqual(sidecar["tail"]["section_counts"], [2, 2, 3, 2, 2, 3])
                 self.assertEqual(sidecar["tail"]["endpoint_cap_counts"], [2, 2, 2, 2, 2, 2])
                 self.assertEqual(sidecar["tail"]["internal_transition_counts"], [0, 0, 0, 0, 0, 0])
-                self.assertEqual(len(sidecar["replaced_baseline_recipes"]), 28)
-                self.assertTrue(sidecar["temporary_bridge"]["enabled"])
-                self.assertEqual(sidecar["temporary_bridge"]["field_count"], 4)
+                self.assertEqual(len(sidecar["replaced_baseline_recipes"]), 30)
+                self.assertFalse(sidecar["temporary_bridge"]["enabled"])
+                self.assertEqual(sidecar["temporary_bridge"]["field_count"], 0)
 
     def test_generator_rejects_oversized_input_before_parse_or_staging(self) -> None:
         with _native_temporary_directory() as directory:
@@ -2766,28 +4539,6 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             source = root / "input.json"
             source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
 
-            def fake_build_variant(form, descriptors, **_kwargs):
-                guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                fields = surface_preview._compile_hybrid_guide(guide)
-                region = successor.compile_successor_region(guide, fields)
-                metrics = {
-                    "successor_region": {
-                        "torso_section_controls": _serialized_torso_section_controls(region),
-                        "tail_element_controls": [],
-                        "tail_tip_shared_endpoint": {},
-                    },
-                    "temporary_bridge": {"enabled": True, "field_count": 4},
-                }
-                return successor.SuccessorMesh(
-                    np.empty((0, 3), dtype=np.float64),
-                    np.empty((0, 3), dtype=np.int64),
-                    np.empty((0, 3), dtype=np.float64),
-                    (),
-                    metrics,
-                    region,
-                    {},
-                )
-
             for entry_kind in ("extra", "symlink"):
                 with self.subTest(entry_kind=entry_kind):
                     output = root / entry_kind
@@ -2804,7 +4555,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                             except (OSError, NotImplementedError) as exc:
                                 raise unittest.SkipTest(f"symlinks unavailable: {exc}") from exc
 
-                    with mock.patch.object(successor, "build_variant", side_effect=fake_build_variant), mock.patch.object(
+                    with mock.patch.object(successor, "build_variant", side_effect=_fake_successor_build_variant), mock.patch.object(
                         surface_preview, "_render", side_effect=fake_render
                     ):
                         with self.assertRaisesRegex(successor.SuccessorPreviewError, "staging bundle contains a symlink|explicit artifact inventory"):
@@ -2819,28 +4570,6 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
             source.write_bytes(surface_preview._canonical(fixture.make_varied_payload()))
             output = root / "render-failure"
 
-            def fake_build_variant(form, descriptors, **_kwargs):
-                guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                fields = surface_preview._compile_hybrid_guide(guide)
-                region = successor.compile_successor_region(guide, fields)
-                metrics = {
-                    "successor_region": {
-                        "torso_section_controls": _serialized_torso_section_controls(region),
-                        "tail_element_controls": [],
-                        "tail_tip_shared_endpoint": {},
-                    },
-                    "temporary_bridge": {"enabled": True, "field_count": 4},
-                }
-                return successor.SuccessorMesh(
-                    np.empty((0, 3), dtype=np.float64),
-                    np.empty((0, 3), dtype=np.int64),
-                    np.empty((0, 3), dtype=np.float64),
-                    (),
-                    metrics,
-                    region,
-                    {},
-                )
-
             def failing_render(path, *args, **kwargs):
                 del args, kwargs
                 self.assertTrue((path.parent / "surface.ply").is_file())
@@ -2849,7 +4578,7 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 path.write_bytes(b"partial-png")
                 raise RuntimeError("injected render failure")
 
-            with mock.patch.object(successor, "build_variant", side_effect=fake_build_variant), mock.patch.object(
+            with mock.patch.object(successor, "build_variant", side_effect=_fake_successor_build_variant), mock.patch.object(
                 surface_preview, "_render", side_effect=failing_render
             ):
                 with self.assertRaisesRegex(RuntimeError, "injected render failure"):
@@ -2919,14 +4648,19 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
 
     def test_profile_sweep_rejects_malformed_frames_spans_radii_and_caps(self) -> None:
         valid = _test_profile_sweep()
+        successor._validate_profile_sweep(valid)
         cases = {
-            "duplicate-path": replace(valid, _validated=False, sections=tuple(replace(item, path_length=0.0) if index == 1 else item for index, item in enumerate(valid.sections))),
-            "degenerate-span": replace(valid, _validated=False, sections=tuple(replace(item, center=valid.sections[0].center) if index == 1 else item for index, item in enumerate(valid.sections))),
-            "bad-frame": replace(valid, _validated=False, sections=(replace(valid.sections[0], tangent=(0.0, 2.0, 0.0)),) + valid.sections[1:]),
-            "wrong-centerline-tangent": replace(valid, _validated=False, sections=(replace(valid.sections[0], tangent=(1.0, 0.0, 0.0)),) + valid.sections[1:]),
-            "non-orthogonal-frame": replace(valid, _validated=False, sections=(replace(valid.sections[0], transverse_axes=((2.0 ** -0.5, 0.0, 2.0 ** -0.5), valid.sections[0].transverse_axes[1])),) + valid.sections[1:]),
-            "bad-radii": replace(valid, _validated=False, sections=(replace(valid.sections[0], transverse_radii=(0.0, 0.5)),) + valid.sections[1:]),
-            "bad-cap": replace(valid, _validated=False, endpoint_caps=(replace(valid.endpoint_caps[0], axial_radius=0.0), valid.endpoint_caps[1])),
+            "unknown-operation-cached": replace(valid, profile_operation="unknown-operation"),
+            "allowed-operation-with-wrong-shape": replace(
+                valid, profile_operation=successor._ARM_PROFILE_OPERATION
+            ),
+            "duplicate-path": replace(valid, sections=tuple(replace(item, path_length=0.0) if index == 1 else item for index, item in enumerate(valid.sections))),
+            "degenerate-span": replace(valid, sections=tuple(replace(item, center=valid.sections[0].center) if index == 1 else item for index, item in enumerate(valid.sections))),
+            "bad-frame": replace(valid, sections=(replace(valid.sections[0], tangent=(0.0, 2.0, 0.0)),) + valid.sections[1:]),
+            "wrong-centerline-tangent": replace(valid, sections=(replace(valid.sections[0], tangent=(1.0, 0.0, 0.0)),) + valid.sections[1:]),
+            "non-orthogonal-frame": replace(valid, sections=(replace(valid.sections[0], transverse_axes=((2.0 ** -0.5, 0.0, 2.0 ** -0.5), valid.sections[0].transverse_axes[1])),) + valid.sections[1:]),
+            "bad-radii": replace(valid, sections=(replace(valid.sections[0], transverse_radii=(0.0, 0.5)),) + valid.sections[1:]),
+            "bad-cap": replace(valid, endpoint_caps=(replace(valid.endpoint_caps[0], axial_radius=0.0), valid.endpoint_caps[1])),
         }
         for name, malformed in cases.items():
             with self.subTest(name=name), self.assertRaises(successor.SuccessorPreviewError):
@@ -2958,6 +4692,32 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         self.assertGreaterEqual(float(upper[0]), conservative_radius - 1.0e-12)
         self.assertLessEqual(float(lower[0]), -conservative_radius + 1.0e-12)
 
+    def test_anisotropic_interpolated_frame_bounds_enclose_the_finite_span(self) -> None:
+        sweep = _anisotropic_interpolated_frame_profile_sweep()
+        lower, upper = successor._profile_sweep_bounds(sweep)
+        padded_lower = lower - surface_preview.FIELD_COMPONENT_PADDING
+        padded_upper = upper + surface_preview.FIELD_COMPONENT_PADDING
+        axes = tuple(
+            np.linspace(
+                padded_lower[index],
+                padded_upper[index],
+                surface_preview.FIELD_COMPONENT_SAMPLES,
+                dtype=np.float64,
+            )
+            for index in range(3)
+        )
+        points = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+        values = successor._profile_sweep_field(points, sweep)
+        boundary = np.concatenate((
+            values[0, :, :].ravel(), values[-1, :, :].ravel(),
+            values[:, 0, :].ravel(), values[:, -1, :].ravel(),
+            values[:, :, 0].ravel(), values[:, :, -1].ravel(),
+        ))
+        self.assertTrue(np.all(np.isfinite(boundary)))
+        self.assertTrue(np.all(boundary > 0.0))
+        legacy_radius = math.hypot(0.57, 0.63)
+        self.assertLess(float(lower[0]), -legacy_radius)
+
     def test_paired_transverse_frame_flip_interpolates_without_cancellation(self) -> None:
         base = _test_profile_sweep()
         last = base.sections[-1]
@@ -2986,6 +4746,774 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 successor._atomic_rename_noreplace(stage, target)
             self.assertEqual((stage / "staged.txt").read_text(encoding="utf-8"), "stage")
             self.assertEqual((target / "existing.txt").read_text(encoding="utf-8"), "target")
+
+
+class NeutralAlternativeCandidateTests(unittest.TestCase):
+    """Focused technical checks for the private neutral alternative only."""
+
+    def setUp(self) -> None:
+        self.form = surface_preview.validate_envelope(fixture.make_varied_payload())
+        self.variant_id, self.descriptors, _ = self.form.variants[0]
+        self.guide = surface_preview._derive_hybrid_guides(self.form, self.descriptors)
+        self.fields = surface_preview._compile_hybrid_guide(self.guide)
+        self.region = successor._make_neutral_alternative_region(self.form, self.descriptors, self.guide)
+
+    def _mirror_lateral(self, points: np.ndarray) -> np.ndarray:
+        origin = np.asarray(self.region.torso.sections[0].center, dtype=np.float64)
+        axis = np.asarray(self.region.torso.lateral_axis, dtype=np.float64)
+        return points - 2.0 * np.sum((points - origin) * axis, axis=-1, keepdims=True) * axis
+
+    def test_alternative_torso_cardinals_and_pelvis_depth_use_literal_fixture_controls(self) -> None:
+        torso = self.region.torso
+        self.assertEqual(torso.operation, successor.ALTERNATIVE_TORSO_OPERATION)
+        self.assertEqual(
+            [(item.name, item.start_index, item.end_index) for item in torso.intervals],
+            [("pelvis", 0, 2), ("abdominal-bridge", 2, 4), ("ribcage", 4, 6)],
+        )
+        # These are literal values from fixture.make_varied_payload(), not
+        # values read back from the candidate envelope.  Probe the directional
+        # front/back boundaries so a swapped or collapsed pelvis depth fails.
+        fixture_pelvis_controls = (
+            ("lower-pelvis", (1.50, 0.85, 0.60)),
+            ("upper-pelvis", (1.35, 0.78, 0.56)),
+        )
+        for index, (name, expected_cardinal) in enumerate(fixture_pelvis_controls):
+            section = torso.sections[index]
+            source_section = self.guide.torso_cage.sections[index]
+            self.assertEqual(section.name, name)
+            self.assertEqual(section.center, source_section.center)
+            self.assertEqual(section.cardinal_radii, expected_cardinal)
+            center = np.asarray(source_section.center, dtype=np.float64)
+            forward = np.asarray(torso.forward_axis, dtype=np.float64)
+            probes = np.asarray((
+                center + expected_cardinal[1] * forward,
+                center - expected_cardinal[2] * forward,
+            ))
+            np.testing.assert_allclose(
+                successor._alternative_torso_field(probes, torso),
+                0.0,
+                rtol=0.0,
+                atol=1.0e-12,
+            )
+        self.assertTrue(np.all(np.isfinite(torso.slopes)))
+
+    def test_alternative_torso_is_rigid_transform_invariant(self) -> None:
+        angle_x, angle_y = 0.29, -0.41
+        rx = np.asarray((
+            (1.0, 0.0, 0.0),
+            (0.0, math.cos(angle_x), -math.sin(angle_x)),
+            (0.0, math.sin(angle_x), math.cos(angle_x)),
+        ))
+        ry = np.asarray((
+            (math.cos(angle_y), 0.0, math.sin(angle_y)),
+            (0.0, 1.0, 0.0),
+            (-math.sin(angle_y), 0.0, math.cos(angle_y)),
+        ))
+        rotation = ry @ rx
+        translation = np.asarray((2.25, -1.10, 0.80), dtype=np.float64)
+        axes = self.guide.topology.axes
+        transformed_axes = replace(
+            axes,
+            lateral=tuple(np.asarray(axes.lateral) @ rotation.T),
+            up=tuple(np.asarray(axes.up) @ rotation.T),
+            forward=tuple(np.asarray(axes.forward) @ rotation.T),
+        )
+        transformed_sections = tuple(
+            replace(section, center=tuple(np.asarray(section.center) @ rotation.T + translation))
+            for section in self.guide.torso_cage.sections
+        )
+        transformed_head_sections = tuple(
+            replace(section, center=tuple(np.asarray(section.center) @ rotation.T + translation))
+            for section in self.guide.head_guide.profile.sections
+        )
+        transformed_head_profile = replace(
+            self.guide.head_guide.profile,
+            sections=transformed_head_sections,
+            axes=transformed_axes,
+        )
+        transformed_guide = replace(
+            self.guide,
+            torso_cage=replace(self.guide.torso_cage, sections=transformed_sections, axes=transformed_axes),
+            head_guide=replace(
+                self.guide.head_guide,
+                profile=transformed_head_profile,
+                axes=transformed_axes,
+            ),
+            topology=replace(self.guide.topology, axes=transformed_axes),
+        )
+        transformed_torso = successor._make_alternative_torso_envelope(transformed_guide)
+        points = np.asarray((
+            (0.2, 0.3, 0.1),
+            (0.7, 1.4, -0.25),
+            (-0.9, 2.8, 0.35),
+            (0.1, 4.8, 0.0),
+        ))
+        np.testing.assert_allclose(
+            successor._alternative_torso_field(points, self.region.torso),
+            successor._alternative_torso_field(points @ rotation.T + translation, transformed_torso),
+            rtol=0.0,
+            atol=1.0e-11,
+        )
+
+    def test_alternative_cap_support_lies_on_asymmetric_cap_for_diagonal_rays(self) -> None:
+        torso = self.region.torso
+        cap = torso.endpoint_caps[0]
+        cardinal = torso.cardinal_radii[0]
+        lateral = np.asarray(cap.transverse_axes[0], dtype=np.float64)
+        forward = np.asarray(cap.transverse_axes[1], dtype=np.float64)
+        axial = np.asarray(cap.outward_tangent, dtype=np.float64)
+        directions = (
+            lateral + forward + 0.5 * axial,
+            lateral - forward + axial,
+            -lateral + 0.75 * forward - axial,
+        )
+        center = np.asarray(cap.center, dtype=np.float64)
+        for direction in directions:
+            with self.subTest(direction=tuple(direction)):
+                ray = direction / np.linalg.norm(direction)
+                support = successor._alternative_cap_radial_distance(
+                    ray,
+                    cap,
+                    cardinal,
+                    "alternative diagonal cap test",
+                )
+                self.assertGreater(support, 0.0)
+                boundary = (center + support * ray).reshape(1, 3)
+                value = successor._alternative_torso_cap_field(boundary, cap, cardinal)[0]
+                self.assertAlmostEqual(float(value), 0.0, places=11)
+
+    def test_alternative_torso_bounds_include_synthetic_endpoint_cap_extremes(self) -> None:
+        """Bounds must enclose each oriented cap, including axial overshoot."""
+
+        torso = self.region.torso
+        angle = 0.37
+        rotation = np.asarray((
+            (math.cos(angle), 0.0, -math.sin(angle)),
+            (0.0, 1.0, 0.0),
+            (math.sin(angle), 0.0, math.cos(angle)),
+        ))
+        synthetic_caps = []
+        for index, cap in enumerate(torso.endpoint_caps):
+            center = np.asarray(cap.center, dtype=np.float64) + 0.20 * np.asarray(torso.lateral_axis, dtype=np.float64)
+            axes = tuple(
+                tuple(np.asarray(axis, dtype=np.float64) @ rotation.T)
+                for axis in (
+                    cap.outward_tangent,
+                    cap.transverse_axes[0],
+                    cap.transverse_axes[1],
+                )
+            )
+            synthetic_caps.append(replace(
+                cap,
+                center=tuple(center),
+                outward_tangent=axes[0],
+                transverse_axes=(axes[1], axes[2]),
+                transverse_radii=(0.31 + 0.05 * index, 0.43 + 0.04 * index),
+                axial_radius=3.25 + 0.20 * index,
+            ))
+        synthetic_torso = replace(torso, endpoint_caps=tuple(synthetic_caps))
+        lower, upper = successor._alternative_torso_bounds(synthetic_torso)
+
+        for cap in synthetic_torso.endpoint_caps:
+            self.assertGreater(
+                cap.axial_radius,
+                max(torso.cardinal_radii[0] + torso.cardinal_radii[-1]),
+            )
+            center = np.asarray(cap.center, dtype=np.float64)
+            extreme_points = np.asarray([
+                center + sign * radius * np.asarray(axis, dtype=np.float64)
+                for axis, radius in zip(
+                    (cap.outward_tangent, *cap.transverse_axes),
+                    (cap.axial_radius, *cap.transverse_radii),
+                )
+                for sign in (-1.0, 1.0)
+            ])
+            self.assertTrue(np.all(lower <= extreme_points))
+            self.assertTrue(np.all(upper >= extreme_points))
+
+    def test_alternative_tapered_support_field_has_single_axial_overshoot(self) -> None:
+        start = np.asarray((0.0, 0.0, 0.0), dtype=np.float64)
+        end = np.asarray((0.0, 4.0, 0.0), dtype=np.float64)
+        points = np.asarray((
+            (0.0, 2.0, 0.0),       # inside centerline
+            (0.0, 0.0, 0.0),       # start endpoint
+            (0.0, 4.0, 0.0),       # end endpoint
+            (0.0, -1.5, 0.0),      # beyond start
+            (0.0, 5.0, 0.0),       # beyond end
+            (0.3, 2.0, 0.0),       # inside, off-axis
+            (0.6, 5.0, 0.0),       # beyond end, off-axis
+        ))
+        expected = np.asarray((
+            -1.0,
+            -0.75,
+            -1.25,
+            1.5 - 0.75,
+            1.0 - 1.25,
+            0.3 - 1.0,
+            math.hypot(0.6, 1.0) - 1.25,
+        ))
+        actual = successor._alternative_tapered_support_field(
+            points,
+            start,
+            end,
+            0.75,
+            1.25,
+            "literal support distance test",
+        )
+        np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1.0e-12)
+
+    def test_alternative_torso_rejects_material_neck_collar_transverse_displacement(self) -> None:
+        axes = self.guide.topology.axes
+        lateral = np.asarray(axes.lateral, dtype=np.float64)
+        forward = np.asarray(axes.forward, dtype=np.float64)
+        profile = self.guide.head_guide.profile
+        collar_index = next(index for index, section in enumerate(profile.sections) if section.name == "neck-collar")
+        collar = profile.sections[collar_index]
+        displaced = replace(
+            collar,
+            center=tuple(
+                np.asarray(collar.center, dtype=np.float64)
+                + 0.20 * lateral
+                + 0.15 * forward
+            ),
+        )
+        sections = profile.sections[:collar_index] + (displaced,) + profile.sections[collar_index + 1:]
+        malformed = replace(
+            self.guide,
+            head_guide=replace(
+                self.guide.head_guide,
+                profile=replace(profile, sections=sections),
+            ),
+        )
+        with self.assertRaisesRegex(
+            successor.SuccessorPreviewError,
+            "material lateral/forward residual",
+        ):
+            successor._make_alternative_torso_envelope(malformed)
+
+    def test_alternative_anterior_posterior_transition_has_continuous_normal(self) -> None:
+        torso = self.region.torso
+        section = torso.sections[4]
+        center = np.asarray(section.center, dtype=np.float64)
+        lateral = np.asarray(torso.lateral_axis, dtype=np.float64)
+        forward = np.asarray(torso.forward_axis, dtype=np.float64)
+        lateral_offset = 0.37 * torso.cardinal_radii[4][0] * lateral
+        epsilon = 1.0e-5 * min(torso.cardinal_radii[4][1], torso.cardinal_radii[4][2])
+        probes = np.asarray((center + lateral_offset - epsilon * forward, center + lateral_offset, center + lateral_offset + epsilon * forward))
+        values = successor._alternative_torso_field(probes, torso)
+        left_normal = (values[1] - values[0]) / epsilon
+        right_normal = (values[2] - values[1]) / epsilon
+        self.assertLess(max(abs(float(left_normal)), abs(float(right_normal))), 1.0e-4)
+        radii = successor._alternative_forward_radius(
+            np.asarray((-epsilon, 0.0, epsilon)), torso.cardinal_radii[4][1], torso.cardinal_radii[4][2]
+        )
+        left_radius_slope = (radii[1] - radii[0]) / epsilon
+        right_radius_slope = (radii[2] - radii[1]) / epsilon
+        self.assertAlmostEqual(float(left_radius_slope), float(right_radius_slope), places=5)
+
+    def test_alternative_corridor_gate_is_C1_at_both_mask_boundaries(self) -> None:
+        for corridor in self.region.lower_body.corridors:
+            start = np.asarray(corridor.start_center, dtype=np.float64)
+            end = np.asarray(corridor.end_center, dtype=np.float64)
+            axis = (end - start) / np.linalg.norm(end - start)
+            preferred = np.asarray(self.region.torso.lateral_axis, dtype=np.float64)
+            normal = preferred - np.dot(preferred, axis) * axis
+            if np.linalg.norm(normal) <= 1.0e-12:
+                preferred = np.asarray(self.region.torso.forward_axis, dtype=np.float64)
+                normal = preferred - np.dot(preferred, axis) * axis
+            normal /= np.linalg.norm(normal)
+            midpoint = 0.5 * (start + end)
+            hip_radius = 0.5 * (corridor.start_radius + corridor.end_radius)
+            planted_start = np.asarray(corridor.planted_support_centers[0], dtype=np.float64)
+            planted_end = np.asarray(corridor.planted_support_centers[1], dtype=np.float64)
+            planted_axis = planted_end - planted_start
+            planted_axis /= np.linalg.norm(planted_axis)
+            planted_normal = normal - np.dot(normal, planted_axis) * planted_axis
+            planted_normal /= np.linalg.norm(planted_normal)
+            boundaries = (
+                ("hip", midpoint + hip_radius * normal, normal, hip_radius),
+                (
+                    "planted",
+                    0.5 * (planted_start + planted_end)
+                    + 0.5 * (corridor.planted_support_radii[0] + corridor.planted_support_radii[1]) * planted_normal,
+                    planted_normal,
+                    0.5 * (corridor.planted_support_radii[0] + corridor.planted_support_radii[1]),
+                ),
+            )
+            for support_name, boundary, boundary_normal, scale in boundaries:
+                with self.subTest(side=corridor.side, support=support_name, boundary=tuple(boundary)):
+                    epsilon = 1.0e-5 * scale
+                    probes = np.asarray((boundary - epsilon * boundary_normal, boundary, boundary + epsilon * boundary_normal))
+                    hip_support, planted_support = successor._alternative_corridor_support_fields(probes, corridor)
+                    support = hip_support if support_name == "hip" else planted_support
+                    # Pass the selected support field directly.  The other
+                    # primitive must not be able to hide this gate boundary
+                    # through the combined corridor minimum.
+                    weights = successor._alternative_corridor_blend_weight(probes, corridor, support)
+                    self.assertAlmostEqual(float(support[1]), 0.0, places=5)
+                    self.assertAlmostEqual(float(weights[1]), 0.0, places=12)
+                    self.assertGreater(float(weights[0]), 0.0)
+                    self.assertEqual(float(weights[2]), 0.0)
+                    left_derivative = float((weights[1] - weights[0]) / epsilon)
+                    right_derivative = float((weights[2] - weights[1]) / epsilon)
+                    self.assertLess(abs(left_derivative - right_derivative), 1.0e-3)
+                    self.assertLess(abs(left_derivative), 1.0e-3)
+                    self.assertLess(abs(right_derivative), 1.0e-12)
+
+    def test_hip_corridors_are_compact_bilateral_and_overlap_pelvis_and_thigh(self) -> None:
+        corridors = self.region.lower_body.corridors
+        self.assertEqual(tuple(item.side for item in corridors), ("left", "right"))
+        self.assertEqual(tuple(item.name for item in corridors), ("left-hip-seam-corridor", "right-hip-seam-corridor"))
+        left, right = corridors
+        self.assertAlmostEqual(left.start_radius, right.start_radius, places=12)
+        self.assertAlmostEqual(left.end_radius, right.end_radius, places=12)
+        for corridor in corridors:
+            start = np.asarray(corridor.start_center)
+            end = np.asarray(corridor.end_center)
+            midpoint = 0.5 * (start + end)
+            lateral = np.asarray(self.region.torso.lateral_axis)
+            self.assertLessEqual(float(successor._alternative_corridor_field(start.reshape(1, 3), corridor)[0]), 0.0)
+            self.assertLessEqual(float(successor._alternative_corridor_field(end.reshape(1, 3), corridor)[0]), 0.0)
+            far = midpoint + 2.0 * max(corridor.start_radius, corridor.end_radius) * lateral
+            self.assertGreater(float(successor._alternative_corridor_field(far.reshape(1, 3), corridor)[0]), 0.0)
+            np.testing.assert_array_equal(end, corridor.leg_route.sweep.sections[0].center)
+            self.assertLess(float(successor._alternative_torso_field(start.reshape(1, 3), self.region.torso)[0]), 0.0)
+            self.assertLessEqual(float(successor._profile_sweep_field(end.reshape(1, 3), corridor.leg_route.sweep)[0]), 0.0)
+            self.assertLessEqual(float(successor._profile_sweep_field(end.reshape(1, 3), corridor.hip_route.sweep)[0]), 0.0)
+            foot = corridor.foot_route
+            hock = np.asarray(foot.sweep.sections[0].center)
+            np.testing.assert_array_equal(hock, corridor.leg_route.sweep.sections[-1].center)
+            np.testing.assert_array_equal(hock, foot.sweep.sections[0].center)
+            self.assertLessEqual(float(successor._profile_sweep_field(hock.reshape(1, 3), foot.sweep)[0]), 0.0)
+            self.assertLessEqual(float(successor._alternative_corridor_field(hock.reshape(1, 3), corridor)[0]), 0.0)
+            self.assertLessEqual(float(successor._alternative_lower_body_field(hock.reshape(1, 3), self.region.lower_body, successor.DEFAULT_SMOOTH_K)[0]), 0.0)
+            support_centers = np.asarray(corridor.planted_support_centers, dtype=np.float64)
+            support_values = successor._alternative_corridor_field(support_centers, corridor)
+            lower_body_values = successor._alternative_lower_body_field(
+                support_centers,
+                self.region.lower_body,
+                successor.DEFAULT_SMOOTH_K,
+            )
+            self.assertTrue(np.all(support_values < 0.0))
+            self.assertTrue(np.all(lower_body_values < 0.0))
+        probes = np.asarray((
+            0.5 * (np.asarray(left.start_center) + np.asarray(left.end_center)),
+            np.asarray(left.end_center) + 0.2 * np.asarray(self.region.torso.forward_axis),
+        ))
+        np.testing.assert_allclose(
+            successor._alternative_corridor_field(probes, left),
+            successor._alternative_corridor_field(self._mirror_lateral(probes), right),
+            rtol=0.0,
+            atol=1.0e-11,
+        )
+
+    def test_ghost_corridor_support_cannot_create_geometry(self) -> None:
+        """A translated support mask must not add a detached lower-body surface."""
+
+        corridor = self.region.lower_body.corridors[0]
+        body_lower, body_upper = successor._alternative_lower_body_bounds(self.region)
+        original_centers = np.vstack((
+            np.asarray(corridor.start_center, dtype=np.float64),
+            np.asarray(corridor.end_center, dtype=np.float64),
+            np.asarray(corridor.planted_support_centers, dtype=np.float64),
+        ))
+        support_radius = max(
+            float(corridor.start_radius),
+            float(corridor.end_radius),
+            *(float(value) for value in corridor.planted_support_radii),
+        )
+        clearance = (
+            float(np.max(np.abs(original_centers - original_centers[0])))
+            + float(np.max(body_upper - body_lower))
+            + support_radius
+            + 1.0
+        )
+        ghost_offset = body_upper + clearance - original_centers[0]
+
+        def ghost_center(center: tuple[float, float, float]) -> tuple[float, float, float]:
+            return tuple(float(value) for value in (np.asarray(center) + ghost_offset))
+
+        ghost_corridor = replace(
+            corridor,
+            start_center=ghost_center(corridor.start_center),
+            end_center=ghost_center(corridor.end_center),
+            planted_support_centers=tuple(ghost_center(center) for center in corridor.planted_support_centers),
+        )
+        ghost_lower_body = replace(
+            self.region.lower_body,
+            corridors=(ghost_corridor,) + self.region.lower_body.corridors[1:],
+        )
+        ghost_points = np.asarray(ghost_corridor.planted_support_centers, dtype=np.float64)
+        ghost_support = successor._alternative_corridor_field(ghost_points, ghost_corridor)
+        self.assertTrue(np.all(ghost_support < 0.0))
+
+        baseline = successor._alternative_lower_body_field(
+            ghost_points,
+            self.region.lower_body,
+            successor.DEFAULT_SMOOTH_K,
+        )
+        ghosted = successor._alternative_lower_body_field(
+            ghost_points,
+            ghost_lower_body,
+            successor.DEFAULT_SMOOTH_K,
+        )
+        self.assertTrue(np.all(baseline > 0.0))
+        self.assertTrue(np.all(ghosted > 0.0))
+        np.testing.assert_array_equal(ghosted, baseline)
+
+        torso = self.region.torso
+        body_probe = np.asarray(torso.sections[5].center) + 1.25 * torso.cardinal_radii[5][1] * np.asarray(torso.forward_axis)
+        body_probe = body_probe.reshape(1, 3)
+        np.testing.assert_array_equal(
+            successor._alternative_lower_body_field(body_probe, ghost_lower_body, successor.DEFAULT_SMOOTH_K),
+            successor._alternative_lower_body_field(body_probe, self.region.lower_body, successor.DEFAULT_SMOOTH_K),
+        )
+
+    def test_alternative_sampling_bounds_enclose_corridors_and_domain_faces(self) -> None:
+        components = successor._make_alternative_components(self.region, successor.DEFAULT_SMOOTH_K)
+        lower_component = components[0]
+        for corridor in self.region.lower_body.corridors:
+            corridor_lower, corridor_upper = successor._alternative_corridor_bounds(corridor)
+            self.assertTrue(np.all(lower_component.bounds[0] <= corridor_lower))
+            self.assertTrue(np.all(lower_component.bounds[1] >= corridor_upper))
+        lower, upper = successor._combined_bounds(components, 0.5)
+        face_points = []
+        middle = 0.5 * (lower + upper)
+        for axis in range(3):
+            for side in (lower[axis], upper[axis]):
+                point = middle.copy()
+                point[axis] = side
+                face_points.append(point)
+        face_values = successor._evaluate_components(np.asarray(face_points), components, successor.DEFAULT_SMOOTH_K)
+        self.assertTrue(np.all(face_values > 0.0))
+
+    def test_global_fold_has_one_lower_body_operand_and_no_old_lower_body_operands(self) -> None:
+        components = successor._make_alternative_components(self.region, successor.DEFAULT_SMOOTH_K)
+        recipes = tuple(item.recipe for item in components)
+        self.assertEqual(len(components), successor.ALTERNATIVE_COMPONENT_COUNT)
+        self.assertEqual(recipes.count(successor.ALTERNATIVE_LOWER_BODY_OPERATION), 1)
+        self.assertNotIn("successor-torso-loft", recipes)
+        self.assertFalse(any("-leg" in recipe for recipe in recipes))
+        self.assertFalse(any("hip-root-transition" in recipe for recipe in recipes))
+        self.assertEqual(len(self.region.lower_body.hip_routes), 2)
+        self.assertEqual(len(self.region.lower_body.leg_routes), 2)
+        self.assertEqual(tuple(item.name for item in self.region.lower_body.foot_routes), ("left-foot", "right-foot"))
+        self.assertNotIn("alternative-left-foot", recipes)
+        self.assertNotIn("alternative-right-foot", recipes)
+
+    def test_alternative_owner_attribution_preserves_torso_sections_and_corridor_keys(self) -> None:
+        torso = self.region.torso
+        lower_point = np.asarray(torso.sections[0].center, dtype=np.float64)
+        upper_point = np.asarray(torso.sections[5].center, dtype=np.float64)
+        labels = successor._alternative_lower_body_owner_keys(
+            np.asarray((lower_point, upper_point)),
+            self.region.lower_body,
+            successor.DEFAULT_SMOOTH_K,
+        )
+        self.assertEqual(labels[0], torso.sections[0].owner.key)
+        self.assertEqual(labels[1], torso.sections[5].owner.key)
+        torso_dominant = None
+        for corridor in self.region.lower_body.corridors:
+            start = np.asarray(corridor.start_center)
+            end = np.asarray(corridor.end_center)
+            for fraction in np.linspace(0.0, 1.0, 21):
+                point = (start + fraction * (end - start)).reshape(1, 3)
+                torso_value = successor._alternative_torso_field(point, torso)[0]
+                hip_value = successor._profile_sweep_field(point, corridor.hip_route.sweep)[0]
+                leg_value = successor._profile_sweep_field(point, corridor.leg_route.sweep)[0]
+                support = successor._alternative_corridor_field(point, corridor)[0]
+                if support <= 0.0 and torso_value <= hip_value and torso_value <= leg_value:
+                    torso_dominant = (point[0], successor._alternative_torso_owner_key(point[0], torso))
+                    break
+            if torso_dominant is not None:
+                break
+        self.assertIsNotNone(torso_dominant)
+        seam_label = successor._alternative_lower_body_owner_keys(
+            torso_dominant[0].reshape(1, 3), self.region.lower_body, successor.DEFAULT_SMOOTH_K
+        )[0]
+        self.assertEqual(seam_label, torso_dominant[1])
+
+    def test_alternative_lower_body_attribution_uses_each_route_section_owner(self) -> None:
+        for corridor in self.region.lower_body.corridors:
+            representatives = (
+                ("socket", corridor.hip_route.sweep, 0),
+                ("knee", corridor.leg_route.sweep, 2),
+                ("shin", corridor.leg_route.sweep, 3),
+                ("hock", corridor.leg_route.sweep, 4),
+            )
+            for name, sweep, section_index in representatives:
+                with self.subTest(side=corridor.side, representative=name):
+                    section = sweep.sections[section_index]
+                    point = np.asarray(section.center, dtype=np.float64).reshape(1, 3)
+                    self.assertEqual(
+                        successor._loft_owner_keys(point, sweep)[0],
+                        section.owner.key,
+                    )
+                    self.assertEqual(
+                        successor._alternative_lower_body_owner_keys(
+                            point,
+                            self.region.lower_body,
+                            successor.DEFAULT_SMOOTH_K,
+                        )[0],
+                        section.owner.key,
+                    )
+
+    def test_alternative_bounds_include_raw_support_at_zero_padding(self) -> None:
+        smooth_k = successor.DEFAULT_SMOOTH_K
+        components = successor._make_alternative_components(self.region, smooth_k)
+        lower_component = components[0]
+        for corridor in self.region.lower_body.corridors:
+            centers = np.vstack((
+                np.asarray(corridor.start_center, dtype=np.float64),
+                np.asarray(corridor.end_center, dtype=np.float64),
+                np.asarray(corridor.planted_support_centers, dtype=np.float64),
+            ))
+            base_extent = max(
+                float(corridor.start_radius),
+                float(corridor.end_radius),
+                *(float(value) for value in corridor.planted_support_radii),
+            )
+            expected_lower = np.min(centers, axis=0) - base_extent
+            expected_upper = np.max(centers, axis=0) + base_extent
+            expanded_lower, expanded_upper = successor._alternative_corridor_bounds(corridor)
+            np.testing.assert_array_equal(expanded_lower, expected_lower)
+            np.testing.assert_array_equal(expanded_upper, expected_upper)
+            self.assertTrue(np.all(lower_component.bounds[0] <= expanded_lower))
+            self.assertTrue(np.all(lower_component.bounds[1] >= expanded_upper))
+
+        # The mask bounds are analytical authority only.  Low-resolution mesh
+        # extraction is intentionally not used as a proxy for this property.
+        combined_lower, combined_upper = successor._combined_bounds(components, 0.0)
+        self.assertTrue(np.all(combined_lower <= lower_component.bounds[0]))
+        self.assertTrue(np.all(combined_upper >= lower_component.bounds[1]))
+
+    def test_neutral_mesh_is_finite_watertight_connected_deterministic_and_lineage_stable(self) -> None:
+        first = successor.build_neutral_alternative_variant(
+            self.form,
+            self.descriptors,
+            samples=successor.ALTERNATIVE_MIN_SAMPLES,
+            padding=0.5,
+        )
+        second = successor.build_neutral_alternative_variant(
+            self.form,
+            self.descriptors,
+            samples=successor.ALTERNATIVE_MIN_SAMPLES,
+            padding=0.5,
+        )
+        np.testing.assert_array_equal(first.vertices, second.vertices)
+        np.testing.assert_array_equal(first.faces, second.faces)
+        np.testing.assert_array_equal(first.normals, second.normals)
+        self.assertEqual(first.metrics, second.metrics)
+        self.assertTrue(np.all(np.isfinite(first.vertices)))
+        self.assertTrue(np.all(np.isfinite(first.normals)))
+        self.assertTrue(first.metrics["finite_vertices"])
+        self.assertTrue(first.metrics["finite_normals"])
+        self.assertTrue(first.metrics["watertight"])
+        self.assertEqual(first.metrics["component_count"], 1)
+        self.assertGreater(first.metrics["signed_volume"], 0.0)
+        self.assertEqual(first.metrics["candidate_identity"]["format"], successor.ALTERNATIVE_FORMAT)
+        self.assertEqual(first.metrics["candidate_identity"]["profile_id"], successor.ALTERNATIVE_NEUTRAL_PROFILE_ID)
+        self.assertEqual(first.metrics["candidate_identity"]["profile_scope"], "neutral-only-bounded-candidate")
+        self.assertGreater(first.metrics["domain_clearance"], 0.0)
+        self.assertEqual(
+            first.metrics["operation_metadata"]["lower_body"]["corridor_source_owner_keys"],
+            [[successor._baseline._address_json(owner.key) for owner in corridor.source_owners] for corridor in self.region.lower_body.corridors],
+        )
+        self.assertEqual(
+            first.metrics["operation_metadata"]["baseline_recipe_signature"],
+            _independent_recipe_signature(self.fields),
+        )
+        planted_routes = first.metrics["operation_metadata"]["lower_body"]["planted_foot_routes"]
+        self.assertEqual(
+            [item["name"] for item in planted_routes],
+            ["left-foot", "right-foot"],
+        )
+        for item, corridor in zip(planted_routes, self.region.lower_body.corridors):
+            self.assertEqual(item["station_names"], list(corridor.foot_route.sweep.names))
+            self.assertEqual(
+                item["hock_binding"],
+                {
+                    "leg_endpoint": list(corridor.leg_route.sweep.sections[-1].center),
+                    "foot_start": list(corridor.foot_route.sweep.sections[0].center),
+                },
+            )
+
+    def test_neutral_torso_metadata_retains_each_control_source_and_provenance(self) -> None:
+        mesh = successor.build_neutral_alternative_variant(
+            self.form,
+            self.descriptors,
+            samples=successor.ALTERNATIVE_MIN_SAMPLES,
+            padding=0.5,
+        )
+        emitted = mesh.metrics["operation_metadata"]["torso"]["cardinal_controls"]
+        authored_sections = self.form.authored_torso_profile.sections
+        self.assertEqual(len(emitted), len(authored_sections))
+        for emitted_section, authored_section in zip(emitted, authored_sections):
+            with self.subTest(section=authored_section.name):
+                self.assertEqual(emitted_section["name"], authored_section.name)
+                self.assertEqual(emitted_section["source_section_index"], authored_section.section_index)
+                self.assertEqual(
+                    emitted_section["owner"],
+                    surface_preview._address_json(authored_section.owner),
+                )
+                for axis, control in (
+                    ("lateral", authored_section.lateral),
+                    ("anterior", authored_section.anterior),
+                    ("posterior", authored_section.posterior),
+                ):
+                    with self.subTest(axis=axis):
+                        emitted_control = emitted_section["controls"][axis]
+                        self.assertEqual(
+                            emitted_control["value"],
+                            getattr(
+                                self.guide.torso_cage.sections[authored_section.section_index],
+                                f"{axis}_radius",
+                            ),
+                        )
+                        self.assertEqual(
+                            emitted_control["reference"],
+                            {
+                                "owner": surface_preview._address_json(control.owner),
+                                "role": control.role,
+                                "index": control.source_index,
+                            },
+                        )
+                        self.assertEqual(emitted_control["provenance"], control.provenance)
+                        self.assertEqual(emitted_control["consumed_section"], authored_section.name)
+
+    def test_neck_root_flare_keeps_exact_source_endpoints_ownership_span_and_bounds(self) -> None:
+        flare = self.region.neck_root_flare
+        torso_source = self.guide.torso_cage.sections[-1]
+        vertical_route = next(
+            item.sweep
+            for item in self.region.head_neck_sweeps
+            if item.recipe == successor.ALTERNATIVE_NECK_ROOT_RECIPE
+        )
+        authored_collar = vertical_route.sections[0]
+
+        self.assertEqual(flare.operation, successor.ALTERNATIVE_NECK_ROOT_OPERATION)
+        self.assertEqual(flare.sweep.profile_operation, successor._HEAD_NECK_PROFILE_OPERATION)
+        self.assertEqual(len(vertical_route.derived_sweeps), 1)
+        self.assertIs(vertical_route.derived_sweeps[0], flare.sweep)
+        without_flare = replace(vertical_route, derived_sweeps=())
+        attachment_probe = np.asarray(flare.attachment_station.center, dtype=np.float64).reshape(1, 3)
+        with_flare = successor._profile_sweep_field(attachment_probe, vertical_route)
+        without_flare_value = successor._profile_sweep_field(attachment_probe, without_flare)
+        self.assertLess(float(with_flare[0]), float(without_flare_value[0]))
+        self.assertGreater(abs(float(with_flare[0] - without_flare_value[0])), 1.0e-8)
+        self.assertEqual(flare.sweep.sections[0].name, "neck-root-attachment")
+        self.assertEqual(flare.sweep.sections[1].name, "neck-collar")
+        self.assertEqual(flare.sweep.sections[0].center, torso_source.center)
+        self.assertEqual(flare.sweep.sections[1].center, authored_collar.center)
+        self.assertIs(flare.sweep.sections[0].owner, torso_source.owner)
+        self.assertIs(flare.sweep.sections[1].owner, authored_collar.owner)
+        self.assertIs(flare.owner, torso_source.owner)
+        self.assertIs(flare.attachment_station.owner, torso_source.owner)
+        self.assertIs(flare.neck_collar_station.owner, authored_collar.owner)
+        self.assertEqual(
+            flare.sweep.endpoint_caps[0].axial_radius,
+            flare.sweep.sections[0].tangent_radius,
+        )
+        self.assertEqual(
+            flare.sweep.endpoint_caps[1].axial_radius,
+            flare.sweep.sections[1].tangent_radius,
+        )
+
+        expected_span = float(np.linalg.norm(
+            np.asarray(authored_collar.center, dtype=np.float64)
+            - np.asarray(torso_source.center, dtype=np.float64)
+        ))
+        self.assertGreater(expected_span, 0.0)
+        self.assertEqual(flare.sweep.sections[0].path_length, 0.0)
+        self.assertAlmostEqual(flare.sweep.sections[1].path_length, expected_span, places=12)
+        self.assertAlmostEqual(flare.sweep.sections[1].path_length - flare.sweep.sections[0].path_length, expected_span, places=12)
+
+        # Source-authority radii from the neutral fixture: head-base
+        # (0.52, 0.40, 0.48) and neck-collar (0.42, 0.38, 0.40), ordered as
+        # lateral, up/tangent, forward.  Bounds must contain both endpoint
+        # volumes, not merely the endpoint centres.
+        axes = self.guide.topology.axes
+        lateral = np.asarray(axes.lateral, dtype=np.float64)
+        up = np.asarray(axes.up, dtype=np.float64)
+        forward = np.asarray(axes.forward, dtype=np.float64)
+        attachment_extent = 0.52 * np.abs(lateral) + 0.40 * np.abs(up) + 0.48 * np.abs(forward)
+        collar_extent = 0.42 * np.abs(lateral) + 0.38 * np.abs(up) + 0.40 * np.abs(forward)
+        expected_lower = np.minimum(
+            np.asarray(torso_source.center, dtype=np.float64) - attachment_extent,
+            np.asarray(authored_collar.center, dtype=np.float64) - collar_extent,
+        )
+        expected_upper = np.maximum(
+            np.asarray(torso_source.center, dtype=np.float64) + attachment_extent,
+            np.asarray(authored_collar.center, dtype=np.float64) + collar_extent,
+        )
+        lower, upper = successor._profile_sweep_bounds(flare.sweep)
+        self.assertTrue(np.all(np.isfinite(np.concatenate((lower, upper)))))
+        self.assertTrue(np.all(lower <= expected_lower))
+        self.assertTrue(np.all(upper >= expected_upper))
+
+    def test_neutral_alternative_rejects_non_neutral_descriptor_identity(self) -> None:
+        _, non_neutral_descriptors, _ = self.form.variants[1]
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, "neutral-v0"):
+            successor.build_neutral_alternative_variant(
+                self.form,
+                non_neutral_descriptors,
+                samples=successor.ALTERNATIVE_MIN_SAMPLES,
+            )
+
+    def test_neutral_alternative_requires_the_form_canonical_descriptor_tuple(self) -> None:
+        copied_descriptors = tuple(copy.copy(descriptor) for descriptor in self.descriptors)
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, "canonical neutral-v0"):
+            successor.build_neutral_alternative_variant(
+                self.form,
+                copied_descriptors,
+                samples=successor.ALTERNATIVE_MIN_SAMPLES,
+            )
+
+        _, non_neutral_descriptors, _ = self.form.variants[1]
+        spoofed_descriptors = tuple(
+            replace(descriptor, profile_id=successor.ALTERNATIVE_NEUTRAL_PROFILE_ID)
+            for descriptor in non_neutral_descriptors
+        )
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, "canonical neutral-v0"):
+            successor.build_neutral_alternative_variant(
+                self.form,
+                spoofed_descriptors,
+                samples=successor.ALTERNATIVE_MIN_SAMPLES,
+            )
+
+    def test_neutral_alternative_region_rejects_non_neutral_source_descriptors(self) -> None:
+        _, non_neutral_descriptors, _ = self.form.variants[1]
+        guide = surface_preview._derive_hybrid_guides(self.form, non_neutral_descriptors)
+        fields = surface_preview._compile_hybrid_guide(guide)
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, "neutral-v0"):
+            successor._make_neutral_alternative_region(self.form, non_neutral_descriptors, guide)
+
+    def test_neutral_alternative_rejects_below_minimum_samples(self) -> None:
+        with self.assertRaisesRegex(successor.SuccessorPreviewError, r"samples-per-axis must be an integer between 56 and 96"):
+            successor.build_neutral_alternative_variant(
+                self.form,
+                self.descriptors,
+                samples=successor.ALTERNATIVE_MIN_SAMPLES - 1,
+            )
+
+    def test_rejected_v9_path_remains_addressable_and_behavior_is_unchanged(self) -> None:
+        baseline = successor.build_rejected_v9_variant(self.form, self.descriptors, samples=24)
+        self.assertEqual(_mesh_behavior_signature(baseline), REJECTED_V9_GOLDEN_SIGNATURE)
+        rejected_region = successor.compile_rejected_v9_region(
+            successor._baseline._derive_hybrid_guides(self.form, self.descriptors)
+        )
+        self.assertEqual(rejected_region.region_id, "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16")
+        self.assertEqual(baseline.metrics["consumer_id"], "successor-surface-v1")
+        self.assertEqual(baseline.metrics["successor_region_id"], "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16")
+        self.assertEqual(baseline.metrics["successor_region"]["torso_representation"], "rounded-superellipse-axial-profile-sweep-v1")
+        self.assertEqual(baseline.metrics["successor_region"]["torso_profile_exponent"], 3.0)
+        self.assertEqual(baseline.metrics["successor_region"]["torso_sections_consumed"], 7)
+        self.assertEqual(baseline.metrics["successor_region"]["replaced_baseline_field_count"], 52)
+        self.assertEqual(len(baseline.metrics["successor_region"]["replaced_baseline_recipes"]), 30)
+        self.assertEqual(baseline.metrics["component_visualization"]["component_count"], EXPECTED_EXACT_COMPONENT_COUNT)
+        self.assertTrue(baseline.metrics["watertight"])
+        self.assertNotEqual(successor.ALTERNATIVE_FORMAT, "creature-kernel.disposable-successor-surface-preview.v1")
+        self.assertNotEqual(successor.ALTERNATIVE_REGION_ID, "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16")
 
 
 if __name__ == "__main__":

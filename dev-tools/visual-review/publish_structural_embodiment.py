@@ -74,6 +74,9 @@ FROZEN_CANDIDATE_TABLE_BYTES = 26867
 FROZEN_BASE_SOURCE_SHA256 = "faf02db965a2b7f6889dfb1cd58eb79befa9c536f58adca40b14ccc955eaf533"
 FROZEN_BASE_SOURCE_DOCUMENT = "stylized_digitigrade_biped_authored_form"
 FROZEN_BASE_SOURCE_NAMESPACE = "main"
+HISTORICAL_GENERATION_MODE = profile_source_generator.HISTORICAL_GENERATION_MODE
+HISTORICAL_CANDIDATE_PATH = profile_source_generator.HISTORICAL_CANDIDATE
+HISTORICAL_SOURCE_PATH = profile_source_generator.HISTORICAL_SOURCE
 POSE_ID = "shared-structural-pose-v1"
 NEUTRAL_VARIANT_ID = "neutral-v0"
 CANVAS = {"width": 1800, "height": 2500, "mode": "RGB"}
@@ -351,26 +354,39 @@ def _expected_source_documents(candidate: dict[str, Any], candidate_data: bytes)
         raise _error("copied candidate table bytes are not frozen")
     base_source = candidate.get("base_source")
     _require_fields(base_source, {"document", "namespace", "path", "sha256"}, "copied candidate table.base_source")
-    relative = _safe_relative(base_source["path"], "copied candidate table.base_source.path")
-    source_path = REPOSITORY_ROOT / relative
-    source_value, source_data = _read_json(source_path, "frozen base source")
+    source_value, source_data = _read_json(HISTORICAL_SOURCE_PATH, "historical frozen base source")
     if hashlib.sha256(source_data).hexdigest() != FROZEN_BASE_SOURCE_SHA256 or base_source != {
         "document": FROZEN_BASE_SOURCE_DOCUMENT,
         "namespace": FROZEN_BASE_SOURCE_NAMESPACE,
-        "path": relative,
+        "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
         "sha256": FROZEN_BASE_SOURCE_SHA256,
     }:
-        raise _error("copied candidate table does not bind the frozen base source")
+        raise _error("copied candidate table does not bind the archived historical base source")
     try:
-        outputs = profile_source_generator.generate_sources(candidate, source_value)
-        expected = {
-            profile_id: profile_source_generator.canonical_source_bytes(output)
-            for profile_id, output in zip(PROFILE_IDS, outputs)
-        }
+        outputs = tuple(
+            profile_source_generator.generate_sources(
+                candidate,
+                source_value,
+                mode=HISTORICAL_GENERATION_MODE,
+            )
+        )
+        if len(outputs) != len(PROFILE_IDS):
+            raise _error("historical generator did not produce exactly four profile documents")
+        expected = {}
+        for index, (profile_id, output) in enumerate(zip(PROFILE_IDS, outputs)):
+            expected_document = f"{FROZEN_BASE_SOURCE_DOCUMENT}__structural_profile__{profile_id}"
+            if (
+                not isinstance(output, dict)
+                or not isinstance(output.get("source"), dict)
+                or output["source"].get("document") != expected_document
+            ):
+                raise _error(
+                    f"historical generator output {index} has unexpected source.document; "
+                    f"expected {expected_document}"
+                )
+            expected[profile_id] = profile_source_generator.canonical_source_bytes(output)
     except profile_source_generator.ProfileGenerationError as exc:
-        raise _error("could not reproduce generated sources from the copied candidate table") from exc
-    if set(expected) != set(PROFILE_IDS):
-        raise _error("copied candidate table did not reproduce the exact four-profile source set")
+        raise _error("could not reproduce generated sources from the archived historical candidate table") from exc
     return expected
 
 
@@ -448,6 +464,12 @@ def _validate_source_documents(
             raise _error(f"generated source {profile_id} does not match its manifest record")
         if source_data != expected_source_data[profile_id]:
             raise _error(f"generated source {profile_id} is not the exact output of the frozen candidate table")
+        try:
+            expected_tail_signature = list(profile_source_generator.tail_signature(source_value))
+        except profile_source_generator.ProfileGenerationError as exc:
+            raise _error(f"{where}.tail_signature cannot be recomputed") from exc
+        if raw["tail_signature"] != expected_tail_signature:
+            raise _error(f"{where}.tail_signature does not match its source document")
         if not isinstance(source_value.get("source"), dict):
             raise _error(f"generated source {profile_id}.source must be an object")
         source_identity = source_value["source"]

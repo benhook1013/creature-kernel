@@ -875,7 +875,6 @@ def _package_manifest_fixture(projection_value: dict, projection_identity: dict)
         _canonical_json=lambda value: (
             json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
         ).encode("utf-8"),
-        _parse_json_bytes=lambda _data, label: (_ for _ in ()).throw(AssertionError(label)),
     )
     package_avatars = []
     for index, projection_avatar in enumerate(projection_value["avatars"]):
@@ -2817,9 +2816,9 @@ class SkeletalPoseSmokeValidationTests(unittest.TestCase):
         staged_paths: list[Path] = []
         original_stage = smoke._stage_validated_ck_package
 
-        def stage(*args):
-            staged_paths.append(args[2])
-            return original_stage(*args)
+        def stage(package_path, package_manifest, staging_root):
+            staged_paths.append(staging_root)
+            return original_stage(package_path, package_manifest, staging_root)
 
         with tempfile.TemporaryDirectory(prefix="ck-godot-package-stage-failure-") as temporary:
             root = Path(temporary)

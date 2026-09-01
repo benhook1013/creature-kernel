@@ -166,7 +166,7 @@ producer-consumer bindings, not new runtime or semantic contracts.
 
 The v11 producer contains 153 authored dimensions, 43 authored landmarks, and
 16 authored frames. The private regional guide is v11; the successor is v9
-with the unchanged region/profile version v12.
+with region/profile version v16.
 
 The read-only browser page renders each variant in front (x/y), side (z/y),
 and top (x/z) filled SVG panels with shared bounds, physical display radii
@@ -336,35 +336,42 @@ mergeable/draft with all three
 current CI lanes passed, but remains unmerged pending Ben's explicit merge
 authorization; this disposition is not merge authorization. No further
 cosmetic repair is planned, and publication machinery is not acceptance.
+The superseded v15 predecessor retained four temporary thigh-root/hip bridges—
+one root bridge and one hip transition per side; this is historical context
+only, not a current run instruction.
 
-The current human checkpoint is the shared-pose structural embodiment gallery,
-an exploratory candidate toward Stage 2 and outside this surface bridge's
-implementation scope. Its four-profile candidate set and identity-bound
-semantic pose-transform payload must be frozen before evidence; the current
-display variants are not automatic substitutes. It must show generated
-neutral/posed surface, skeleton/bone, weight/influence, and collision-proxy
-artifacts with source/build/scenario lineage. See the
-active runway for objective prerequisites, human judgments, non-goals, and stop
-triggers.
+The last published five-profile appraisal is the successor anatomy gallery,
+with the standard neutral reference first, described below. It is explicitly
+rejected and closed as the failed visual baseline, not the current human
+checkpoint. The later regional candidate never published an exact-five
+gallery: its publication attempts failed before rendering/publication. The
+shared-pose structural embodiment gallery further below is completed
+historical evidence, not the current stop gate. See the [Active
+runway](../../docs/project/status.md#active-runway) for the current stop
+state, human judgments, non-goals, and stop triggers.
 
-The current diagnostic target is baseline preview format v3, regional guide
+The historical diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. The producer/profile identities remain
-unchanged: producer v11 with `authored_foot_profile` v1. The successor region
-identity is also unchanged; the current successor is v9 with region id
-`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-profile-sweeps-v12`.
-It contains four authored arm-profile routes plus two authored leg-profile
-routes. The shared elbow seam is exact and upper-arm-owned; the leg routes
-retain the thigh-owned knee and shin-owned hock, and each foot route is exactly
-`hock -> metatarsal midpoint -> pad -> pad-toe midpoint -> toe`, with the hock
-shin-owned and the other four stations foot-owned. Foot routes consume full
-lateral/up/forward radii, outer caps, and four spans. There is no
-successor arm root bridge, old underarm support, or duplicate legacy leg mass.
-Exactly four temporary thigh-root/hip bridges remain, one root bridge and one
-hip transition per side. Station tuning does not vary per side or variant.
+unchanged: producer v11 with `authored_foot_profile` v1. The historical
+successor region id is
+`successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16`.
+It contains exactly 25 successor components and replaces 52 baseline fields.
+The v16 hip-root successor derives one four-station pelvis-to-thigh
+socket/cup/tangent-blend route per side from the lower-pelvis cage and authored
+thigh-root controls. It consumes the complete baseline field inventory and
+retains zero temporary bridge fields. It contains four authored arm-profile
+routes plus two authored leg-profile routes. The shared elbow seam is exact and
+upper-arm-owned; the leg routes retain the thigh-owned knee and shin-owned
+hock, and each foot route is exactly `hock -> metatarsal midpoint -> pad ->
+pad-toe midpoint -> toe`, with the hock shin-owned and the other four stations
+foot-owned. Foot routes consume full lateral/up/forward radii, outer caps, and
+four spans. Hand-paw routes retain source-derived outward/up/forward station
+volumes. There is no successor arm root bridge, old underarm support, or
+duplicate legacy leg mass. Station tuning does not vary per side or variant.
 
-Run it from the isolated environment prepared by
-`experiments/current-form-surface-preview/README.md`, or an equivalent
-environment containing that experiment's pinned requirements.
+Reproduce it, when needed for retained evidence, from the isolated environment
+prepared by `experiments/current-form-surface-preview/README.md`, or an
+equivalent environment containing that experiment's pinned requirements.
 
 ```bash
 cargo build -p creature-kernel-cli
@@ -379,7 +386,8 @@ surface_preview_launcher=experiments/current-form-surface-preview/surface_previe
 ```
 
 For galleries that should survive WSL restarts, use a persistent Linux-side
-root such as `/home/ben/.cache/creature-kernel/visual-reviews`. The publisher
+root such as `${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews`.
+The publisher
 creates that final directory when its parent exists. Serve it for LAN review
 with the existing read-only command:
 
@@ -389,7 +397,7 @@ POSIX filesystem supporting the required operations.
 
 ```bash
 python3 dev-tools/visual-review/serve.py \
-  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
   --port 8765 --lan-read-only
 ```
 
@@ -437,10 +445,10 @@ new immutable session. Older immutable sessions retain their original
 envelope, canvas, panel count, and captures; they are not rewritten by this
 diagnostic.
 
-For each historical comparison, appraise whether the successor reads as a more coherent
+For each current comparison, appraise whether the successor reads as a more coherent
 stylized digitigrade biped overall: recognizable cranium/muzzle/neck,
 shoulder/torso/pelvis structure, connected limbs and joints, digitigrade legs,
-paws, and tail; less like blended primitives; and with the four variants still
+paws, and tail; less like blended primitives; and with the five profiles still
 meaningfully different. The gallery records the comparison only; it does not
 record acceptance.
 
@@ -473,8 +481,10 @@ The producer v11 authored leg profile is checked as two exact bilateral
 five-station routes with `thigh/thigh/thigh/shin/shin` ownership and 30
 indexed lateral/up/forward radii. The guide and successor retain those exact
 projected controls and anisotropic leg-profile segment fields. The successor
-v9 sidecar and v12 region claims are checked against the guide and
+v9 sidecar and v16 region claims are checked against the guide and
 metrics, including the current rounded-superellipse axial profile operation.
+The sidecar also checks exactly 25 successor components, 52 replaced baseline
+fields, and a disabled zero-field `temporary_bridge`.
 The retained producer envelope remains the exact consumed evidence, and every
 successor PLY is parsed and checked for finite values, valid indices, one
 connected component, and watertight topology. Any profile, provenance, identity,
@@ -505,9 +515,11 @@ producer timeouts prevent any review session from being created. The successor
 v9 bundle is independently fail-closed: it must contain exactly four variants
 with one PLY, metrics JSON, successor-consumer sidecar, and composite PNG per
 variant. Its source identity, shared canvas/projections/layout/bounds, sidecar
-identity, torso/shoulder/head-neck/limb/extremity/tail claims, temporary bridge,
-metrics, inventory hashes, and regular-file set are checked against the
-baseline boundary. Only the eight composite PNGs are copied to the gallery;
+identity, torso/shoulder/head-neck/limb/extremity/tail/hip-root claims, exact
+25-component inventory, 52 replaced baseline fields, disabled zero-field
+`temporary_bridge`, metrics, inventory hashes, and regular-file set are checked
+against the baseline boundary. Only the eight composite PNGs are copied to the
+gallery;
 guide JSON, PLYs, sidecars, metrics, and temporary work directories remain
 disposable.
 
@@ -516,6 +528,55 @@ This is a disposable current-source visual bridge. It does not activate Stage
 evidence. The published form gallery is historical evidence, not the current
 human checkpoint, and publication itself is not acceptance. Keep generated
 bundles and sessions under `/tmp`; they are not repository artifacts.
+
+## Historical reproduction of the last published five-profile anatomy appraisal (closed baseline)
+
+The commands below reproduce the closed candidate's exact five ordered source
+profiles and its immutable baseline publication for retained evidence. They
+are not current runway work, do not create or accept a human checkpoint, and
+must not be used for fresh candidate generation. A new candidate or revised
+publication requires a new Ben-authorized runway and a new review ID.
+
+Generate the exact five ordered source profiles, with the standard neutral
+reference first, build the local compiler, and attempt the recorded immutable
+successor-surface anatomy publication through the pinned surface-preview
+environment:
+
+```bash
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+source_dir=/tmp/ck-successor-anatomy-sources
+
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+  --output-dir "$source_dir"
+cargo build --locked --bin creature-kernel
+"$surface_preview_launcher" dev-tools/visual-review/publish_successor_anatomy_gallery.py \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
+  --source-manifest "$source_dir/manifest.json" \
+  --creature-kernel target/debug/creature-kernel \
+  --id successor-stylized-anatomy-five-profile-checkpoint-v1
+```
+
+Before replay, `$source_dir`—the path passed to `--output-dir`—must not
+already exist. Remove that disposable directory or change `source_dir` to a
+different nonexistent path before running the commands.
+
+The visual-review root must already exist, and the pinned surface-preview
+environment and local compiler build must be available. The publisher replays
+the source generator against the checked-in candidate and base document,
+requires byte-identical generated profiles in the exact frozen order, and
+validates the five rendered RGB PNG sheets before installation. The default
+URL for the command above is
+`http://localhost:8765/review/successor-stylized-anatomy-five-profile-checkpoint-v1`.
+Publication never overwrites an existing review; use a new explicit `--id` for
+every revised candidate. Review IDs are separate from temporary-directory
+names: use a 1–64 character lowercase slug containing only letters, digits,
+`_`, or `-`; do not paste a dot-bearing `mktemp` suffix into `--id`.
+
+Publication may happen before the review server starts. Before opening the URL,
+ensure the existing systemd visual-review service (or one documented server)
+is active on port 8765. If the systemd service is already active, do not start
+a second `serve.py` instance on port 8765.
 
 ## Shared-pose structural embodiment checkpoint
 
@@ -526,16 +587,18 @@ profile images as one immutable review group:
 ```bash
 surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
 "$surface_preview_launcher" dev-tools/visual-review/publish_structural_embodiment.py \
-  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
   --gallery /tmp/ck-structural-embodiment-gallery
 ```
 
 The publisher accepts exactly the frozen four-profile order and the complete
 39-artifact/40-file gallery tree, including the generated source manifest and
 four source documents that bind the profiles to their generated inputs. It
-verifies every inventoried digest, reproduces the generated sources, parses and
-checks the neutral/posed surfaces, skeleton, weights, proxies, metrics, and
-fixed pose, then deterministically re-renders each of the four distinct
+verifies every inventoried digest, reproduces the generated sources from the
+immutable `experiments/current-form-surface-preview/historical/structural-embodiment-v1/`
+candidate table and base source through the explicit historical generation
+mode, parses and checks the neutral/posed surfaces, skeleton, weights, proxies,
+metrics, and fixed pose, then deterministically re-renders each of the four distinct
 `1800 x 2500` RGB PNGs before serving them. They remain in one group so
 arrow/click switching retains the comparison viewport. The default review URL is
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.

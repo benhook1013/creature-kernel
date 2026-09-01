@@ -312,7 +312,7 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         self.structures: dict[str, Path] = {}
         self.plys: dict[str, Path] = {}
         self.inputs: dict[str, gallery.ProfileInput] = {}
-        candidate_path = EXPERIMENT / gallery.CANDIDATE_FILE
+        candidate_path = gallery.HISTORICAL_CANDIDATE_PATH
         candidate_data = candidate_path.read_bytes()
         candidate = json.loads(candidate_data)
         base_source = candidate["base_source"]
@@ -324,19 +324,26 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
             structure = make_structure(profile_id)
             structure_path = self.root / f"{profile_id}.json"
             structure_path.write_bytes(canonical(structure))
+            source_body = {
+                key: structure["graph"][key]
+                for key in (
+                    "modules", "parts", "joints", "sockets", "attachments",
+                    "landmarks", "dimensions", "frames", "regions",
+                    "capabilities", "fields",
+                )
+            }
+            source_body["dimensions"] = [
+                {"owner": address("part", "tail_root", ["tail"]), "role": "form_start_radius", "value": 2},
+                {"owner": address("part", "tail_root", ["tail"]), "role": "form_end_radius", "value": 1},
+                {"owner": address("part", "tail_tip", ["tail"]), "role": "form_start_radius", "value": 1},
+                {"owner": address("part", "tail_tip", ["tail"]), "role": "form_end_radius", "value": 1},
+            ]
             source_document_value = {
                 "source": {
                     "document": source_document(profile_id),
                     "namespace": base_source["namespace"],
                 },
-                "body": {
-                    key: structure["graph"][key]
-                    for key in (
-                        "modules", "parts", "joints", "sockets", "attachments",
-                        "landmarks", "dimensions", "frames", "regions",
-                        "capabilities", "fields",
-                    )
-                },
+                "body": source_body,
             }
             source_data = canonical(source_document_value) + b"\n"
             self.expected_source_data[profile_id] = source_data
@@ -348,7 +355,7 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
                 "file": source_path.name,
                 "id": profile_id,
                 "sha256": hashlib.sha256(source_data).hexdigest(),
-                "tail_signature": [],
+                "tail_signature": list(gallery.profile_source_generator.tail_signature(source_document_value)),
             })
             ply_path = self.root / f"{profile_id}.ply"
             ply_path.write_bytes(cylinder_ply(1.0 + index * 0.25))
@@ -409,7 +416,7 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         root_inventory = {item["path"]: item for item in manifest["artifacts"]}
         self.assertEqual(
             (output / gallery.CANDIDATE_FILE).read_bytes(),
-            (EXPERIMENT / gallery.CANDIDATE_FILE).read_bytes(),
+            gallery.HISTORICAL_CANDIDATE_PATH.read_bytes(),
         )
         self.assertEqual(
             (output / gallery.SOURCES_DIR / gallery.SOURCE_MANIFEST_FILE).read_bytes(),
@@ -730,17 +737,17 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
 
     def test_candidate_table_is_exactly_bound_and_changed_bytes_fail_closed(self) -> None:
         original = self.build("candidate-original")
-        candidate = json.loads((EXPERIMENT / "structural_profile_candidates.json").read_text(encoding="utf-8"))
+        candidate = json.loads(gallery.HISTORICAL_CANDIDATE_PATH.read_text(encoding="utf-8"))
         candidate["profiles"][0]["label"] += " changed"
         changed_path = self.root / "changed-candidates.json"
         changed_path.write_bytes(json.dumps(candidate, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n")
         original_manifest = json.loads((original / gallery.MANIFEST_FILE).read_text(encoding="utf-8"))
         self.assertEqual(original_manifest["candidate_table"]["sha256"], gallery.FROZEN_CANDIDATE_TABLE_SHA256)
         self.assertEqual(original_manifest["candidate_table"]["kind"], "candidate-table")
-        self.assertEqual(original_manifest["candidate_table"]["bytes"], len((EXPERIMENT / "structural_profile_candidates.json").read_bytes()))
+        self.assertEqual(original_manifest["candidate_table"]["bytes"], len(gallery.HISTORICAL_CANDIDATE_PATH.read_bytes()))
         with self.assertRaisesRegex(gallery.GalleryError, "exact frozen structural candidate table"):
             self.build("candidate-changed", candidate_path=changed_path)
-        stale = json.loads((EXPERIMENT / "structural_profile_candidates.json").read_text(encoding="utf-8"))
+        stale = json.loads(gallery.HISTORICAL_CANDIDATE_PATH.read_text(encoding="utf-8"))
         slender = next(item for item in stale["profiles"] if item["id"] == "slender_long_limb")
         slender["part_placements"]["main|part|tail|tail_tip"] = [0, 0, -2]
         stale_path = self.root / "stale-candidates.json"
@@ -753,6 +760,47 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         broken_path.write_bytes(json.dumps(broken, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n")
         with self.assertRaisesRegex(gallery.GalleryError, "exact frozen four-profile set"):
             self.build("candidate-broken", candidate_path=broken_path)
+        with self.assertRaisesRegex(gallery.GalleryError, "exact frozen structural candidate table|exactly four profiles"):
+            self.build(
+                "active-five-candidate",
+                candidate_path=EXPERIMENT / "structural_profile_candidates.json",
+            )
+
+    def test_historical_generator_reordered_or_mislabeled_output_fails_closed(self) -> None:
+        self.expected_source_patch.stop()
+        candidate_table = gallery._load_candidates(gallery.HISTORICAL_CANDIDATE_PATH)
+        outputs = gallery.profile_source_generator.generate_sources(
+            candidate_table["root"],
+            json.loads(gallery.HISTORICAL_SOURCE_PATH.read_bytes()),
+            mode=gallery.HISTORICAL_GENERATION_MODE,
+        )
+        for malformed in (outputs[:-1], [*outputs, outputs[-1]]):
+            with self.subTest(output_count=len(malformed)):
+                with patch.object(
+                    gallery.profile_source_generator,
+                    "generate_sources",
+                    return_value=malformed,
+                ):
+                    with self.assertRaisesRegex(gallery.GalleryError, "exactly four profile documents"):
+                        gallery._expected_source_documents(candidate_table)
+
+        with patch.object(
+            gallery.profile_source_generator,
+            "generate_sources",
+            return_value=list(reversed(outputs)),
+        ):
+            with self.assertRaisesRegex(gallery.GalleryError, "unexpected source.document"):
+                gallery._expected_source_documents(candidate_table)
+
+        mislabeled = [dict(output) for output in outputs]
+        mislabeled[0] = {**mislabeled[0], "source": {**mislabeled[0]["source"], "document": "wrong"}}
+        with patch.object(
+            gallery.profile_source_generator,
+            "generate_sources",
+            return_value=mislabeled,
+        ):
+            with self.assertRaisesRegex(gallery.GalleryError, "unexpected source.document"):
+                gallery._expected_source_documents(candidate_table)
 
     def test_generated_source_bytes_are_hash_bound(self) -> None:
         profile_id = gallery.FROZEN_PROFILE_IDS[0]
@@ -760,6 +808,13 @@ class StructuralEmbodimentGalleryTests(unittest.TestCase):
         source_path.write_bytes(source_path.read_bytes() + b" ")
         with self.assertRaisesRegex(gallery.GalleryError, "does not match its manifest"):
             self.build("tampered-generated-source")
+
+    def test_generated_source_tail_signature_is_recomputed(self) -> None:
+        manifest = json.loads(self.source_manifest.read_text(encoding="utf-8"))
+        manifest["profiles"][0]["tail_signature"][1] += 1
+        self.source_manifest.write_bytes(canonical(manifest) + b"\n")
+        with self.assertRaisesRegex(gallery.GalleryError, "tail_signature does not match its source document"):
+            self.build("forged-tail-signature")
 
     def test_self_consistently_rehashed_generated_source_still_fails_closed(self) -> None:
         profile_id = gallery.FROZEN_PROFILE_IDS[0]

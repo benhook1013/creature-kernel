@@ -1825,7 +1825,8 @@
     if (profile.sections.length !== PROVISIONAL_FORM_TORSO_SECTIONS.length) {
       errors.push("v7 authored_torso_profile must contain exactly seven sections.");
     }
-    var sectionY = [];
+    var previousOwner = null;
+    var previousY = null;
     PROVISIONAL_FORM_TORSO_SECTIONS.forEach(function (expected, index) {
       var section = profile.sections[index];
       var where = "v7 torso profile section " + index;
@@ -1852,15 +1853,20 @@
       var landmarkRole = "form_torso_profile_" + sectionKey;
       if (!Number.isInteger(section.landmark_index) || section.landmark_index < 0 || section.landmark_index >= landmarks.length) {
         errors.push(where + " landmark_index must be an in-range integer index.");
-      } else {
-        var indexedLandmark = landmarks[section.landmark_index];
-        if (!isObject(indexedLandmark) || !formAddressEquals(indexedLandmark.owner, owner) || indexedLandmark.role !== landmarkRole) {
-          errors.push(where + " landmark_index does not resolve to the canonical axial landmark.");
-        } else if (formFiniteVector(indexedLandmark.position, 3)) {
-          sourceSection.position = indexedLandmark.position.slice();
-          sectionY.push(indexedLandmark.position[1]);
+        } else {
+          var indexedLandmark = landmarks[section.landmark_index];
+          if (!isObject(indexedLandmark) || !formAddressEquals(indexedLandmark.owner, owner) || indexedLandmark.role !== landmarkRole) {
+            errors.push(where + " landmark_index does not resolve to the canonical axial landmark.");
+          } else if (formFiniteVector(indexedLandmark.position, 3)) {
+            sourceSection.position = indexedLandmark.position.slice();
+            var y = indexedLandmark.position[1];
+            if (previousOwner !== null && formAddressEquals(previousOwner, owner) && previousY !== null && y <= previousY) {
+              errors.push(where + " landmark position must be strictly ordered within each owner-local route.");
+            }
+            previousOwner = owner;
+            previousY = y;
+          }
         }
-      }
       if (!formHasExactFields(section.dimension_indices, ["lateral", "anterior", "posterior"])) {
         errors.push(where + " dimension_indices must contain exactly lateral, anterior, and posterior.");
         return;
@@ -1882,10 +1888,32 @@
         sourceSection.radii[factor.name] = indexedDimension.value_permille;
       });
     });
-    if (sectionY.some(function (value, index) { return index > 0 && value <= sectionY[index - 1]; })) {
-      errors.push("v7 torso profile landmarks must have strictly increasing y.");
-    }
     return { errors: errors, dimensionKeys: dimensionKeys, sourceSections: sourceSections };
+  }
+
+  function formComposedTorsoProfileOrder(sourceSections, descriptorMap, namespace) {
+    if (!Array.isArray(sourceSections) || sourceSections.length !== PROVISIONAL_FORM_TORSO_SECTIONS.length) {
+      return null;
+    }
+    var composedY = [];
+    for (var index = 0; index < sourceSections.length; index += 1) {
+      var sourceSection = sourceSections[index];
+      var owner = formTorsoOwner(namespace, sourceSection.ownerRole);
+      var ownerRecord = descriptorMap[formAddressKey(owner)];
+      if (!ownerRecord) {
+        return "Authored torso sections owner has no validated body-space placement.";
+      }
+      if (!ownerRecord.referencePointValid || !formFiniteVector(sourceSection.position, 3)) {
+        return null;
+      }
+      composedY.push(ownerRecord.referencePoint[1] + sourceSection.position[1]);
+    }
+    for (var orderIndex = 0; orderIndex < composedY.length - 1; orderIndex += 1) {
+      if (composedY[orderIndex] >= composedY[orderIndex + 1]) {
+        return "Authored torso sections landmarks must have strictly increasing composed body-space y.";
+      }
+    }
+    return null;
   }
 
   function formTorsoProfileFactors(profileId, ownerRole) {
@@ -3214,6 +3242,16 @@
         errors.push("Every shoulder-control variant must contain exactly one left and one right upper_arm descriptor.");
       }
     });
+    if (isV11 && torsoProfileResult.sourceSections.length === PROVISIONAL_FORM_TORSO_SECTIONS.length) {
+      variantDescriptorMaps.forEach(function (descriptorMap) {
+        var composedTorsoOrderError = formComposedTorsoProfileOrder(
+          torsoProfileResult.sourceSections,
+          descriptorMap,
+          payload.source.namespace
+        );
+        if (composedTorsoOrderError) { errors.push(composedTorsoOrderError); }
+      });
+    }
     if (hasAuthoredDimensions && (Object.keys(authoredDimensionKeys).length !== Object.keys(consumedDimensionKeys).length || Object.keys(authoredDimensionKeys).some(function (key) { return !consumedDimensionKeys[key]; }))) {
       errors.push((isV8 ? "v8" : isV7 ? "v7" : isV6 ? "v6" : "v5") + " authored dimensions must equal the complete descriptor- and profile-consumed control set.");
     }

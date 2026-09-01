@@ -1762,8 +1762,9 @@ def _validate_v7_authored_torso_profile(
     consumed_dimension_keys: set[
         tuple[tuple[str, tuple[str, ...], str, str], str]
     ] = set()
-    section_y: list[float | int] = []
     source_sections: list[dict[str, Any]] = []
+    previous_owner: tuple[str, tuple[str, ...], str, str] | None = None
+    previous_y: float | int | None = None
     for index, (raw_section, expected_name, expected_owner_role) in enumerate(
         zip(
             sections,
@@ -1819,7 +1820,12 @@ def _validate_v7_authored_torso_profile(
                 f"{section_where}.landmark_index does not resolve to the canonical section landmark"
             )
         position = landmark_positions[landmark_index]
-        section_y.append(position[1])
+        if previous_owner == expected_owner and previous_y is not None and position[1] <= previous_y:
+            raise ValidationError(
+                f"{section_where}.landmark.position must be strictly ordered within each owner-local route"
+            )
+        previous_owner = expected_owner
+        previous_y = position[1]
 
         dimension_indices = _object(
             section.get("dimension_indices"), f"{section_where}.dimension_indices"
@@ -1853,9 +1859,31 @@ def _validate_v7_authored_torso_profile(
                 "radii": radii,
             }
         )
-    if any(section_y[index] >= section_y[index + 1] for index in range(len(section_y) - 1)):
-        raise ValidationError(f"{profile_where}.sections landmarks must have strictly increasing y")
     return consumed_dimension_keys, source_sections
+
+
+def _validate_composed_torso_profile_order(
+    source_sections: list[dict[str, Any]],
+    canonical_points: dict[tuple[str, tuple[str, ...], str, str], list[int]],
+    *,
+    namespace: str,
+    where: str,
+) -> None:
+    """Validate the torso route after composing owner-local controls into body space."""
+
+    composed_y: list[float | int] = []
+    for index, section in enumerate(source_sections):
+        owner = _provisional_form_torso_owner(namespace, section["owner_role"])
+        owner_point = canonical_points.get(owner)
+        if owner_point is None:
+            raise ValidationError(
+                f"{where}.sections[{index}] owner has no validated body-space placement"
+            )
+        composed_y.append(owner_point[1] + section["position"][1])
+    if any(composed_y[index] >= composed_y[index + 1] for index in range(len(composed_y) - 1)):
+        raise ValidationError(
+            f"{where}.sections landmarks must have strictly increasing composed body-space y"
+        )
 
 
 def _provisional_form_torso_profile_factors(
@@ -3989,6 +4017,13 @@ def _validate_provisional_form_envelope(value: Any, where: str) -> dict[str, Any
         )
     canonical_points = {entry[0]: entry[1] for entry in canonical}
     canonical_parents = {entry[0]: entry[2] for entry in canonical}
+    if is_v11:
+        _validate_composed_torso_profile_order(
+            torso_profile_sections,
+            canonical_points,
+            namespace=namespace,
+            where=f"{where}.authored_torso_profile",
+        )
     if parent_key not in canonical_points or child_key not in canonical_points:
         raise ValidationError(f"{where}.reference_scale must name descriptor addresses")
     candidates: list[tuple[int, tuple[str, tuple[str, ...], str, str], tuple[str, tuple[str, ...], str, str], list[int]]] = []

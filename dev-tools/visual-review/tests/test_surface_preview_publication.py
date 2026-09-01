@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import ast
 import base64
 import copy
+import errno
 import hashlib
 import importlib.util
 import io
 import json
 import lzma
+import math
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -36,6 +40,111 @@ import common
 publisher = load_module("surface_preview_publisher", "publish_surface_preview.py")
 
 
+# Keep the normal synthetic successor fixture's identity and topology
+# expectations independent from the publisher contract projection. If the
+# publisher and source owner drift together, this fixture must still expose it.
+INDEPENDENT_SUCCESSOR_FIXTURE = {
+    "format": "creature-kernel.disposable-successor-surface-preview.v9",
+    "consumer_id": "successor-surface-v1",
+    "region_id": "successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16",
+    "operations": {
+        "torso": "rounded-superellipse-axial-profile-sweep-v1",
+        "head_neck": "authored-head-neck-branched-route-profile-v1",
+        "arm": "authored-arm-profile-route-v1",
+        "leg": "authored-leg-profile-route-v1",
+        "foot": "authored-foot-profile-route-v1",
+        "hand_paw": "symmetric-ellipse",
+        "forward_muzzle": "successor-local-forward-muzzle-envelope-v1",
+        "hip_root": "derived-pelvis-thigh-socket-profile-v2",
+    },
+    "hip_root_controls": {
+        "boundary_samples": 64,
+        "boundary_iterations": 64,
+        "boundary_max_parameter": 4.0,
+        "socket_fraction": 0.62,
+        "cup_remaining_fraction": 0.55,
+        "pelvis_support_cap": 1.20,
+        "socket_thigh_weight": 0.68,
+        "socket_pelvis_weight": 0.32,
+        "cup_thigh_weight": 0.82,
+        "cup_pelvis_weight": 0.18,
+        "tangent_blend_fraction": 0.50,
+    },
+    "forward_muzzle_geometric_indices": (3, 5, 7),
+    "forward_muzzle_radius_donor_indices": (5, 6, 7),
+    "head_neck_order": ("vertical-neck-cranium", "forward-muzzle"),
+    "head_neck_section_counts": (5, 4),
+    "limb_order": (
+        "left-upper-arm-route", "left-forearm-route",
+        "right-upper-arm-route", "right-forearm-route",
+        "left-leg", "right-leg",
+    ),
+    "limb_station_names": (
+        ("upper-arm-start", "upper-arm-midpoint", "elbow"),
+        ("elbow", "forearm-midpoint", "forearm-distal"),
+        ("upper-arm-start", "upper-arm-midpoint", "elbow"),
+        ("elbow", "forearm-midpoint", "forearm-distal"),
+        ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
+        ("thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"),
+    ),
+    "extremity_order": (
+        "left-hand-attachment", "left-hand-paw", "left-foot",
+        "right-hand-attachment", "right-hand-paw", "right-foot",
+    ),
+    "extremity_kinds": (
+        "hand-attachment", "hand-paw", "foot-chain",
+        "hand-attachment", "hand-paw", "foot-chain",
+    ),
+    "hand_paw_profile": (
+        (-0.55, 0.62, 0.66),
+        (-0.15, 1.00, 1.00),
+        (0.35, 0.92, 1.05),
+        (0.78, 0.55, 0.60),
+    ),
+    "hand_paw_axial_radius": 0.5,
+    "hand_paw_transverse_radii": (0.5, 0.5),
+    "hand_paw_section_names": (
+        "hand-paw-base", "hand-paw-palm", "hand-paw-knuckle", "hand-paw-tip",
+    ),
+    "foot_section_names": (
+        "hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe",
+    ),
+    "foot_owner_roles": ("shin", "foot", "foot", "foot", "foot"),
+    "tail_order": (
+        "tail-root-source", "tail-root-attachment", "tail-root-collar",
+        "tail-tip-source", "tail-tip-extension", "tail-tip-cap",
+    ),
+    "tail_kinds": (
+        "source-centerline", "root-attachment", "root-collar-mass",
+        "source-centerline", "tip-extension", "tip-cap-mass",
+    ),
+    "tail_section_names": (
+        ("tail-root-source-start", "tail-root-source-end"),
+        ("tail-root-attachment-start", "tail-root-attachment-end"),
+        ("tail-root-collar-section-0", "tail-root-collar-section-1", "tail-root-collar-section-2"),
+        ("tail-tip-source-start", "tail-tip-source-end"),
+        ("tail-tip-extension-start", "tail-tip-extension-end"),
+        ("tail-tip-cap-section-0", "tail-tip-cap-section-1", "tail-tip-cap-section-2"),
+    ),
+    "replaced": (
+        "torso-cage", "cranium", "muzzle", "head-base-bridge", "tapered-neck", "neck-collar",
+        "deltoid-sweep-1", "root-bridge", "hip-transition",
+        "upper_arm-pre-joint", "upper_arm-joint", "forearm-proximal", "forearm-distal",
+        "thigh-pre-joint", "thigh-joint", "shin-pre-joint", "shin-joint", "elbow", "knee", "hock",
+        "paw", "extremity-bridge", "metatarsal", "paw-pad", "toe-box",
+        "tail-segment", "tail-root-bridge", "tail-root-collar", "tail-tip-extension", "tail-tip-cap",
+    ),
+    "replaced_field_count": 52,
+}
+INDEPENDENT_SUCCESSOR_FIXTURE["extremity_station_names"] = (
+    ("hand-attachment-start", "hand-attachment-end"),
+    INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_section_names"],
+    INDEPENDENT_SUCCESSOR_FIXTURE["foot_section_names"],
+    ("hand-attachment-start", "hand-attachment-end"),
+    INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_section_names"],
+    INDEPENDENT_SUCCESSOR_FIXTURE["foot_section_names"],
+)
+
 class SurfacePreviewPublicationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -47,6 +156,40 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def _run_cargo_inspect(self, repository: Path, input_path: Path) -> subprocess.CompletedProcess[str]:
+        command = [
+            "cargo", "run", "--quiet", "--package", "creature-kernel-cli",
+            "--bin", "creature-kernel", "--", "inspect-provisional-form",
+            "--input", str(input_path),
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as error:
+            if error.filename != "cargo":
+                raise
+            self.skipTest("requires Cargo (`cargo` executable)")
+        if completed.returncode != 0:
+            output = "\n".join(
+                f"{stream}: {value.strip()}"
+                for stream, value in (
+                    ("stdout", completed.stdout),
+                    ("stderr", completed.stderr),
+                )
+                if value.strip()
+            ) or "<no output>"
+            self.fail(
+                "Cargo inspect-provisional-form failed "
+                f"with exit code {completed.returncode}:\n{output}"
+            )
+        return completed
 
     def test_successor_semantic_sidecar_scales_with_validated_vertex_count(self) -> None:
         address = {
@@ -639,12 +782,12 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         return path
 
     def _successor_generator(self, *, mode: str = "success") -> Path:
-        """Write a small valid successor-v9 fixture, with bounded mutations."""
+        """Write a small valid successor-v9/v16-region fixture, with bounded mutations."""
 
         path = self.directory / f"successor-generator-{mode}.py"
         script = textwrap.dedent("""
             #!/usr/bin/env python3
-            import hashlib, json, math, pathlib, sys, time
+            import copy, hashlib, json, math, pathlib, sys, time
 
             MODE = __MODE__
             PNG = __PNG__
@@ -652,6 +795,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             PROJECTIONS = __PROJECTIONS__
             LAYOUT = __LAYOUT__
             BOUNDS = __BOUNDS__
+            EXPANDED_BOUNDS = __EXPANDED_BOUNDS__
             SUCCESSOR_FORMAT = __SUCCESSOR_FORMAT__
             CONSUMER_ID = __CONSUMER_ID__
             REGION_ID = __REGION_ID__
@@ -662,6 +806,24 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             LIMB_ORDER = __LIMB_ORDER__
             LIMB_STATION_NAMES = __LIMB_STATION_NAMES__
             EXTREMITY_STATION_NAMES = __EXTREMITY_STATION_NAMES__
+            HAND_PAW_PROFILE = __HAND_PAW_PROFILE__
+            HAND_PAW_AXIAL_RADIUS = __HAND_PAW_AXIAL_RADIUS__
+            HAND_PAW_TRANSVERSE_RADII = __HAND_PAW_TRANSVERSE_RADII__
+            HAND_PAW_SECTION_NAMES = __HAND_PAW_SECTION_NAMES__
+            FOOT_PROFILE_SECTION_NAMES = __FOOT_PROFILE_SECTION_NAMES__
+            FOOT_PROFILE_OWNER_ROLES = __FOOT_PROFILE_OWNER_ROLES__
+            HAND_PAW_OPERATION = __HAND_PAW_OPERATION__
+            TORSO_PROFILE_OPERATION = __TORSO_PROFILE_OPERATION__
+            HEAD_NECK_PROFILE_OPERATION = __HEAD_NECK_PROFILE_OPERATION__
+            ARM_PROFILE_OPERATION = __ARM_PROFILE_OPERATION__
+            LEG_PROFILE_OPERATION = __LEG_PROFILE_OPERATION__
+            FOOT_PROFILE_OPERATION = __FOOT_PROFILE_OPERATION__
+            FORWARD_MUZZLE_COMPOSITION_OPERATION = __FORWARD_MUZZLE_COMPOSITION_OPERATION__
+            FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES = __FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES__
+            FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES = __FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES__
+            TORSO_SUPERELLIPSE_EXPONENT = __TORSO_SUPERELLIPSE_EXPONENT__
+            HIP_ROOT_OPERATION = __HIP_ROOT_OPERATION__
+            HIP_ROOT_CONTROLS = __HIP_ROOT_CONTROLS__
             TAIL_ORDER = __TAIL_ORDER__
             TAIL_KINDS = __TAIL_KINDS__
             TAIL_SECTION_NAMES = __TAIL_SECTION_NAMES__
@@ -738,8 +900,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 source["document"] = "other-fixture"
             elif MODE == "scale-mismatch":
                 source["reference_scale"] = {**payload["reference_scale"], "squared_length": 4, "axis_delta": [0, 2, 0]}
-            frame = {"canvas": CANVAS, "projections": PROJECTIONS, "layout": LAYOUT, "shared_render_bounds": BOUNDS}
-            if MODE == "frame-mismatch":
+            frame_bounds = BOUNDS
+            if MODE == "expanded-bounds":
+                frame_bounds = EXPANDED_BOUNDS
+            frame = {"canvas": CANVAS, "projections": PROJECTIONS, "layout": LAYOUT, "shared_render_bounds": frame_bounds}
+            if MODE in {"frame-mismatch", "non-containing-bounds"}:
                 frame["shared_render_bounds"] = {"min": [-4.0, -5.0, -5.0], "max": [5.0, 5.0, 5.0]}
             out.mkdir(parents=True)
             records = []
@@ -759,7 +924,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 elif MODE == "ply-zero-volume": surface_ply = ZERO_VOLUME_PLY
                 elif MODE == "ply-flattened": surface_ply = FLATTENED_PLY
                 (variant_dir / "surface.ply").write_bytes(surface_ply)
-                bridge = {"enabled": True, "consumer": "baseline-analytic-fields", "regions": ["thigh-root-connectors", "hip-transitions"], "field_count": 4, "retained_recipes": ["hip-transition", "root-bridge"]}
+                bridge = {"enabled": False, "consumer": "none", "regions": [], "field_count": 0, "retained_recipes": []}
                 replaced = list(REPLACED)
                 producer_variant = raw_variants[variant_index]
                 descriptors = producer_variant["descriptors"]
@@ -828,9 +993,14 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     from_section = head_sections[connection_spec["from_section_index"]]
                     to_section = head_sections[connection_spec["to_section_index"]]
                     head_connections.append({"name": connection_spec["name"], "from_section_index": connection_spec["from_section_index"], "to_section_index": connection_spec["to_section_index"], "route": connection_spec["route"], "centerline": [from_section["center"], to_section["center"]], "thickness": [min(from_section["radii"].values()), min(to_section["radii"].values())]})
+                cranium_index, muzzle_root_index, muzzle_tip_index = FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES
+                muzzle_root_radius_index, muzzle_mid_radius_index, muzzle_tip_radius_index = FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES
+                composition_root = [0.5 * (head_sections[cranium_index]["center"][axis] + head_sections[cranium_index]["radii"]["forward"] * (1.0 if axis == 2 else 0.0) + head_sections[muzzle_root_index]["center"][axis]) for axis in range(3)]
+                composition_mid = [0.5 * (composition_root[axis] + head_sections[muzzle_tip_index]["center"][axis]) for axis in range(3)]
+                muzzle_composition = {"operation": FORWARD_MUZZLE_COMPOSITION_OPERATION, "section_names": ["muzzle-composition-root", "muzzle-composition-mid", "muzzle-composition-tip"], "geometric_input_section_indices": list(FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES), "radius_donor_section_indices": list(FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES), "center_derivation": ["midpoint(cranium-mid forward surface, muzzle-root center)", "midpoint(derived root, muzzle-tip center)", "muzzle-tip center"], "centers": [composition_root, composition_mid, head_sections[muzzle_tip_index]["center"]], "station_radii": [head_sections[index]["radii"] for index in FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES]}
                 head_neck = {
                     "profile_format": "creature-kernel.provisional-form-head-neck-profile.v1",
-                    "operation": "authored-head-neck-branched-route-profile-v1",
+                    "operation": HEAD_NECK_PROFILE_OPERATION,
                     "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11",
                     "provenance": source_head["provenance"],
                     "sections_consumed": 8,
@@ -838,8 +1008,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "sections": head_sections,
                     "connections": head_connections,
                     "route_topology": [
-                        {"name": "vertical-neck-cranium", "operation": "authored-head-neck-branched-route-profile-v1", "section_indices": [0, 1, 2, 3, 4], "section_names": [head_sections[index]["name"] for index in (0, 1, 2, 3, 4)], "connection_names": [head_connections[index]["name"] for index in (0, 1, 2, 3)], "tangent_axis": "up", "transverse_axes": ["lateral", "forward"], "owner_keys": [head_sections[index]["owner"] for index in (0, 1, 2, 3, 4)], "station_radii": [head_sections[index]["radii"] for index in (0, 1, 2, 3, 4)], "endpoint_cap_count": 2, "internal_transition_count": 0},
-                        {"name": "forward-muzzle", "operation": "authored-head-neck-branched-route-profile-v1", "section_indices": [3, 5, 6, 7], "section_names": [head_sections[index]["name"] for index in (3, 5, 6, 7)], "connection_names": [head_connections[index]["name"] for index in (4, 5, 6)], "tangent_axis": "forward", "transverse_axes": ["lateral", "up"], "owner_keys": [head_sections[index]["owner"] for index in (3, 5, 6, 7)], "station_radii": [head_sections[index]["radii"] for index in (3, 5, 6, 7)], "endpoint_cap_count": 2, "internal_transition_count": 0},
+                        {"name": "vertical-neck-cranium", "operation": HEAD_NECK_PROFILE_OPERATION, "section_indices": [0, 1, 2, 3, 4], "section_names": [head_sections[index]["name"] for index in (0, 1, 2, 3, 4)], "connection_names": [head_connections[index]["name"] for index in (0, 1, 2, 3)], "tangent_axis": "up", "transverse_axes": ["lateral", "forward"], "owner_keys": [head_sections[index]["owner"] for index in (0, 1, 2, 3, 4)], "station_radii": [head_sections[index]["radii"] for index in (0, 1, 2, 3, 4)], "endpoint_cap_count": 2, "internal_transition_count": 0, "derived_compositions": []},
+                        {"name": "forward-muzzle", "operation": HEAD_NECK_PROFILE_OPERATION, "section_indices": [3, 5, 6, 7], "section_names": [head_sections[index]["name"] for index in (3, 5, 6, 7)], "connection_names": [head_connections[index]["name"] for index in (4, 5, 6)], "tangent_axis": "forward", "transverse_axes": ["lateral", "up"], "owner_keys": [head_sections[index]["owner"] for index in (3, 5, 6, 7)], "station_radii": [head_sections[index]["radii"] for index in (3, 5, 6, 7)], "endpoint_cap_count": 2, "internal_transition_count": 0, "derived_compositions": [muzzle_composition]},
                     ],
                 }
                 limb_owners = {(side, role): source_owner(descriptors, role, [side]) for side in ("left", "right") for role in ("upper_arm", "forearm", "thigh", "shin")}
@@ -866,7 +1036,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     arm_station_sides.append({"side": side_name, "sections": stations})
                     for route_name, route_kind, route_sections in ((f"{side_name}-upper-arm-route", "upper-arm", stations[:3]), (f"{side_name}-forearm-route", "forearm", stations[2:])):
                         arm_routes.append({"name": route_name, "side": side_name, "route": route_kind, "station_names": [item["name"] for item in route_sections], "source_section_indices": [int(item["source_section_index"]) for item in route_sections], "owner_keys": [item["owner"] for item in route_sections], "station_count": len(route_sections)})
-                arm_profile = {"format": "creature-kernel.provisional-form-arm-profile.v1", "source": "authored_arm_profile", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": "authored-arm-profile-route-v1", "topology": "two-routes-per-side-shared-upper-arm-elbow-seam", "route_order": [item["name"] for item in arm_routes], "routes": arm_routes, "stations": arm_station_sides, "elbow_ownership": "upper_arm"}
+                arm_profile = {"format": "creature-kernel.provisional-form-arm-profile.v1", "source": "authored_arm_profile", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": ARM_PROFILE_OPERATION, "topology": "two-routes-per-side-shared-upper-arm-elbow-seam", "route_order": [item["name"] for item in arm_routes], "routes": arm_routes, "stations": arm_station_sides, "elbow_ownership": "upper_arm"}
                 leg_station_sides = []
                 for side_name in ("left", "right"):
                     source_side = next(item for item in payload["authored_leg_profile"]["sides"] if item["side"] == side_name)
@@ -890,7 +1060,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                             lineage[axis] = {"base": dimension["value_permille"], "factor": projected_section["scaling"][f"{axis}_factor_permille"], "scaled": projected_section[f"{axis}_radius_permille"], "reference": {"owner": owner, "role": dimension["role"], "index": dimension_index}, "provenance": dimension["provenance"], "consumed_section": source_section["name"]}
                         stations.append({"name": source_section["name"], "section_index": source_section["section_index"], "source_section_index": projected_section["source_section_index"], "owner": owner, "center": center, "frame_index": source_section["frame_index"], "landmark_index": source_section["landmark_index"], "radii": radii, "lineage": lineage, "consumption": ("skin-driving; knee seam owned by thigh station" if source_section["name"] == "knee" else "skin-driving; hock endpoint owned by shin station" if source_section["name"] == "hock-endpoint" else "skin-driving"), "profile_provenance": payload["authored_leg_profile"]["provenance"], "variant_provenance": payload["authored_leg_profile"]["provenance"]})
                     leg_station_sides.append({"side": side_name, "route": f"{side_name}-leg", "route_kind": "leg-profile", "source_section_indices": [item["source_section_index"] for item in stations], "station_count": 5, "owner_keys": [item["owner"] for item in stations], "stations": stations})
-                leg_profile = {"format": "creature-kernel.provisional-form-leg-profile.v1", "source": "authored_leg_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": "authored-leg-profile-route-v1", "topology": "one-five-station-route-per-side-thigh-knee-shin-hock", "route_order": [item["route"] for item in leg_station_sides], "route_kinds": [item["route_kind"] for item in leg_station_sides], "section_names": list(payload["authored_leg_profile"]["sides"][0]["sections"][index]["name"] for index in range(5)), "owner_roles": ["thigh", "thigh", "thigh", "shin", "shin"], "station_count": 10, "radius_count": 30, "provenance": payload["authored_leg_profile"]["provenance"], "variant_provenance": payload["authored_leg_profile"]["provenance"], "knee_seam": {"name": "knee", "index": 2, "owner_role": "thigh"}, "hock_endpoint": {"name": "hock-endpoint", "index": 4, "owner_role": "shin"}, "sides": leg_station_sides}
+                leg_profile = {"format": "creature-kernel.provisional-form-leg-profile.v1", "source": "authored_leg_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": LEG_PROFILE_OPERATION, "topology": "one-five-station-route-per-side-thigh-knee-shin-hock", "route_order": [item["route"] for item in leg_station_sides], "route_kinds": [item["route_kind"] for item in leg_station_sides], "section_names": list(payload["authored_leg_profile"]["sides"][0]["sections"][index]["name"] for index in range(5)), "owner_roles": ["thigh", "thigh", "thigh", "shin", "shin"], "station_count": 10, "radius_count": 30, "provenance": payload["authored_leg_profile"]["provenance"], "variant_provenance": payload["authored_leg_profile"]["provenance"], "knee_seam": {"name": "knee", "index": 2, "owner_role": "thigh"}, "hock_endpoint": {"name": "hock-endpoint", "index": 4, "owner_role": "shin"}, "sides": leg_station_sides}
                 foot_profile_sides = []
                 for side_name in ("left", "right"):
                     source_side = next(item for item in payload["authored_foot_profile"]["sides"] if item["side"] == side_name)
@@ -913,15 +1083,15 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     pad = guide_sections[0]
                     toe = guide_sections[1]
                     station_sources = [
-                        ("hock", hock["owner"], hock["center"], hock_radii, {"kind": "authored-leg-hock", "profile": payload["authored_leg_profile"]["format"], "source": "authored_leg_profile", "radii": hock["lineage"], "profile_provenance": hock["profile_provenance"], "variant_provenance": hock["variant_provenance"]}),
-                        ("metatarsal-midpoint", pad["owner"], [0.5 * (hock["center"][axis] + pad["center"][axis]) for axis in range(3)], [0.5 * (hock_radii[axis] + pad["radii"][axis]) for axis in range(3)], {"kind": "derived-guide-midpoint", "inputs": ["hock", "pad"], "profile_provenance": pad["profile_provenance"], "variant_provenance": pad["variant_provenance"]}),
-                        ("pad", pad["owner"], pad["center"], pad["radii"], {"kind": "authored-foot-profile", "profile": payload["authored_foot_profile"]["format"], "source": "authored_foot_profile", "radii": pad["lineage"], "profile_provenance": pad["profile_provenance"], "variant_provenance": pad["variant_provenance"]}),
-                        ("pad-toe-midpoint", pad["owner"], [0.5 * (pad["center"][axis] + toe["center"][axis]) for axis in range(3)], [0.5 * (pad["radii"][axis] + toe["radii"][axis]) for axis in range(3)], {"kind": "derived-guide-midpoint", "inputs": ["pad", "toe"], "profile_provenance": pad["profile_provenance"], "variant_provenance": pad["variant_provenance"]}),
-                        ("toe", toe["owner"], toe["center"], toe["radii"], {"kind": "authored-foot-profile", "profile": payload["authored_foot_profile"]["format"], "source": "authored_foot_profile", "radii": toe["lineage"], "profile_provenance": toe["profile_provenance"], "variant_provenance": toe["variant_provenance"]}),
+                        (FOOT_PROFILE_SECTION_NAMES[0], hock["owner"], hock["center"], hock_radii, {"kind": "authored-leg-hock", "profile": payload["authored_leg_profile"]["format"], "source": "authored_leg_profile", "radii": hock["lineage"], "profile_provenance": hock["profile_provenance"], "variant_provenance": hock["variant_provenance"]}),
+                        (FOOT_PROFILE_SECTION_NAMES[1], pad["owner"], [0.5 * (hock["center"][axis] + pad["center"][axis]) for axis in range(3)], [0.5 * (hock_radii[axis] + pad["radii"][axis]) for axis in range(3)], {"kind": "derived-guide-midpoint", "inputs": [FOOT_PROFILE_SECTION_NAMES[0], FOOT_PROFILE_SECTION_NAMES[2]], "profile_provenance": pad["profile_provenance"], "variant_provenance": pad["variant_provenance"]}),
+                        (FOOT_PROFILE_SECTION_NAMES[2], pad["owner"], pad["center"], pad["radii"], {"kind": "authored-foot-profile", "profile": payload["authored_foot_profile"]["format"], "source": "authored_foot_profile", "radii": pad["lineage"], "profile_provenance": pad["profile_provenance"], "variant_provenance": pad["variant_provenance"]}),
+                        (FOOT_PROFILE_SECTION_NAMES[3], pad["owner"], [0.5 * (pad["center"][axis] + toe["center"][axis]) for axis in range(3)], [0.5 * (pad["radii"][axis] + toe["radii"][axis]) for axis in range(3)], {"kind": "derived-guide-midpoint", "inputs": [FOOT_PROFILE_SECTION_NAMES[2], FOOT_PROFILE_SECTION_NAMES[4]], "profile_provenance": pad["profile_provenance"], "variant_provenance": pad["variant_provenance"]}),
+                        (FOOT_PROFILE_SECTION_NAMES[4], toe["owner"], toe["center"], toe["radii"], {"kind": "authored-foot-profile", "profile": payload["authored_foot_profile"]["format"], "source": "authored_foot_profile", "radii": toe["lineage"], "profile_provenance": toe["profile_provenance"], "variant_provenance": toe["variant_provenance"]}),
                     ]
                     stations = [{"name": name, "section_index": index, "source_section_index": [4, 0, 0, 1, 1][index], "owner": owner, "center": center, "volume_radii": radii, "lineage": lineage} for index, (name, owner, center, radii, lineage) in enumerate(station_sources)]
-                    foot_profile_sides.append({"side": side_name, "route": f"{side_name}-foot", "route_kind": "foot-profile", "station_count": 5, "source_section_indices": [item["source_section_index"] for item in stations], "owner_roles": ["shin", "foot", "foot", "foot", "foot"], "stations": stations})
-                foot_profile = {"format": "creature-kernel.provisional-form-foot-profile.v1", "source": "authored_foot_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": "authored-foot-profile-route-v1", "topology": "one-five-station-hock-to-toe-route-per-side", "route_order": [item["route"] for item in foot_profile_sides], "route_kinds": ["foot-profile", "foot-profile"], "section_names": ["hock", "metatarsal-midpoint", "pad", "pad-toe-midpoint", "toe"], "owner_roles": ["shin", "foot", "foot", "foot", "foot"], "route_station_count": 10, "authored_station_count": 4, "route_volume_radius_count": 30, "authored_radius_count": 12, "provenance": payload["authored_foot_profile"]["provenance"], "variant_provenance": payload["authored_foot_profile"]["provenance"], "sides": foot_profile_sides}
+                    foot_profile_sides.append({"side": side_name, "route": f"{side_name}-foot", "route_kind": "foot-profile", "station_count": 5, "source_section_indices": [item["source_section_index"] for item in stations], "owner_roles": list(FOOT_PROFILE_OWNER_ROLES), "stations": stations})
+                foot_profile = {"format": "creature-kernel.provisional-form-foot-profile.v1", "source": "authored_foot_profile", "source_format": payload["format"], "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "operation": FOOT_PROFILE_OPERATION, "topology": "one-five-station-hock-to-toe-route-per-side", "route_order": [item["route"] for item in foot_profile_sides], "route_kinds": ["foot-profile", "foot-profile"], "section_names": list(FOOT_PROFILE_SECTION_NAMES), "owner_roles": list(FOOT_PROFILE_OWNER_ROLES), "route_station_count": 10, "authored_station_count": 4, "route_volume_radius_count": 30, "authored_radius_count": 12, "provenance": payload["authored_foot_profile"]["provenance"], "variant_provenance": payload["authored_foot_profile"]["provenance"], "sides": foot_profile_sides}
                 limb_owner_keys = [
                     [limb_owners[("left", "upper_arm")]] * 3,
                     [limb_owners[("left", "upper_arm")], limb_owners[("left", "forearm")], limb_owners[("left", "forearm")]],
@@ -938,13 +1108,96 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     else:
                         limb_centerlines.append([[side_sign * 1.0, -1.0, 0.0], [side_sign * 1.0, -1.5, 0.0], [side_sign * 1.0, -2.0, 0.0], [side_sign * 1.0, -2.5, 0.5], [side_sign * 1.0, -3.0, 1.0]])
                 limb_internal_transition_counts = [0, 0, 0, 0, *[bend_count(points) for points in limb_centerlines]]
-                limbs = {"representation": "shared-guide-derived-authored-arm-and-leg-profile-routes", "sweeps_consumed": len(LIMB_ORDER), "sweep_order": list(LIMB_ORDER), "route_kinds": ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "leg-profile", "leg-profile"], "station_counts": [len(names) for names in LIMB_STATION_NAMES], "station_names": [list(names) for names in LIMB_STATION_NAMES], "section_owner_keys": limb_owner_keys, "station_owner_keys": limb_owner_keys, "endpoint_cap_counts": [2] * len(LIMB_ORDER), "arm_profile": arm_profile, "leg_profile": leg_profile, "foot_profile": foot_profile}
+                pelvis_owner = torso_controls[0]["owner"]
+                hip_root_section_names = ["hip-socket", "hip-cup", "thigh-tangent-blend", "thigh-root"]
+                hip_root_section_owner_keys = []
+                hip_root_source_owner_keys = []
+                hip_root_boundary_parameters = []
+                hip_root_socket_parameters = []
+                hip_root_tangent_blend_distances = []
+                hip_root_derived_from = []
+                hip_root_volume_radii = []
+                for leg_side in leg_profile["sides"]:
+                    thigh_start = leg_side["stations"][0]
+                    thigh_owner = thigh_start["owner"]
+                    thigh_volume = [thigh_start["radii"][axis] for axis in ("lateral", "up", "forward")]
+                    pelvis_support = [1.1 * radius for radius in thigh_volume]
+                    socket_volume = [HIP_ROOT_CONTROLS["socket_thigh_weight"] * thigh + HIP_ROOT_CONTROLS["socket_pelvis_weight"] * support for thigh, support in zip(thigh_volume, pelvis_support)]
+                    cup_volume = [HIP_ROOT_CONTROLS["cup_thigh_weight"] * thigh + HIP_ROOT_CONTROLS["cup_pelvis_weight"] * support for thigh, support in zip(thigh_volume, pelvis_support)]
+                    tangent_blend_volume = [0.5 * (cup + thigh) for cup, thigh in zip(cup_volume, thigh_volume)]
+                    boundary_parameter = 0.5
+                    socket_parameter = HIP_ROOT_CONTROLS["socket_fraction"] * boundary_parameter
+                    tangent_blend_distance = 0.25
+                    hip_root_section_owner_keys.append([pelvis_owner, thigh_owner, thigh_owner, thigh_owner])
+                    hip_root_source_owner_keys.append([pelvis_owner, thigh_owner])
+                    hip_root_boundary_parameters.append(boundary_parameter)
+                    hip_root_socket_parameters.append(socket_parameter)
+                    hip_root_tangent_blend_distances.append(tangent_blend_distance)
+                    hip_root_derived_from.append({
+                        "lower_pelvis": {"section_name": "lower-pelvis", "source_section_index": 0},
+                        "authored_thigh_start": {"station_name": "thigh-start", "source_station_index": 0},
+                        "tangent_blend": {"station_name": "thigh-tangent-blend", "construction": "authored-thigh-start-center-minus-distance-times-authored-thigh-tangent", "distance": tangent_blend_distance},
+                    })
+                    hip_root_volume_radii.append({"socket": socket_volume, "cup": cup_volume, "tangent_blend": tangent_blend_volume, "authored_thigh_start": thigh_volume})
+                hip_root = {
+                    "operation": HIP_ROOT_OPERATION,
+                    "topology": "one-derived-four-station-pelvis-socket-cup-tangent-blend-to-authored-thigh-root-per-side",
+                    "route_order": ["left-hip-root-transition", "right-hip-root-transition"],
+                    "route_kinds": ["derived-pelvis-thigh-transition", "derived-pelvis-thigh-transition"],
+                    "section_names": [hip_root_section_names, hip_root_section_names],
+                    "section_counts": [4, 4],
+                    "section_owner_keys": hip_root_section_owner_keys,
+                    "source_owner_keys": hip_root_source_owner_keys,
+                    "pelvis_section_names": ["lower-pelvis", "lower-pelvis"],
+                    "authored_station_names": ["thigh-start", "thigh-start"],
+                    "boundary_parameters": hip_root_boundary_parameters,
+                    "socket_parameters": hip_root_socket_parameters,
+                    "tangent_blend_distances": hip_root_tangent_blend_distances,
+                    "derived_from": hip_root_derived_from,
+                    "controls": dict(HIP_ROOT_CONTROLS),
+                    "volume_radii": hip_root_volume_radii,
+                }
+                limbs = {"representation": "shared-guide-derived-authored-arm-and-leg-profile-routes", "sweeps_consumed": len(LIMB_ORDER), "sweep_order": list(LIMB_ORDER), "route_kinds": ["arm-profile", "arm-profile", "arm-profile", "arm-profile", "leg-profile", "leg-profile"], "station_counts": [len(names) for names in LIMB_STATION_NAMES], "station_names": [list(names) for names in LIMB_STATION_NAMES], "section_owner_keys": limb_owner_keys, "station_owner_keys": limb_owner_keys, "endpoint_cap_counts": [2] * len(LIMB_ORDER), "arm_profile": arm_profile, "leg_profile": leg_profile, "hip_root": hip_root, "foot_profile": foot_profile}
                 paw_owners = {(side, role): source_owner(descriptors, role, [side]) for side in ("left", "right") for role in ("hand", "foot")}
+                hand_paw_sides = []
+                for side in ("left", "right"):
+                    side_sign = -1.0 if side == "left" else 1.0
+                    hand_owner = paw_owners[(side, "hand")]
+                    stations = []
+                    for index, (offset, up_scale, forward_scale) in enumerate(HAND_PAW_PROFILE):
+                        stations.append({
+                            "name": HAND_PAW_SECTION_NAMES[index],
+                            "section_index": index,
+                            "owner": hand_owner,
+                            "center": [side_sign * 1.3 + offset * 0.5 * side_sign, -0.9, 0.0],
+                            "volume_axes": [[side_sign, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                            "volume_radii": [HAND_PAW_AXIAL_RADIUS * (1.0 - abs(offset)), HAND_PAW_TRANSVERSE_RADII[0] * up_scale, HAND_PAW_TRANSVERSE_RADII[1] * forward_scale],
+                        })
+                    hand_paw_sides.append({
+                        "side": side,
+                        "route": f"{side}-hand-paw",
+                        "route_kind": "hand-paw",
+                        "station_count": len(stations),
+                        "owner_roles": ["hand"] * len(stations),
+                        "stations": stations,
+                    })
+                hand_paw = {
+                    "representation": "four-station-full-volume-hand-paw-sweeps",
+                    "operation": HAND_PAW_OPERATION,
+                    "route_order": [item["route"] for item in hand_paw_sides],
+                    "route_kinds": [item["route_kind"] for item in hand_paw_sides],
+                    "section_names": list(HAND_PAW_SECTION_NAMES),
+                    "owner_roles": ["hand"] * len(HAND_PAW_SECTION_NAMES),
+                    "route_station_count": sum(item["station_count"] for item in hand_paw_sides),
+                    "route_volume_axis_count": sum(len(station["volume_axes"]) for item in hand_paw_sides for station in item["stations"]),
+                    "route_volume_radius_count": sum(len(station["volume_radii"]) for item in hand_paw_sides for station in item["stations"]),
+                    "sides": hand_paw_sides,
+                }
                 extremity_owner_keys = []
                 extremity_internal_transition_counts = []
                 for side in ("left", "right"):
                     side_sign = -1.0 if side == "left" else 1.0
-                    hand_centers = [[side_sign * 1.3 + offset * 0.5 * side_sign, -0.9, 0.0] for offset in (-0.55, -0.15, 0.35, 0.78)]
+                    hand_centers = [[side_sign * 1.3 + offset * 0.5 * side_sign, -0.9, 0.0] for offset, _up_scale, _forward_scale in HAND_PAW_PROFILE]
                     hock_center = [side_sign * 1.0, -3.0, 1.0]
                     pad_center = [side_sign * 1.0, -3.6, 1.5]
                     toe_center = [side_sign * 1.0, -3.6, 1.72]
@@ -956,7 +1209,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         [limb_owners[(side, "shin")]] + [paw_owners[(side, "foot")]] * 4,
                     ])
                     extremity_internal_transition_counts.extend([0, bend_count(hand_centers), bend_count(foot_centers)])
-                extremities = {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": len(EXTREMITY_ORDER), "sweep_order": list(EXTREMITY_ORDER), "sweep_kinds": list(EXTREMITY_KINDS), "station_counts": [len(names) for names in EXTREMITY_STATION_NAMES], "station_names": [list(names) for names in EXTREMITY_STATION_NAMES], "section_owner_keys": extremity_owner_keys, "endpoint_cap_counts": [2] * len(EXTREMITY_ORDER), "internal_transition_counts": extremity_internal_transition_counts}
+                extremities = {"representation": "shared-guide-derived-hand-and-digitigrade-foot-profile-sweeps", "sweeps_consumed": len(EXTREMITY_ORDER), "sweep_order": list(EXTREMITY_ORDER), "sweep_kinds": list(EXTREMITY_KINDS), "station_counts": [len(names) for names in EXTREMITY_STATION_NAMES], "station_names": [list(names) for names in EXTREMITY_STATION_NAMES], "section_owner_keys": extremity_owner_keys, "endpoint_cap_counts": [2] * len(EXTREMITY_ORDER), "internal_transition_counts": extremity_internal_transition_counts, "hand_paw": hand_paw}
                 limb_source_owner_keys = []
                 for section_owners in limbs["section_owner_keys"]:
                     sweep_sources = []
@@ -970,8 +1223,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 tail = {"representation": "shared-guide-derived-profile-sweep-elements", "elements_consumed": len(TAIL_ORDER), "element_order": list(TAIL_ORDER), "element_kinds": list(TAIL_KINDS), "section_counts": [len(names) for names in TAIL_SECTION_NAMES], "section_names": [list(names) for names in TAIL_SECTION_NAMES], "owner_keys": [tail_root_owner] * 3 + [tail_tip_owner] * 3, "endpoint_cap_counts": [2] * len(TAIL_ORDER), "internal_transition_counts": [0] * len(TAIL_ORDER), "controls": tail_controls, "tip_shared_endpoint": tip_shared_endpoint}
                 metrics_region = {
                     "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11",
-                    "torso_representation": "rounded-superellipse-axial-profile-sweep-v1",
-                    "torso_profile_exponent": 4.0,
+                    "torso_representation": TORSO_PROFILE_OPERATION,
+                    "torso_profile_exponent": TORSO_SUPERELLIPSE_EXPONENT,
                     "torso_sections_consumed": len(torso_controls),
                     "torso_section_names": [item["name"] for item in torso_controls],
                     "torso_section_owner_keys": [item["owner"] for item in torso_controls],
@@ -986,7 +1239,9 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "head_neck": head_neck,
                     "arm_profile": arm_profile,
                     "leg_profile": leg_profile,
+                    "hip_root": hip_root,
                     "foot_profile": foot_profile,
+                    "hand_paw": hand_paw,
                     "limb_representation": limbs["representation"],
                     "limb_sweeps_consumed": limbs["sweeps_consumed"],
                     "limb_sweep_order": limbs["sweep_order"],
@@ -1020,7 +1275,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "tail_source_owner_keys": [tail_root_owner, tail_tip_owner],
                     "tail_element_controls": tail_controls,
                     "tail_tip_shared_endpoint": tip_shared_endpoint,
-                    "replaced_baseline_field_count": 48,
+                    "replaced_baseline_field_count": __REPLACED_FIELD_COUNT__,
                     "replaced_baseline_recipes": list(REPLACED),
                 }
                 sidecar = {
@@ -1031,7 +1286,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "consumer_id": CONSUMER_ID,
                     "successor_region_id": REGION_ID,
                     "capture": frame,
-                    "torso": {"representation": "rounded-superellipse-axial-profile-sweep-v1", "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "superellipse_exponent": 4.0, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
+                    "torso": {"representation": TORSO_PROFILE_OPERATION, "regional_guide_format": "creature-kernel.disposable-surface-preview-regional-guide.v11", "superellipse_exponent": TORSO_SUPERELLIPSE_EXPONENT, "sections_consumed": 7, "section_names": [item["name"] for item in torso_controls], "section_controls": torso_controls},
                     "shoulders": {"representation": "authored-five-section-frame-aware-profile-sweeps", "sweeps_consumed": 2, "sweep_order": ["left-shoulder-envelope", "right-shoulder-envelope"], "section_counts": [5, 5], "section_names": [shoulder_section_names, shoulder_section_names]},
                     "head_neck": head_neck,
                     "limbs": limbs,
@@ -1048,11 +1303,11 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     "successor-right-hand-attachment", "successor-right-hand-paw", "successor-right-foot", "successor-tail-root-source",
                     "successor-tail-root-attachment", "successor-tail-root-collar", "successor-tail-tip-source", "successor-tail-tip-extension",
                     "successor-tail-tip-cap", "successor-left-shoulder-envelope", "successor-right-shoulder-envelope",
-                    "root-bridge", "root-bridge", "hip-transition", "hip-transition",
+                    "successor-left-hip-root-transition", "successor-right-hip-root-transition",
                 ]
                 component_visualization = {
                     **COMPONENT_VISUALIZATION_METRICS,
-                    "component_count": 27,
+                    "component_count": 25,
                     "components": [{"source_owner": descriptors[index % len(descriptors)]["address"], "recipe": recipe, "bounds": {"min": [-1.0, -1.0, -1.0], "max": [1.0, 1.0, 1.0]}} for index, recipe in enumerate(component_recipes)],
                 }
                 if MODE == "metrics-wrong-topology":
@@ -1061,8 +1316,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     sidecar["consumer_id"] = "wrong-consumer"
                 elif MODE == "sidecar-bridge":
                     sidecar["temporary_bridge"] = {**bridge, "field_count": 7}
-                elif MODE == "sidecar-stale-six-bridge":
-                    sidecar["temporary_bridge"] = {**bridge, "regions": ["limb-root-connectors", "hip-transitions"], "field_count": 6}
+                elif MODE == "sidecar-stale-v15-bridge":
+                    sidecar["temporary_bridge"] = {"enabled": True, "consumer": "baseline-analytic-fields", "regions": ["thigh-root-connectors", "hip-transitions"], "field_count": 4, "retained_recipes": ["hip-transition", "root-bridge"]}
                 elif MODE == "sidecar-stale-v2":
                     sidecar["format"] = "creature-kernel.disposable-successor-surface-preview.v2"
                 elif MODE == "sidecar-old-shoulder":
@@ -1083,11 +1338,17 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     sidecar["shoulders"] = {**sidecar["shoulders"], "span_index": True}
                 elif MODE == "sidecar-missing-deltoid-replacement":
                     sidecar["replaced_baseline_recipes"] = [recipe for recipe in replaced if recipe != "deltoid-sweep-1"]
+                elif MODE == "sidecar-missing-hip-replacement":
+                    sidecar["replaced_baseline_recipes"] = [recipe for recipe in replaced if recipe != "hip-transition"]
+                elif MODE == "sidecar-hip-root":
+                    sidecar["limbs"] = {**sidecar["limbs"], "hip_root": {**sidecar["limbs"]["hip_root"], "operation": "stale-hip-root-operation"}}
                 elif MODE == "sidecar-torso-owner":
                     pelvis_owner = next(item["address"] for item in descriptors if item["address"]["role"] == "pelvis" and item["address"]["anchors"] == [])
                     sidecar["torso"] = {**sidecar["torso"], "section_controls": [*sidecar["torso"]["section_controls"][:2], {**sidecar["torso"]["section_controls"][2], "owner": pelvis_owner}, *sidecar["torso"]["section_controls"][3:]]}
                 elif MODE == "sidecar-torso-radius":
                     sidecar["torso"] = {**sidecar["torso"], "section_controls": [*sidecar["torso"]["section_controls"][:2], {**sidecar["torso"]["section_controls"][2], "lateral_radius": sidecar["torso"]["section_controls"][2]["lateral_radius"] + 0.01}, *sidecar["torso"]["section_controls"][3:]]}
+                elif MODE == "sidecar-torso-exponent":
+                    sidecar["torso"] = {**sidecar["torso"], "superellipse_exponent": 4.0}
                 elif MODE == "sidecar-head-section":
                     sections = list(sidecar["head_neck"]["sections"])
                     sections[0] = {**sections[0], "owner": head_owner}
@@ -1099,6 +1360,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 elif MODE == "sidecar-head-route-topology":
                     routes = list(sidecar["head_neck"]["route_topology"])
                     routes[0] = {**routes[0], "section_indices": [0, 1, 2, 4, 3]}
+                    sidecar["head_neck"] = {**sidecar["head_neck"], "route_topology": routes}
+                elif MODE == "sidecar-head-derived-composition":
+                    routes = copy.deepcopy(sidecar["head_neck"]["route_topology"])
+                    routes[1]["derived_compositions"][0]["centers"][0][0] += 0.1
                     sidecar["head_neck"] = {**sidecar["head_neck"], "route_topology": routes}
                 elif MODE == "sidecar-arm-route-order":
                     sidecar["limbs"] = {**sidecar["limbs"], "sweep_order": list(reversed(sidecar["limbs"]["sweep_order"]))}
@@ -1152,6 +1417,21 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     stations[2] = {**station, "lineage": lineage}
                     sides[0] = {**sides[0], "stations": stations}
                     sidecar["limbs"] = {**sidecar["limbs"], "foot_profile": {**profile, "sides": sides}}
+                elif MODE == "sidecar-hand-paw":
+                    hand_paw = {**sidecar["extremities"]["hand_paw"], "route_station_count": 7}
+                    sidecar["extremities"] = {**sidecar["extremities"], "hand_paw": hand_paw}
+                elif MODE.startswith("sidecar-hand-paw-"):
+                    hand_paw = copy.deepcopy(sidecar["extremities"]["hand_paw"])
+                    station = hand_paw["sides"][0]["stations"][0]
+                    if MODE == "sidecar-hand-paw-axis":
+                        station["volume_axes"][0][0] = -station["volume_axes"][0][0]
+                    elif MODE == "sidecar-hand-paw-center":
+                        station["center"][1] += 0.1
+                    elif MODE == "sidecar-hand-paw-radius":
+                        station["volume_radii"][2] += 0.1
+                    elif MODE == "sidecar-hand-paw-owner":
+                        station["owner"] = hand_paw["sides"][1]["stations"][0]["owner"]
+                    sidecar["extremities"] = {**sidecar["extremities"], "hand_paw": hand_paw}
                 (variant_dir / "successor.json").write_text(json.dumps(sidecar, sort_keys=True), encoding="utf-8")
                 metrics_file = dict(metrics)
                 if MODE == "metrics-disagreement":
@@ -1174,6 +1454,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     controls = list(metrics["successor_region"]["torso_section_controls"])
                     controls[0] = {**controls[0], "posterior_radius": controls[0]["posterior_radius"] + 0.01}
                     metrics_file["successor_region"] = {**metrics["successor_region"], "torso_section_controls": controls}
+                elif MODE == "metrics-torso-exponent":
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "torso_profile_exponent": 4.0}
                 elif MODE == "metrics-torso-owner":
                     owners = list(metrics["successor_region"]["torso_section_owner_keys"])
                     owners[2] = owners[0]
@@ -1190,10 +1472,18 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     owners = list(metrics["successor_region"]["limb_sweep_station_owner_keys"])
                     owners[4] = [limb_owners[("left", "thigh")]] * 5
                     metrics_file["successor_region"] = {**metrics["successor_region"], "limb_sweep_station_owner_keys": owners}
+                elif MODE == "metrics-hip-root":
+                    hip_metadata = {**metrics["successor_region"]["hip_root"], "route_order": ["right-hip-root-transition", "left-hip-root-transition"]}
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "hip_root": hip_metadata}
+                elif MODE == "metrics-replaced-count":
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "replaced_baseline_field_count": 48}
                 elif MODE == "metrics-foot-profile":
                     foot_profile_metadata = dict(metrics["successor_region"]["foot_profile"])
                     foot_profile_metadata["route_order"] = list(reversed(foot_profile_metadata["route_order"]))
                     metrics_file["successor_region"] = {**metrics["successor_region"], "foot_profile": foot_profile_metadata}
+                elif MODE == "metrics-hand-paw":
+                    hand_paw = {**metrics["successor_region"]["hand_paw"], "route_station_count": 7}
+                    metrics_file["successor_region"] = {**metrics["successor_region"], "hand_paw": hand_paw}
                 if MODE.startswith("component-"):
                     components = [dict(item) for item in component_visualization["components"]]
                     if MODE == "component-missing": components.pop()
@@ -1241,7 +1531,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             if MODE == "stale-canvas": manifest_canvas = {"width": 1800, "height": 570, "mode": "RGB"}
             if MODE == "stale-layout": manifest_layout = {"panel_order": ["front-guide", "front-skin", "side-guide", "side-skin", "three-quarter-guide", "three-quarter-skin"], "panels": [{"id": "front-guide", "projection": "front", "content": "guide", "box": [12, 72, 292, 548]}, {"id": "front-skin", "projection": "front", "content": "skin", "box": [310, 72, 590, 548]}, {"id": "side-guide", "projection": "side", "content": "guide", "box": [608, 72, 888, 548]}, {"id": "side-skin", "projection": "side", "content": "skin", "box": [906, 72, 1186, 548]}, {"id": "three-quarter-guide", "projection": "three-quarter", "content": "guide", "box": [1204, 72, 1484, 548]}, {"id": "three-quarter-skin", "projection": "three-quarter", "content": "skin", "box": [1502, 72, 1782, 548]}], "pairing": "guide-left/skin-right per projection", "frame": "shared-world-bounds-and-projection-basis"}
             if MODE == "stale-format": manifest_format = "creature-kernel.disposable-successor-surface-preview.v8"
-            generator = {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral hands, digitigrade feet, and tail; baseline temporary bridge for thigh-root/hip connectors", "production_status": "disposable exploratory proof", "component_visualization": COMPONENT_VISUALIZATION}
+            generator = {"samples_per_axis": 56, "padding": MESH_PADDING, "capture_padding": CAPTURE_PADDING, "smooth_k": 0.12, "consumer_boundary": "successor torso/shoulder/head/neck, authored arm and leg profile routes, bilateral pelvis-to-thigh socket/cup transitions, bilateral hands, digitigrade feet, and tail", "production_status": "disposable exploratory proof", "component_visualization": COMPONENT_VISUALIZATION}
             if MODE == "component-visualization-omitted": generator.pop("component_visualization")
             if MODE == "component-visualization-tampered": generator["component_visualization"] = {**COMPONENT_VISUALIZATION, "samples_per_axis": 31}
             manifest = {"format": manifest_format, "status": "success", "consumer_id": CONSUMER_ID, "source_format": payload["format"], "source": source, "shared_render_bounds": frame["shared_render_bounds"], "canvas": manifest_canvas, "layout": manifest_layout, "projections": frame["projections"], "generator": generator, "variants": records}
@@ -1254,20 +1544,40 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "__PROJECTIONS__": repr(publisher.EXPECTED_PROJECTIONS),
             "__LAYOUT__": repr(publisher.EXPECTED_LAYOUT),
             "__BOUNDS__": repr({"min": [-5.0, -5.0, -5.0], "max": [5.0, 5.0, 5.0]}),
-            "__SUCCESSOR_FORMAT__": repr(publisher.SUCCESSOR_PREVIEW_FORMAT),
-            "__CONSUMER_ID__": repr(publisher.SUCCESSOR_CONSUMER_ID),
-            "__REGION_ID__": repr(publisher.SUCCESSOR_REGION_ID),
-            "__EXTREMITY_ORDER__": repr(list(publisher.SUCCESSOR_EXTREMITY_ORDER)),
-            "__EXTREMITY_KINDS__": repr(list(publisher.SUCCESSOR_EXTREMITY_KINDS)),
-            "__HEAD_NECK_ORDER__": repr(list(publisher.SUCCESSOR_HEAD_NECK_ORDER)),
-            "__HEAD_NECK_SECTION_COUNTS__": repr(list(publisher.SUCCESSOR_HEAD_NECK_SECTION_COUNTS)),
-            "__LIMB_ORDER__": repr(list(publisher.SUCCESSOR_LIMB_ORDER)),
-            "__LIMB_STATION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_LIMB_STATION_NAMES]),
-            "__EXTREMITY_STATION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_EXTREMITY_STATION_NAMES]),
-            "__TAIL_ORDER__": repr(list(publisher.SUCCESSOR_TAIL_ORDER)),
-            "__TAIL_KINDS__": repr(list(publisher.SUCCESSOR_TAIL_KINDS)),
-            "__TAIL_SECTION_NAMES__": repr([list(names) for names in publisher.SUCCESSOR_TAIL_SECTION_NAMES]),
-            "__REPLACED__": repr(list(publisher.SUCCESSOR_REPLACED_BASELINE_RECIPES)),
+            "__EXPANDED_BOUNDS__": repr({"min": [-6.0, -6.0, -6.0], "max": [6.0, 6.0, 6.0]}),
+            "__SUCCESSOR_FORMAT__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["format"]),
+            "__CONSUMER_ID__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["consumer_id"]),
+            "__REGION_ID__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["region_id"]),
+            "__EXTREMITY_ORDER__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["extremity_order"])),
+            "__EXTREMITY_KINDS__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["extremity_kinds"])),
+            "__HEAD_NECK_ORDER__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["head_neck_order"])),
+            "__HEAD_NECK_SECTION_COUNTS__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["head_neck_section_counts"])),
+            "__LIMB_ORDER__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["limb_order"])),
+            "__LIMB_STATION_NAMES__": repr([list(names) for names in INDEPENDENT_SUCCESSOR_FIXTURE["limb_station_names"]]),
+            "__EXTREMITY_STATION_NAMES__": repr([list(names) for names in INDEPENDENT_SUCCESSOR_FIXTURE["extremity_station_names"]]),
+            "__HAND_PAW_PROFILE__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_profile"])),
+            "__HAND_PAW_AXIAL_RADIUS__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_axial_radius"]),
+            "__HAND_PAW_TRANSVERSE_RADII__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_transverse_radii"]),
+            "__HAND_PAW_SECTION_NAMES__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_section_names"])),
+            "__FOOT_PROFILE_SECTION_NAMES__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["foot_section_names"])),
+            "__FOOT_PROFILE_OWNER_ROLES__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["foot_owner_roles"])),
+            "__HAND_PAW_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["hand_paw"]),
+            "__TORSO_PROFILE_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["torso"]),
+            "__HEAD_NECK_PROFILE_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["head_neck"]),
+            "__ARM_PROFILE_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["arm"]),
+            "__LEG_PROFILE_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["leg"]),
+            "__FOOT_PROFILE_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["foot"]),
+            "__FORWARD_MUZZLE_COMPOSITION_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["forward_muzzle"]),
+            "__FORWARD_MUZZLE_GEOMETRIC_INPUT_SECTION_INDICES__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["forward_muzzle_geometric_indices"])),
+            "__FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["forward_muzzle_radius_donor_indices"])),
+            "__TORSO_SUPERELLIPSE_EXPONENT__": repr(3.0),
+            "__HIP_ROOT_OPERATION__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["operations"]["hip_root"]),
+            "__HIP_ROOT_CONTROLS__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["hip_root_controls"]),
+            "__TAIL_ORDER__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["tail_order"])),
+            "__TAIL_KINDS__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["tail_kinds"])),
+            "__TAIL_SECTION_NAMES__": repr([list(names) for names in INDEPENDENT_SUCCESSOR_FIXTURE["tail_section_names"]]),
+            "__REPLACED__": repr(list(INDEPENDENT_SUCCESSOR_FIXTURE["replaced"])),
+            "__REPLACED_FIELD_COUNT__": repr(INDEPENDENT_SUCCESSOR_FIXTURE["replaced_field_count"]),
             "__MESH_PADDING__": repr(0.5),
             "__CAPTURE_PADDING__": repr(0.5 if mode == "capture-padding-mismatch" else 0.75),
             "__COMPONENT_VISUALIZATION__": repr(publisher.EXPECTED_COMPONENT_VISUALIZATION),
@@ -1285,6 +1595,43 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         path.write_text(script, encoding="utf-8")
         path.chmod(0o755)
         return path
+
+    def _publish_synthetic_successor_with_capture(self, review_id: str) -> dict[str, object]:
+        captured: dict[str, object] = {}
+        validate_successor_bundle = publisher._validate_successor_bundle
+
+        def capture_successor_bundle(
+            bundle: Path,
+            expected_source_sha256: str,
+            producer_payload: dict[str, object],
+            baseline_manifest: dict[str, object],
+            baseline_guides: dict[str, dict[str, object]],
+        ):
+            published, metadata = validate_successor_bundle(
+                bundle,
+                expected_source_sha256,
+                producer_payload,
+                baseline_manifest,
+                baseline_guides,
+            )
+            captured["published"] = published
+            captured["baseline_guides"] = baseline_guides
+            return published, metadata
+
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()), patch.object(
+            publisher,
+            "_validate_successor_bundle",
+            side_effect=capture_successor_bundle,
+        ):
+            publisher.publish_surface_preview(
+                self.root,
+                self.input,
+                creature_kernel=self._producer(),
+                generator=self._generator(),
+                successor_generator=self._successor_generator(),
+                review_id=review_id,
+            )
+        return captured
 
     def _payload(self) -> dict[str, object]:
         owner_specs = [("pelvis", []), ("torso", []), ("neck", []), ("head", []), ("upper_arm", ["left"]), ("forearm", ["left"]), ("hand", ["left"]), ("upper_arm", ["right"]), ("forearm", ["right"]), ("hand", ["right"]), ("thigh", ["left"]), ("shin", ["left"]), ("foot", ["left"]), ("thigh", ["right"]), ("shin", ["right"]), ("foot", ["right"]), ("tail_root", ["tail"]), ("tail_tip", ["tail"])]
@@ -1855,6 +2202,151 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 with self.assertRaises(publisher.SurfacePreviewPublishError):
                     publisher._validate_address({**valid, "anchors": anchors}, "address")
 
+    def test_successor_hand_paw_contract_matches_source_owner_and_independent_oracle(self) -> None:
+        source_path = HERE.parents[1] / "experiments" / "current-form-surface-preview" / "successor_surface_preview.py"
+        source_module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        assignment = next(
+            node
+            for node in ast.walk(source_module)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "_HAND_PAW_PROFILE" for target in node.targets)
+        )
+        source_profile = ast.literal_eval(assignment.value)
+        independent_profile = INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_profile"]
+        self.assertEqual(source_profile, independent_profile)
+        self.assertEqual(publisher.SUCCESSOR_HAND_PAW_PROFILE, source_profile)
+        self.assertEqual(publisher._MAX_SUCCESSOR_HAND_PAW_OFFSET, 1.0)
+        offsets = tuple(float(offset) for offset, _up_scale, _forward_scale in independent_profile)
+        self.assertTrue(all(math.isfinite(offset) for offset in offsets))
+        self.assertTrue(all(left < right for left, right in zip(offsets, offsets[1:])))
+        self.assertLess(min(offsets), 0.0)
+        self.assertGreater(max(offsets), 0.0)
+        for offset in offsets:
+            self.assertGreater(offset, -1.0)
+            self.assertLess(offset, 1.0)
+
+    def test_successor_hand_paw_publication_uses_exact_residual_axial_radii(self) -> None:
+        captured = self._publish_synthetic_successor_with_capture("hand-paw-residual-radii")
+        published = captured["published"]
+        self.assertIsInstance(published, list)
+        profile = INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_profile"]
+        axial_radius = INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_axial_radius"]
+        transverse_radii = INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_transverse_radii"]
+        for item in published:
+            sidecar_hand_paw = item["sidecar"]["extremities"]["hand_paw"]
+            metrics_hand_paw = item["metrics"]["successor_region"]["hand_paw"]
+            self.assertEqual(sidecar_hand_paw, metrics_hand_paw)
+            for side in sidecar_hand_paw["sides"]:
+                self.assertEqual(
+                    [station["name"] for station in side["stations"]],
+                    list(INDEPENDENT_SUCCESSOR_FIXTURE["hand_paw_section_names"]),
+                )
+                for station, (offset, up_scale, forward_scale) in zip(side["stations"], profile):
+                    expected_residual = (1.0 - abs(offset)) * axial_radius
+                    self.assertGreater(offset, -1.0)
+                    self.assertLess(offset, 1.0)
+                    self.assertEqual(
+                        station["volume_radii"],
+                        [
+                            expected_residual,
+                            transverse_radii[0] * up_scale,
+                            transverse_radii[1] * forward_scale,
+                        ],
+                    )
+                    self.assertGreater(station["volume_radii"][0], 0.0)
+                    self.assertLessEqual(station["volume_radii"][0], axial_radius)
+
+    def test_successor_hand_paw_metadata_rejects_nonpositive_residual_axial_radius(self) -> None:
+        left_owner = {"namespace": "main", "anchors": ["left"], "kind": "part", "role": "hand"}
+        right_owner = {"namespace": "main", "anchors": ["right"], "kind": "part", "role": "hand"}
+        guide = {
+            "controls": {
+                "axes": {"lateral": [1.0, 0.0, 0.0], "up": [0.0, 1.0, 0.0], "forward": [0.0, 0.0, 1.0]},
+                "paws": [
+                    {"owner": left_owner, "masses": [{"control": "paw", "center": [-1.0, 0.0, 0.0], "radii": [0.0, 0.5, 0.5]}]},
+                    {"owner": right_owner, "masses": [{"control": "paw", "center": [1.0, 0.0, 0.0], "radii": [0.0, 0.5, 0.5]}]},
+                ],
+            },
+        }
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError,
+            "nonpositive residual axial radius",
+        ):
+            publisher._expected_successor_hand_paw_metadata(guide)
+
+    def test_successor_expected_metadata_reuses_derived_hand_paw_centers(self) -> None:
+        captured = self._publish_synthetic_successor_with_capture("hand-paw-center-reuse")
+        guides = captured["baseline_guides"]
+        guide = guides["neutral-v0"]
+        torso_controls = [
+            {
+                "name": section["name"],
+                "owner": section["owner"],
+                "center": section["center"],
+                "axial_position": section["center"][1],
+                "lateral_radius": section["lateral_radius"],
+                "anterior_radius": section["anterior_radius"],
+                "posterior_radius": section["posterior_radius"],
+            }
+            for section in guide["controls"]["torso_cage"]["sections"]
+        ]
+        sentinel_hand_paw = copy.deepcopy(publisher._expected_successor_hand_paw_metadata(guide))
+        sentinel_centers = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [1.0, 1.0, 1.0]]
+        for side in sentinel_hand_paw["sides"]:
+            for station, center in zip(side["stations"], sentinel_centers):
+                station["center"] = center
+        with patch.object(
+            publisher,
+            "_expected_successor_hand_paw_metadata",
+            return_value=sentinel_hand_paw,
+        ):
+            metadata = publisher._expected_successor_region_metadata(guide, torso_controls)
+        self.assertEqual(
+            metadata["extremities"]["internal_transition_counts"],
+            [0, 2, 1, 0, 2, 1],
+        )
+
+    def test_successor_replaced_baseline_field_count_uses_recipe_inventory(self) -> None:
+        captured = self._publish_synthetic_successor_with_capture("derived-replaced-field-count")
+        guides = captured["baseline_guides"]
+        guide = guides["neutral-v0"]
+        torso_controls = [
+            {
+                "name": section["name"],
+                "owner": section["owner"],
+                "center": section["center"],
+                "axial_position": section["center"][1],
+                "lateral_radius": section["lateral_radius"],
+                "anterior_radius": section["anterior_radius"],
+                "posterior_radius": section["posterior_radius"],
+            }
+            for section in guide["controls"]["torso_cage"]["sections"]
+        ]
+        independent_count = INDEPENDENT_SUCCESSOR_FIXTURE["replaced_field_count"]
+        self.assertEqual(
+            sum(
+                publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"][recipe]
+                for recipe in publisher.SUCCESSOR_REPLACED_BASELINE_RECIPES
+            ),
+            independent_count,
+        )
+        baseline_metadata = publisher._expected_successor_region_metadata(guide, torso_controls)
+        self.assertEqual(
+            baseline_metadata["metrics_region"]["replaced_baseline_field_count"],
+            independent_count,
+        )
+        recipe_counts = dict(publisher.EXPECTED_GUIDE_COUNTS["compiled_field_recipe_counts"])
+        recipe_counts["torso-cage"] += 1
+        with patch.dict(
+            publisher.EXPECTED_GUIDE_COUNTS,
+            {"compiled_field_recipe_counts": recipe_counts},
+        ):
+            changed_metadata = publisher._expected_successor_region_metadata(guide, torso_controls)
+        self.assertEqual(
+            changed_metadata["metrics_region"]["replaced_baseline_field_count"],
+            independent_count + 1,
+        )
+
     def test_success_publishes_four_ordered_baseline_successor_pairs(self) -> None:
         self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["compiled_fields"], 52)
         self.assertEqual(publisher.EXPECTED_GUIDE_COUNTS["shoulder_frame_compiled_fields"], 2)
@@ -1950,6 +2442,203 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     review_id="surface-test",
                 )
         self.assertEqual(sorted(path.name for path in self.root.iterdir()), ["surface-test"])
+
+    def test_publisher_hip_root_controls_match_independent_fixture(self) -> None:
+        self.assertEqual(
+            publisher.SUCCESSOR_HIP_ROOT_CONTROLS,
+            INDEPENDENT_SUCCESSOR_FIXTURE["hip_root_controls"],
+        )
+
+    def test_synthetic_successor_fixture_rejects_publisher_identity_drift(self) -> None:
+        with patch.object(publisher, "SUCCESSOR_REGION_ID", "publisher-only-region-drift"):
+            with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                with self.assertRaises(publisher.SurfacePreviewPublishError):
+                    publisher.publish_surface_preview(
+                        self.root,
+                        self.input,
+                        creature_kernel=self._producer(),
+                        generator=self._generator(),
+                        successor_generator=self._successor_generator(),
+                        review_id="independent-fixture-drift",
+                    )
+        self.assertFalse((self.root / "independent-fixture-drift").exists())
+
+    def test_successor_bounds_contain_baseline_and_sidecar_uses_successor_frame(self) -> None:
+        captured: dict[str, list[dict[str, object]]] = {}
+        validate_bundle = publisher._validate_bundle
+        validate_successor_bundle = publisher._validate_successor_bundle
+
+        def capture_bundle(*args: object, **kwargs: object):
+            published, metadata = validate_bundle(*args, **kwargs)
+            captured["baseline"] = published
+            return published, metadata
+
+        def capture_successor_bundle(*args: object, **kwargs: object):
+            published, metadata = validate_successor_bundle(*args, **kwargs)
+            captured["successor"] = published
+            return published, metadata
+
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+            with patch.object(publisher, "_validate_bundle", side_effect=capture_bundle):
+                with patch.object(
+                    publisher,
+                    "_validate_successor_bundle",
+                    side_effect=capture_successor_bundle,
+                ):
+                    result = publisher.publish_surface_preview(
+                        self.root,
+                        self.input,
+                        creature_kernel=self._producer(),
+                        generator=self._generator(),
+                        successor_generator=self._successor_generator(mode="expanded-bounds"),
+                        review_id="expanded-successor-frame",
+                    )
+        self.assertEqual(result["variants"], 4)
+        self.assertEqual(result["images"], 8)
+        baseline_by_id = {item["id"]: item for item in captured["baseline"]}
+        successor_by_id = {item["id"]: item for item in captured["successor"]}
+        baseline_bounds = {"min": [-5.0, -5.0, -5.0], "max": [5.0, 5.0, 5.0]}
+        successor_bounds = {"min": [-6.0, -6.0, -6.0], "max": [6.0, 6.0, 6.0]}
+        review = json.loads(
+            (Path(result["session"]) / "review.json").read_text(encoding="utf-8")
+        )
+        for group in review["groups"]:
+            variant_id = group["id"]
+            baseline_binding = baseline_by_id[variant_id]["binding"]
+            successor_binding = successor_by_id[variant_id]["binding"]
+            self.assertEqual(baseline_binding["capture"]["shared_render_bounds"], baseline_bounds)
+            self.assertEqual(successor_binding["capture"]["shared_render_bounds"], successor_bounds)
+            baseline_item, successor_item = group["items"]
+            self.assertEqual(
+                baseline_item["metadata"]["variant_binding_sha256"],
+                hashlib.sha256(
+                    publisher.canonical_json(baseline_binding).encode("utf-8")
+                ).hexdigest(),
+            )
+            self.assertEqual(
+                successor_item["metadata"]["variant_binding_sha256"],
+                hashlib.sha256(
+                    publisher.canonical_json(successor_binding).encode("utf-8")
+                ).hexdigest(),
+            )
+
+    def test_successor_bounds_reject_non_containment(self) -> None:
+        with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+            with self.assertRaisesRegex(
+                publisher.SurfacePreviewPublishError,
+                "successor shared_render_bounds must contain baseline bounds",
+            ):
+                publisher.publish_surface_preview(
+                    self.root,
+                    self.input,
+                    creature_kernel=self._producer(),
+                    generator=self._generator(),
+                    successor_generator=self._successor_generator(mode="non-containing-bounds"),
+                    review_id="non-containing-successor-frame",
+                )
+        self.assertFalse((self.root / "non-containing-successor-frame").exists())
+
+    def test_canonical_stylized_digitigrade_torso_profile_accepts_owner_local_landmarks(self) -> None:
+        repository_root = HERE.parents[1]
+        input_path = repository_root / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        completed = self._run_cargo_inspect(repository_root, input_path)
+        payload = json.loads(completed.stdout)
+        profile_context = publisher._validate_authored_torso_profile(payload)
+        self.assertEqual(
+            [section["owner"]["role"] for section in profile_context["base_torso_lineage"]],
+            ["pelvis", "pelvis", "torso", "torso", "torso", "torso", "torso"],
+        )
+        for first, second in ((0, 1), (2, 3), (3, 4), (4, 5), (5, 6)):
+            self.assertLess(
+                profile_context["base_torso_lineage"][first]["landmark"]["position"][1],
+                profile_context["base_torso_lineage"][second]["landmark"]["position"][1],
+            )
+
+    def test_torso_profile_rejects_inverted_composed_body_space_order(self) -> None:
+        payload = copy.deepcopy(self._payload())
+        for variant in payload["variants"]:
+            torso_descriptor = next(
+                descriptor
+                for descriptor in variant["descriptors"]
+                if descriptor["address"]["role"] == "torso"
+                and descriptor["address"]["anchors"] == []
+            )
+            torso_descriptor["reference_point"][1] = -2
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError,
+            "composed body-space y",
+        ):
+            publisher._validate_authored_torso_profile(payload)
+
+    def test_actual_generators_publish_hand_paw_metadata(self) -> None:
+        if os.environ.get("CK_RUN_SURFACE_PREVIEW_INTEGRATION") != "1":
+            self.skipTest(
+                "set CK_RUN_SURFACE_PREVIEW_INTEGRATION=1 after building target/debug/creature-kernel"
+            )
+        repository_root = HERE.parents[1]
+        creature_kernel = repository_root / "target/debug/creature-kernel"
+        if not creature_kernel.is_file() or not os.access(creature_kernel, os.X_OK):
+            self.skipTest("requires an executable target/debug/creature-kernel")
+        input_path = repository_root / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        captured: dict[str, object] = {}
+        validate_successor_bundle = publisher._validate_successor_bundle
+
+        def capture_successor_bundle(*args: object, **kwargs: object):
+            published, metadata = validate_successor_bundle(*args, **kwargs)
+            bundle = Path(args[0])
+            captured["published"] = published
+            captured["manifest_size"] = (bundle / publisher.SUCCESSOR_MANIFEST_NAME).stat().st_size
+            return published, metadata
+
+        with patch.object(publisher, "GENERATOR_TIMEOUT_SECONDS", 600.0), patch.object(
+            publisher,
+            "_validate_successor_bundle",
+            side_effect=capture_successor_bundle,
+        ):
+            result = publisher.publish_surface_preview(
+                self.root,
+                input_path,
+                creature_kernel=creature_kernel,
+                generator=repository_root / "experiments/current-form-surface-preview/generate_surface_preview.py",
+                successor_generator=repository_root / "experiments/current-form-surface-preview/successor_surface_preview.py",
+                review_id="actual-hand-paw-metadata",
+            )
+
+        self.assertEqual(result["variants"], 4)
+        self.assertEqual(result["images"], 8)
+        review = json.loads((Path(result["session"]) / "review.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(review["groups"]), len(common.PROVISIONAL_FORM_VARIANT_IDS))
+        self.assertTrue(all(len(group["items"]) == 2 for group in review["groups"]))
+        published = captured["published"]
+        self.assertIsInstance(published, list)
+        self.assertEqual(len(published), len(common.PROVISIONAL_FORM_VARIANT_IDS))
+        for item in published:
+            sidecar_hand_paw = item["sidecar"]["extremities"]["hand_paw"]
+            metrics_hand_paw = item["metrics"]["successor_region"]["hand_paw"]
+            self.assertEqual(sidecar_hand_paw, metrics_hand_paw)
+            self.assertEqual(sidecar_hand_paw["route_order"], ["left-hand-paw", "right-hand-paw"])
+            self.assertEqual(sidecar_hand_paw["section_names"], list(publisher.SUCCESSOR_HAND_PAW_SECTION_NAMES))
+            self.assertEqual(sidecar_hand_paw["route_station_count"], 8)
+            self.assertEqual(sidecar_hand_paw["route_volume_axis_count"], 24)
+            self.assertEqual(sidecar_hand_paw["route_volume_radius_count"], 24)
+        manifest_size = captured["manifest_size"]
+        self.assertIsInstance(manifest_size, int)
+        self.assertEqual(manifest_size, 408_364)
+        self.assertGreaterEqual(
+            publisher.MAX_MANIFEST_BYTES - manifest_size,
+            publisher.MIN_MANIFEST_HEADROOM_BYTES,
+        )
+
+    def test_manifest_cap_is_finite_and_rejects_bytes_over_the_bound(self) -> None:
+        self.assertEqual(publisher.MIN_MANIFEST_HEADROOM_BYTES, 8 * 1024)
+        self.assertEqual(publisher.MAX_MANIFEST_BYTES, 420 * 1024)
+        path = self.directory / "over-cap-manifest.json"
+        path.write_bytes(b"x" * (publisher.MAX_MANIFEST_BYTES + 1))
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError,
+            f"manifest exceeds {publisher.MAX_MANIFEST_BYTES} bytes",
+        ):
+            publisher._read_json(path, publisher.MAX_MANIFEST_BYTES, "manifest")
 
     def test_v7_authored_torso_profile_tampering_rejects_without_review_directory(self) -> None:
         cases = ("omission", "reorder", "owner", "provenance", "name", "radius", "stale-version", "descriptor-owner")
@@ -2257,16 +2946,46 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                         )
                 self.assertFalse((self.root / review_id).exists())
 
+    def test_successor_hand_paw_metadata_rejects_metrics_and_sidecar_drift(self) -> None:
+        modes = (
+            "sidecar-hand-paw",
+            "sidecar-hand-paw-axis",
+            "sidecar-hand-paw-center",
+            "sidecar-hand-paw-radius",
+            "sidecar-hand-paw-owner",
+            "metrics-hand-paw",
+        )
+        for index, mode in enumerate(modes):
+            review_id = f"successor-hand-paw-tamper-{index}"
+            with self.subTest(mode=mode):
+                with patch.object(publisher, "_parse_inspection", return_value=self._payload()):
+                    with self.assertRaisesRegex(
+                        publisher.SurfacePreviewPublishError,
+                        "does not match the validated guide",
+                    ):
+                        publisher.publish_surface_preview(
+                            self.root,
+                            self.input,
+                            creature_kernel=self._producer(),
+                            generator=self._generator(),
+                            successor_generator=self._successor_generator(mode=mode),
+                            review_id=review_id,
+                        )
+                self.assertFalse((self.root / review_id).exists())
+
     def test_successor_torso_lineage_and_identity_tampering_reject_without_review_directory(self) -> None:
         modes = (
             "source-cross-variant",
             "scale-mismatch",
             "sidecar-torso-owner",
             "sidecar-torso-radius",
+            "sidecar-torso-exponent",
             "sidecar-head-section",
             "sidecar-head-connection",
             "sidecar-head-route-topology",
+            "sidecar-head-derived-composition",
             "metrics-torso-sidecar-disagreement",
+            "metrics-torso-exponent",
             "metrics-torso-owner",
             "metrics-head-cross-binding",
         )
@@ -2463,10 +3182,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         )
         raw = source.read_bytes()
-        self.assertEqual(len(raw), 56_859)
+        self.assertEqual(len(raw), 56_863)
         self.assertEqual(
             hashlib.sha256(raw).hexdigest(),
-            "faf02db965a2b7f6889dfb1cd58eb79befa9c536f58adca40b14ccc955eaf533",
+            "d4f0dad6f936d62f9ee8c0fa24701898ee4ae6e48bcdeaf44641bd4dc3b549de",
         )
         evidence = publisher._validate_input_evidence(
             publisher._read_input_evidence(source), "checked-in source"
@@ -2515,17 +3234,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def test_current_shape_compact_producer_fits_final_descriptor_context(self) -> None:
         repository = HERE.parents[1]
         source = repository / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
-        completed = subprocess.run(
-            [
-                "cargo", "run", "--quiet", "--package", "creature-kernel-cli",
-                "--bin", "creature-kernel", "--", "inspect-provisional-form",
-                "--input", str(source),
-            ],
-            cwd=repository,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        completed = self._run_cargo_inspect(repository, source)
         payload = json.loads(completed.stdout)
         compact = publisher._compact_canonical_json(payload).encode("utf-8")
         self.assertEqual(payload["format"], common.PROVISIONAL_FORM_V11_FORMAT)
@@ -2546,22 +3255,22 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         publisher._validate_producer_evidence(
             descriptor, "review.subject_context.descriptor_snapshot"
         )
-        self.assertEqual(len(compact), 190_444)
+        self.assertEqual(len(compact), 190_465)
         self.assertEqual(
             hashlib.sha256(compact).hexdigest(),
-            "c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e",
+            "22f59bd768f27da8130d213f13f277c500315d3e570e62ccbdc86758a322b0d5",
         )
-        self.assertEqual(descriptor["producer_envelope_bytes"], 190_444)
+        self.assertEqual(descriptor["producer_envelope_bytes"], 190_465)
         self.assertEqual(
             descriptor["producer_envelope_sha256"],
-            "c48ed001b910549dd1da296bb4c664a4de29cad4838b42403b15aa97773a6d3e",
+            "22f59bd768f27da8130d213f13f277c500315d3e570e62ccbdc86758a322b0d5",
         )
         compressed = base64.b64decode(descriptor["producer_envelope_xz_base64"])
-        self.assertEqual(len(compressed), 6_244)
-        self.assertEqual(len(descriptor["producer_envelope_xz_base64"]), 8_328)
+        self.assertEqual(len(compressed), 6_272)
+        self.assertEqual(len(descriptor["producer_envelope_xz_base64"]), 8_364)
         self.assertEqual(
             hashlib.sha256(compressed).hexdigest(),
-            "5c42afe0b599b3afff52d687c3e46c9f4ae7d31f7d8e426d0b17e55858331161",
+            "b5ceac6a879620e45b43e0509da8555e9208f51b9c22203b6cd40ddae25ec98c",
         )
         self.assertEqual(
             publisher._decode_producer_evidence(descriptor), compact
@@ -2575,10 +3284,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         }
         subject_context_json = json.dumps(subject_context, allow_nan=False, ensure_ascii=False)
         subject_context_size = len(subject_context_json.encode("utf-8"))
-        self.assertEqual(subject_context_size, 8_812)
+        self.assertEqual(subject_context_size, 8_848)
         self.assertEqual(
             hashlib.sha256(subject_context_json.encode("utf-8")).hexdigest(),
-            "0210c5f225869d9030ff82a2898f122be21b4da328dcb668e0b83a674f486fb7",
+            "aa31709ee1f71ca9899ecd7fadf0a0476722b12e9c305d37e3303919b133f4d7",
         )
         self.assertLessEqual(subject_context_size, common.MAX_CONTEXT_JSON)
         self.assertEqual(
@@ -2759,13 +3468,15 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "sidecar-tail",
             "sidecar-tail-shared-endpoint",
             "sidecar-shoulder-span-type",
+            "sidecar-hip-root",
             "sidecar-leg-route-order",
             "sidecar-leg-owner",
             "sidecar-leg-lineage",
             "sidecar-missing-deltoid-replacement",
+            "sidecar-missing-hip-replacement",
             "sidecar-stale-v2",
             "sidecar-old-shoulder",
-            "sidecar-stale-six-bridge",
+            "sidecar-stale-v15-bridge",
             "sidecar-stale-region-id",
             "metrics-disagreement",
             "metrics-shoulder-span-type",
@@ -2774,6 +3485,8 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             "metrics-shoulder-owner",
             "metrics-limb-source-owner",
             "metrics-leg-cross-binding",
+            "metrics-hip-root",
+            "metrics-replaced-count",
         )
         for index, mode in enumerate(modes):
             review_id = f"successor-bad-{index}"
@@ -2828,19 +3541,205 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             print("parent-exited")
         """), encoding="utf-8")
         marker = self.directory / "child-marker.txt"
-        stdout, stderr, returncode = publisher._run_bounded(
-            [sys.executable, str(parent), str(child), str(marker)],
-            timeout=1.0,
-            label="successful parent fixture",
-        )
+        with patch.object(publisher, "_stop_process", wraps=publisher._stop_process) as stop_process:
+            stdout, stderr, returncode = publisher._run_bounded(
+                [sys.executable, str(parent), str(child), str(marker)],
+                timeout=1.0,
+                label="successful parent fixture",
+            )
         self.assertEqual(returncode, 0)
         self.assertEqual(stdout, b"parent-exited\n")
         self.assertEqual(stderr, b"")
+        self.assertTrue(stop_process.call_args.kwargs["success_cleanup"])
         # Give a surviving child enough time to perform its write.  A private
         # process-group cleanup should have terminated it before this point.
         import time
         time.sleep(0.35)
         self.assertFalse(marker.exists())
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_run_bounded_allows_post_eof_teardown_within_overall_timeout(self) -> None:
+        child = self.directory / "delayed-teardown.py"
+        child.write_text(textwrap.dedent("""
+            import os, sys, time
+
+            os.close(1)
+            os.close(2)
+            time.sleep(0.75)
+            raise SystemExit(17)
+        """), encoding="utf-8")
+
+        stdout, stderr, returncode = publisher._run_bounded(
+            [sys.executable, str(child)],
+            timeout=1.5,
+            label="delayed teardown fixture",
+        )
+
+        self.assertEqual((stdout, stderr, returncode), (b"", b"", 17))
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_run_bounded_kills_post_eof_child_that_exceeds_overall_timeout(self) -> None:
+        pid_path = self.directory / "over-budget-pid.txt"
+        signal_path = self.directory / "over-budget-signal.txt"
+        child = self.directory / "over-budget-teardown.py"
+        child.write_text(textwrap.dedent("""
+            import os, pathlib, signal, sys, time
+
+            pid_path = pathlib.Path(sys.argv[1])
+            signal_path = pathlib.Path(sys.argv[2])
+
+            def record_term(_signum, _frame):
+                signal_path.write_text("term", encoding="ascii")
+                signal.signal(signal.SIGTERM, signal.SIG_IGN)
+
+            pid_path.write_text(str(os.getpid()), encoding="ascii")
+            signal.signal(signal.SIGTERM, record_term)
+            os.close(1)
+            os.close(2)
+            while True:
+                time.sleep(1)
+        """), encoding="utf-8")
+
+        with self.assertRaisesRegex(
+            publisher.SurfacePreviewPublishError,
+            "over-budget teardown fixture did not exit",
+        ):
+            publisher._run_bounded(
+                [sys.executable, str(child), str(pid_path), str(signal_path)],
+                timeout=0.75,
+                label="over-budget teardown fixture",
+            )
+
+        self.assertEqual(signal_path.read_text(encoding="ascii"), "term")
+        with self.assertRaises(ProcessLookupError):
+            os.kill(int(pid_path.read_text(encoding="ascii")), 0)
+
+    @unittest.skipUnless(
+        os.name == "posix" and sys.platform.startswith("linux") and Path("/proc").is_dir(),
+        "unreaped leader inspection requires Linux /proc",
+    )
+    def test_run_bounded_signals_descendant_before_reaping_nonzero_leader(self) -> None:
+        ready = self.directory / "ordering-child-ready.txt"
+        marker = self.directory / "ordering-child-marker.txt"
+        child = self.directory / "ordering-child.py"
+        child.write_text(textwrap.dedent("""
+            import os, pathlib, signal, sys, time
+
+            leader_pid = int(sys.argv[1])
+            ready_path = pathlib.Path(sys.argv[2])
+            marker_path = pathlib.Path(sys.argv[3])
+
+            def record_leader_state(_signum, _frame):
+                try:
+                    stat_line = pathlib.Path(f"/proc/{leader_pid}/stat").read_text(encoding="ascii")
+                    leader_state = stat_line.rsplit(")", 1)[1].split()[0]
+                except FileNotFoundError:
+                    leader_state = "missing"
+                marker_path.write_text(leader_state, encoding="ascii")
+                raise SystemExit(0)
+
+            signal.signal(signal.SIGTERM, record_leader_state)
+            ready_path.write_text("ready", encoding="ascii")
+            while True:
+                time.sleep(1)
+        """), encoding="utf-8")
+        parent = self.directory / "ordering-parent.py"
+        parent.write_text(textwrap.dedent("""
+            import os, pathlib, subprocess, sys, time
+
+            child = subprocess.Popen(
+                [sys.executable, sys.argv[1], str(os.getpid()), sys.argv[2], sys.argv[3]],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            ready_path = pathlib.Path(sys.argv[2])
+            deadline = time.monotonic() + 1.0
+            while not ready_path.is_file() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            if not ready_path.is_file():
+                raise SystemExit("descendant did not become ready")
+            raise SystemExit(23)
+        """), encoding="utf-8")
+
+        observed_leader_states: list[str] = []
+        original_killpg = publisher.os.killpg
+
+        def observe_then_kill(process_group_id: int, signum: int) -> None:
+            if signum == publisher.signal.SIGTERM:
+                stat_line = Path(f"/proc/{process_group_id}/stat").read_text(encoding="ascii")
+                observed_leader_states.append(stat_line.rsplit(")", 1)[1].split()[0])
+            original_killpg(process_group_id, signum)
+
+        with patch.object(publisher.os, "killpg", side_effect=observe_then_kill):
+            stdout, stderr, returncode = publisher._run_bounded(
+                [sys.executable, str(parent), str(child), str(ready), str(marker)],
+                timeout=1.0,
+                label="ordering parent fixture",
+            )
+
+        self.assertEqual((stdout, stderr, returncode), (b"", b"", 23))
+        self.assertEqual(observed_leader_states, ["Z"])
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_success_cleanup_kills_group_before_wait_without_grace(self) -> None:
+        events: list[tuple[str, object, object]] = []
+
+        class Process:
+            pid = 12345
+
+            def wait(self, *, timeout: float) -> None:
+                events.append(("wait", timeout, None))
+
+        def record_killpg(process_group_id: int, signum: int) -> None:
+            events.append(("killpg", process_group_id, signum))
+
+        def record_sleep(seconds: float) -> None:
+            events.append(("sleep", seconds, None))
+
+        with patch.object(publisher.os, "killpg", side_effect=record_killpg), patch.object(
+            publisher.time, "sleep", side_effect=record_sleep
+        ):
+            publisher._stop_process(Process(), process_group_id=12345, success_cleanup=True)
+
+        self.assertEqual(
+            events,
+            [
+                ("killpg", 12345, publisher.signal.SIGTERM),
+                ("killpg", 12345, publisher.signal.SIGKILL),
+                ("wait", publisher.PROCESS_GRACE_SECONDS, None),
+            ],
+        )
+
+    @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
+    def test_timeout_error_cleanup_retains_grace_before_final_kill_and_wait(self) -> None:
+        events: list[tuple[str, object, object]] = []
+
+        class Process:
+            pid = 12345
+
+            def wait(self, *, timeout: float) -> None:
+                events.append(("wait", timeout, None))
+
+        def record_killpg(process_group_id: int, signum: int) -> None:
+            events.append(("killpg", process_group_id, signum))
+
+        def record_sleep(seconds: float) -> None:
+            events.append(("sleep", seconds, None))
+
+        with patch.object(publisher.os, "killpg", side_effect=record_killpg), patch.object(
+            publisher.time, "sleep", side_effect=record_sleep
+        ):
+            publisher._stop_process(Process(), process_group_id=12345)
+
+        self.assertEqual(
+            events,
+            [
+                ("killpg", 12345, publisher.signal.SIGTERM),
+                ("sleep", publisher.PROCESS_GRACE_SECONDS, None),
+                ("killpg", 12345, publisher.signal.SIGKILL),
+                ("wait", publisher.PROCESS_GRACE_SECONDS, None),
+            ],
+        )
 
     def test_bundle_root_symlink_is_rejected_before_manifest_access(self) -> None:
         real_bundle = self.directory / "real-bundle"
@@ -2887,6 +3786,515 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(result, 2)
         self.assertIn("publish-surface-preview failed:", output.getvalue())
         self.assertNotIn("Traceback", output.getvalue())
+
+    def _stage_publisher_contract_source(self, mode: str) -> tuple[Path, Path]:
+        staged_repository = self.directory / f"staged-contract-{mode}"
+        staged_visual_review = staged_repository / "dev-tools" / "visual-review"
+        shutil.copytree(
+            HERE,
+            staged_visual_review,
+            ignore=shutil.ignore_patterns("tests", "__pycache__"),
+        )
+        source_path = HERE.parents[1] / "experiments" / "current-form-surface-preview" / "successor_surface_preview.py"
+        staged_source_path = staged_repository / "experiments" / "current-form-surface-preview" / "successor_surface_preview.py"
+        staged_source_path.parent.mkdir(parents=True)
+        source = source_path.read_text(encoding="utf-8")
+        required_name = {
+            "missing-foot-section-names": "_FOOT_PROFILE_SECTION_NAMES",
+            "missing-foot-owner-roles": "_FOOT_PROFILE_OWNER_ROLES",
+        }.get(mode, "_FORWARD_MUZZLE_RADIUS_DONOR_SECTION_INDICES")
+
+        def has_assignment(text: str, name: str) -> bool:
+            return any(
+                line.startswith(f"{name} =") or line.startswith(f"{name}:")
+                for line in text.splitlines()
+            )
+
+        def remove_assignment(text: str, name: str) -> str:
+            lines: list[str] = []
+            skipping = False
+            closing_delimiter: str | None = None
+            for line in text.splitlines():
+                if not skipping and (
+                    line.startswith(f"{name} =")
+                    or line.startswith(f"{name}:")
+                ):
+                    skipping = True
+                    assignment_rhs = line.split("=", 1)[1].strip() if "=" in line else ""
+                    closing_delimiter = {
+                        "(": ")",
+                        "[": "]",
+                        "{": "}",
+                    }.get(assignment_rhs)
+                    continue
+                if skipping:
+                    if closing_delimiter is not None and line.strip() == closing_delimiter:
+                        skipping = False
+                        closing_delimiter = None
+                        continue
+                    if not line.strip() or not line[0].isspace():
+                        skipping = False
+                        closing_delimiter = None
+                    else:
+                        continue
+                lines.append(line)
+            return "\n".join(lines) + "\n"
+
+        def replace_assignment(text: str, name: str, replacement: str) -> str:
+            return remove_assignment(text, name) + replacement.rstrip("\n") + "\n"
+
+        if mode == "missing-source":
+            staged_source_path.write_text(source, encoding="utf-8")
+            staged_source_path.unlink()
+        elif mode == "syntax-invalid":
+            staged_source_path.write_text("def (", encoding="utf-8")
+        elif mode == "null-byte-source":
+            staged_source_path.write_bytes(b"SUCCESSOR_REGION_ID = 'null-byte-source'\n\x00")
+        elif mode == "oversized-source":
+            (staged_visual_review / "sitecustomize.py").write_text(
+                "import ast\n"
+                "\n"
+                "def _parse_tripwire(*args, **kwargs):\n"
+                "    raise RuntimeError('AST PARSE STARTED')\n"
+                "\n"
+                "ast.parse = _parse_tripwire\n",
+                encoding="utf-8",
+            )
+            staged_source_path.write_bytes(
+                b"# oversized successor source\n"
+                + b"#" * publisher.MAX_SUCCESSOR_SOURCE_BYTES
+            )
+        else:
+            if mode in {"missing-required", "missing-foot-section-names", "missing-foot-owner-roles"}:
+                source = remove_assignment(source, required_name)
+            elif mode == "non-literal-required":
+                source = replace_assignment(source, required_name, f"{required_name} = str(())")
+            elif mode == "wrong-type-required":
+                source = replace_assignment(source, required_name, f"{required_name} = 7")
+            elif mode == "wrong-shape-required":
+                source = replace_assignment(source, required_name, f"{required_name} = ((5.0, 6.0),)")
+            elif mode == "duplicate-required-assignment":
+                source += "\nSUCCESSOR_REGION_ID = 'duplicate-successor-region-id'\n"
+            elif mode == "augmented-required-assignment":
+                source = replace_assignment(
+                    source,
+                    "SUCCESSOR_REGION_ID",
+                    "SUCCESSOR_REGION_ID += 'unsupported-successor-region-id'",
+                )
+            elif mode == "chained-required-assignment":
+                source = replace_assignment(
+                    source,
+                    "SUCCESSOR_REGION_ID",
+                    "SUCCESSOR_REGION_ID = _CHAINED_SUCCESSOR_REGION_ID = 'unsupported-successor-region-id'",
+                )
+            elif mode == "nested-required-assignment":
+                source = "if True:\n    SUCCESSOR_REGION_ID = 'nested-successor-region-id'\n\n" + source
+            elif mode == "nested-required-overwrite":
+                source += "\nif True:\n    SUCCESSOR_REGION_ID = 'nested-overwrite-successor-region-id'\n"
+            elif mode == "duplicate-hand-name":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_SECTION_NAMES",
+                    "_HAND_PAW_SECTION_NAMES = ('hand-paw-base', 'hand-paw-base', 'hand-paw-knuckle', 'hand-paw-tip')",
+                )
+            elif mode == "non-monotonic-hand-profile":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-0.15, 0.62, 0.66), (-0.55, 1.00, 1.00), (0.35, 0.92, 1.05), (0.78, 0.55, 0.60))",
+                )
+            elif mode == "accepted-hand-offset-boundary":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-0.98, 0.62, 0.66), (-0.95, 1.00, 1.00), (0.95, 0.92, 1.05), (0.98, 0.55, 0.60))",
+                )
+            elif mode == "all-positive-hand-offsets":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((0.10, 0.62, 0.66), (0.20, 1.00, 1.00), (0.95, 0.92, 1.05), (0.98, 0.55, 0.60))",
+                )
+            elif mode == "all-negative-hand-offsets":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-0.98, 0.62, 0.66), (-0.95, 1.00, 1.00), (-0.20, 0.92, 1.05), (-0.10, 0.55, 0.60))",
+                )
+            elif mode == "positive-one-hand-offset":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((1.0, 0.62, 0.66), (1.01, 1.00, 1.00), (1.02, 0.92, 1.05), (1.03, 0.55, 0.60))",
+                )
+            elif mode == "negative-one-hand-offset":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((-1.0, 0.62, 0.66), (-0.99, 1.00, 1.00), (-0.98, 0.92, 1.05), (-0.97, 0.55, 0.60))",
+                )
+            elif mode == "nonfinite-hand-offset":
+                source = replace_assignment(
+                    source,
+                    "_HAND_PAW_PROFILE",
+                    "_HAND_PAW_PROFILE = ((1e309, 0.62, 0.66), (0.95, 1.00, 1.00), (0.96, 0.92, 1.05), (0.97, 0.55, 0.60))",
+                )
+            elif mode == "zero-socket-pelvis-weight":
+                source = replace_assignment(source, "_HIP_ROOT_SOCKET_PELVIS_WEIGHT", "_HIP_ROOT_SOCKET_PELVIS_WEIGHT = 0.0")
+            elif mode == "duplicate-foot-name":
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_SECTION_NAMES",
+                    "_FOOT_PROFILE_SECTION_NAMES = ('hock', 'metatarsal-midpoint', 'pad', 'pad', 'toe')",
+                )
+            elif mode == "wrong-foot-owner-roles":
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_OWNER_ROLES",
+                    "_FOOT_PROFILE_OWNER_ROLES = ('shin', 7, 'foot', 'foot', 'foot')",
+                )
+            elif mode == "foot-parity":
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_SECTION_NAMES",
+                    "_FOOT_PROFILE_SECTION_NAMES = ('hock-renamed', 'metatarsal-renamed', 'pad-renamed', 'pad-toe-renamed', 'toe-renamed')",
+                )
+                source = replace_assignment(
+                    source,
+                    "_FOOT_PROFILE_OWNER_ROLES",
+                    "_FOOT_PROFILE_OWNER_ROLES = ('shin-owned', 'foot-owned', 'foot-owned', 'foot-owned', 'foot-owned')",
+                )
+            elif mode == "annotated-literal":
+                if not has_assignment(source, required_name):
+                    source += f"\n{required_name} = (5, 6, 7)\n"
+                source = source.replace(
+                    "_HAND_PAW_SECTION_NAMES = (",
+                    "_HAND_PAW_SECTION_NAMES: tuple[str, ...] = (",
+                    1,
+                )
+            else:
+                self.fail(f"unknown staged contract mode: {mode}")
+            staged_source_path.write_text(source, encoding="utf-8")
+        return staged_repository, staged_visual_review / "publish_surface_preview.py"
+
+    def test_successor_contract_bootstrap_failures_are_concise_in_fresh_staged_process(self) -> None:
+        for mode in (
+            "missing-source",
+            "syntax-invalid",
+            "missing-required",
+            "missing-foot-section-names",
+            "missing-foot-owner-roles",
+            "non-literal-required",
+            "wrong-type-required",
+            "wrong-shape-required",
+            "duplicate-required-assignment",
+            "augmented-required-assignment",
+            "chained-required-assignment",
+            "nested-required-assignment",
+            "nested-required-overwrite",
+            "duplicate-hand-name",
+            "non-monotonic-hand-profile",
+            "all-positive-hand-offsets",
+            "all-negative-hand-offsets",
+            "positive-one-hand-offset",
+            "negative-one-hand-offset",
+            "nonfinite-hand-offset",
+            "zero-socket-pelvis-weight",
+            "duplicate-foot-name",
+            "wrong-foot-owner-roles",
+        ):
+            with self.subTest(mode=mode):
+                _staged_repository, staged_publisher = self._stage_publisher_contract_source(mode)
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(staged_publisher),
+                        "--root",
+                        str(self.root),
+                        "--input",
+                        str(self.input),
+                    ],
+                    cwd=_staged_repository,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(completed.returncode, 2, completed.stderr)
+                self.assertEqual(completed.stdout, "")
+                self.assertIn("publish-surface-preview failed:", completed.stderr)
+                self.assertIn("successor contract bootstrap failed:", completed.stderr)
+                expected_missing_constant = {
+                    "missing-foot-section-names": "_FOOT_PROFILE_SECTION_NAMES",
+                    "missing-foot-owner-roles": "_FOOT_PROFILE_OWNER_ROLES",
+                }.get(mode)
+                if expected_missing_constant is not None:
+                    self.assertIn(
+                        f"successor contract owner does not define {expected_missing_constant}",
+                        completed.stderr,
+                    )
+                if mode == "duplicate-required-assignment":
+                    self.assertIn(
+                        "successor contract owner defines duplicate SUCCESSOR_REGION_ID",
+                        completed.stderr,
+                    )
+                if mode == "augmented-required-assignment":
+                    self.assertIn(
+                        "successor contract owner uses unsupported top-level augmented assignment write for SUCCESSOR_REGION_ID",
+                        completed.stderr,
+                    )
+                if mode == "chained-required-assignment":
+                    self.assertIn(
+                        "successor contract owner uses unsupported top-level chained assignment write for SUCCESSOR_REGION_ID",
+                        completed.stderr,
+                    )
+                if mode in {"nested-required-assignment", "nested-required-overwrite"}:
+                    self.assertIn(
+                        "successor contract owner uses unsupported nested control-flow assignment write for SUCCESSOR_REGION_ID",
+                        completed.stderr,
+                    )
+                if mode == "zero-socket-pelvis-weight":
+                    self.assertIn(
+                        "invalid _HIP_ROOT_SOCKET_PELVIS_WEIGHT: expected a bounded finite number",
+                        completed.stderr,
+                    )
+                if mode in {"positive-one-hand-offset", "negative-one-hand-offset"}:
+                    self.assertIn(
+                        "invalid _HAND_PAW_PROFILE[0][0]: expected a bounded finite number",
+                        completed.stderr,
+                    )
+                if mode in {"all-positive-hand-offsets", "all-negative-hand-offsets"}:
+                    self.assertIn(
+                        "invalid _HAND_PAW_PROFILE: expected station offsets straddling the paw center",
+                        completed.stderr,
+                    )
+                if mode == "nonfinite-hand-offset":
+                    self.assertIn(
+                        "invalid _HAND_PAW_PROFILE[0][0]: expected a finite number",
+                        completed.stderr,
+                    )
+                self.assertNotIn("Traceback", completed.stderr)
+
+    def test_null_byte_successor_source_defers_bootstrap_failure_to_publication(self) -> None:
+        staged_repository, staged_publisher = self._stage_publisher_contract_source(
+            "null-byte-source"
+        )
+        publication_root = self.directory / "null-byte-reviews"
+        surface_preview_launcher = (
+            HERE.parents[1]
+            / "experiments"
+            / "current-form-surface-preview"
+            / "surface_preview_launcher.sh"
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [
+                str(surface_preview_launcher),
+                str(staged_publisher),
+                "--root",
+                str(publication_root),
+                "--input",
+                str(self.input),
+            ],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2, completed.stderr)
+        self.assertEqual(completed.stdout, "")
+        self.assertIn(
+            "successor contract bootstrap failed: source code string cannot contain null bytes",
+            completed.stderr,
+        )
+        self.assertNotIn("Traceback", completed.stderr)
+        self.assertFalse(publication_root.exists())
+
+    def test_successor_contract_rejects_symlink_source_before_open(self) -> None:
+        target = self.directory / "successor-target.py"
+        target.write_text("SUCCESSOR_REGION_ID = 'target'\n", encoding="utf-8")
+        source = self.directory / "successor-link.py"
+        source.symlink_to(target)
+        with patch.object(publisher, "_successor_source_path", return_value=source), patch.object(
+            Path, "open", side_effect=AssertionError("successor source was opened")
+        ) as open_mock:
+            with self.assertRaisesRegex(
+                publisher.SurfacePreviewPublishError,
+                "successor contract owner source must be a regular non-symlink file",
+            ):
+                publisher._read_successor_contract()
+        open_mock.assert_not_called()
+
+    def test_successor_contract_rejects_fifo_source_before_open(self) -> None:
+        source = self.directory / "successor-source.fifo"
+        mkfifo = getattr(os, "mkfifo", None)
+        if mkfifo is None:
+            self.skipTest("os.mkfifo is unavailable on this platform")
+        try:
+            mkfifo(source)
+        except OSError as error:
+            unsupported_fifo_errors = {
+                errno.EINVAL,
+                errno.ENOSYS,
+                errno.ENOTSUP,
+                errno.EOPNOTSUPP,
+            }
+            if error.errno in unsupported_fifo_errors:
+                self.skipTest(f"filesystem does not support FIFOs: {error}")
+            raise
+        try:
+            with patch.object(publisher, "_successor_source_path", return_value=source), patch.object(
+                Path, "open", side_effect=AssertionError("successor source was opened")
+            ) as open_mock:
+                with self.assertRaisesRegex(
+                    publisher.SurfacePreviewPublishError,
+                    "successor contract owner source must be a regular non-symlink file",
+                ):
+                    publisher._read_successor_contract()
+            open_mock.assert_not_called()
+        finally:
+            source.unlink()
+
+    def test_successor_contract_accepts_finite_hand_offset_below_one(self) -> None:
+        staged_repository, _staged_publisher = self._stage_publisher_contract_source(
+            "accepted-hand-offset-boundary"
+        )
+        probe = (
+            "import publish_surface_preview as publisher; "
+            "assert publisher._SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is None; "
+            "assert tuple(station[0] for station in publisher.SUCCESSOR_HAND_PAW_PROFILE) == "
+            "(-0.98, -0.95, 0.95, 0.98); "
+            "print('ok')"
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), "ok")
+        self.assertEqual(completed.stderr, "")
+
+    def test_oversized_successor_source_rejects_before_parse_or_publication(self) -> None:
+        staged_repository, staged_publisher = self._stage_publisher_contract_source(
+            "oversized-source"
+        )
+        publication_root = self.directory / "oversized-source-reviews"
+        valid_input = HERE.parents[1] / "examples" / "body-documents" / "stylized-digitigrade-biped-authored-form.json"
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(staged_publisher),
+                "--root",
+                str(publication_root),
+                "--input",
+                str(valid_input),
+            ],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2, completed.stderr)
+        self.assertEqual(completed.stdout, "")
+        self.assertIn(
+            f"successor contract bootstrap failed: successor contract owner source exceeds {publisher.MAX_SUCCESSOR_SOURCE_BYTES} bytes",
+            completed.stderr,
+        )
+        self.assertNotIn("AST PARSE STARTED", completed.stderr)
+        self.assertNotIn("Traceback", completed.stderr)
+        self.assertFalse(publication_root.exists())
+
+    def test_successor_literal_fails_closed_after_captured_bootstrap_error(self) -> None:
+        staged_repository, _staged_publisher = self._stage_publisher_contract_source(
+            "missing-required"
+        )
+        probe = textwrap.dedent(
+            """
+            import publish_surface_preview as publisher
+
+            assert publisher._SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is not None
+            try:
+                publisher._successor_literal("SUCCESSOR_REGION_ID")
+            except publisher.SurfacePreviewPublishError as exc:
+                assert str(exc) == publisher._SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR
+            else:
+                raise AssertionError("bootstrap failure was not enforced")
+            print("ok")
+            """
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), "ok")
+        self.assertEqual(completed.stderr, "")
+
+    def test_successor_contract_projects_foot_names_and_owner_roles_in_fresh_staged_process(self) -> None:
+        staged_repository, _staged_publisher = self._stage_publisher_contract_source("foot-parity")
+        probe = (
+            "import publish_surface_preview as publisher; "
+            "assert publisher._SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is None; "
+            "assert publisher.SUCCESSOR_FOOT_PROFILE_SECTION_NAMES == "
+            "('hock-renamed', 'metatarsal-renamed', 'pad-renamed', 'pad-toe-renamed', 'toe-renamed'); "
+            "assert publisher.SUCCESSOR_FOOT_PROFILE_OWNER_ROLES == "
+            "('shin-owned', 'foot-owned', 'foot-owned', 'foot-owned', 'foot-owned'); "
+            "assert publisher.SUCCESSOR_EXTREMITY_STATION_NAMES[2] == "
+            "publisher.SUCCESSOR_FOOT_PROFILE_SECTION_NAMES; "
+            "print('ok')"
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), "ok")
+        self.assertEqual(completed.stderr, "")
+
+    def test_successor_contract_accepts_annotated_literal_in_fresh_staged_process(self) -> None:
+        staged_repository, _staged_publisher = self._stage_publisher_contract_source("annotated-literal")
+        probe = (
+            "import publish_surface_preview as publisher; "
+            "assert publisher._SUCCESSOR_CONTRACT_BOOTSTRAP_ERROR is None; "
+            "assert publisher.SUCCESSOR_HAND_PAW_SECTION_NAMES == "
+            "('hand-paw-base', 'hand-paw-palm', 'hand-paw-knuckle', 'hand-paw-tip'); "
+            "print('ok')"
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(staged_repository / "dev-tools" / "visual-review")
+        completed = subprocess.run(
+            [sys.executable, "-c", probe],
+            cwd=staged_repository,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), "ok")
+        self.assertEqual(completed.stderr, "")
 
 
 if __name__ == "__main__":

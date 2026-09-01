@@ -1,6 +1,7 @@
 # Project status
 
-Status date: 2026-08-30
+Status date: 2026-09-01 (NZST; repository activity is recorded in NZST while
+GitHub timestamps are UTC)
 
 ## Phase
 
@@ -12,6 +13,268 @@ readiness/publication work remains recorded below; the `Active runway` section
 governs what resumes next.
 
 ## Active runway
+
+This section is the sole current continuation source for the repository. Later
+status sections are reference history or task-specific state only; they may
+preserve evidence but do not redefine current continuation.
+
+The `artifact-cache/...` prefix below is a logical local-cache identifier, not
+a repository path or a literal universal filesystem path.
+
+### Current destination
+
+The active runway is closed at the failed-candidate stop gate. Its bounded
+destination was convincing simplified/stylized anatomy across exactly five
+ordered source profiles, with a standard neutral reference first:
+
+- `standard_neutral_reference`
+- `compact_broad_short_limb_large_head`
+- `tall_narrow_long_legged`
+- `slender_long_limb`
+- `stocky_broad_chested`
+
+The intended human visual anatomy checkpoint covered a readable,
+intentional neck; distinct ribcage, abdominal bridge, waist, and pelvis masses;
+shoulder and hip transitions; tapered anisotropic limbs; and a simplified muzzle
+and paws/feet. The candidate never reached that checkpoint. There is no active
+implementation destination: stop for Ben's disposition or a new
+human-authorized Stage 1 direction. This is candidate evidence, not a new
+supported morphology promise or an accepted surface architecture.
+
+The preceding exact-five blocky smooth-union candidate is closed as failed
+visual evidence and frozen as the baseline for this runway. Its displayed form
+showed blocky torso/pelvis masses, external thigh bulbs rather than leg roots
+seated inside the pelvis, and an upside-down-bell lower torso. These observations
+are scoped to that candidate and do not select a production geometry contract,
+prove global implicit blending impossible, or activate the formal comparison.
+
+The exact displayed baseline is the immutable local session
+`successor-stylized-anatomy-five-profile-checkpoint-v1`, published on
+2026-08-31 NZST. Its review descriptor SHA-256 is
+`a17055186b832c0a1b5e306699572ea9ebddbb3d8678f9b8938392d04e6d65d4`, its
+source-manifest SHA-256 is
+`77c2763c771d18f67ee179a915044bd7b435425c0a4bd8d390ffbbc441a416c6`, and its
+successor implementation SHA-256 is
+`3181ab86c50f2df24dcca0a6e3f7fbe5e3502a7a0a4afaa1d5ecaa3bdffec45d`. The
+associated branch head is
+`68eadfb6a801e052ddc1102e82d976eac78ba1ce`. Local captures remain
+uncommitted under the artifact policy; this records their immutable session
+identity and does not claim that the captures are retained in the repository.
+Ben's scoped 2026-09-01 appraisal of that displayed checkpoint observed a lost
+or occluded neck, rounded rectangular/blocky torso and pelvis, and an overall
+surface that was not convincing anatomy. The lower body also read as external
+thigh bulbs rather than hip/leg roots seated inside the pelvis, with an
+upside-down-bell lower torso. These observations are scoped to that displayed
+candidate and revision.
+
+The checkpoint is not photorealistic anatomy, detailed hands/faces/tissue,
+current Godot mechanics, or a permanent backend.
+
+### Bounded research input
+
+The bounded morphology research input remains retained as research context and
+is limited to one inventory and exactly two provisional pilot dossiers:
+
+- axial/upper-root assembly;
+- pelvic-to-planted-hind-paw.
+
+See the [provisional morphology inventory and pilot dossiers](../research/morphology-knowledge-inventory-and-pilot-dossiers.md).
+This input is research guidance only and does not authorize continuation. It
+does not activate a general body-dossier framework or schema and is not
+roadmap, architecture, or executable truth.
+
+### Closed candidate and stop state
+
+The active branch is `codex/post-godot-runway`; draft PR #122 remains open and
+unmerged. Its exact remote head, checks, and review state are live GitHub state
+and must be verified there rather than duplicated here: a commit that updates
+this paragraph would immediately make its own recorded hash stale. Before
+merge, the main thread must verify CI and the required hosted-plus-CLI review
+cycle on the pushed head and record the resulting dispositions in the PR. PR
+#122 still requires Ben's explicit authorization before merge; this branch/PR
+state does not reopen the runway or authorize another candidate.
+
+The exact-five blocky smooth-union candidate and the regional candidate are
+closed and retained only as failed visual evidence. The regional candidate's
+bounded implementation hypothesis consisted of:
+
+- explicit ribcage, abdominal-bridge, and pelvis regions;
+- swept anisotropic limbs;
+- specialized shoulder and hip roots;
+- controlled local blending; and
+- optional lofted or patched regional surfaces where global implicit blending
+  creates blocky masses.
+
+These were bounded implementation hypotheses, not a new product promise,
+production topology, or activation of the heavy formal five-branch comparison.
+No further tuning is authorized under this runway.
+
+The neutral-first technical triage and bounded advisory model-vision pilot
+were completed as evidence. They were non-gating, did not decide visual
+acceptance, and did not prove topology, semantics, or deformation.
+
+### Executed initial neutral attempt
+
+The initial `standard_neutral_reference` alternative attempt has now been
+executed and retained in the durable local cache
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
+Its actual image is
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
+its identity record is
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
+and the retained mesh is
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
+The identity record captures source/configuration/output hashes, including PNG
+SHA-256
+`86c2888d7415c0a9be69f359244c0e968a90cf19c10e216392bdd0e4270380e4`. This
+exploratory one-off was generated from an uncommitted implementation state
+that was not itself hash-bound or preserved. It is therefore retained
+observational evidence, not exactly reproducible implementation evidence. It
+is an `1800 × 1500` RGB fixed front/side/three-quarter 3×3 sheet, generated at
+56 samples, padding `0.5`, and default `smooth_k`. The mesh reported one
+watertight component with 3,850 vertices and 7,696 faces. Final review found
+unresolved bounds, provenance, identity, and test defects, so technical triage
+has not passed.
+
+The main thread directly inspected this image and the retained rejected-v9
+image. Two fresh independent advisory critiques inspected the actual image:
+`gpt-5.6-luna` at `xhigh` with an anatomy/silhouette lens, and
+`gpt-5.6-luna` at `high` with a surface/mesh lens. Both noted a bulbous,
+nearly spherical pelvis; weak or pinched and jagged hip-to-thigh continuity;
+a short barrel-like torso; hard regional seams; and faceting. The anatomy lens
+also noted abrupt narrow neck/shoulder integration. The surface lens noted a
+possible pointed side/tail termination, but marked it uncertain at 56 samples.
+These critiques cannot establish topology, semantics, or deformation, and
+faceting may be capture sampling or shading.
+
+The bounded `gpt-5.6-sol` medium read-only synthesis identified likely
+support-as-geometry inflation and recommended support as a locality mask, a C1
+gate, and source-derived axial caps/neck root. This is advisory implementation
+input, not a new architecture or product decision. The initial attempt has no
+visual acceptance and was followed by the single shared
+correction/republication sequence recorded below.
+
+### Completed correction and failed exact-five expansion
+
+Attempt B remains retained at
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
+as the hash-bound intermediate generated before final correctness fixes. The
+authoritative final corrected neutral is C at
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
+This is the same shared correction after final correctness fixes, not a second
+aesthetic correction. C's
+`standard_neutral_reference.png` has SHA-256
+`8ed4ccb8e4928e1de228b6e49c2c2c00f4afd59b793b923bf7906aaf71b2d5e0`, its
+`surface.ply` has SHA-256
+`d6b509b8452d8bd4aa41cb89d59815a3a0cc726383fa6c011d776c9b4e52632c`, and its
+`identity.json` file has SHA-256
+`3472d7cb48d9bd2a06dbd71e951d5a37fd18eac260bb88d39f5dbec4993c95ea`.
+The identity record's `identity_sha256` is
+`b99b180fffc153d5c24bdc175673cc1c307f6d16bc3d74cca19e3361c05055ec`, and its
+`implementation_sha256` is
+`1cbfa10a5e6019103b419c69d13b800b1247202e7389e094a91fea9725ea3e2d`.
+C used 80 samples per axis, padding `0.5`, and `smooth_k` `0.1`; it has one
+connected component, is watertight, and contains 7,770 vertices and 15,536
+faces.
+
+The main thread inspected C at original resolution. It materially removed the
+giant spherical pelvis and reduced faceting/blobiness versus A, but still read
+as a barrel or rounded-rectangle torso over a skirt or bell pelvis, with weak
+hip seating, a collar or peg neck, and rod-like limbs. At checkpoint scale it
+looked essentially the same as B; no second aesthetic correction was made.
+Two independent model-vision passes split:
+surface/integration judged the neutral sufficient to generate the five
+profiles, while anatomy/silhouette judged it still a failed simplified
+anatomy representation. Human authority was preserved by attempting the
+exact-five expansion with the unchanged candidate and applying no further
+tuning.
+
+The exact-five publication ID
+`successor-regional-anatomy-five-profile-checkpoint-v1` was attempted once
+after B and again after final correctness fixes and C. Both attempts failed
+before rendering/publication because `slender_long_limb` had six connected
+components. No target directory was installed, and no exact-five human
+checkpoint exists. The candidate is closed as failed under the
+one-shared-correction stop rule. Stage 2 and Stage 3 remain inactive. No
+autonomous next candidate or tuning is authorized; Ben must authorize a new
+Stage 1 direction.
+
+### Inactive conditional direction
+
+The following direction is inactive and is not current continuation work. It may
+become active only after Ben dispositions this failed candidate or selects a
+new direction, explicitly authorizes the relevant next step, and a newly
+recorded active runway names the next work. The C technical result does not
+substitute for a human checkpoint or that authorization.
+
+Before Stage 2 begins under such a newly recorded runway, the candidate must
+pass this pre-Stage-2 gate:
+
+- Ben's human visual acceptance at a future exact-five checkpoint, if one is
+  newly authorized;
+- a coherent, watertight surface;
+- preserved semantic regions and ownership;
+- repeatable output across all five profiles without profile patches.
+
+After that gate, an early Stage 2 continuation gate follows a provisional rig
+and weights exercise. Evaluate topology and correspondence through one
+representative bend/binding scenario; continue Stage 2 only if that exercise is
+adequate. A failure stops this conditional continuation for a separately
+bounded disposition; it does not authorize indefinite tuning or activate the
+formal five-branch comparison. Correctives may be explored as a candidate
+technical approach, but they are not a mandatory product contract.
+
+After that early Stage 2 continuation gate passes, Stage 2 develops generated
+rig, weights, collision proxies, and one meaningful shared pose together, using
+the Stage 1 semantic frames and region intent. Stage 3 remains conditional on a
+further newly recorded runway and may develop semantic contact, localized
+deformation, and declared resource/budget evidence only after accepted
+Readiness 3, the repository-evolution host-adapter trigger has fired through
+its accepted adapter DR, and DR-0013 T4 has a retained-human disposition. A
+production or provisional adapter cannot precede those conditions. Disposable
+experiment-host evidence may precede them, but it remains experiment-local
+evidence and is not the adapter. These later-stage activities do not select a
+permanent engine or backend.
+
+### Evidence and scope
+
+The failed candidate used shared operations; no per-profile or per-fixture
+patches were part of its intended destination. Keep anatomy observations scoped
+to the candidate being appraised and keep research, implementation evidence,
+and project state distinct. Any change that crosses a retained-human boundary
+is a stop-and-present decision, not autonomous continuation.
+
+The exact-five blocky smooth-union result is failed visual evidence and the
+frozen baseline. The corrected regional candidate is also closed as failed
+evidence: it never reached an exact-five human visual checkpoint or the
+pre-Stage-2 gate. No visual acceptance, Stage 1 proof/exit result, Stage 2
+embodiment, Stage 3 host/contact/deformation result, or formal comparison result
+is claimed.
+
+A local dual-branch shoulder trial on 2026-08-30 was rejected before commit:
+treating the source-authored peak and axilla shoulder control landmarks as
+separate sweep centrelines produced visible diamond-like shoulder protrusions
+across the four profiles. Do not revive that construction without a materially
+different surface representation and new evidence.
+
+There is no exact-five human checkpoint for the failed expansion. The next work
+is a new human-authorized Stage 1 direction; a technical metric, model output,
+or internal mechanics result cannot substitute for that direction or for a
+future human visual judgment.
+The bounded model-vision pilot described above is advisory only; technical
+metrics, model output, and internal mechanics must not substitute for the
+human checkpoint.
+
+Do not reactivate Godot mechanics, permanent engine/backend selection, detailed
+realism or tissue, or unrelated historical runway tasks without an explicit
+trigger or retained-human direction. The bounded morphology research input is
+retained as context, while a general body-dossier framework or schema remains
+inactive.
+
+This section remains the sole continuation source; later status sections are
+reference history or task-specific state only.
+
+## Historical runway record
 
 Execution state: the shared-pose structural embodiment gallery reached its
 named human checkpoint and PR #114 merged as squash commit
@@ -27,24 +290,35 @@ all five hosted conversations were resolved, and automatic review remained
 disabled. Primary `main` and `origin/main` were fast-forwarded and clean. The
 CodeRabbit App and repository configuration remain live. The updated direction
 is to launch hosted and committed-diff CLI review in parallel as one
-final-readiness cycle, keep it advisory and non-gating, avoid pushing while
-hosted reviews hold an immutable head, and run bounded follow-up cycles until
-findings taper. Creature Kernel's limits are independent of FireMUD.
+final-readiness cycle, avoid pushing while hosted reviews hold an immutable
+head, and treat hosted finding taper as the merge gate. Individual findings
+remain subject to verification and disposition; CLI review supports the hosted
+cycles but cannot replace them.
 
-PR #119 merged as squash commit `ee48881d3029dad599a7a2ccc70172c10713a812`
-and retained the bounded deformation/coherence evidence described below. PR
-#120 merged as squash commit `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`
+PR `#119` merged as squash commit `ee48881d3029dad599a7a2ccc70172c10713a812`
+and retained the bounded deformation/coherence evidence described below.
+PR `#120` merged as squash commit `12d193f19c2d0dc3f9ba9f09fe4466e5109679b9`
 after both CI lanes passed and the committed-diff CodeRabbit CLI review found
-no issues; hosted review was rate-limited and therefore non-gating.
+no issues; hosted review was rate-limited and the PR merged under the earlier
+non-gating wording. That history is not precedent for the clarified hosted
+taper gate.
 
-The visual-review systemd service is active from `/home/ben/src/creature-kernel`;
+PR #121 merged as squash commit `e9017e14df44bab0008a48102993eff85d5f4853`
+after one hosted-plus-CLI cycle on pre-fix commit
+`8fc7e4953544d54b821055f04cc229c2e758a402`, review fixes and further internal
+review, passing hands-on trials, and green CI. The final follow-up head did not
+receive another hosted taper pass before the main thread manually used
+administrator merge. Ben identified that as a process failure on 2026-08-30 NZST;
+it is not precedent for later merges.
+
+The visual-review systemd service is active from the primary repository
+checkout;
 the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 
-The active direct-prerequisite worktree is
-`/home/ben/src/creature-kernel-worktrees/godot-runtime-input-projection` on
-branch `codex/godot-runtime-input-projection`, based on merged `main` at
-`12d193f`.
+The active direct-prerequisite worktree is the
+`godot-runtime-input-projection` worktree on branch
+`codex/godot-runtime-input-projection`, based on merged `main` at `12d193f`.
 Proposed/provisional per-avatar, semantic pose/contact, and runtime experiment
 evidence only: the current
 per-avatar runtime identity candidate passes ordered
@@ -121,11 +395,12 @@ current / `105477587` maximum bytes for rigid; process RSS and GPU memory were
 not measured.
 
 This is one bounded run, not a broad benchmark, product/runtime budget, or
-permanent Godot/Jolt engine choice. The direct timing/fallback slice is
-complete. The bounded Godot feasibility checkpoint remains the governing human
-checkpoint. The next direct prerequisite already recorded in this runway is
-preparation of the direct Rust and engine-neutral package prerequisites; no
-new direction is introduced here.
+permanent Godot/Jolt engine choice. The direct timing/fallback slice was
+complete at this point in the runway. The bounded Godot feasibility checkpoint
+then remained the governing human checkpoint, and the next direct prerequisite
+was preparation of the direct Rust and engine-neutral package prerequisites.
+The active-runway section above records the later package completion and
+checkpoint disposition.
 
 PR #120 completed the direct Rust prerequisite with a provisional CLI-local
 ordered prepared-source handoff and `inspect-runtime-input` debug command. The
@@ -216,15 +491,16 @@ topology, realistic anatomy, contact response, localized deformation quality,
 runtime budgets, or a host/solver choice. No further cosmetic repair of that
 disposable candidate is planned.
 
-The current named human checkpoint is a bounded Godot feasibility result. After
-the direct Creature Kernel and package prerequisites are prepared, the eventual
-candidate must load an engine-neutral CK package into two independently
+The then-named human checkpoint was a bounded Godot feasibility result. Its
+candidate had to load an engine-neutral CK package into two independently
 identified generated avatars, inject a host-neutral semantic pose, establish
 semantic contact, show localized press/release deformation plus actual physical
 response, measure render/collision coherence with named hardware and frame
-evidence, and demonstrate a CPU baseline plus a useful fallback. The
+evidence, and demonstrate a CPU baseline plus a useful fallback. That work is
+now complete and dispositioned as historical runway work; it no longer defines
+current continuation. The
 [first host runtime evaluation](../research/first-host-runtime-evaluation.md)
-records the current evidence and unresolved trial questions.
+records the bounded evidence and unresolved trial questions.
 
 Ben flagged that the current lumpy surface may hide anything short of extreme
 deformation. The human-facing result therefore must make a moderate localized
@@ -242,31 +518,34 @@ The post-Readiness-3 adapter gate remains explicit. The main thread may advance
 direct Rust and engine-neutral package prerequisites, but stops before any
 retained-human Readiness 3 or adapter-activation decision.
 
-After the bounded Godot mechanics/feasibility checkpoint is completed or
-dispositioned, the next model-facing human checkpoint is convincing
-simplified/stylized anatomy across the four fixed profiles: a readable,
+The next model-facing human checkpoint named by that historical runway was
+convincing
+simplified/stylized anatomy across the five fixed profiles: a readable,
 intentional neck, torso and pelvis masses, shoulder/hip transitions, tapered
 limbs, and a simplified muzzle and paws/feet. This is not a photorealistic
 anatomy, detailed-hands/faces/tissue, or current Godot-mechanics claim.
-Immediately before implementation of that later anatomy checkpoint—not now—
-activate the public morphology-knowledge lane by creating a provisional
-source-backed and reference-safe inventory of functional assemblies,
-fine-grained subparts, and optional modules, then pilot only one or two dossiers
-under the already recorded research procedure. This does not decide inventory
-contents, a schema, file layout, filenames, an executable representation, or
-supported new morphology. No broader risk-and-activation map is planned;
-checkpoint-specific evidence remains the governing approach.
+The historical runway recorded the provisional morphology-knowledge lane as
+activated research input for that checkpoint. The linked [morphology-knowledge inventory
+and pilot dossiers](../research/morphology-knowledge-inventory-and-pilot-dossiers.md)
+document records the required functional coverage and exactly two selected pilots:
+axial and upper-root assembly, and pelvic-to-planted-hind-paw assembly. It does
+not create a schema, roadmap, architecture, supported morphology promise, or
+executable truth. That historical activation and the direction to continue are
+superseded by the failed-candidate stop state in the active-runway section
+above. The inventory and exactly two dossiers are retained as research context;
+no implementation proceeds under that historical runway, and any new candidate
+or implementation use requires a new Ben-authorized runway. All retained-human
+boundaries remain unchanged.
 
-The active runway remains fail-closed: stop for main-thread reevaluation if the
+That historical runway was fail-closed: it required stop for main-thread reevaluation if the
 engine-neutral boundary, semantic pose/contact mapping, render/collision
 coherence, physical-response interpretation, CPU fallback, or evidence budget
 cannot be made credible without a material architecture or engine commitment.
 
-Current operational snapshot: the [Codex app handover](current-handover.md)
-(2026-08-29 NZST) records the primary checkout, active runway worktree,
-merged PR state, and the current checkpoint/tooling state. It is a navigation
-aid rather than a new authority owner. PR #107 retains the exact consumed
-producer lineage in surface reviews while preserving the parked EXP-0002
+The [Codex app handover](current-handover.md) is a compact navigation aid; it
+records no project state and owns no continuation authority. Live branch, PR,
+CI, service, and checkpoint state must be verified separately. PR #107 retains
+the exact consumed producer lineage in surface reviews while preserving the parked EXP-0002
 closure; it intentionally made no displayed form-quality claim.
 
 The PR #113 immutable surface checkpoint ID was
@@ -464,9 +743,9 @@ shoulder/arm, pelvis/leg, and digitigrade foot transitions must read as
 controlled continuous skin rather than joined procedural masses. Do not use
 per-variant or per-fixture patches or a handcrafted base mesh. This remains a
 bounded exploratory expressivity checkpoint, not proof of a finished
-morphology family or production surface system. The current named checkpoint
-is the shared-pose structural embodiment gallery described in the Active
-runway above.
+morphology family or production surface system. The next checkpoint at that
+historical point was the shared-pose structural embodiment gallery; it has
+since been reached and is inactive.
 
 For that former checkpoint, retain the exact producer envelope used by
 the checkpoint or an integrity-bound authored-dimension, landmark, frame, and
@@ -519,7 +798,7 @@ does not independently duplicate NumPy/SciPy geometry or prove rendered
 pixels, and this does not select a permanent backend. Live verification
 confirms
 the new persistent session at
-`/home/ben/.cache/creature-kernel/visual-reviews/authored-form-expressivity-exact-field-components-checkpoint-v2`
+`artifact-cache/creature-kernel/visual-reviews/authored-form-expressivity-exact-field-components-checkpoint-v2`
 contains `review.json`, exactly 8 PNGs, and no `response.json`. The systemd
 user service was restarted and is enabled/active on port 8765 in LAN read-only
 mode from the active worktree. The page and API return HTTP 200; all eight API
@@ -1366,16 +1645,16 @@ the Readiness 3 activation boundary and does not claim geometry, mesh, surface,
 volume, anatomical quality, rigging, pose/animation, IK, deformation, physics,
 general transforms, resolver activation, or runtime evidence.
 
-Ben's 2026-08-15 direction authorizes an autonomous runway of small, internal,
-reversible preparatory PRs from this merged checkpoint toward a complete
-Readiness 3 successor candidate. Routine numeric/frame, provenance, resolver,
-snapshot, diagnostic, fixture, and test implementation may merge after its
-required focused checks and risk-scaled review. Stop before merging the
-transaction that claims Readiness 3 activation and ask Ben for its required
+Ben's 2026-08-15 direction historically authorized an autonomous runway of
+small, internal, reversible preparatory PRs from this merged checkpoint toward
+a complete Readiness 3 successor candidate. Those preparatory PRs could merge
+after their required focused checks and risk-scaled review. The historical
+instruction was to stop before merging the transaction that claims Readiness 3
+activation and ask Ben for its required
 explicit approval; also stop earlier if work reaches a genuinely useful
 rendered-form appraisal or another retained-human boundary. Preparatory merges
 do not accept a Proposed DR, freeze activation-gated constants, or activate
-Readiness 3.
+Readiness 3. This authorization is inactive under the current runway.
 
 The first runway slice adds a crate-private, fail-closed exact-dyadic arithmetic
 foundation for later typed comparisons. It decodes admitted finite binary64
@@ -1575,8 +1854,9 @@ DR-0008 Revision 14 is the current Proposed morphology-boundary revision, with
 Owner approval Pending and Review status Pending. Its Revision 13 Double-review
 artifacts at exact target `117544a` are preserved stale evidence; their three
 taxonomy findings were dispositioned in Revision 14. R3 remains inactive, and
-no exact profile constants, IDs, fixture files, or activation record are
-selected.
+DR-0008/Readiness 3 has selected no exact profile constants, IDs, fixture files,
+or activation record. The retained failed-candidate profile IDs above remain
+historical experiment evidence, not a DR-0008/Readiness 3 selection.
 
 Batch 11, Batch 12, and Batch 13 record discussion-approved history. The
 accepted DR-0002/0006/0011/0012 semantic-foundation directions cover typed
@@ -1681,7 +1961,7 @@ experiment, and geometry gates are inactive.
 The prior Double-review findings and ten artifacts are preserved in the
 [decision registry](../decisions/registry.md) as stale historical evidence.
 The completed Batch 9 Double review examined the exact target commit
-`6cf17270fda2827756c24a8d0fb301bef358f` in two Sol medium passes: Review 01
+`6cf17270fda2827756c24a8d0fb301bef358f98f` in two Sol medium passes: Review 01
 used the contract/schema/determinism/security lens; Review 02 used the
 platform/failure/reversibility/publication lens.
 
@@ -1745,19 +2025,21 @@ Exact aggregate
 module-binding semantics and Readiness 3 activation remain gated; the phase-two
 development run remains non-authoritative and insufficient to choose
 strict/micro/stress. Readiness 1 and Readiness 2 remain active while Readiness 3
-and later transactions remain gated. The sole current retained-human
-checkpoint is the shared-pose structural embodiment gallery described in the
-Active runway section above. The former authored-form and earlier
+and later transactions remain gated. The retained-human checkpoint at that
+historical point was the shared-pose structural embodiment gallery. It has
+since been reached and is inactive. The former authored-form and earlier
 rendered-creature or primitive spatial-preview checkpoints are historical and
 inactive.
 The main thread will autonomously resolve technical correctness findings or
 record evidence-dependent triggers under the DR-0001 Revision 6 transition
 direction; only a retained-human product, architecture-boundary, material
 trade-off, or external-impact finding returns to Ben. No proposal is silently
-accepted. The four semantic-foundation acceptances authorize autonomous
-construction/review of the exact Readiness 3 successor candidate but do not
-activate Readiness 3; no later implementation/readiness gate activates while
-its own prerequisites or owning records remain Proposed.
+accepted. At that historical point, the four semantic-foundation acceptances
+authorized autonomous construction/review of the exact Readiness 3 successor
+candidate but did not activate Readiness 3; no later
+implementation/readiness gate activates while
+its own prerequisites or owning records remain Proposed. That historical
+authorization does not reactivate Readiness 3 under the current runway.
 Earlier Batch 8/9 and other
 review artifacts remain preserved as stale historical evidence.
 Do not activate the Readiness 3 resolver, adapters, or geometry work while
@@ -1810,7 +2092,7 @@ slice does not activate Readiness 3.
 The meaning and enforcement details of an exact dependency revision remain a
 nonblocking obligation before external authored dependencies activate.
 
-## Current round and work state
+## Historical round and work state
 
 - Rounds 0–5 are integrated history: governance, product boundary, semantic
   source/identity/operation proposals, compile/runtime boundary, first-proof
@@ -1870,7 +2152,7 @@ nonblocking obligation before external authored dependencies activate.
   requiring Ben's retained-human disposition before adapter profile/schema
   activation; it does not block the current preparatory Rust slices. The immediate-predecessor 9b96d18 review is stale; its findings were corrected. The 9c governance pass corrected two mechanical history-label issues and its technical pass found no findings / Ready for PR at High confidence.
   The completed Batch 9 Double review targeted
-  `6cf17270fda2827756c24a8d0fb301bef358f` and is stale for the revised records;
+  `6cf17270fda2827756c24a8d0fb301bef358f98f` and is stale for the revised records;
   it is evidence, not acceptance.
   See [Current review and future activation obligations](#current-review-and-future-activation-obligations).
   It does not
@@ -1889,7 +2171,10 @@ validator, and inspection command remain preparatory. The immediate-predecessor
   shell, parser/bootstrap+fixtures, semantic resolver/in-memory snapshot, and exploratory geometry respectively. The disposable Python
   discovery host remains distinct from the accepted production platform.
 
-## Active work
+## Historical active-work record
+
+These bullets preserve former runway instructions as inactive historical
+context; the `Active runway` above governs current continuation.
 
 - Advance direct Rust source-preparation and engine-neutral runtime-package
   prerequisites toward the bounded Godot feasibility checkpoint. Keep the
@@ -1976,8 +2261,9 @@ metadata. Current non-governance decisions and proposals include:
 
 The following section is preserved historical planning context from the earlier
 Readiness 3 preparation runway. It is inactive and must not be treated as the
-current next actions; the `Active runway` above and the [current operational
-handover](current-handover.md) govern current continuation.
+current next actions; the `Active runway` above alone governs current
+continuation. The [current operational handover](current-handover.md) is a
+navigation aid only.
 
 Ben authorized an autonomous runway on 2026-08-15 for small, internal,
 reversible preparation PRs. The latest relevant checkpoint is PR #65, “Add the

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the four experiment-local structural source-profile candidates.
+"""Generate experiment-local structural source-profile candidates.
 
 The candidate JSON is the frozen data table.  This module contains one
 selector-driven transform and the fail-closed checks around it; profile IDs do
@@ -29,8 +29,30 @@ HERE = Path(__file__).resolve()
 REPO_ROOT = HERE.parents[2]
 DEFAULT_CANDIDATE = HERE.with_name("structural_profile_candidates.json")
 DEFAULT_SOURCE = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+HISTORICAL_FIXTURE_ROOT = HERE.parent / "historical" / "structural-embodiment-v1"
+HISTORICAL_CANDIDATE = HISTORICAL_FIXTURE_ROOT / "structural_profile_candidates.json"
+HISTORICAL_SOURCE = HISTORICAL_FIXTURE_ROOT / "stylized-digitigrade-biped-authored-form.json"
 FORMAT = "creature-kernel.disposable-structural-profile-candidates.v1"
 SOURCE_DOCUMENT_SUFFIX = "structural_profile"
+DEFAULT_GENERATION_MODE = "active-five-profile"
+HISTORICAL_GENERATION_MODE = "historical-structural-embodiment-v1"
+PROFILE_COUNT = 5
+STANDARD_NEUTRAL_PROFILE_ID = "standard_neutral_reference"
+ACTIVE_PROFILE_IDS = (
+    "standard_neutral_reference",
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+)
+HISTORICAL_PROFILE_IDS = (
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+)
+HISTORICAL_CANDIDATE_SHA256 = "68d6e808a21daad16e1d56716124fc96b021bc492adf5171ec4e155591f45336"
+HISTORICAL_SOURCE_SHA256 = "faf02db965a2b7f6889dfb1cd58eb79befa9c536f58adca40b14ccc955eaf533"
 MAX_SAFE_INTEGER = 10**9
 MAX_JSON_BYTES = 1024 * 1024
 MAX_OUTPUT_JSON_BYTES = MAX_JSON_BYTES
@@ -77,6 +99,26 @@ def canonical_source_bytes(value: Any) -> bytes:
         ).encode("utf-8")
     except (TypeError, ValueError, UnicodeEncodeError) as exc:
         raise ProfileGenerationError("source is not canonical finite UTF-8 JSON") from exc
+
+
+def _profile_contract(mode: str) -> tuple[int, tuple[str, ...] | None]:
+    if mode == DEFAULT_GENERATION_MODE:
+        return PROFILE_COUNT, ACTIVE_PROFILE_IDS
+    if mode == HISTORICAL_GENERATION_MODE:
+        return len(HISTORICAL_PROFILE_IDS), HISTORICAL_PROFILE_IDS
+    raise ProfileGenerationError(f"unsupported structural profile generation mode: {mode}")
+
+
+def _historical_fixture_values() -> tuple[dict[str, Any], bytes, dict[str, Any], bytes]:
+    candidate_path = _path_without_symlinks(HISTORICAL_CANDIDATE, "historical candidate fixture path")
+    source_path = _path_without_symlinks(HISTORICAL_SOURCE, "historical source fixture path")
+    candidate, candidate_bytes = load_json_with_bytes(candidate_path, "historical candidate fixture")
+    source, source_bytes = load_json_with_bytes(source_path, "historical source fixture")
+    if hashlib.sha256(candidate_bytes).hexdigest() != HISTORICAL_CANDIDATE_SHA256:
+        raise ProfileGenerationError("historical candidate fixture bytes are not the frozen origin/main bytes")
+    if hashlib.sha256(source_bytes).hexdigest() != HISTORICAL_SOURCE_SHA256:
+        raise ProfileGenerationError("historical source fixture bytes are not the frozen origin/main bytes")
+    return _object(candidate, "historical candidate fixture"), candidate_bytes, _object(source, "historical source fixture"), source_bytes
 
 
 def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -459,7 +501,13 @@ def _validate_source_shape(source: dict[str, Any], candidate: dict[str, Any]) ->
     return parts, dimensions, normalized_groups
 
 
-def _validate_candidate(candidate: dict[str, Any], source: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, Any]], list[str]]:
+def _validate_candidate(
+    candidate: dict[str, Any],
+    source: dict[str, Any],
+    *,
+    mode: str = DEFAULT_GENERATION_MODE,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, Any]], list[str]]:
+    expected_profile_count, expected_profile_ids = _profile_contract(mode)
     _require_keys(candidate, ("base_source", "canonicalization", "format", "profiles", "transform"), "candidate")
     if candidate["format"] != FORMAT:
         raise ProfileGenerationError(f"candidate.format must be {FORMAT}")
@@ -484,8 +532,8 @@ def _validate_candidate(candidate: dict[str, Any], source: dict[str, Any]) -> tu
     if not _list(transform["reference_edges"], "candidate.transform.reference_edges"):
         raise ProfileGenerationError("candidate declares no stable reference edge")
     profiles = _list(candidate["profiles"], "candidate.profiles")
-    if len(profiles) != 4:
-        raise ProfileGenerationError(f"candidate must freeze exactly four profiles, found {len(profiles)}")
+    if len(profiles) != expected_profile_count:
+        raise ProfileGenerationError(f"candidate must freeze exactly {expected_profile_count} profiles, found {len(profiles)}")
     profile_ids: list[str] = []
     profile_labels: list[str] = []
     group_names = set(groups)
@@ -514,6 +562,23 @@ def _validate_candidate(candidate: dict[str, Any], source: dict[str, Any]) -> tu
             if parsed not in actual_part_keys or parsed.split("|")[1] != "part":
                 raise ProfileGenerationError(f"profile {profile_id} has an unknown Part placement target {key}")
             _vector(vector, f"profile {profile_id}.part_placements.{key}")
+    if expected_profile_ids is not None and tuple(profile_ids) != expected_profile_ids:
+        if mode == DEFAULT_GENERATION_MODE:
+            raise ProfileGenerationError("active mode requires the exact five-profile ID/order tuple")
+        raise ProfileGenerationError("historical mode requires the exact frozen four-profile order")
+    if mode == DEFAULT_GENERATION_MODE:
+        neutral = profiles[0]
+        if any(scale != 1000 for scale in neutral["dimension_scales"].values()):
+            raise ProfileGenerationError("the standard neutral reference must use 1000-permille dimension scales")
+        source_placements = {
+            address_key(part["address"]): tuple(part["placement"]["translation"])
+            for part in parts
+        }
+        for key, vector in neutral["part_placements"].items():
+            if tuple(vector) != source_placements[key]:
+                raise ProfileGenerationError(
+                    "the standard neutral reference must retain the base source Part placements"
+                )
     return parts, dimensions, groups, profile_ids
 
 
@@ -576,7 +641,8 @@ def _reference_edge_check(source: dict[str, Any], generated: dict[str, Any], tra
             raise ProfileGenerationError("reference edge squared length is not exact")
 
 
-def _tail_signature(source: dict[str, Any]) -> tuple[int, int, int, int, int]:
+def tail_signature(source: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    """Return the deterministic source-owned tail shape signature."""
     body = source["body"]
     tips = [item for item in body["parts"] if item["address"]["role"] == "tail_tip" and item["address"]["anchors"] == ["tail"]]
     if len(tips) != 1:
@@ -593,6 +659,10 @@ def _tail_signature(source: dict[str, Any]) -> tuple[int, int, int, int, int]:
     if any(key not in dimensions for key in keys):
         raise ProfileGenerationError("generated source is missing a tail taper dimension")
     return (abs(tip_translation[2]), *(dimensions[key] for key in keys))
+
+
+# Keep the historical private name available to existing experiment consumers.
+_tail_signature = tail_signature
 
 
 def _check_shared_pose_alignment(source: dict[str, Any], where: str) -> None:
@@ -626,19 +696,15 @@ def _apply_profile(source: dict[str, Any], profile: dict[str, Any], groups: dict
     for module in output["body"]["modules"]:
         module["declaration"]["document"] = output["source"]["document"]
     placements = profile["part_placements"]
-    changed_placements = 0
     for part in output["body"]["parts"]:
         key = address_key(part["address"])
         if key not in placements:
             raise ProfileGenerationError(f"profile {profile_id} is missing transform target {key}")
         expected = _vector(placements[key], f"profile {profile_id}.part_placements.{key}")
-        if part["placement"]["translation"] != expected:
-            changed_placements += 1
         part["placement"]["translation"] = expected
     if set(placements) != {address_key(part["address"]) for part in output["body"]["parts"]}:
         raise ProfileGenerationError(f"profile {profile_id} has an unknown transform target")
 
-    changed_dimensions = 0
     for index, dimension in enumerate(output["body"]["dimensions"]):
         matches = [name for name, selector in groups.items() if _matches_dimension(dimension, selector)]
         if len(matches) != 1:
@@ -650,18 +716,26 @@ def _apply_profile(source: dict[str, Any], profile: dict[str, Any], groups: dict
         scaled = _round_permille(value, _integer(scale, f"profile {profile_id}.dimension_scales.{matches[0]}", minimum=1, maximum=10_000))
         if scaled < 1 or scaled > MAX_SAFE_INTEGER:
             raise ProfileGenerationError(f"profile {profile_id} generated an unsafe permille value")
-        if scaled != value:
-            changed_dimensions += 1
         dimension["value"] = scaled
-    if changed_placements == 0 or changed_dimensions == 0:
-        raise ProfileGenerationError(f"profile {profile_id} does not produce real source-level changes")
     return output
 
 
-def _generate_sources(candidate: dict[str, Any], source: dict[str, Any]) -> list[dict[str, Any]]:
+def _generate_sources(
+    candidate: dict[str, Any],
+    source: dict[str, Any],
+    *,
+    mode: str = DEFAULT_GENERATION_MODE,
+) -> list[dict[str, Any]]:
     candidate = copy.deepcopy(candidate)
     source = copy.deepcopy(source)
-    parts, dimensions, groups, profile_ids = _validate_candidate(candidate, source)
+    expected_profile_count, _ = _profile_contract(mode)
+    if mode == HISTORICAL_GENERATION_MODE:
+        _, historical_candidate_bytes, historical_source, _ = _historical_fixture_values()
+        if canonical_bytes(candidate) != historical_candidate_bytes:
+            raise ProfileGenerationError("historical mode requires the archived candidate-table bytes")
+        if canonical_source_bytes(source) != canonical_source_bytes(historical_source):
+            raise ProfileGenerationError("historical mode requires the archived source semantics")
+    parts, dimensions, groups, profile_ids = _validate_candidate(candidate, source, mode=mode)
     del parts, dimensions
     signatures = [_transform_signature(profile) for profile in candidate["profiles"]]
     if len(set(signatures)) != len(signatures):
@@ -678,25 +752,37 @@ def _generate_sources(candidate: dict[str, Any], source: dict[str, Any]) -> list
         tail_modules = [module for module in output["body"]["modules"] if module["module"] == "tail"]
         if len(tail_modules) != 1 or tail_modules[0]["presence"] != "present" or tail_modules[0]["root"] is None:
             raise ProfileGenerationError(f"profile {profile['id']} does not retain a present tail module")
-        tail_signatures.add(_tail_signature(output))
+        tail_signatures.add(tail_signature(output))
         outputs.append(output)
     if len(tail_signatures) < 2:
-        raise ProfileGenerationError("the four present tails do not provide style contrast")
-    if len(outputs) != 4 or [output["source"]["document"] for output in outputs] != [f"{source['source']['document']}__{SOURCE_DOCUMENT_SUFFIX}__{profile_id}" for profile_id in profile_ids]:
+        raise ProfileGenerationError(f"the {expected_profile_count} present tails do not provide style contrast")
+    if len(outputs) != expected_profile_count or [output["source"]["document"] for output in outputs] != [f"{source['source']['document']}__{SOURCE_DOCUMENT_SUFFIX}__{profile_id}" for profile_id in profile_ids]:
         raise ProfileGenerationError("generated source lineage is not deterministic")
     return outputs
 
 
-def generate_sources(candidate: dict[str, Any], source: dict[str, Any]) -> list[dict[str, Any]]:
+def generate_sources(
+    candidate: dict[str, Any],
+    source: dict[str, Any],
+    *,
+    mode: str = DEFAULT_GENERATION_MODE,
+) -> list[dict[str, Any]]:
     try:
-        return _generate_sources(candidate, source)
+        return _generate_sources(candidate, source, mode=mode)
     except ProfileGenerationError:
         raise
     except (AttributeError, IndexError, KeyError, OverflowError, RecursionError, TypeError, ValueError) as exc:
         raise ProfileGenerationError("candidate or source contains malformed validated structure") from exc
 
 
-def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> dict[str, Any]:
+def write_sources(
+    candidate_path: Path,
+    source_path: Path,
+    output_dir: Path,
+    *,
+    mode: str = DEFAULT_GENERATION_MODE,
+) -> dict[str, Any]:
+    _profile_contract(mode)
     candidate_path = _path_without_symlinks(candidate_path, "candidate path")
     source_path = _path_without_symlinks(source_path, "authored source path")
     output_dir = _path_without_symlinks(output_dir, "output path")
@@ -718,7 +804,13 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
     expected_source_hash = _text(base_source.get("sha256"), "candidate.base_source.sha256")
     if hashlib.sha256(source_bytes).hexdigest() != expected_source_hash:
         raise ProfileGenerationError("authored source bytes do not match candidate.base_source.sha256")
-    outputs = generate_sources(candidate, source)
+    if mode == HISTORICAL_GENERATION_MODE:
+        _, expected_candidate_bytes, _, expected_source_bytes = _historical_fixture_values()
+        if candidate_bytes != expected_candidate_bytes:
+            raise ProfileGenerationError("historical mode requires the archived candidate-table bytes")
+        if source_bytes != expected_source_bytes:
+            raise ProfileGenerationError("historical mode requires the archived source bytes")
+    outputs = generate_sources(candidate, source, mode=mode)
     try:
         output_dir.lstat()
     except FileNotFoundError:
@@ -753,7 +845,7 @@ def write_sources(candidate_path: Path, source_path: Path, output_dir: Path) -> 
                 "file": file_name,
                 "id": profile["id"],
                 "sha256": hashlib.sha256(data).hexdigest(),
-                "tail_signature": list(_tail_signature(output)),
+                "tail_signature": list(tail_signature(output)),
             })
         manifest = {
             "candidate_format": candidate["format"],
@@ -805,20 +897,43 @@ def _default_source(candidate_path: Path) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--candidate", type=Path, default=DEFAULT_CANDIDATE)
+    parser.add_argument("--candidate", type=Path)
     parser.add_argument("--source", type=Path)
     parser.add_argument("--output-dir", type=Path)
+    parser.add_argument(
+        "--generation-mode",
+        choices=(DEFAULT_GENERATION_MODE, HISTORICAL_GENERATION_MODE),
+        default=DEFAULT_GENERATION_MODE,
+        help="select the explicit active or archived historical source contract",
+    )
     parser.add_argument("--check", action="store_true", help="validate and generate in a temporary directory without retaining output")
     args = parser.parse_args(argv)
     if not args.check and args.output_dir is None:
         parser.error("--output-dir is required unless --check is used")
     try:
-        source_path = args.source or _default_source(args.candidate)
+        candidate_path = args.candidate or (
+            HISTORICAL_CANDIDATE if args.generation_mode == HISTORICAL_GENERATION_MODE else DEFAULT_CANDIDATE
+        )
+        source_path = args.source or (
+            HISTORICAL_SOURCE
+            if args.generation_mode == HISTORICAL_GENERATION_MODE
+            else _default_source(candidate_path)
+        )
         if args.check:
-            with tempfile.TemporaryDirectory(prefix="ck-structural-profile-check-", dir="/tmp") as temporary:
-                manifest = write_sources(args.candidate, source_path, Path(temporary) / "sources")
+            with tempfile.TemporaryDirectory(prefix="ck-structural-profile-check-") as temporary:
+                manifest = write_sources(
+                    candidate_path,
+                    source_path,
+                    Path(temporary) / "sources",
+                    mode=args.generation_mode,
+                )
         else:
-            manifest = write_sources(args.candidate, source_path, args.output_dir)
+            manifest = write_sources(
+                candidate_path,
+                source_path,
+                args.output_dir,
+                mode=args.generation_mode,
+            )
     except ProfileGenerationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

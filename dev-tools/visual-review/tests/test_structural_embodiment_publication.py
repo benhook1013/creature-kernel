@@ -230,7 +230,7 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
     def _write_gallery(cls, root: Path) -> None:
         inventory: list[dict[str, object]] = []
         profiles: list[dict[str, object]] = []
-        candidate_path = HERE.parent.parent / "experiments" / "current-form-surface-preview" / publisher.CANDIDATE_FILE
+        candidate_path = publisher.HISTORICAL_CANDIDATE_PATH
         candidate_data = candidate_path.read_bytes()
         candidate_value = json.loads(candidate_data)
         expected_source_data = publisher._expected_source_documents(candidate_value, candidate_data)
@@ -251,7 +251,7 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
                 "file": f"{profile_id}.json",
                 "id": profile_id,
                 "sha256": hashlib.sha256(source_data).hexdigest(),
-                "tail_signature": list(publisher.profile_source_generator._tail_signature(source_value)),
+                "tail_signature": list(publisher.profile_source_generator.tail_signature(source_value)),
             })
             (sources_dir / f"{profile_id}.json").write_bytes(source_data)
             inventory.append({"path": f"{publisher.SOURCES_DIR}/{profile_id}.json", **artifact(source_data)})
@@ -524,6 +524,70 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
         with self.assertRaises(publisher.StructuralEmbodimentPublishError):
             self.publish("wrong-generated-source")
 
+    def test_historical_generator_short_output_fails_closed(self) -> None:
+        candidate_data = publisher.HISTORICAL_CANDIDATE_PATH.read_bytes()
+        candidate = json.loads(candidate_data)
+        outputs = publisher.profile_source_generator.generate_sources(
+            candidate,
+            json.loads(publisher.HISTORICAL_SOURCE_PATH.read_bytes()),
+            mode=publisher.HISTORICAL_GENERATION_MODE,
+        )
+        with patch.object(
+            publisher.profile_source_generator,
+            "generate_sources",
+            return_value=outputs[:-1],
+        ):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                "historical generator did not produce exactly four profile documents",
+            ):
+                publisher._expected_source_documents(candidate, candidate_data)
+
+    def test_historical_generator_surplus_output_fails_closed(self) -> None:
+        candidate_data = publisher.HISTORICAL_CANDIDATE_PATH.read_bytes()
+        candidate = json.loads(candidate_data)
+        outputs = publisher.profile_source_generator.generate_sources(
+            candidate,
+            json.loads(publisher.HISTORICAL_SOURCE_PATH.read_bytes()),
+            mode=publisher.HISTORICAL_GENERATION_MODE,
+        )
+        with patch.object(
+            publisher.profile_source_generator,
+            "generate_sources",
+            return_value=outputs + [outputs[0]],
+        ):
+            with self.assertRaisesRegex(
+                publisher.StructuralEmbodimentPublishError,
+                "historical generator did not produce exactly four profile documents",
+            ):
+                publisher._expected_source_documents(candidate, candidate_data)
+
+    def test_historical_generator_reordered_or_mislabeled_output_fails_closed(self) -> None:
+        candidate_data = publisher.HISTORICAL_CANDIDATE_PATH.read_bytes()
+        candidate = json.loads(candidate_data)
+        outputs = publisher.profile_source_generator.generate_sources(
+            candidate,
+            json.loads(publisher.HISTORICAL_SOURCE_PATH.read_bytes()),
+            mode=publisher.HISTORICAL_GENERATION_MODE,
+        )
+        with patch.object(
+            publisher.profile_source_generator,
+            "generate_sources",
+            return_value=list(reversed(outputs)),
+        ):
+            with self.assertRaisesRegex(publisher.StructuralEmbodimentPublishError, "unexpected source.document"):
+                publisher._expected_source_documents(candidate, candidate_data)
+
+        mislabeled = [dict(output) for output in outputs]
+        mislabeled[0] = {**mislabeled[0], "source": {**mislabeled[0]["source"], "document": "wrong"}}
+        with patch.object(
+            publisher.profile_source_generator,
+            "generate_sources",
+            return_value=mislabeled,
+        ):
+            with self.assertRaisesRegex(publisher.StructuralEmbodimentPublishError, "unexpected source.document"):
+                publisher._expected_source_documents(candidate, candidate_data)
+
     def test_semantically_forged_rehashed_artifacts_fail_closed(self) -> None:
         pose = json.loads((self.gallery / publisher.POSE_FILE).read_text(encoding="utf-8"))
         pose["rules"][0]["angle_degrees"] = 1.0
@@ -626,6 +690,18 @@ class StructuralEmbodimentPublicationTests(unittest.TestCase):
         self.refresh_source_bindings()
         with self.assertRaises(publisher.StructuralEmbodimentPublishError):
             self.publish("invalid-tail-signature")
+
+        self.reset_case()
+        source_manifest_path = self.gallery / publisher.SOURCES_DIR / publisher.SOURCE_MANIFEST_FILE
+        source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+        source_manifest["profiles"][0]["tail_signature"][1] += 1
+        source_manifest_path.write_text(json.dumps(source_manifest, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+        self.refresh_source_bindings()
+        with self.assertRaisesRegex(
+            publisher.StructuralEmbodimentPublishError,
+            "tail_signature does not match its source document",
+        ):
+            self.publish("forged-tail-signature")
 
     def test_manifest_order_labels_and_path_traversal_are_rejected(self) -> None:
         value = self.manifest()

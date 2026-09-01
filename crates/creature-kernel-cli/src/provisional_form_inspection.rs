@@ -453,7 +453,7 @@ fn parse_input_path(arguments: &[String]) -> Option<&Path> {
 pub(crate) fn inspect_source(source: &[u8]) -> CliResult {
     match build_provisional_form_preview(source, ResourceProfile::ORDINARY) {
         Ok(preview) => match prepare_single_source(source, ResourceProfile::ORDINARY) {
-            Ok(prepared) => match prepare_authored_controls(&prepared) {
+            Ok(prepared) => match prepare_authored_controls(&prepared, &preview) {
                 Ok(controls) => {
                     match prepare_authored_dimensions(
                         &preview,
@@ -1475,6 +1475,7 @@ fn source_number_value(value: creature_kernel_core::numeric::NormalizedBinary64)
 
 fn prepare_authored_controls(
     prepared: &PreparedSingleSource,
+    preview: &ProvisionalFormPreview,
 ) -> Result<PreparedAuthoredControls, InspectionError> {
     let owners = required_upper_arm_owners(prepared)?;
     let source = prepared.graph().source();
@@ -1545,7 +1546,7 @@ fn prepare_authored_controls(
         }
     }
 
-    let torso_profile = prepare_torso_profile(prepared, &mut landmarks, &mut frames)?;
+    let torso_profile = prepare_torso_profile(prepared, preview, &mut landmarks, &mut frames)?;
     let head_neck_profile = prepare_head_neck_profile(prepared, &mut landmarks, &mut frames)?;
     let arm_profile = prepare_arm_profile(prepared, &mut landmarks, &mut frames)?;
     let leg_profile = prepare_leg_profile(prepared, &mut landmarks, &mut frames)?;
@@ -1574,6 +1575,7 @@ fn prepare_authored_controls(
 
 fn prepare_torso_profile(
     prepared: &PreparedSingleSource,
+    preview: &ProvisionalFormPreview,
     landmarks: &mut Vec<AuthoredLandmark>,
     frames: &mut Vec<AuthoredFrame>,
 ) -> Result<PreparedTorsoProfile, InspectionError> {
@@ -1596,7 +1598,9 @@ fn prepare_torso_profile(
     }
 
     let mut sections = Vec::with_capacity(TORSO_PROFILE_SECTION_NAMES.len());
+    let mut previous_owner = None;
     let mut previous_y = None;
+    let mut previous_composed_y = None;
     for (name, owner_role) in TORSO_PROFILE_SECTION_NAMES
         .into_iter()
         .zip(TORSO_PROFILE_OWNER_ROLES)
@@ -1659,15 +1663,44 @@ fn prepare_torso_profile(
             });
         }
         let y = landmark.position().components()[1].as_f64();
+        if previous_owner.as_ref() != Some(&owner) {
+            previous_owner = Some(owner.clone());
+            previous_y = None;
+        }
         if previous_y.is_some_and(|previous| y <= previous) {
             return Err(InspectionError::InvalidAuthoredControl {
                 address: landmark_key.owner().clone(),
                 role: landmark_key.role().to_owned(),
-                detail: "torso profile axial landmarks must be strictly ordered globally"
+                detail: "torso profile axial landmarks must be strictly ordered within each owner-local route"
+                    .to_owned(),
+            });
+        }
+        let owner_reference_y = preview
+            .variants()
+            .first()
+            .and_then(|variant| {
+                variant
+                    .descriptors()
+                    .iter()
+                    .find(|descriptor| descriptor.address() == &owner)
+            })
+            .map(|descriptor| descriptor.reference_point().components()[1] as f64)
+            .ok_or_else(|| InspectionError::InvalidAuthoredControl {
+                address: owner.clone(),
+                role: TORSO_PROFILE_CONTROL_FRAME_ROLE.to_owned(),
+                detail: "torso profile owner has no validated body-space placement".to_owned(),
+            })?;
+        let composed_y = owner_reference_y + y;
+        if previous_composed_y.is_some_and(|previous| composed_y <= previous) {
+            return Err(InspectionError::InvalidAuthoredControl {
+                address: landmark_key.owner().clone(),
+                role: landmark_key.role().to_owned(),
+                detail: "torso profile axial landmarks must be strictly ordered in composed body-space y"
                     .to_owned(),
             });
         }
         previous_y = Some(y);
+        previous_composed_y = Some(composed_y);
         landmarks.push(AuthoredLandmark {
             owner: landmark_key.owner().clone(),
             role: landmark_key.role().to_owned(),
@@ -3682,6 +3715,7 @@ mod tests {
         let frames = value["authored_frames"].as_array().unwrap();
         let landmarks = value["authored_landmarks"].as_array().unwrap();
         let dimensions = value["authored_dimensions"].as_array().unwrap();
+        let mut previous_owner = None;
         let mut previous_y = None;
         for (index, section) in sections.iter().enumerate() {
             assert_eq!(section["section_index"], json!(index));
@@ -3705,7 +3739,12 @@ mod tests {
             assert_eq!(landmark["position"][0], json!(0.0));
             assert_eq!(landmark["position"][2], json!(0.0));
             let y = landmark["position"][1].as_f64().unwrap();
+            let owner = &frame["owner"];
+            if previous_owner.as_ref() != Some(owner) {
+                previous_y = None;
+            }
             assert!(previous_y.is_none_or(|previous| y > previous));
+            previous_owner = Some(owner.clone());
             previous_y = Some(y);
 
             let dimension_indices = &section["dimension_indices"];
@@ -5666,8 +5705,29 @@ mod tests {
             .unwrap()
             .iter_mut()
             .find(|landmark| landmark["role"] == "form_torso_profile_lower_ribcage")
-            .unwrap()["position"][1] = json!(0.2);
+            .unwrap()["position"][1] = json!(-0.2);
         authored_control_failure(nonmonotone);
+
+        let mut owner_local_source = document();
+        owner_local_source["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| landmark["role"] == "form_torso_profile_lower_abdomen")
+            .unwrap()["position"][1] = json!(-0.9);
+        let owner_local_positions = parsed(&inspect_source(&bytes(owner_local_source)));
+        assert_eq!(owner_local_positions["status"], "success");
+        let owner_local_sections = owner_local_positions["authored_torso_profile"]["sections"]
+            .as_array()
+            .unwrap();
+        assert_eq!(owner_local_sections[1]["name"], "upper-pelvis");
+        assert_eq!(owner_local_sections[2]["name"], "lower-abdomen");
+        let lower_abdomen_landmark_index =
+            owner_local_sections[2]["landmark_index"].as_u64().unwrap() as usize;
+        assert_eq!(
+            owner_local_positions["authored_landmarks"][lower_abdomen_landmark_index]["position"],
+            json!([0.0, -0.9, 0.0])
+        );
 
         let mut nonaxial = document();
         nonaxial["body"]["landmarks"]
@@ -5684,6 +5744,64 @@ mod tests {
             .unwrap()
             .retain(|frame| frame["role"] != TORSO_PROFILE_CONTROL_FRAME_ROLE);
         authored_control_failure(missing_frame);
+    }
+
+    #[test]
+    fn torso_profile_rejects_nonmonotone_composed_route_across_owner_boundary() {
+        let mut source = document();
+        source["body"]["landmarks"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|landmark| landmark["role"] == "form_torso_profile_upper_pelvis")
+            .unwrap()["position"][1] = json!(0.95);
+
+        let y = |role: &str| {
+            source["body"]["landmarks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|landmark| landmark["role"] == role)
+                .unwrap()["position"][1]
+                .as_f64()
+                .unwrap()
+        };
+        assert!(y("form_torso_profile_lower_pelvis") < y("form_torso_profile_upper_pelvis"));
+        let torso_route = [
+            y("form_torso_profile_lower_abdomen"),
+            y("form_torso_profile_waist_abdomen"),
+            y("form_torso_profile_upper_abdomen"),
+            y("form_torso_profile_lower_ribcage"),
+            y("form_torso_profile_upper_ribcage_shoulder"),
+        ];
+        assert!(torso_route.windows(2).all(|pair| pair[0] < pair[1]));
+
+        let preview =
+            build_provisional_form_preview(&bytes(source.clone()), ResourceProfile::ORDINARY)
+                .expect("source placement remains valid");
+        let owner_y = |role: &str| {
+            preview.variants()[0]
+                .descriptors()
+                .iter()
+                .find(|descriptor| {
+                    descriptor.address().anchors().is_empty() && descriptor.address().role() == role
+                })
+                .expect("torso owner descriptor")
+                .reference_point()
+                .components()[1] as f64
+        };
+        assert!(
+            owner_y("pelvis") + y("form_torso_profile_upper_pelvis")
+                >= owner_y("torso") + y("form_torso_profile_lower_abdomen")
+        );
+
+        let result = authored_control_failure(source);
+        assert!(
+            result["diagnostics"][0]["message"]
+                .as_str()
+                .unwrap()
+                .contains("composed body-space y")
+        );
     }
 
     #[test]

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import io
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,12 +25,14 @@ import generate_structural_profile_sources as generator  # noqa: E402
 import structural_atomic_publish  # noqa: E402
 
 
-PROFILE_IDS = [
+PROFILE_IDS = list(generator.ACTIVE_PROFILE_IDS)
+EXPECTED_PROFILE_IDS = (
+    "standard_neutral_reference",
     "compact_broad_short_limb_large_head",
     "tall_narrow_long_legged",
     "slender_long_limb",
     "stocky_broad_chested",
-]
+)
 
 
 def address(role: str, anchors: list[str] | None = None, kind: str = "part") -> dict[str, object]:
@@ -104,8 +108,10 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                 return dimension["value"]  # type: ignore[index,return-value]
         raise AssertionError(f"missing dimension {wanted} {dimension_role}")
 
-    def test_freezes_exactly_four_canonical_sources_with_lineage(self) -> None:
+    def test_freezes_exactly_five_canonical_sources_with_lineage(self) -> None:
+        self.assertEqual(len(PROFILE_IDS), 5)
         self.assertEqual([profile["id"] for profile in self.candidate["profiles"]], PROFILE_IDS)
+        self.assertEqual(tuple(PROFILE_IDS), EXPECTED_PROFILE_IDS)
         self.assertEqual(self.candidate_path.read_bytes(), generator.canonical_bytes(self.candidate))
         self.assertEqual(set(self.sources), set(PROFILE_IDS))
         manifest = json.loads((self.output_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -128,6 +134,58 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             self.assertLessEqual(len(serialized), generator.MAX_OUTPUT_JSON_BYTES)
             self.assertTrue(all(isinstance(item["value"], int) and item["value"] > 0 for item in document["body"]["dimensions"]))  # type: ignore[index]
         self.assertLessEqual((self.output_dir / "manifest.json").stat().st_size, generator.MAX_OUTPUT_JSON_BYTES)
+
+    def test_historical_four_profile_mode_is_explicit_and_byte_bound(self) -> None:
+        historical_candidate = json.loads(generator.HISTORICAL_CANDIDATE.read_bytes())
+        historical_source = json.loads(generator.HISTORICAL_SOURCE.read_bytes())
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "exactly 5 profiles"):
+            generator.generate_sources(historical_candidate, historical_source)
+
+        output = self.root / "historical-sources"
+        manifest = generator.write_sources(
+            generator.HISTORICAL_CANDIDATE,
+            generator.HISTORICAL_SOURCE,
+            output,
+            mode=generator.HISTORICAL_GENERATION_MODE,
+        )
+        self.assertEqual(
+            [profile["id"] for profile in manifest["profiles"]],
+            list(generator.HISTORICAL_PROFILE_IDS),
+        )
+        self.assertEqual(manifest["source"]["candidate_sha256"], generator.HISTORICAL_CANDIDATE_SHA256)
+        self.assertEqual(manifest["source"]["source_sha256"], generator.HISTORICAL_SOURCE_SHA256)
+        self.assertEqual(
+            (output / "manifest.json").read_bytes(),
+            generator.canonical_bytes(manifest),
+        )
+
+        current_candidate = json.loads(self.candidate_path.read_bytes())
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "archived candidate-table bytes"):
+            generator.generate_sources(
+                current_candidate,
+                historical_source,
+                mode=generator.HISTORICAL_GENERATION_MODE,
+            )
+
+        current_source = json.loads(self.source_path.read_bytes())
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "archived source semantics"):
+            generator.generate_sources(
+                historical_candidate,
+                current_source,
+                mode=generator.HISTORICAL_GENERATION_MODE,
+            )
+
+    def test_cli_help_is_mode_neutral_about_profile_count(self) -> None:
+        help_output = io.StringIO()
+        with self.assertRaises(SystemExit) as exit_info, redirect_stdout(help_output):
+            generator.main(["--help"])
+
+        self.assertEqual(exit_info.exception.code, 0)
+        rendered_help = " ".join(help_output.getvalue().lower().split())
+        self.assertIn("--generation-mode", rendered_help)
+        self.assertIn("generate experiment-local structural source-profile candidates.", rendered_help)
+        self.assertNotIn("five experiment-local structural source-profile candidates", rendered_help)
+        self.assertNotIn("four experiment-local structural source-profile candidates", rendered_help)
 
     def test_actual_structure_and_provisional_form_cli_succeed_for_all_profiles(self) -> None:
         for profile_id in PROFILE_IDS:
@@ -178,11 +236,100 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                     if module["module"] == "tail":
                         self.assertEqual(module["presence"], "present")
 
+    def test_neutral_reference_retains_base_placements_and_1000_scales(self) -> None:
+        neutral = self.candidate["profiles"][0]
+        self.assertEqual(neutral["id"], "standard_neutral_reference")
+        self.assertTrue(all(scale == 1000 for scale in neutral["dimension_scales"].values()))
+        source_placements = {
+            generator.address_key(part["address"]): part["placement"]["translation"]
+            for part in self.base["body"]["parts"]  # type: ignore[index]
+        }
+        self.assertEqual(neutral["part_placements"], source_placements)
+
+    def test_thigh_roots_are_symmetric_and_inside_scaled_lower_pelvis(self) -> None:
+        for profile_id, document in self.sources.items():
+            with self.subTest(profile=profile_id):
+                left = self.part(document, "thigh", ["left"])["placement"]["translation"]  # type: ignore[index]
+                right = self.part(document, "thigh", ["right"])["placement"]["translation"]  # type: ignore[index]
+                self.assertEqual(right, [-left[0], left[1], left[2]])
+                lower_pelvis_radius = self.dimension(
+                    document,
+                    "pelvis",
+                    "form_torso_profile_lower_pelvis_lateral_radius",
+                )
+                self.assertLess(abs(left[0]) * 1000, lower_pelvis_radius)
+                expected_thigh_y = {
+                    "standard_neutral_reference": -1,
+                    "compact_broad_short_limb_large_head": -1,
+                    "tall_narrow_long_legged": -2,
+                    "slender_long_limb": -2,
+                    "stocky_broad_chested": -1,
+                }[profile_id]
+                self.assertEqual(left[1:], [expected_thigh_y, 0])
+                expected_shin_y = -2 if profile_id in {
+                    "tall_narrow_long_legged",
+                    "slender_long_limb",
+                } else -1
+                self.assertEqual(
+                    self.part(document, "shin", ["left"])["placement"]["translation"],  # type: ignore[index]
+                    [0, expected_shin_y, 0],
+                )
+                self.assertEqual(
+                    self.part(document, "foot", ["left"])["placement"]["translation"],  # type: ignore[index]
+                    [0, -1, 1],
+                )
+
+    def test_shared_torso_profile_keeps_endpoints_and_moves_fullness_lower(self) -> None:
+        neutral = self.sources["standard_neutral_reference"]
+        positions = {
+            item["role"]: item["position"]
+            for item in neutral["body"]["landmarks"]  # type: ignore[index]
+            if item["role"].startswith("form_torso_profile_")  # type: ignore[index]
+        }
+        self.assertEqual(positions["form_torso_profile_lower_pelvis"], [0, -0.45, 0])
+        self.assertEqual(positions["form_torso_profile_upper_pelvis"], [0, -0.2, 0])
+        self.assertEqual(positions["form_torso_profile_lower_abdomen"], [0, -0.75, 0])
+        self.assertEqual(positions["form_torso_profile_waist_abdomen"], [0, -0.5, 0])
+        self.assertEqual(positions["form_torso_profile_upper_abdomen"], [0, -0.2, 0])
+        self.assertEqual(positions["form_torso_profile_lower_ribcage"], [0, 0.05, 0])
+        self.assertEqual(
+            positions["form_torso_profile_upper_ribcage_shoulder"],
+            [0, 0.95, 0],
+        )
+        expected_radii = {
+            "form_torso_profile_lower_pelvis": (1500, 850, 600),
+            "form_torso_profile_upper_pelvis": (1350, 780, 560),
+            "form_torso_profile_lower_abdomen": (1125, 680, 540),
+            "form_torso_profile_waist_abdomen": (875, 500, 400),
+            "form_torso_profile_upper_abdomen": (1225, 725, 560),
+            "form_torso_profile_lower_ribcage": (1450, 875, 675),
+            "form_torso_profile_upper_ribcage_shoulder": (1500, 900, 700),
+        }
+        for role, (lateral, anterior, posterior) in expected_radii.items():
+            with self.subTest(role=role):
+                self.assertEqual(self.dimension(neutral, "torso" if "pelvis" not in role else "pelvis", f"{role}_lateral_radius"), lateral)
+                self.assertEqual(self.dimension(neutral, "torso" if "pelvis" not in role else "pelvis", f"{role}_anterior_radius"), anterior)
+                self.assertEqual(self.dimension(neutral, "torso" if "pelvis" not in role else "pelvis", f"{role}_posterior_radius"), posterior)
+        self.assertEqual(self.dimension(neutral, "torso", "form_extent_y"), 1200)
+
     def test_profile_inequalities_and_tail_style_contrast_are_real_source_differences(self) -> None:
-        compact = self.sources[PROFILE_IDS[0]]
-        tall = self.sources[PROFILE_IDS[1]]
-        slender = self.sources[PROFILE_IDS[2]]
-        stocky = self.sources[PROFILE_IDS[3]]
+        neutral = self.sources[PROFILE_IDS[0]]
+        compact = self.sources[PROFILE_IDS[1]]
+        tall = self.sources[PROFILE_IDS[2]]
+        slender = self.sources[PROFILE_IDS[3]]
+        stocky = self.sources[PROFILE_IDS[4]]
+        expected_document = (
+            "stylized_digitigrade_biped_authored_form__structural_profile__"
+            "standard_neutral_reference"
+        )
+        expected_neutral = copy.deepcopy(self.base)
+        expected_neutral["source"]["document"] = expected_document  # type: ignore[index]
+        for module in expected_neutral["body"]["modules"]:  # type: ignore[index]
+            module["declaration"]["document"] = expected_document  # type: ignore[index]
+        self.assertEqual(
+            generator.canonical_source_bytes(neutral),
+            generator.canonical_source_bytes(expected_neutral),
+        )
         self.assertGreater(self.dimension(compact, "head", "form_extent_x"), self.dimension(tall, "head", "form_extent_x"))
         self.assertGreater(self.dimension(compact, "head", "form_extent_x"), self.dimension(slender, "head", "form_extent_x"))
         self.assertGreater(self.dimension(compact, "head", "form_extent_x"), self.dimension(stocky, "head", "form_extent_x"))
@@ -190,7 +337,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         self.assertGreater(self.dimension(compact, "torso", "form_extent_x"), self.dimension(slender, "torso", "form_extent_x"))
         self.assertLess(abs(self.part(compact, "forearm", ["left"])["placement"]["translation"][0]), abs(self.part(slender, "forearm", ["left"])["placement"]["translation"][0]))  # type: ignore[index]
         self.assertLess(abs(self.part(compact, "shin", ["left"])["placement"]["translation"][1]), abs(self.part(tall, "shin", ["left"])["placement"]["translation"][1]))  # type: ignore[index]
-        self.assertGreater(self.part(tall, "torso")["placement"]["translation"][1], self.part(compact, "torso")["placement"]["translation"][1])  # type: ignore[index]
+        self.assertEqual(self.part(tall, "torso")["placement"]["translation"][1], 1)  # type: ignore[index]
         self.assertGreater(self.dimension(tall, "torso", "form_extent_y"), self.dimension(compact, "torso", "form_extent_y"))
         self.assertLess(self.dimension(tall, "torso", "form_extent_x"), self.dimension(stocky, "torso", "form_extent_x"))
         self.assertGreater(self.dimension(stocky, "torso", "form_extent_x"), self.dimension(tall, "torso", "form_extent_x"))
@@ -201,21 +348,25 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         )
         self.assertGreater(abs(self.part(tall, "thigh", ["left"])["placement"]["translation"][1]), abs(self.part(compact, "thigh", ["left"])["placement"]["translation"][1]))  # type: ignore[index]
         self.assertGreater(abs(self.part(slender, "forearm", ["left"])["placement"]["translation"][0]), abs(self.part(tall, "forearm", ["left"])["placement"]["translation"][0]))  # type: ignore[index]
-        self.assertGreater(self.part(tall, "torso")["placement"]["translation"][1], self.part(slender, "torso")["placement"]["translation"][1])  # type: ignore[index]
+        self.assertEqual(self.part(tall, "torso")["placement"]["translation"][1], self.part(slender, "torso")["placement"]["translation"][1])  # type: ignore[index]
         self.assertGreater(abs(self.part(slender, "shin", ["left"])["placement"]["translation"][1]), abs(self.part(stocky, "shin", ["left"])["placement"]["translation"][1]))  # type: ignore[index]
         self.assertLess(self.dimension(slender, "upper_arm", "form_radius", ["left"]), self.dimension(tall, "upper_arm", "form_radius", ["left"]))
         self.assertLess(self.dimension(slender, "thigh", "form_radius", ["left"]), self.dimension(stocky, "thigh", "form_radius", ["left"]))
         placement_signatures = {
-            json.dumps([part["placement"]["translation"] for part in document["body"]["parts"]])  # type: ignore[index]
-            for document in self.sources.values()
+            profile_id: json.dumps({
+                generator.address_key(part["address"]): part["placement"]["translation"]  # type: ignore[index]
+                for part in document["body"]["parts"]  # type: ignore[index]
+            }, sort_keys=True)
+            for profile_id, document in self.sources.items()
         }
-        self.assertEqual(len(placement_signatures), 4)
-        self.assertEqual(len({generator.canonical_source_bytes(document) for document in self.sources.values()}), 4)
-        signatures = {generator._tail_signature(document) for document in self.sources.values()}
+        self.assertEqual(placement_signatures["compact_broad_short_limb_large_head"], placement_signatures["stocky_broad_chested"])
+        self.assertEqual(len(set(placement_signatures.values())), 4)
+        self.assertEqual(len({generator.canonical_source_bytes(document) for document in self.sources.values()}), 5)
+        signatures = {generator.tail_signature(document) for document in self.sources.values()}
         self.assertGreaterEqual(len(signatures), 3)
-        self.assertEqual(generator._tail_signature(tall)[0], 1)
-        self.assertEqual(generator._tail_signature(compact)[0], 1)
-        self.assertNotEqual(generator._tail_signature(compact)[3] * generator._tail_signature(tall)[4], generator._tail_signature(tall)[3] * generator._tail_signature(compact)[4])
+        self.assertEqual(generator.tail_signature(tall)[0], 1)
+        self.assertEqual(generator.tail_signature(compact)[0], 1)
+        self.assertNotEqual(generator.tail_signature(compact)[3] * generator.tail_signature(tall)[4], generator.tail_signature(tall)[3] * generator.tail_signature(compact)[4])
 
     def test_rerun_is_byte_identical_and_invalid_targets_fail_closed(self) -> None:
         first = self.root / "first"
@@ -238,6 +389,19 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         unknown_target = copy.deepcopy(self.candidate)
         unknown_target["transform"]["placement_targets"].append("main|part||unknown")  # type: ignore[index]
         rejected(unknown_target, "unknown placement target")
+
+        unknown_profile = copy.deepcopy(self.candidate)
+        unknown_profile["profiles"][-1]["id"] = "unknown_profile"  # type: ignore[index]
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "active mode requires the exact five-profile ID/order tuple"):
+            generator.generate_sources(unknown_profile, copy.deepcopy(self.base))
+
+        reordered_profiles = copy.deepcopy(self.candidate)
+        reordered_profiles["profiles"][1], reordered_profiles["profiles"][2] = (  # type: ignore[index]
+            reordered_profiles["profiles"][2],
+            reordered_profiles["profiles"][1],
+        )
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "active mode requires the exact five-profile ID/order tuple"):
+            generator.generate_sources(reordered_profiles, copy.deepcopy(self.base))
 
         missing_target = copy.deepcopy(self.candidate)
         del missing_target["profiles"][0]["part_placements"]["main|part||head"]  # type: ignore[index]
@@ -439,6 +603,59 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                 str(self.candidate_path),
                 "--source",
                 str(self.source_path),
+                "--check",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("generated 5 structural profile sources", result.stdout)
+
+    def test_check_mode_uses_configured_temp_root_and_cleans_staging(self) -> None:
+        configured_root = self.root / "configured-temp-root"
+        configured_root.mkdir()
+        original_temporary_directory = tempfile.TemporaryDirectory
+        observed: dict[str, Path] = {}
+
+        def capture_temporary_directory(*args: object, **kwargs: object) -> tempfile.TemporaryDirectory[str]:
+            temporary = original_temporary_directory(*args, **kwargs)
+            observed["path"] = Path(temporary.name)
+            return temporary
+
+        with patch.dict(
+            os.environ,
+            {"TMPDIR": str(configured_root), "TEMP": str(configured_root), "TMP": str(configured_root)},
+        ), patch.object(tempfile, "tempdir", None), patch.object(
+            generator.tempfile,
+            "TemporaryDirectory",
+            side_effect=capture_temporary_directory,
+        ):
+            output = io.StringIO()
+            with redirect_stdout(output):
+                status = generator.main(
+                    [
+                        "--candidate",
+                        str(self.candidate_path),
+                        "--source",
+                        str(self.source_path),
+                        "--check",
+                    ]
+                )
+
+        self.assertEqual(status, 0, output.getvalue())
+        self.assertEqual(observed["path"].parent, configured_root)
+        self.assertFalse(observed["path"].exists())
+        self.assertEqual(list(configured_root.iterdir()), [])
+
+    def test_explicit_historical_check_mode_uses_archived_fixture_bundle(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(EXPERIMENT / "generate_structural_profile_sources.py"),
+                "--generation-mode",
+                generator.HISTORICAL_GENERATION_MODE,
                 "--check",
             ],
             cwd=REPO_ROOT,

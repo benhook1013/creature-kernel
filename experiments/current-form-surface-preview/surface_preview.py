@@ -122,6 +122,10 @@ FOOT_PROFILE_SECTION_NAMES = ("pad", "toe")
 FOOT_PROFILE_OWNER_ROLES = ("foot", "foot")
 FOOT_PROFILE_HOCK_SECTION_INDEX = 4
 REGIONAL_ROUTE_ORDER_TORSO = (("torso", (0, 1, 2, 3, 4, 5, 6), 1, "y"),)
+REGIONAL_ROUTE_ORDER_AUTHORED_TORSO = (
+    ("pelvis", (0, 1), 1, "y"),
+    ("torso", (2, 3, 4, 5, 6), 1, "y"),
+)
 REGIONAL_ROUTE_ORDER_AUTHORED_HEAD_NECK = (
     ("neck", (0, 1), 1, "y"),
     ("cranium", (2, 3, 4), 1, "y"),
@@ -614,6 +618,26 @@ class _TorsoCage:
     @property
     def upper_ribcage(self) -> _TorsoCageSection:
         return self.upper_boundary
+
+
+@dataclass(frozen=True)
+class _BoundaryConnectorContainment:
+    """Exact transverse ellipse context for one boundary connector.
+
+    The old scalar clearance was only the smallest ellipse radius. The
+    connector is a Euclidean support volume, so that scalar is not by itself
+    a containment proof for an anisotropic section. Keep the selected section
+    with the cage-facing direction so the compiled endpoint can be certified
+    against the exact ellipse before it is accepted.
+    """
+
+    center: tuple[float, float, float]
+    lateral_radius: float
+    depth_radius: float
+
+    @property
+    def clearance(self) -> float:
+        return min(self.lateral_radius, self.depth_radius)
 
 
 @dataclass(frozen=True)
@@ -1618,7 +1642,7 @@ def _parse_authored_torso_profile(
         )
     _validate_regional_route_order(
         tuple(section.landmark.position for section in parsed),
-        REGIONAL_ROUTE_ORDER_TORSO,
+        REGIONAL_ROUTE_ORDER_AUTHORED_TORSO,
         "authored_torso_profile.sections",
     )
     return AuthoredTorsoProfile(tuple(parsed), provenance)
@@ -3219,8 +3243,8 @@ def _torso_cage_boundary_anchor(
     """Return a deterministic attachment point on the swept cage boundary.
 
     Limb roots use the lateral/forward ellipse at the nearest cage end when
-    their source point lies below or above the profile.  A direction without a
-    lateral/forward component is only valid outside the profile, where it
+    their source point lies below or above the profile.  A purely axial
+    direction is only valid outside the profile, where it
     selects the rounded bottom or top cap.  This keeps junctions on the one
     torso field rather than silently falling back to the obsolete source
     ellipsoid.
@@ -3242,7 +3266,7 @@ def _torso_cage_boundary_anchor(
     lateral_forward = direction_value[[0, 2]]
     lateral_forward_length = float(np.linalg.norm(lateral_forward))
 
-    # An axial direction is unambiguous only in the rounded end-cap regions.
+    # A purely axial direction is unambiguous only in the rounded end-cap regions.
     # It is useful for the neck, whose source target sits above the upper
     # profile, and prevents a centreline query from inventing a side.
     if lateral_forward_length <= 1.0e-12:
@@ -3250,7 +3274,7 @@ def _torso_cage_boundary_anchor(
             return centers[0] - np.asarray([0.0, min(lateral[0], depth[0]), 0.0])
         if axial > upper:
             return centers[-1] + np.asarray([0.0, min(lateral[-1], depth[-1]), 0.0])
-        _fail("torso cage boundary direction is ambiguous inside profile")
+        _fail("torso cage boundary purely axial direction is ambiguous inside profile")
 
     # Clamp out-of-range root heights to the corresponding end section.  The
     # path bridge then spans the remaining axial difference while its start is
@@ -3275,6 +3299,41 @@ def _torso_cage_boundary_anchor(
     if not math.isfinite(denominator) or denominator <= 0.0:
         _fail("torso cage boundary direction is invalid")
     return center + np.asarray([dx / denominator, 0.0, dz / denominator])
+
+
+def _torso_cage_connector_context(
+    cage: _TorsoCage,
+    boundary: tuple[float, float, float],
+    where: str,
+) -> _BoundaryConnectorContainment:
+    """Return the cage ellipse at one semantic connector root height."""
+
+    boundary_point = np.asarray(boundary, dtype=np.float64)
+    if boundary_point.shape != (3,) or not np.all(np.isfinite(boundary_point)):
+        _fail(f"{where} cannot select a finite cage connector section")
+    shape = _torso_cage_shape(cage)
+    axial = float(boundary_point[1])
+    heights = shape["heights"]
+    if axial <= float(heights[0]):
+        section = cage.sections[0]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    elif axial >= float(heights[-1]):
+        section = cage.sections[-1]
+        center = section.center
+        lateral_radius = section.lateral_radius
+        depth_radius = section.depth_radius
+    else:
+        sampled_center, sampled_lateral, sampled_depth = _torso_cage_sample_controls(shape, axial)
+        center = tuple(float(value) for value in np.asarray(sampled_center).reshape(3))
+        lateral_radius = float(np.asarray(sampled_lateral))
+        depth_radius = float(np.asarray(sampled_depth))
+    return _BoundaryConnectorContainment(
+        center=tuple(float(value) for value in center),
+        lateral_radius=float(lateral_radius),
+        depth_radius=float(depth_radius),
+    )
 
 
 _FIXED_GUIDE_AXES = _GuideAxes(
@@ -3386,6 +3445,8 @@ def _embed_boundary_connector(
     path: tuple[tuple[float, float, float], tuple[float, float, float]],
     profile: tuple[float, ...],
     where: str,
+    inward_direction: np.ndarray | tuple[float, float, float] | None = None,
+    inward_clearance: _BoundaryConnectorContainment | None = None,
 ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     """Move a connector's centreline start inside its owning cage boundary.
 
@@ -3394,26 +3455,259 @@ def _embed_boundary_connector(
     boundary. Therefore “toward the child” means toward that child root point,
     not toward the branch-facing outward side. The analytic connector
     centreline starts one support radius toward the child in the
-    lateral/forward plane, so its spherical support meets the cage boundary
-    rather than projecting a full radius outside the torso. The axial
-    component remains in the path itself, preserving the intended limb
-    direction.
+    lateral/forward plane, so its support meets the cage boundary rather than
+    projecting a full radius outside the torso. When the owning cage supplies
+    its inward transverse normal, the authored child direction is retained
+    only when its cage-normal dot product meets the near-alignment threshold
+    and support is below the lateral-forward length; otherwise the cage normal
+    replaces it. The axial component remains in the path itself, preserving the
+    intended limb direction. The exact selected ellipse is carried with that
+    normal. A
+    legacy target-directed endpoint is retained only when its complete start
+    disk is certified inside that ellipse; otherwise a homothetic inner
+    ellipse supplies a mathematically valid radial inset. The supplied
+    clearance keeps this recovery fail-closed.
     """
 
     _guide_profile(profile, f"{where}.profile")
+    if (inward_direction is None) != (inward_clearance is None):
+        _fail(f"{where} cannot embed within the supplied boundary ellipse")
+    if inward_clearance is not None and not isinstance(inward_clearance, _BoundaryConnectorContainment):
+        _fail(f"{where} cannot embed within the supplied boundary ellipse")
     boundary = np.asarray(path[0], dtype=np.float64)
     target = np.asarray(path[1], dtype=np.float64)
     direction = target - boundary
     lateral_forward = direction[[0, 2]]
     lateral_forward_length = float(np.linalg.norm(lateral_forward))
     support = float(profile[0])
-    if not math.isfinite(lateral_forward_length) or lateral_forward_length <= 1.0e-12 or not math.isfinite(support) or support <= 0.0:
+    if not math.isfinite(lateral_forward_length) or not math.isfinite(support) or support <= 0.0:
         _fail(f"{where} cannot embed a degenerate boundary connector")
-    if support >= lateral_forward_length:
+    if lateral_forward_length > GUIDE_TOLERANCE and support >= lateral_forward_length:
         _fail(f"{where} support radius consumes its boundary-to-child span")
-    lateral_direction = lateral_forward / lateral_forward_length
-    compiled_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
+    if inward_direction is None:
+        if lateral_forward_length <= GUIDE_TOLERANCE:
+            _fail(f"{where} support radius consumes its boundary-to-child span")
+        lateral_direction = lateral_forward / lateral_forward_length
+        compiled_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
+    else:
+        try:
+            cage_inward = np.asarray(inward_direction, dtype=np.float64)
+        except (TypeError, ValueError, OverflowError):
+            _fail(f"{where} cannot embed within the supplied boundary clearance")
+        try:
+            clearance = float(inward_clearance.clearance)
+        except (TypeError, ValueError, OverflowError):
+            clearance = float("nan")
+        if cage_inward.shape != (3,) or not np.all(np.isfinite(cage_inward)):
+            _fail(f"{where} cannot embed within the supplied boundary clearance")
+        cage_lateral_forward = cage_inward[[0, 2]]
+        cage_inward_length = float(np.linalg.norm(cage_lateral_forward))
+        if (
+            not math.isfinite(cage_inward_length)
+            or cage_inward_length <= 1.0e-12
+            or not math.isfinite(clearance)
+            or clearance <= 0.0
+            or support >= clearance
+        ):
+            _fail(f"{where} cannot embed within the supplied boundary clearance")
+        cage_lateral_direction = cage_lateral_forward / cage_inward_length
+        if lateral_forward_length > 1.0e-12:
+            authored_lateral_direction = lateral_forward / lateral_forward_length
+            if float(np.dot(authored_lateral_direction, cage_lateral_direction)) >= 1.0 - 1.0e-12 and support < lateral_forward_length:
+                lateral_direction = authored_lateral_direction
+            else:
+                lateral_direction = cage_lateral_direction
+        else:
+            lateral_direction = cage_lateral_direction
+        try:
+            section_center = np.asarray(inward_clearance.center, dtype=np.float64)
+            radii = np.asarray((inward_clearance.lateral_radius, inward_clearance.depth_radius), dtype=np.float64)
+        except (TypeError, ValueError, OverflowError):
+            _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        if (
+            section_center.shape != (3,)
+            or not np.all(np.isfinite(section_center))
+            or radii.shape != (2,)
+            or not np.all(np.isfinite(radii))
+            or np.any(radii <= 0.0)
+        ):
+            _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        boundary_transverse = boundary[[0, 2]] - section_center[[0, 2]]
+        boundary_norm = float(np.sqrt(np.sum((boundary_transverse / radii) ** 2)))
+        if (
+            not math.isfinite(boundary_norm)
+            or not math.isclose(boundary_norm, 1.0, rel_tol=0.0, abs_tol=1.0e-10)
+            or not math.isclose(float(boundary[1]), float(section_center[1]), rel_tol=0.0, abs_tol=1.0e-10)
+        ):
+            _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        legacy_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
+        if _ellipse_support_is_certified(
+            legacy_start,
+            section_center,
+            float(radii[0]),
+            float(radii[1]),
+            support,
+            f"{where}.legacy",
+        ):
+            compiled_start = legacy_start
+        else:
+            # For q on E and m=min(a,b), c=(1-r/m)q makes the certificate
+            # exactly (1-r/m)+r/m=1 for the complete support disk.
+            radial = section_center[[0, 2]] - boundary[[0, 2]]
+            radial_length = float(np.linalg.norm(radial))
+            if not math.isfinite(radial_length) or radial_length <= 1.0e-12:
+                _fail(f"{where} cannot derive a radial cage inset")
+            radial_direction = radial / radial_length
+            inset = support * radial_length / clearance
+            if not math.isfinite(inset):
+                _fail(f"{where} cannot certify full support inside the boundary ellipse")
+            if lateral_forward_length > GUIDE_TOLERANCE and inset >= lateral_forward_length:
+                _fail(f"{where} radial inset consumes or overshoots the boundary-to-child span")
+            compiled_start = boundary + np.asarray([radial_direction[0], 0.0, radial_direction[1]]) * inset
+            if (
+                not _ellipse_support_is_certified(
+                    compiled_start,
+                    section_center,
+                    float(radii[0]),
+                    float(radii[1]),
+                    support,
+                    f"{where}.radial",
+                )
+            ):
+                _fail(f"{where} cannot certify full support inside the boundary ellipse")
     return _guide_path(compiled_start, target, profile, f"{where}.compiled")
+
+
+def _ellipse_support_is_certified(
+    center: np.ndarray,
+    section_center: np.ndarray,
+    lateral_radius: float,
+    depth_radius: float,
+    support: float,
+    where: str,
+) -> bool:
+    """Return a conservative full-support certificate for one ellipse.
+
+    When the candidate centre lies exactly on a principal axis, parameterize
+    the support disk boundary by that axis coordinate. The ellipse equation is
+    then a quadratic on ``[-1, 1]``; evaluating both endpoints and an in-range
+    quadratic vertex gives a deterministic exact certificate for that case.
+    For a general centre, retain the homothetic certificate below. It is
+    conservative but still proves containment when it passes.
+
+    For E=D(unit disk), every point c+r*u in the Euclidean support disk obeys
+    ||D^-1(c+r*u)|| <= ||D^-1*c|| + r/min(a,b).  A value at most one therefore
+    proves containment; failure to certify is not a claim that the disk is
+    geometrically outside E.
+    """
+
+    try:
+        center = np.asarray(center, dtype=np.float64)
+        section_center = np.asarray(section_center, dtype=np.float64)
+        radii = np.asarray((lateral_radius, depth_radius), dtype=np.float64)
+        support_value = float(support)
+    except (TypeError, ValueError, OverflowError):
+        _fail(f"{where} support containment controls are invalid")
+    if (
+        center.shape != (3,)
+        or section_center.shape != (3,)
+        or not np.all(np.isfinite(center))
+        or not np.all(np.isfinite(section_center))
+        or radii.shape != (2,)
+        or not np.all(np.isfinite(radii))
+        or np.any(radii <= 0.0)
+        or not math.isfinite(support_value)
+        or support_value <= 0.0
+    ):
+        _fail(f"{where} support containment controls are invalid")
+    offset = center[[0, 2]] - section_center[[0, 2]]
+
+    # For a centre on a principal axis, a support-disk boundary point can be
+    # written as (axis_offset + r*t, r*sqrt(1-t*t)). Substitution into the
+    # ellipse equation leaves a quadratic in t. The endpoint and vertex check
+    # is exact for this axis-aligned case, including anisotropic ellipses.
+    if offset[1] == 0.0:
+        axis_offset = float(offset[0])
+        axis_radius = float(radii[0])
+        transverse_radius = float(radii[1])
+    elif offset[0] == 0.0:
+        axis_offset = float(offset[1])
+        axis_radius = float(radii[1])
+        transverse_radius = float(radii[0])
+    else:
+        axis_offset = None
+        axis_radius = None
+        transverse_radius = None
+    if axis_offset is not None and axis_radius is not None and transverse_radius is not None:
+        axis_inverse_square = 1.0 / (axis_radius * axis_radius)
+        transverse_inverse_square = 1.0 / (transverse_radius * transverse_radius)
+        quadratic_a = support_value * support_value * (axis_inverse_square - transverse_inverse_square)
+        quadratic_b = 2.0 * axis_offset * support_value * axis_inverse_square
+        quadratic_c = axis_offset * axis_offset * axis_inverse_square + support_value * support_value * transverse_inverse_square
+        if all(math.isfinite(value) for value in (quadratic_a, quadratic_b, quadratic_c)):
+            candidates = (-1.0, 1.0)
+            values = [quadratic_a * t * t + quadratic_b * t + quadratic_c for t in candidates]
+            if quadratic_a != 0.0:
+                vertex = -quadratic_b / (2.0 * quadratic_a)
+                if math.isfinite(vertex) and -1.0 <= vertex <= 1.0:
+                    values.append(quadratic_a * vertex * vertex + quadratic_b * vertex + quadratic_c)
+            if not all(math.isfinite(value) for value in values):
+                _fail(f"{where} support containment certificate is non-finite")
+            if max(values) <= 1.0 + GUIDE_TOLERANCE:
+                return True
+
+    # A general-point centre has no closed-form principal-axis reduction here.
+    # Keep the conservative homothetic certificate as the fallback rather than
+    # accepting a disk whose exact containment was not established.
+    normalized_center = float(np.sqrt(np.sum(np.square(offset / radii))))
+    clearance = float(np.min(radii))
+    certificate = normalized_center + support_value / clearance
+    if not all(math.isfinite(value) for value in (normalized_center, clearance, certificate)):
+        _fail(f"{where} support containment certificate is non-finite")
+    return certificate <= 1.0 + GUIDE_TOLERANCE
+
+
+def _boundary_connector_inward_direction(
+    boundary: tuple[float, float, float],
+    section: _TorsoCageSection | _BoundaryConnectorContainment,
+    where: str,
+) -> tuple[tuple[float, float, float], _BoundaryConnectorContainment]:
+    """Derive the transverse inward normal and exact cage-section context."""
+
+    boundary_point = np.asarray(boundary, dtype=np.float64)
+    if boundary_point.shape != (3,) or not np.all(np.isfinite(boundary_point)):
+        _fail(f"{where} cannot derive a finite inward boundary normal")
+    try:
+        section_center = np.asarray(section.center, dtype=np.float64)
+        radii = np.asarray([section.lateral_radius, section.depth_radius], dtype=np.float64)
+    except (TypeError, ValueError, OverflowError):
+        _fail(f"{where} cannot derive a finite inward boundary normal or exact ellipse")
+    if (
+        section_center.shape != (3,)
+        or not np.all(np.isfinite(section_center))
+        or radii.shape != (2,)
+        or not np.all(np.isfinite(radii))
+        or np.any(radii <= 0.0)
+    ):
+        _fail(f"{where} cannot derive a finite inward boundary normal or exact ellipse")
+    offset = boundary_point[[0, 2]] - section_center[[0, 2]]
+    gradient = offset / np.square(radii)
+    gradient_length = float(np.linalg.norm(gradient))
+    boundary_norm = float(np.sqrt(np.sum((offset / radii) ** 2)))
+    if (
+        not math.isfinite(boundary_norm)
+        or not math.isclose(boundary_norm, 1.0, rel_tol=0.0, abs_tol=1.0e-10)
+        or not math.isclose(float(boundary_point[1]), float(section_center[1]), rel_tol=0.0, abs_tol=1.0e-10)
+        or not math.isfinite(gradient_length)
+        or gradient_length <= 1.0e-12
+    ):
+        _fail(f"{where} cannot derive a finite inward boundary normal or exact ellipse")
+    inward = -gradient / gradient_length
+    return (float(inward[0]), 0.0, float(inward[1])), _BoundaryConnectorContainment(
+        center=tuple(float(value) for value in section_center),
+        lateral_radius=float(radii[0]),
+        depth_radius=float(radii[1]),
+    )
 
 
 def _guide_topology(descriptors: tuple[Descriptor, ...]) -> _GuideTopology:
@@ -6533,6 +6827,35 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
             _fail(f"limb profile controls are invalid for {_key_text(limb.owner.key)}")
         if len(limb.sections) != 2:
             _fail(f"limb piecewise sections are invalid for {_key_text(limb.owner.key)}")
+        def add_boundary_connector(
+            recipe: str,
+            path: tuple[tuple[float, float, float], tuple[float, float, float]] | None,
+            profile: tuple[float, ...] | None,
+        ) -> None:
+            if path is None or profile is None:
+                _fail(f"{recipe} controls are incomplete for {_key_text(limb.owner.key)}")
+            if desc.key[3] not in {"thigh", "upper_arm"}:
+                _fail(f"limb root connector has no owning cage boundary for {_key_text(desc.key)}")
+            where = f"{_key_text(limb.owner.key)}.{recipe}"
+            boundary_context = _torso_cage_connector_context(torso_cage, path[0], where)
+            boundary_inward_direction, boundary_clearance = _boundary_connector_inward_direction(
+                path[0],
+                boundary_context,
+                where,
+            )
+            add_path(
+                desc,
+                recipe,
+                _embed_boundary_connector(
+                    path,
+                    profile,
+                    where,
+                    boundary_inward_direction,
+                    boundary_clearance,
+                ),
+                profile,
+                "tapered-segment",
+            )
         arm_side = next((item for item in guide.arm_profile.sides if item.side == desc.key[1][0]), None) if desc.key[3] in {"upper_arm", "forearm"} else None
         leg_side = next((item for item in guide.leg_profile.sides if item.side == desc.key[1][0]), None) if desc.key[3] in {"thigh", "shin"} else None
         if arm_side is not None:
@@ -6556,22 +6879,10 @@ def _compile_hybrid_guide(guide: _HybridGuide) -> tuple[Field, ...]:
         else:
             for section in limb.sections:
                 add_path(desc, f"{limb.owner.key[3]}-{section.name}", section.centerline, section.thickness, section.path_kind)
-        if limb.root_centerline is not None:
-            add_path(
-                desc,
-                "root-bridge",
-                _embed_boundary_connector(limb.root_centerline, limb.root_thickness, f"{_key_text(limb.owner.key)}.root"),
-                limb.root_thickness,
-                "tapered-segment",
-            )  # type: ignore[arg-type]
-        if limb.hip_centerline is not None:
-            add_path(
-                desc,
-                "hip-transition",
-                _embed_boundary_connector(limb.hip_centerline, limb.hip_thickness, f"{_key_text(limb.owner.key)}.hip"),
-                limb.hip_thickness,
-                "tapered-segment",
-            )  # type: ignore[arg-type]
+        if limb.root_centerline is not None or limb.root_thickness is not None:
+            add_boundary_connector("root-bridge", limb.root_centerline, limb.root_thickness)
+        if limb.hip_centerline is not None or limb.hip_thickness is not None:
+            add_boundary_connector("hip-transition", limb.hip_centerline, limb.hip_thickness)
         if limb.joint is not None:
             if arm_side is None and leg_side is None and not math.isclose(limb.joint.radii[0], 0.70 * min(limb.joint.adjacent_profiles), rel_tol=1e-9, abs_tol=1e-12):
                 _fail(f"joint radius is not derived from adjacent profiles for {_key_text(limb.owner.key)}")
@@ -7129,7 +7440,7 @@ def _draw_guide_curve(
 
 
 def _draw_shoulder_frame(draw: ImageDraw.ImageDraw, frame: dict[str, Any], shoulder: _ShoulderFrame, colour: tuple[int, int, int]) -> None:
-    """Draw the skin-driving shoulder frame; old circular diagnostics are excluded."""
+    """Draw shoulder controls in the control-guide panel; the deltoid sweep is also skin-driving."""
 
     _draw_guide_mass(draw, frame, shoulder.central_anchor, shoulder.central_profile + (shoulder.central_profile[0],), colour)
     for side in shoulder.sides:
