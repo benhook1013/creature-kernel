@@ -808,8 +808,11 @@ def _bounded_subprocess(command: list[str]) -> tuple[int, bytes, bytes]:
         # the PGID.
         stop_process(graceful=False)
         return return_code, bytes(buffers["stdout"]), bytes(buffers["stderr"])
-    except BaseException:
-        stop_process()
+    except BaseException as exc:
+        try:
+            stop_process()
+        except BaseException as cleanup_exc:
+            raise exc.with_traceback(exc.__traceback__) from cleanup_exc
         raise
     finally:
         if selector is not None:

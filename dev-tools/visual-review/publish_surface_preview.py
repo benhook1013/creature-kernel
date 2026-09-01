@@ -307,7 +307,8 @@ def _validate_successor_contract_value(name: str, value: Any) -> Any:
             or len(set(value)) != len(value)
         ):
             raise _successor_contract_failure(
-                name, "three distinct section indices in [0, 7]"
+                name,
+                f"three distinct section indices in [0, {_MAX_SUCCESSOR_CONTRACT_INDEX - 1}]",
             )
         return value
 

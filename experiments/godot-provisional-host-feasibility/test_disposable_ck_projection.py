@@ -585,6 +585,34 @@ class DisposableCKProjectionTests(unittest.TestCase):
         with self.assertRaisesRegex(projection.ProjectionError, "stderr exceeds"):
             projection._bounded_subprocess([str(stderr_writer)])
 
+    def test_bounded_subprocess_preserves_active_failure_when_cleanup_fails(self) -> None:
+        process = Mock(pid=711)
+        process.stdout.closed = False
+        process.stderr.closed = False
+        process.stdout.fileno.return_value = 801
+        process.stderr.fileno.return_value = 802
+        selector = Mock()
+        selector.get_map.return_value = {"pipes": object()}
+        active_failure = projection.ProjectionError("active subprocess failure")
+        cleanup_failure = projection.ProjectionError("cleanup failure")
+
+        with (
+            patch.object(projection.subprocess, "Popen", return_value=process),
+            patch.object(projection.os, "set_blocking"),
+            patch.object(projection.os, "getpgid", return_value=projection.os.getpid()),
+            patch.object(projection.selectors, "DefaultSelector", return_value=selector),
+            patch.object(projection, "_observe_unreaped_exit", side_effect=active_failure),
+            patch.object(projection, "_stop_process", side_effect=cleanup_failure) as stop_process,
+        ):
+            with self.assertRaisesRegex(projection.ProjectionError, "active subprocess failure") as raised:
+                projection._bounded_subprocess(["fixture-cli"])
+
+        self.assertIs(raised.exception.__cause__, cleanup_failure)
+        stop_process.assert_called_once_with(process, process_group_id=None, graceful=True)
+        selector.close.assert_called_once_with()
+        process.stdout.close.assert_called_once_with()
+        process.stderr.close.assert_called_once_with()
+
     @unittest.skipUnless(os.name == "posix", "private process groups are POSIX-specific")
     def test_stop_process_signals_retained_group_even_after_direct_child_exits(self) -> None:
         events = []
@@ -722,6 +750,8 @@ class DisposableCKProjectionTests(unittest.TestCase):
             retained_source_bytes.append(source_bytes)
         instance_sources = list(zip(INSTANCE_IDS, source_paths))
         result = runtime_input_result(instance_sources)
+        snapshot_cleanup_fixture_timeout = 5.0
+        parent_timeout = 10.0
         pid_path = self.root / "success-descendant.pid"
         ready_path = self.root / "success-descendant.ready"
         closed_path = self.root / "success-descendant.closed"
@@ -763,7 +793,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
             "    raise SystemExit('unexpected inspect-runtime-input arguments')\n"
             "descendant = subprocess.Popen([sys.executable, '-c', descendant_body])\n"
             "pid_path.write_text(str(descendant.pid))\n"
-            "deadline = time.monotonic() + 2.0\n"
+            f"deadline = time.monotonic() + {snapshot_cleanup_fixture_timeout}\n"
             "while not ready_path.exists() and time.monotonic() < deadline:\n"
             "    time.sleep(0.005)\n"
             "while not closed_path.exists() and time.monotonic() < deadline:\n"
@@ -780,7 +810,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
 
         def release_then_recheck(carrier_module, instance_source_pairs, source_bytes):
             release_path.write_text("release", encoding="utf-8")
-            deadline = projection.time.monotonic() + 2.0
+            deadline = projection.time.monotonic() + snapshot_cleanup_fixture_timeout
             while not mutated_path.exists() and projection.time.monotonic() < deadline:
                 if pid_path.is_file() and not descendant_is_live(int(pid_path.read_text(encoding="utf-8"))):
                     break
@@ -805,7 +835,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
 
         try:
             with (
-                patch.object(projection, "RUST_TIMEOUT_SECONDS", 2.0),
+                patch.object(projection, "RUST_TIMEOUT_SECONDS", parent_timeout),
                 patch.object(projection, "PROCESS_GRACE_SECONDS", 0.05),
                 patch.object(
                     projection,

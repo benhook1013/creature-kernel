@@ -3796,7 +3796,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                 for line in text.splitlines()
             )
 
-        def replace_assignment(text: str, name: str, replacement: str) -> str:
+        def remove_assignment(text: str, name: str) -> str:
             lines: list[str] = []
             skipping = False
             closing_delimiter: str | None = None
@@ -3824,7 +3824,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
                     else:
                         continue
                 lines.append(line)
-            return "\n".join(lines) + "\n" + replacement.rstrip("\n") + "\n"
+            return "\n".join(lines) + "\n"
+
+        def replace_assignment(text: str, name: str, replacement: str) -> str:
+            return remove_assignment(text, name) + replacement.rstrip("\n") + "\n"
 
         if mode == "missing-source":
             staged_source_path.write_text(source, encoding="utf-8")
@@ -3849,34 +3852,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             )
         else:
             if mode in {"missing-required", "missing-foot-section-names", "missing-foot-owner-roles"}:
-                lines: list[str] = []
-                skipping = False
-                closing_delimiter: str | None = None
-                for line in source.splitlines():
-                    if not skipping and (
-                        line.startswith(f"{required_name} =")
-                        or line.startswith(f"{required_name}:")
-                    ):
-                        skipping = True
-                        assignment_rhs = line.split("=", 1)[1].strip() if "=" in line else ""
-                        closing_delimiter = {
-                            "(": ")",
-                            "[": "]",
-                            "{": "}",
-                        }.get(assignment_rhs)
-                        continue
-                    if skipping:
-                        if closing_delimiter is not None and line.strip() == closing_delimiter:
-                            skipping = False
-                            closing_delimiter = None
-                            continue
-                        if not line.strip() or not line[0].isspace():
-                            skipping = False
-                            closing_delimiter = None
-                        else:
-                            continue
-                    lines.append(line)
-                source = "\n".join(lines) + "\n"
+                source = remove_assignment(source, required_name)
             elif mode == "non-literal-required":
                 source = replace_assignment(source, required_name, f"{required_name} = str(())")
             elif mode == "wrong-type-required":

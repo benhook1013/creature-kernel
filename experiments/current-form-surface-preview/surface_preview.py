@@ -3243,8 +3243,8 @@ def _torso_cage_boundary_anchor(
     """Return a deterministic attachment point on the swept cage boundary.
 
     Limb roots use the lateral/forward ellipse at the nearest cage end when
-    their source point lies below or above the profile.  A direction without a
-    lateral/forward component is only valid outside the profile, where it
+    their source point lies below or above the profile.  A purely axial
+    direction is only valid outside the profile, where it
     selects the rounded bottom or top cap.  This keeps junctions on the one
     torso field rather than silently falling back to the obsolete source
     ellipsoid.
@@ -3266,7 +3266,7 @@ def _torso_cage_boundary_anchor(
     lateral_forward = direction_value[[0, 2]]
     lateral_forward_length = float(np.linalg.norm(lateral_forward))
 
-    # An axial direction is unambiguous only in the rounded end-cap regions.
+    # A purely axial direction is unambiguous only in the rounded end-cap regions.
     # It is useful for the neck, whose source target sits above the upper
     # profile, and prevents a centreline query from inventing a side.
     if lateral_forward_length <= 1.0e-12:
@@ -3274,7 +3274,7 @@ def _torso_cage_boundary_anchor(
             return centers[0] - np.asarray([0.0, min(lateral[0], depth[0]), 0.0])
         if axial > upper:
             return centers[-1] + np.asarray([0.0, min(lateral[-1], depth[-1]), 0.0])
-        _fail("torso cage boundary direction is ambiguous inside profile")
+        _fail("torso cage boundary purely axial direction is ambiguous inside profile")
 
     # Clamp out-of-range root heights to the corresponding end section.  The
     # path bridge then spans the remaining axial difference while its start is
@@ -3492,13 +3492,10 @@ def _embed_boundary_connector(
             cage_inward = np.asarray(inward_direction, dtype=np.float64)
         except (TypeError, ValueError, OverflowError):
             _fail(f"{where} cannot embed within the supplied boundary clearance")
-        if isinstance(inward_clearance, _BoundaryConnectorContainment):
-            try:
-                clearance = float(inward_clearance.clearance)
-            except (TypeError, ValueError, OverflowError):
-                clearance = float("nan")
-        else:
-            _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        try:
+            clearance = float(inward_clearance.clearance)
+        except (TypeError, ValueError, OverflowError):
+            clearance = float("nan")
         if cage_inward.shape != (3,) or not np.all(np.isfinite(cage_inward)):
             _fail(f"{where} cannot embed within the supplied boundary clearance")
         cage_lateral_forward = cage_inward[[0, 2]]
@@ -3520,61 +3517,60 @@ def _embed_boundary_connector(
                 lateral_direction = cage_lateral_direction
         else:
             lateral_direction = cage_lateral_direction
-        if isinstance(inward_clearance, _BoundaryConnectorContainment):
-            try:
-                section_center = np.asarray(inward_clearance.center, dtype=np.float64)
-                radii = np.asarray((inward_clearance.lateral_radius, inward_clearance.depth_radius), dtype=np.float64)
-            except (TypeError, ValueError, OverflowError):
-                _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        try:
+            section_center = np.asarray(inward_clearance.center, dtype=np.float64)
+            radii = np.asarray((inward_clearance.lateral_radius, inward_clearance.depth_radius), dtype=np.float64)
+        except (TypeError, ValueError, OverflowError):
+            _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        if (
+            section_center.shape != (3,)
+            or not np.all(np.isfinite(section_center))
+            or radii.shape != (2,)
+            or not np.all(np.isfinite(radii))
+            or np.any(radii <= 0.0)
+        ):
+            _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        boundary_transverse = boundary[[0, 2]] - section_center[[0, 2]]
+        boundary_norm = float(np.sqrt(np.sum((boundary_transverse / radii) ** 2)))
+        if (
+            not math.isfinite(boundary_norm)
+            or not math.isclose(boundary_norm, 1.0, rel_tol=0.0, abs_tol=1.0e-10)
+            or not math.isclose(float(boundary[1]), float(section_center[1]), rel_tol=0.0, abs_tol=1.0e-10)
+        ):
+            _fail(f"{where} cannot embed within the supplied boundary ellipse")
+        legacy_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
+        if _ellipse_support_is_certified(
+            legacy_start,
+            section_center,
+            float(radii[0]),
+            float(radii[1]),
+            support,
+            f"{where}.legacy",
+        ):
+            compiled_start = legacy_start
+        else:
+            # For q on E and m=min(a,b), c=(1-r/m)q makes the certificate
+            # exactly (1-r/m)+r/m=1 for the complete support disk.
+            radial = section_center[[0, 2]] - boundary[[0, 2]]
+            radial_length = float(np.linalg.norm(radial))
+            if not math.isfinite(radial_length) or radial_length <= 1.0e-12:
+                _fail(f"{where} cannot derive a radial cage inset")
+            radial_direction = radial / radial_length
+            inset = support * radial_length / clearance
+            if not math.isfinite(inset):
+                _fail(f"{where} cannot certify full support inside the boundary ellipse")
+            compiled_start = boundary + np.asarray([radial_direction[0], 0.0, radial_direction[1]]) * inset
             if (
-                section_center.shape != (3,)
-                or not np.all(np.isfinite(section_center))
-                or radii.shape != (2,)
-                or not np.all(np.isfinite(radii))
-                or np.any(radii <= 0.0)
+                not _ellipse_support_is_certified(
+                    compiled_start,
+                    section_center,
+                    float(radii[0]),
+                    float(radii[1]),
+                    support,
+                    f"{where}.radial",
+                )
             ):
-                _fail(f"{where} cannot embed within the supplied boundary ellipse")
-            boundary_transverse = boundary[[0, 2]] - section_center[[0, 2]]
-            boundary_norm = float(np.sqrt(np.sum((boundary_transverse / radii) ** 2)))
-            if (
-                not math.isfinite(boundary_norm)
-                or not math.isclose(boundary_norm, 1.0, rel_tol=0.0, abs_tol=1.0e-10)
-                or not math.isclose(float(boundary[1]), float(section_center[1]), rel_tol=0.0, abs_tol=1.0e-10)
-            ):
-                _fail(f"{where} cannot embed within the supplied boundary ellipse")
-            legacy_start = boundary + np.asarray([lateral_direction[0], 0.0, lateral_direction[1]]) * support
-            if _ellipse_support_is_certified(
-                legacy_start,
-                section_center,
-                float(radii[0]),
-                float(radii[1]),
-                support,
-                f"{where}.legacy",
-            ):
-                compiled_start = legacy_start
-            else:
-                # For q on E and m=min(a,b), c=(1-r/m)q makes the certificate
-                # exactly (1-r/m)+r/m=1 for the complete support disk.
-                radial = section_center[[0, 2]] - boundary[[0, 2]]
-                radial_length = float(np.linalg.norm(radial))
-                if not math.isfinite(radial_length) or radial_length <= 1.0e-12:
-                    _fail(f"{where} cannot derive a radial cage inset")
-                radial_direction = radial / radial_length
-                inset = support * radial_length / clearance
-                if not math.isfinite(inset):
-                    _fail(f"{where} cannot certify full support inside the boundary ellipse")
-                compiled_start = boundary + np.asarray([radial_direction[0], 0.0, radial_direction[1]]) * inset
-                if (
-                    not _ellipse_support_is_certified(
-                        compiled_start,
-                        section_center,
-                        float(radii[0]),
-                        float(radii[1]),
-                        support,
-                        f"{where}.radial",
-                    )
-                ):
-                    _fail(f"{where} cannot certify full support inside the boundary ellipse")
+                _fail(f"{where} cannot certify full support inside the boundary ellipse")
     return _guide_path(compiled_start, target, profile, f"{where}.compiled")
 
 

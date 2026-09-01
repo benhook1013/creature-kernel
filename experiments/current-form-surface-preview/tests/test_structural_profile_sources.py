@@ -353,7 +353,10 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         self.assertLess(self.dimension(slender, "upper_arm", "form_radius", ["left"]), self.dimension(tall, "upper_arm", "form_radius", ["left"]))
         self.assertLess(self.dimension(slender, "thigh", "form_radius", ["left"]), self.dimension(stocky, "thigh", "form_radius", ["left"]))
         placement_signatures = {
-            json.dumps([part["placement"]["translation"] for part in document["body"]["parts"]])  # type: ignore[index]
+            json.dumps({
+                generator.address_key(part["address"]): part["placement"]["translation"]  # type: ignore[index]
+                for part in document["body"]["parts"]  # type: ignore[index]
+            }, sort_keys=True)
             for document in self.sources.values()
         }
         self.assertEqual(len(placement_signatures), 4)
