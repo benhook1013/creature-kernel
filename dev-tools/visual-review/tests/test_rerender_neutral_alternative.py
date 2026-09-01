@@ -376,6 +376,7 @@ class NeutralAlternativeRerenderTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(rerender.NeutralAlternativeRerenderError, "install failed"):
                 self._run_mocked("install-error")
+        self.assertEqual(list(self.output_parent.iterdir()), [])
 
     def test_existing_destination_and_symlink_are_refused_before_expensive_work(self) -> None:
         existing = self.output_parent / "already-there"

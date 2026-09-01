@@ -544,13 +544,7 @@ def make_varied_payload() -> dict[str, object]:
     return make_payload()
 
 
-GENERATED_PROFILE_IDS = (
-    "standard_neutral_reference",
-    "compact_broad_short_limb_large_head",
-    "tall_narrow_long_legged",
-    "slender_long_limb",
-    "stocky_broad_chested",
-)
+GENERATED_PROFILE_IDS = profile_generator.ACTIVE_PROFILE_IDS
 
 
 class SurfacePreviewTests(unittest.TestCase):

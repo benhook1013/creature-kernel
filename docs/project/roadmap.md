@@ -51,7 +51,7 @@ The representative bend/binding check is deferred to an early Stage 2
 continuation gate after a provisional rig and weights exercise. The formal
 five-branch comparison remains parked and is not activated by this gate.
 
-## Inactive conditional direction: Stage 2 and Stage 3
+## Inactive conditional direction: Stage 2, Stage 3, and Stage 4
 
 The following roadmap outcomes are inactive for the current runway. They may be
 considered only after Ben appraises the named human checkpoint, explicitly

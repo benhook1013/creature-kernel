@@ -546,10 +546,6 @@ environment:
 surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
 source_dir=/tmp/ck-successor-anatomy-sources
 
-Before replay, `$source_dir`—the path passed to `--output-dir`—must not
-already exist. Remove that disposable directory or change `source_dir` to a
-different nonexistent path before running the commands.
-
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py --check
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
   --output-dir "$source_dir"
@@ -560,6 +556,10 @@ cargo build --locked --bin creature-kernel
   --creature-kernel target/debug/creature-kernel \
   --id successor-stylized-anatomy-five-profile-checkpoint-v1
 ```
+
+Before replay, `$source_dir`—the path passed to `--output-dir`—must not
+already exist. Remove that disposable directory or change `source_dir` to a
+different nonexistent path before running the commands.
 
 The visual-review root must already exist, and the pinned surface-preview
 environment and local compiler build must be available. The publisher replays

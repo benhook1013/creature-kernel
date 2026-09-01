@@ -217,6 +217,20 @@ class DisposableCKProjectionTests(unittest.TestCase):
         path.chmod(0o700)
         return path
 
+    def _assert_descendant_cleanup(self, descendant_pid: int, failure_message: str) -> None:
+        cleanup_budget_seconds = 5.0
+        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
+        while projection.time.monotonic() < cleanup_deadline:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            if not descendant_is_live(descendant_pid):
+                break
+            projection.time.sleep(0.01)
+        else:
+            self.fail(failure_message)
+
     def static_validator(self, value, gallery):
         return deepcopy(self.payload), PROFILE_IDS, INSTANCE_IDS
 
@@ -1013,18 +1027,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
         self.assertTrue(ready_path.is_file(), "descendant did not start")
         self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
         descendant_pid = int(pid_path.read_text())
-        cleanup_budget_seconds = 5.0
-        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
-        while projection.time.monotonic() < cleanup_deadline:
-            try:
-                os.kill(descendant_pid, 0)
-            except ProcessLookupError:
-                break
-            if not descendant_is_live(descendant_pid):
-                break
-            projection.time.sleep(0.01)
-        else:
-            self.fail("descendant survived process-group cleanup")
+        self._assert_descendant_cleanup(descendant_pid, "descendant survived process-group cleanup")
 
     @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant liveness requires Linux /proc process state")
     def test_bounded_subprocess_timeout_kills_descendant_after_leader_exits(self) -> None:
@@ -1059,18 +1062,10 @@ class DisposableCKProjectionTests(unittest.TestCase):
         self.assertTrue(ready_path.is_file(), "descendant did not start")
         self.assertTrue(pid_path.is_file(), "parent did not record descendant PID")
         descendant_pid = int(pid_path.read_text())
-        cleanup_budget_seconds = 5.0
-        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
-        while projection.time.monotonic() < cleanup_deadline:
-            try:
-                os.kill(descendant_pid, 0)
-            except ProcessLookupError:
-                break
-            if not descendant_is_live(descendant_pid):
-                break
-            projection.time.sleep(0.01)
-        else:
-            self.fail("descendant survived process-group cleanup after leader exit")
+        self._assert_descendant_cleanup(
+            descendant_pid,
+            "descendant survived process-group cleanup after leader exit",
+        )
 
     @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant liveness requires Linux /proc process state")
     def test_bounded_subprocess_nonzero_leader_kills_descendant_before_reap(self) -> None:
@@ -1138,18 +1133,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
             events.index(("waitid", 23)),
             term_index,
         )
-        cleanup_budget_seconds = 5.0
-        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
-        while projection.time.monotonic() < cleanup_deadline:
-            try:
-                os.kill(descendant_pid, 0)
-            except ProcessLookupError:
-                break
-            if not descendant_is_live(descendant_pid):
-                break
-            projection.time.sleep(0.01)
-        else:
-            self.fail("descendant survived nonzero process-group cleanup")
+        self._assert_descendant_cleanup(descendant_pid, "descendant survived nonzero process-group cleanup")
 
     @unittest.skipUnless(LINUX_PROC_STATUS_AVAILABLE, "descendant liveness requires Linux /proc process state")
     def test_bounded_subprocess_late_nonzero_after_pipe_drain_kills_descendant(self) -> None:
@@ -1245,18 +1229,7 @@ class DisposableCKProjectionTests(unittest.TestCase):
             [event[2] for event in events if event[0] == "killpg"],
             [projection.signal.SIGTERM, projection.signal.SIGKILL],
         )
-        cleanup_budget_seconds = 5.0
-        cleanup_deadline = projection.time.monotonic() + cleanup_budget_seconds
-        while projection.time.monotonic() < cleanup_deadline:
-            try:
-                os.kill(descendant_pid, 0)
-            except ProcessLookupError:
-                break
-            if not descendant_is_live(descendant_pid):
-                break
-            projection.time.sleep(0.01)
-        else:
-            self.fail("descendant survived late nonzero process-group cleanup")
+        self._assert_descendant_cleanup(descendant_pid, "descendant survived late nonzero process-group cleanup")
 
     def test_subprocess_return_code_malformed_output_and_source_mutation_fail_closed(self) -> None:
         with self.assertRaisesRegex(projection.ProjectionError, "exited 7"):

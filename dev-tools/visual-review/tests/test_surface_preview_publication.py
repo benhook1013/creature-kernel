@@ -157,6 +157,40 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp.cleanup()
 
+    def _run_cargo_inspect(self, repository: Path, input_path: Path) -> subprocess.CompletedProcess[str]:
+        command = [
+            "cargo", "run", "--quiet", "--package", "creature-kernel-cli",
+            "--bin", "creature-kernel", "--", "inspect-provisional-form",
+            "--input", str(input_path),
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=180,
+            )
+        except FileNotFoundError as error:
+            if error.filename != "cargo":
+                raise
+            self.skipTest("requires Cargo (`cargo` executable)")
+        if completed.returncode != 0:
+            output = "\n".join(
+                f"{stream}: {value.strip()}"
+                for stream, value in (
+                    ("stdout", completed.stdout),
+                    ("stderr", completed.stderr),
+                )
+                if value.strip()
+            ) or "<no output>"
+            self.fail(
+                "Cargo inspect-provisional-form failed "
+                f"with exit code {completed.returncode}:\n{output}"
+            )
+        return completed
+
     def test_successor_semantic_sidecar_scales_with_validated_vertex_count(self) -> None:
         address = {
             "namespace": "fixture",
@@ -2507,17 +2541,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def test_canonical_stylized_digitigrade_torso_profile_accepts_owner_local_landmarks(self) -> None:
         repository_root = HERE.parents[1]
         input_path = repository_root / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
-        completed = subprocess.run(
-            [
-                "cargo", "run", "--quiet", "--package", "creature-kernel-cli",
-                "--bin", "creature-kernel", "--", "inspect-provisional-form",
-                "--input", str(input_path),
-            ],
-            cwd=repository_root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        completed = self._run_cargo_inspect(repository_root, input_path)
         payload = json.loads(completed.stdout)
         profile_context = publisher._validate_authored_torso_profile(payload)
         self.assertEqual(
@@ -3210,17 +3234,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
     def test_current_shape_compact_producer_fits_final_descriptor_context(self) -> None:
         repository = HERE.parents[1]
         source = repository / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
-        completed = subprocess.run(
-            [
-                "cargo", "run", "--quiet", "--package", "creature-kernel-cli",
-                "--bin", "creature-kernel", "--", "inspect-provisional-form",
-                "--input", str(source),
-            ],
-            cwd=repository,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        completed = self._run_cargo_inspect(repository, source)
         payload = json.loads(completed.stdout)
         compact = publisher._compact_canonical_json(payload).encode("utf-8")
         self.assertEqual(payload["format"], common.PROVISIONAL_FORM_V11_FORMAT)

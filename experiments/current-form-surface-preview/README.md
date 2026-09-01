@@ -364,7 +364,8 @@ source manifest and atomically install the three-file neutral output:
 
 ```bash
 surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
-source_dir="$(mktemp -d /tmp/ck-neutral-source-XXXXXX)"
+source_parent="$(mktemp -d /tmp/ck-neutral-source-XXXXXX)"
+source_dir="$source_parent/generated"
 fresh_id=replace-with-a-fresh-neutral-attempt-id
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
   --output-dir "$source_dir"
