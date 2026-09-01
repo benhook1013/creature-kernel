@@ -1,6 +1,7 @@
 # Disposable current-form surface preview
 
-This is an exploratory visual workbench for the exact four-variant
+This is an exploratory visual workbench documenting the historical, closed
+four-variant
 `creature-kernel.provisional-form-preview.v11` envelope. It converts the
 source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
 linear-radius tapered-segment fields, folds them in stable full-AddressKey
@@ -11,10 +12,17 @@ animation topology, rig, skin, runtime, Readiness 3/4 proof, or DR-0009/0010
 evidence. Winner labels are debug attribution only. Generated bundles belong
 in `/tmp` and must not be committed.
 
-The integrated candidate is producer v11 with `authored_foot_profile` v1:
+The four-variant v9 path below is historical closed-candidate reproduction. It
+is distinct from the later regional candidate's exact-five attempts, which
+failed before rendering or publication. Fresh candidate generation or
+publication requires a new Ben-authorized runway; historical reproduction
+remains available through the documented commands.
+
+The historical integrated candidate is producer v11 with
+`authored_foot_profile` v1:
 153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
-current diagnostic target is baseline preview format v3, regional guide v11,
-and successor preview v9. Producer v11 and `authored_foot_profile` v1 remain
+The historical diagnostic target is baseline preview format v3, regional guide
+v11, and successor preview v9. Producer v11 and `authored_foot_profile` v1 remain
 the source identities. The current successor region/profile identity is
 `successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16`.
 This v16 hip-root successor derives one four-station pelvis-to-thigh
@@ -28,8 +36,8 @@ four spans, and exact producer/guide/successor lineage and cross-binding.
 The final publication context cap is 12 KiB only for the exact subject-context
 carrier; ordinary strings remain capped at 8192 characters. Existing
 immutable sessions retain the format and captures with which they were
-published. This diagnostic is published as a new immutable checkpoint; it
-does not rewrite an older session.
+published. This diagnostic was published as an immutable historical session;
+it does not create a current checkpoint or rewrite an older session.
 
 The compiler-owned middle seam is a private regional-guide v11 representation
 derived separately for each of the four validated variants. It carries stable
@@ -163,6 +171,176 @@ the shared three-layer captures (currently `0.75`). This preserves the
 successor's known-good mesh grid while keeping default baseline and successor
 capture frames exactly comparable.
 
+## Candidate disposition and history
+
+This section preserves the path from the earlier exact-five smooth-union
+candidate through the completed bounded regional hypothesis. It records
+candidate-scoped evidence and disposition; it does not replace the project
+status, roadmap, or any proposed surface contract.
+
+### Observation
+
+The earlier exact-five smooth-union path proved useful technical plumbing: the
+source-authored controls could be compiled into deterministic analytic fields,
+composed into a connected whole-body surface, and carried through source
+ownership, provenance, semantic sidecars, metrics, reproducible publication,
+and visual review without a handcrafted base mesh. That is evidence about this
+disposable route and its infrastructure, not a form-quality pass.
+
+The exact displayed baseline for this history is the immutable local session
+`successor-stylized-anatomy-five-profile-checkpoint-v1`, published on
+2026-08-31 NZST. Its review descriptor SHA-256 is
+`a17055186b832c0a1b5e306699572ea9ebddbb3d8678f9b8938392d04e6d65d4`, its
+source-manifest SHA-256 is
+`77c2763c771d18f67ee179a915044bd7b435425c0a4bd8d390ffbbc441a416c6`, and its
+implementation SHA-256 is
+`3181ab86c50f2df24dcca0a6e3f7fbe5e3502a7a0a4afaa1d5ecaa3bdffec45d`. The
+associated branch head is
+`68eadfb6a801e052ddc1102e82d976eac78ba1ce`. Captures remain local and
+uncommitted under the artifact policy. This is a candidate-evidence
+disposition, not a code revert.
+
+Ben's scoped 2026-09-01 appraisal of that immutable displayed checkpoint
+observed a lost or occluded neck, rounded rectangular/blocky torso and pelvis,
+and an overall surface that was not convincing anatomy. The same candidate's
+lower body read as external thigh bulbs rather than hip/leg roots seated inside
+the pelvis, with an upside-down-bell lower torso. These observations are scoped
+to that displayed candidate and revision.
+
+### Disposition
+
+The exact-five smooth-union candidate is rejected as visual evidence, frozen,
+and retained as the failed baseline. It is not deleted, and its result is not
+generalized into proof that implicit methods cannot work. Further local tuning
+stopped because the observed torso/pelvis massing and hip-root relationship
+were representation-level shortcomings for this candidate; additional
+artifact-specific polishing would not provide a useful bounded answer and
+would risk an open-ended tuning loop. This disposition makes no production
+backend or architecture decision and does not activate the formal comparison.
+
+### Retained evidence
+
+The reusable remainder is the source inspection and authored-profile lineage,
+regional-guide and semantic ownership/provenance plumbing, deterministic field
+generation and extraction, metrics and hash-bound artifacts, and the disposable
+publisher/visual-review workflow. The failed candidate's connected-surface and
+cross-variant generation evidence remains available as context and regression
+evidence. Its displayed anatomy judgments remain evidence about that exact
+candidate, not durable geometry prescriptions.
+
+### Executed initial alternative attempt
+
+The initial `standard_neutral_reference` alternative attempt is now retained in
+the durable local cache
+`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
+Its actual capture is
+`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
+its identity record is
+`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
+and its retained mesh is
+`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
+The identity record captures source/configuration/output hashes, including
+PNG SHA-256
+`86c2888d7415c0a9be69f359244c0e968a90cf19c10e216392bdd0e4270380e4`. This
+exploratory one-off was generated from an uncommitted implementation state
+that was not itself hash-bound or preserved. It is therefore retained
+observational evidence, not exactly reproducible implementation evidence. It
+is an `1800 × 1500` RGB fixed front/side/three-quarter 3×3 sheet using 56
+samples, padding `0.5`, and default `smooth_k`. The mesh reported watertight,
+one component, 3,850 vertices, and 7,696 faces; final review found unresolved
+bounds, provenance, identity, and test defects, so technical triage is not
+passed.
+
+The main thread inspected this actual image and the retained rejected-v9 image.
+Two fresh independent model-vision critiques inspected the actual image:
+`gpt-5.6-luna` `xhigh` anatomy/silhouette and `gpt-5.6-luna` `high`
+surface/mesh. They shared observations of a bulbous nearly spherical pelvis,
+weak or pinched/jagged hip-to-thigh continuity, a short barrel-like torso,
+hard regional seams, and faceting. The anatomy lens also noted abrupt narrow
+neck/shoulder integration. The surface lens noted a possible pointed
+side/tail termination, uncertain at 56 samples. The critiques are advisory
+only and cannot establish topology, semantics, or deformation; faceting may be
+capture sampling or shading. No visual acceptance or implementation
+completion is claimed.
+
+A `gpt-5.6-sol` medium read-only synthesis identified likely
+support-as-geometry inflation and recommended support as a locality mask, a C1
+gate, and source-derived axial caps/neck root. This is advisory implementation
+input, not a new architecture or product decision. The initial attempt was
+retained, followed by the single shared correction/republication sequence below.
+No profile-specific corrections were applied.
+
+### Completed corrected neutral and failed exact-five expansion
+
+Attempt B remains retained at
+`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
+as the hash-bound intermediate generated before final correctness fixes. The
+authoritative final corrected neutral is C at
+`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
+This is the same shared correction after final correctness fixes, not a second
+aesthetic correction. C's `standard_neutral_reference.png` has
+SHA-256
+`8ed4ccb8e4928e1de228b6e49c2c2c00f4afd59b793b923bf7906aaf71b2d5e0`, its
+`surface.ply` has SHA-256
+`d6b509b8452d8bd4aa41cb89d59815a3a0cc726383fa6c011d776c9b4e52632c`, and its
+`identity.json` file has SHA-256
+`3472d7cb48d9bd2a06dbd71e951d5a37fd18eac260bb88d39f5dbec4993c95ea`.
+The identity record's `identity_sha256` is
+`b99b180fffc153d5c24bdc175673cc1c307f6d16bc3d74cca19e3361c05055ec`, and its
+`implementation_sha256` is
+`1cbfa10a5e6019103b419c69d13b800b1247202e7389e094a91fea9725ea3e2d`.
+C used 80 samples per axis, padding `0.5`, and `smooth_k` `0.1`; it has one
+connected component, is watertight, and contains 7,770 vertices and 15,536
+faces.
+
+The main thread inspected C at original resolution. It materially removed the
+giant spherical pelvis and reduced faceting/blobiness versus A, but still read
+as a barrel or rounded-rectangle torso over a skirt or bell pelvis, with weak
+hip seating, a collar or peg neck, and rod-like limbs. At checkpoint scale it
+looked essentially the same as B; no second aesthetic correction was made.
+Two independent model-vision passes split:
+surface/integration judged the neutral sufficient to generate the five
+profiles, while anatomy/silhouette judged it still a failed simplified
+anatomy representation. Human authority was preserved by attempting the
+exact-five expansion with the unchanged candidate and applying no further
+tuning.
+
+The exact-five publication ID
+`successor-regional-anatomy-five-profile-checkpoint-v1` was attempted once
+after B and again after final correctness fixes and C. Both attempts failed
+before rendering/publication because `slender_long_limb` had six connected
+components. No target directory was installed, and no exact-five human
+checkpoint exists. The candidate is closed as failed under the
+one-shared-correction stop rule. Stage 2 and Stage 3 remain inactive. No
+autonomous next candidate or tuning is authorized; Ben must authorize a new
+Stage 1 direction.
+
+### Next hypothesis (superseded)
+
+The approved regional pivot recorded in the 2026-09-01 active runway was a
+neutral-first, landmark-driven regional candidate: explicit ribcage,
+abdominal-bridge, and pelvis regions; swept anisotropic limbs; specialized
+shoulder and hip roots; controlled local blending; and, where needed, regional
+lofted or patched surfaces. It was triaged through the neutral reference,
+followed by one shared correction/republication and the exact-five publication
+attempts recorded above with the unchanged candidate. No per-profile or
+per-fixture fixes were part of this hypothesis. The hypothesis is closed by the
+failed exact-five expansion above; there is no autonomous continuation until a
+new human-authorized Stage 1 direction is recorded.
+
+The visual pass was reserved for the exact-five human anatomy checkpoint, with
+`standard_neutral_reference` first. That checkpoint was never created because
+both exact-five attempts failed before rendering or publication. The formal
+five-branch comparison remains parked.
+
+Before Stage 2 begins, the separate representation gate requires human visual
+acceptance, coherent watertight output, preserved semantic regions and
+ownership, and repeatability across all five profiles. If those prerequisites
+pass and a new runway activates Stage 2, an early continuation check follows a
+provisional rig and weights exercise and tests topology/correspondence through
+one representative bend/binding scenario. Neither gate activates the formal
+comparison.
+
 ## Run
 
 Use the repository-owned launcher for every experiment Python command. It
@@ -175,6 +353,37 @@ inherited Windows `TMPDIR`/`TEMP`/`TMP` values with a verified native-Linux
 temporary root. `CK_CURRENT_FORM_SURFACE_TMPDIR` may select an existing,
 writable native-Linux directory explicitly. The launcher does not create an
 environment or install packages.
+
+The one-purpose hash-bound neutral rerender helper is
+`dev-tools/visual-review/rerender_neutral_alternative.py`. Run it through the
+managed pinned environment to inspect only the first profile of an exact-five
+source manifest and atomically install the three-file neutral output:
+
+```bash
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+source_dir="$(mktemp -d /tmp/ck-neutral-source-XXXXXX)"
+fresh_id=replace-with-a-fresh-neutral-attempt-id
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+  --output-dir "$source_dir"
+"$surface_preview_launcher" dev-tools/visual-review/rerender_neutral_alternative.py \
+  --output-parent /home/ben/.cache/creature-kernel/neutral-alternative-attempts \
+  --id "$fresh_id" \
+  --source-manifest "$source_dir/manifest.json" \
+  --creature-kernel target/debug/creature-kernel \
+  --samples-per-axis 80 --padding 0.5 --smooth-k 0.1
+```
+
+The helper is one-purpose: it inspects only the first profile and atomically
+installs exactly `surface.ply`, `standard_neutral_reference.png`, and
+`identity.json`; it does not publish the exact-five group. Its `identity.json`
+binds implementation, configuration, lineage, and output hashes. The bounded
+fingerprint/identity route limits pinned runtime
+requirements to 64 KiB, imported module files to 32 MiB each and 128 files,
+repository implementation inputs to 4,000,000 bytes each, and the pinned
+executable to 256,000,000 bytes and output artifacts to 256 MiB each. The
+runtime fingerprint covers the pinned requirements, interpreter, and imported
+package-module files only; it does not capture all ambient process, OS, loader,
+native-library, filesystem, or machine state.
 
 Create the isolated environment once, outside the repository, and install the
 small experiment-local dependency set explicitly:
@@ -273,12 +482,12 @@ claim. Its four-profile candidate set and semantic pose payload are frozen
 before evidence; the current display variants are not automatic substitutes.
 It uses generated, not illustrative, neutral/posed surface, skeleton/bone,
 weight/influence, and collision-proxy artifacts with source/build/scenario
-lineage. See `docs/project/status.md` for the current named human checkpoint
-and active runway.
+lineage. See `docs/project/status.md` for the current stop state and continuation
+authority.
 
-The experiment-local `structural_profile_candidates.json` freezes five ordered
-source candidate IDs for the current anatomy gallery, with the standard neutral
-reference first:
+The experiment-local `structural_profile_candidates.json` retains five ordered
+source candidate IDs for the closed regional candidate reproduction, with the
+standard neutral reference first:
 `standard_neutral_reference`, `compact_broad_short_limb_large_head`,
 `tall_narrow_long_legged`, `slender_long_limb`, and `stocky_broad_chested`.
 Generate their compact canonical
@@ -300,10 +509,12 @@ bilateral/alignment/Attachment invariants, unsafe values, or non-atomic output.
 These are candidate source fixtures and lineage evidence, not public morphology
 limits or a production parameter system.
 
-The active command above is intentionally exact-five and neutral-first. The
-completed shared-pose structural gallery is historical v1 and must retain its
-independent origin/main lineage. Reproduce its source inputs only with the
-explicit archived mode, which verifies the immutable fixture bytes under
+The five-profile source-generation command above is a historical
+closed-candidate reproduction command, not active runway work. The completed
+shared-pose structural gallery is historical v1 and must retain its independent
+origin/main lineage.
+Reproduce its source inputs only with the explicit archived mode, which verifies
+the immutable fixture bytes under
 `historical/structural-embodiment-v1/`:
 
 ```bash
@@ -313,7 +524,7 @@ explicit archived mode, which verifies the immutable fixture bytes under
 ```
 
 The historical mode is not selected from a profile count or ID list; it rejects
-the active five-profile table and any other candidate/source bytes.
+the closed regional five-profile table and any other candidate/source bytes.
 
 The authored arm slice is a disposable consumer intended to test frame-aware
 profile continuity and bounded field behavior around the torso, upper-arm, and
@@ -322,7 +533,7 @@ general morphology support, or the quality of the final visual result. It is
 historical surface evidence and is not the structural embodiment checkpoint.
 
 After creating and activating the experiment virtual environment described
-above, the workflow has two steps:
+above, the historical four-variant v9 reproduction workflow has two steps:
 
 ```bash
 cargo run -p creature-kernel-cli -- inspect-provisional-form \
@@ -343,7 +554,8 @@ robustness; lower values within the accepted argument range may still validly
 fail mesh-connectedness validation, and successful generation is not guaranteed
 at every in-range sampling value.
 
-A successful v9 run writes `successor-surface-manifest.json` plus exactly four
+A successful historical v9 reproduction writes
+`successor-surface-manifest.json` plus exactly four
 variant directories. Each variant directory contains exactly
 `surface.ply`, source-owned winner `semantic.json`, `metrics.json`,
 `successor.json`, and one
@@ -361,6 +573,11 @@ validated PLY vertex count.
 The manifest generator configuration reports both independent padding values:
 `padding` controls successor mesh sampling and `capture_padding` controls the
 baseline-compatible shared capture frame.
+
+This four-variant v9 behavior is separate from the later regional five-profile
+candidate; that candidate's exact-five publication attempts failed before
+rendering or publication. Fresh candidate generation or publication requires a
+new Ben-authorized runway, while historical reproduction remains permitted.
 
 The first structural-embodiment bridge slice consumes one successful
 `inspect-structure` result, its matching provisional-form result, the complete

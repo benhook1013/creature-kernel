@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 30 open observations
+Status: Operational inbox; 33 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,14 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-09-01 16:44 NZST`: One-off managed-launcher render lost implementation binding
+  - Observation: A one-off managed-launcher render met runtime/tool rules but placed generated evidence in `/tmp` and omitted implementation identity/regeneration binding; it had to be copied to durable cache and downgraded to observational evidence.
+  - Expected pattern: Evidence-bearing visual captures must use the implementation-hashing immutable publisher, or record the implementation digest and durable target before rendering, rather than an ad hoc one-off.
+
+- `2026-09-01 14:30 NZST`: Bounded evidence subagent spawned an unintended nested worker
+  - Observation: One Luna xhigh evidence-only option-generation subagent reported that it attempted an unintended nested delegation before replacing that route with a direct pass. The Codex desktop UI exposed an additional similarly titled Recent item and several duplicate path-only spinner rows, which made the internal worker look like an extra user-owned task. No Git worktree, branch, repository edit, or main task was created; the exact UI persistence behavior remains an app-level inference.
+  - Expected pattern: Bounded subagents should complete their assigned read/reason task directly and must not spawn descendants unless the main-thread prompt explicitly authorizes nested delegation. The main thread should close completed agents promptly; treat extra Recent/path rows as internal-worker UI until repository and task state prove otherwise.
 
 - `2026-08-31 11:00 NZST`: Interrupted subagents remained running after their owned commands ended
   - Observation: Two Luna xhigh workers remained authoritatively `running` after their owned test or diagnostic processes had ended and after explicit finish/report messages. The first had been interrupted to stop an out-of-scope broad suite; the second was interrupted after a bounded evidence request produced no return. Repeated bounded waits yielded no completion, so the main thread verified that no owned process remained, preserved the first worker's patch, and closed each worker. The exact model-versus-harness cause is unknown.
@@ -145,3 +153,7 @@ Copyable entry scaffold:
 - `2026-08-31 12:26 NZST`: WSL tempfile selected a DrvFS path for POSIX FIFO tests
   - Observation: Under WSL, Python `tempfile` resolved to a Windows-mounted DrvFS path where `os.mkfifo` exists but failed with `ENOTSUP`, so POSIX-only tests need to distinguish API/platform support from filesystem capability.
   - Expected pattern: For POSIX-only tests, check both `os.mkfifo`/platform support and filesystem capability, or use a verified native-Linux temp root rather than assuming Python's tempfile path supports FIFOs.
+
+- `2026-09-01 16:49 NZST`: Neutral-alternative tests reused production-derived expectations
+  - Observation: Two independent final reviewers found several neutral-alternative tests reconstructing expected lower-body composition, bounds, or metadata with the same production helpers or transformations, so tests passed while semantic attribution, expanded bounds, and malformed `AddressKey` serialization remained wrong.
+  - Expected pattern: For semantic ownership, bounds, or compatibility claims, use independent analytical probes, literal canonical fixtures, or frozen behavior signatures rather than production-helper-derived expectations.

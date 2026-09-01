@@ -39,31 +39,67 @@ Exit outcomes:
   frozen. Hypothesis selection may precede this freeze.
 - Builds are reproducible through a headless command.
 
-## Stage 2: Prove embodiment
+Before Stage 2 begins, the Stage 1 result must also pass an explicit
+pre-Stage-2 gate:
+
+- human visual acceptance at the named checkpoint;
+- a coherent, watertight surface;
+- preserved semantic regions and ownership;
+- repeatable output across the declared profiles without profile patches.
+
+The representative bend/binding check is deferred to an early Stage 2
+continuation gate after a provisional rig and weights exercise. The formal
+five-branch comparison remains parked and is not activated by this gate.
+
+## Inactive conditional direction: Stage 2 and Stage 3
+
+The following roadmap outcomes are inactive for the current runway. They may be
+considered only after Ben appraises the named human checkpoint, explicitly
+authorizes the checkpoint/PR merge, and a newly recorded active runway names
+the next work. The checkpoint presentation and technical evidence do not
+authorize this direction on their own.
+
+### Stage 2: Prove embodiment
 
 Exit outcomes:
 
-- A usable skeleton, skin weights, and collision proxies pass reference checks.
-- Multiple generated bodies share one animation or control scenario.
+- After the pre-Stage-2 gate and an early Stage 2 continuation gate pass,
+  generated rig, weights, collision proxies, and one meaningful shared pose or
+  control scenario are developed and pass reference checks together.
+- Multiple generated bodies share that meaningful animation or control
+  scenario.
 - Stage 2 uses Stage 1 semantic frames and region intent; it does not yet claim
   actual contact behaviour, deformation quality, or runtime performance.
 - Structured diagnostics identify known geometry and rigging failures.
+
+Early Stage 2 continuation gate: after a provisional rig and weights exercise,
+one representative bend/binding scenario must have adequate topology and
+correspondence stability. Correctives may be evaluated as a candidate
+technical approach, but they are not a mandatory product contract.
 
 Non-gating compatibility guardrail: Stage 2 embodiment choices must not make
 animation clips the exclusive pose source or foreclose later external pose or
 target inputs. No external-tracking, headset, OpenXR, device, or first-person
 implementation is required by this stage.
 
-## Stage 3: Prove bounded real-time interaction
+### Stage 3: Prove bounded real-time interaction
 
 Exit outcomes:
 
-- A runtime avatar package loads through the first host adapter.
+- After accepted Readiness 3, the repository-evolution host-adapter trigger has
+  fired through its accepted adapter DR, and DR-0013 T4 has a retained-human
+  disposition, a production or provisional host adapter may be developed
+  alongside the bounded semantic contact and deformation slice and load the
+  runtime avatar package. Disposable experiment-host evidence may precede
+  these prerequisites, but it is not the adapter.
 - Two generated characters establish semantic contact.
 - Local deformation and physical response run within a declared hardware budget.
 - Quality tiers and at least one fallback path are demonstrated.
 - The claim is limited to the declared scenario, hardware evidence, and
-  fallback; it does not imply an unbounded runtime budget.
+  fallback; it does not imply an unbounded runtime budget or a permanent engine
+  selection. Semantic contact, deformation, and budget evidence are developed
+  together with the provisional adapter rather than treated as earlier-stage
+  claims.
 
 ## Stage 4: Prove extensibility
 
@@ -91,7 +127,7 @@ evidence may reorder, split, combine, or retire later outcomes. This envelope
 selects no muscles, anatomy, topology, SDF/PBD/FEM, solver, engine, schema,
 hardware target, or exact ordering.
 
-## Provisional later-horizon morphology knowledge and dossiers
+## Retained bounded morphology knowledge and pilot dossiers
 
 Fine-grained optional morphology modules may fit inside functional assemblies:
 for example, pelvis-trunk may expose a tail-root while tail is its own optional
@@ -102,19 +138,19 @@ source-backed 3D shape, behaviour, control, and appearance knowledge, with only
 a very small number of discrete alternatives where sliders cannot express a
 real structural difference.
 
-This lane activates immediately before implementation of the first post-Godot
-checkpoint aimed at convincing simplified/stylized anatomy—not now. Its first
-bounded step is a provisional source-backed and reference-safe inventory of
-functional assemblies, fine-grained subparts, and optional modules, followed by
-a pilot of only one or two dossiers under the already recorded research
-procedure.
+The bounded morphology knowledge lane is closed as a current-runway activity.
+Its bounded inventory plus exactly two pilot dossiers were completed and
+retained as research context under the already recorded research procedure.
+They did not activate a general dossier framework, schema, executable anatomy
+library, or supported morphology promise. Any additional dossier or
+implementation use requires a later newly authorized runway.
 
-Any future dossier remains a research and planning artifact, not executable truth
-or an accepted contract. Generic reusable concepts stay in the public core;
-downstream-specific private material stays downstream. This is not a current
-schema, file layout, implementation queue, anatomy library, fidelity promise,
-or commitment to supported new morphology; intermediate evidence may reshape
-it.
+The inventory and pilot dossiers remain research and planning artifacts, not
+executable truth or an accepted contract. Generic reusable concepts stay in the
+public core; downstream-specific private material stays downstream. This is not
+a current schema, file layout, implementation queue, anatomy library, fidelity
+promise, or commitment to supported new morphology; intermediate evidence may
+reshape it.
 
 ## Later productization
 

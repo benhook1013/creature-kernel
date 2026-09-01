@@ -27,7 +27,7 @@ if str(VISUAL_REVIEW_ROOT) not in sys.path:
 
 import common  # noqa: E402
 from common import ValidationError, canonical_json  # noqa: E402
-from publish import PublishError, publish_session  # noqa: E402
+from publish import PublishError, _open_directory, publish_session  # noqa: E402
 from publish_provisional_form import (  # noqa: E402
     ORDINARY_SOURCE_BYTES,
     ProvisionalFormPublishError,
@@ -59,7 +59,7 @@ _PROFILE_SOURCE_MAX_BYTES = 1_000_000
 _PROFILE_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _PROFILE_SOURCE_CONSTANTS: dict[str, Any] = {}
 _PROFILE_SOURCE_BOOTSTRAP_ERROR: str | None = None
-NEUTRAL_VARIANT_ID = "neutral-v0"
+NEUTRAL_VARIANT_ID = successor.ALTERNATIVE_NEUTRAL_PROFILE_ID
 REVIEW_ID = "successor-surface-anatomy-appraisal"
 TITLE = "Disposable successor-surface anatomy appraisal"
 DESCRIPTION = (
@@ -317,6 +317,38 @@ def _resolve_file(path: Path, where: str) -> common.SourceReference:
         return common._resolve_file_reference(str(absolute), absolute, where)
     except (OSError, ValidationError, ValueError) as exc:
         _fail(str(exc))
+
+
+def _refuse_existing_destination(reviews_root: Path, review_id: str) -> None:
+    """Reject a destination before doing expensive profile work.
+
+    This preflight is only an early optimization.  ``publish_session`` still
+    performs the authoritative atomic no-replace install check after building
+    and rendering because another process may create the destination later.
+    """
+
+    try:
+        root = common.ensure_root(reviews_root)
+        common.require_secure_fs_support()
+        root_fd = _open_directory(None, root, "reviews root")
+    except (ValidationError, OSError) as exc:
+        _fail(str(exc))
+
+    try:
+        try:
+            info = os.stat(review_id, dir_fd=root_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            _fail(f"could not inspect review destination {review_id}: {exc}")
+        if stat.S_ISLNK(info.st_mode):
+            _fail(f"refusing existing destination symlink: {review_id}")
+        _fail(f"refusing to overwrite existing destination: {review_id}")
+    finally:
+        try:
+            os.close(root_fd)
+        except OSError:
+            pass
 
 
 def _file_identity(path: Path, maximum: int, where: str, *, repository_path: bool) -> dict[str, Any]:
@@ -847,9 +879,9 @@ def _image_identity(
         "source_document_sha256": profile.source_sha256,
         "producer_envelope_sha256": profile.producer_envelope_sha256,
         "producer_variant_sha256": profile.producer_variant_sha256,
-        "successor_format": successor.FORMAT,
-        "consumer_id": successor.CONSUMER_ID,
-        "successor_region_id": successor.SUCCESSOR_REGION_ID,
+        "successor_format": successor.ALTERNATIVE_FORMAT,
+        "consumer_id": successor.ALTERNATIVE_CONSUMER_ID,
+        "successor_region_id": successor.ALTERNATIVE_REGION_ID,
         "implementation_sha256": implementation["identity_sha256"],
         "capture": capture,
     }
@@ -883,7 +915,7 @@ def _build_review_manifest(
     built: list[tuple[_ProfileInput, Any, Any]] = []
     for profile, guide, _ in prepared:
         try:
-            mesh = successor.build_variant(
+            mesh = successor.build_neutral_alternative_variant(
                 profile.form,
                 profile.descriptors,
                 samples=samples,
@@ -984,9 +1016,9 @@ def _build_review_manifest(
                 "variant_sha256": profile.producer_variant_sha256,
             },
             "successor": {
-                "format": successor.FORMAT,
-                "consumer_id": successor.CONSUMER_ID,
-                "region_id": successor.SUCCESSOR_REGION_ID,
+                "format": successor.ALTERNATIVE_FORMAT,
+                "consumer_id": successor.ALTERNATIVE_CONSUMER_ID,
+                "region_id": successor.ALTERNATIVE_REGION_ID,
                 "config": item_capture["successor_config"],
                 "implementation_sha256": implementation["identity_sha256"],
             },
@@ -1034,9 +1066,9 @@ def _build_review_manifest(
             "variant_sha256_by_profile": [item["metadata"]["producer"]["variant_sha256"] for item in images],
         },
         "successor": {
-            "format": successor.FORMAT,
-            "consumer_id": successor.CONSUMER_ID,
-            "region_id": successor.SUCCESSOR_REGION_ID,
+            "format": successor.ALTERNATIVE_FORMAT,
+            "consumer_id": successor.ALTERNATIVE_CONSUMER_ID,
+            "region_id": successor.ALTERNATIVE_REGION_ID,
             "config": {
                 "samples_per_axis": samples,
                 "padding": padding,
@@ -1082,14 +1114,13 @@ def publish_successor_anatomy_gallery(
     review_id: str = REVIEW_ID,
     title: str = TITLE,
 ) -> dict[str, Any]:
-    if not reviews_root.is_dir():
-        _fail("reviews root must already exist as a directory")
     try:
         review_id = common.validate_id(review_id, "review id")
     except ValidationError as exc:
         _fail(str(exc))
     if title != TITLE:
         _fail("review title is fixed so the anatomy-only appraisal boundary remains explicit")
+    _refuse_existing_destination(reviews_root, review_id)
     manifest, manifest_bytes, records = _validate_source_manifest(source_manifest)
     executable_reference = _validate_executable(creature_kernel or default_creature_kernel())
     source_manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()

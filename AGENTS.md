@@ -86,8 +86,10 @@ technical choice remains durable in its owner document.
 
 Subagents are bounded executors, investigators, or reviewers. They may collect
 evidence, implement settled technical work, and challenge proposals, but they
-never decide product or architecture direction. The main thread inspects,
-integrates, and disposes of delegated work.
+never decide product or architecture direction. They do not spawn descendants
+unless the main thread explicitly authorizes a narrowly bounded exception. The
+main thread inspects, integrates, and disposes of delegated work; the detailed
+workflow defines the exception and routing response.
 
 ## Runway and merge control
 

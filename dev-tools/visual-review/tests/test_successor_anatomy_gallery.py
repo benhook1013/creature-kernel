@@ -112,7 +112,15 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                 colour,
             ).save(path, format="PNG")
 
-        with patch.object(adapter.successor, "build_variant", side_effect=fake_build) as build_variant, patch.object(
+        with patch.object(
+            adapter.successor,
+            "build_neutral_alternative_variant",
+            side_effect=fake_build,
+        ) as alternative_builder, patch.object(
+            adapter.successor,
+            "build_variant",
+            side_effect=AssertionError("the rejected v9 builder must not be used"),
+        ) as v9_builder, patch.object(
             adapter.successor._baseline, "_render", side_effect=fake_render
         ), patch.object(adapter, "publish_session", side_effect=fake_publish), patch.object(
             adapter, "_run_inspection", wraps=adapter._run_inspection
@@ -126,7 +134,8 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             )
         review = published["manifest"]
         self.assertEqual(result["images"], 5)
-        self.assertEqual(build_variant.call_count, 5)
+        self.assertEqual(alternative_builder.call_count, 5)
+        self.assertEqual(v9_builder.call_count, 0)
         self.assertEqual(run_inspection.call_count, 5)
         self.assertEqual([event[0] for event in events], ["build"] * 5 + ["render"] * 5)
         commands = [call.args[0] for call in run_inspection.call_args_list]
@@ -138,7 +147,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         self.assertTrue(all(command[0] != str(creature_kernel) for command in commands))
         self.assertEqual(len({command[-1] for command in commands}), 5)
         self.assertEqual(
-            [form.source["document"] for form, _ in (call.args for call in build_variant.call_args_list)],
+            [form.source["document"] for form, _ in (call.args for call in alternative_builder.call_args_list)],
             [
                 f"{json.loads(self.source_manifest.read_text(encoding='utf-8'))['source']['base_document']}"
                 f"__{profile_generator.SOURCE_DOCUMENT_SUFFIX}__{profile_id}"
@@ -160,6 +169,115 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                     creature_kernel=self.creature_kernel,
                 )
         validate_manifest.assert_not_called()
+
+    def test_existing_destination_fails_before_work_and_is_preserved(self) -> None:
+        reviews_root = self.root / "reviews"
+        reviews_root.mkdir()
+        cases = ("directory", "symlink")
+        for kind in cases:
+            with self.subTest(kind=kind):
+                destination = reviews_root / f"existing-{kind}"
+                preserved = self.root / f"preserved-{kind}"
+                preserved.write_bytes(f"preserved {kind}".encode())
+                if kind == "directory":
+                    destination.mkdir()
+                    (destination / "keep").write_bytes(b"keep")
+                    expected_error = "refusing to overwrite existing destination"
+                else:
+                    destination.symlink_to(preserved)
+                    expected_error = "refusing existing destination symlink"
+
+                with patch.object(adapter, "_validate_source_manifest") as validate_manifest, patch.object(
+                    adapter, "_validate_executable"
+                ) as validate_executable, patch.object(adapter, "_inspect_profile") as inspect_profile, patch.object(
+                    adapter, "_run_inspection"
+                ) as run_inspection, patch.object(
+                    adapter.successor, "build_neutral_alternative_variant"
+                ) as build, patch.object(adapter.successor._baseline, "_render") as render, patch.object(
+                    adapter, "publish_session"
+                ) as publish:
+                    with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, expected_error):
+                        adapter.publish_successor_anatomy_gallery(
+                            reviews_root,
+                            self.source_manifest,
+                            creature_kernel=self.creature_kernel,
+                            review_id=destination.name,
+                        )
+
+                validate_manifest.assert_not_called()
+                validate_executable.assert_not_called()
+                inspect_profile.assert_not_called()
+                run_inspection.assert_not_called()
+                build.assert_not_called()
+                render.assert_not_called()
+                publish.assert_not_called()
+                self.assertEqual(preserved.read_bytes(), f"preserved {kind}".encode())
+                if kind == "directory":
+                    self.assertEqual((destination / "keep").read_bytes(), b"keep")
+                else:
+                    self.assertTrue(destination.is_symlink())
+
+    def test_later_profile_alternative_builder_failure_fails_closed_before_render_or_install(self) -> None:
+        reviews_root = self.root / "reviews"
+        reviews_root.mkdir()
+        expected_profile_order = [
+            "standard_neutral_reference",
+            "compact_broad_short_limb_large_head",
+            "tall_narrow_long_legged",
+            "slender_long_limb",
+            "stocky_broad_chested",
+        ]
+        self.assertEqual(PROFILE_IDS, expected_profile_order)
+        base_document = json.loads(self.source_manifest.read_text(encoding="utf-8"))["source"]["base_document"]
+        expected_documents = [
+            f"{base_document}__{profile_generator.SOURCE_DOCUMENT_SUFFIX}__{profile_id}"
+            for profile_id in expected_profile_order
+        ]
+        attempted_documents: list[str] = []
+
+        def build_until_later_failure(form, descriptors, **_configuration):
+            document = form.source["document"]
+            attempted_documents.append(document)
+            if document == expected_documents[2]:
+                raise adapter.successor.SuccessorPreviewError("intentional later-profile alternative builder failure")
+            neutral_descriptors = next(
+                item[1] for item in form.variants if item[0] == adapter.NEUTRAL_VARIANT_ID
+            )
+            self.assertEqual(descriptors, neutral_descriptors)
+            return SimpleNamespace(
+                vertices=object(),
+                faces=object(),
+                render_components=(
+                    SimpleNamespace(
+                        bounds=((-100.0, -100.0, -100.0), (100.0, 100.0, 100.0))
+                    ),
+                ),
+            )
+
+        with patch.object(
+            adapter.successor,
+            "build_neutral_alternative_variant",
+            side_effect=build_until_later_failure,
+        ) as build, patch.object(adapter.successor._baseline, "_render") as render, patch.object(
+            adapter, "publish_session"
+        ) as publish:
+            with self.assertRaisesRegex(
+                adapter.SuccessorAnatomyGalleryError,
+                "tall_narrow_long_legged successor surface build failed: intentional later-profile alternative builder failure",
+            ):
+                adapter.publish_successor_anatomy_gallery(
+                    reviews_root,
+                    self.source_manifest,
+                    creature_kernel=self.creature_kernel,
+                    review_id="later-profile-builder-failure",
+                )
+
+        self.assertEqual(attempted_documents, expected_documents[:3])
+        self.assertEqual(build.call_count, 3)
+        render.assert_not_called()
+        publish.assert_not_called()
+        self.assertFalse((reviews_root / "later-profile-builder-failure").exists())
+        self.assertEqual(tuple(reviews_root.iterdir()), ())
 
     def test_active_profile_contract_is_generator_owned_and_neutral_first(self) -> None:
         generation_mode, profile_ids = adapter._active_profile_contract()
@@ -398,8 +516,36 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
         self.assertEqual(group["selection_mode"], "none")
         items = group["items"]
         self.assertEqual([item["id"] for item in items], PROFILE_IDS)
-        self.assertEqual([item["metadata"]["producer"]["variant_id"] for item in items], ["neutral-v0"] * 5)
-        self.assertEqual([item["metadata"]["producer"]["profile_id"] for item in items], ["neutral-v0"] * 5)
+        self.assertEqual(
+            [item["metadata"]["producer"]["variant_id"] for item in items],
+            [adapter.successor.ALTERNATIVE_NEUTRAL_PROFILE_ID] * 5,
+        )
+        self.assertEqual(
+            [item["metadata"]["producer"]["profile_id"] for item in items],
+            [adapter.successor.ALTERNATIVE_NEUTRAL_PROFILE_ID] * 5,
+        )
+        self.assertEqual(
+            [item["metadata"]["successor"] for item in items],
+            [{
+                "format": adapter.successor.ALTERNATIVE_FORMAT,
+                "consumer_id": adapter.successor.ALTERNATIVE_CONSUMER_ID,
+                "region_id": adapter.successor.ALTERNATIVE_REGION_ID,
+                "config": items[0]["metadata"]["successor"]["config"],
+                "implementation_sha256": items[0]["metadata"]["successor"]["implementation_sha256"],
+            }] * 5,
+        )
+        self.assertEqual(
+            review["subject_context"]["descriptor_snapshot"]["successor"]["format"],
+            adapter.successor.ALTERNATIVE_FORMAT,
+        )
+        self.assertEqual(
+            review["subject_context"]["descriptor_snapshot"]["successor"]["consumer_id"],
+            adapter.successor.ALTERNATIVE_CONSUMER_ID,
+        )
+        self.assertEqual(
+            review["subject_context"]["descriptor_snapshot"]["successor"]["region_id"],
+            adapter.successor.ALTERNATIVE_REGION_ID,
+        )
 
         bounds = [item["metadata"]["capture"]["global_capture_bound"] for item in items]
         self.assertEqual(bounds, [bounds[0]] * 5)
@@ -646,7 +792,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                 adapter,
                 "_shared_capture_bound",
                 return_value=(((0.0, 0.0, 0.0), (1.0, 1.0, 1.0)), prepared),
-            ), patch.object(adapter.successor, "build_variant", return_value=mesh), patch.object(
+            ), patch.object(adapter.successor, "build_neutral_alternative_variant", return_value=mesh), patch.object(
                 adapter.successor._baseline, "_render"
             ) as render:
                 with self.assertRaises(adapter.SuccessorAnatomyGalleryError) as raised:

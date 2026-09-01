@@ -175,6 +175,18 @@ focused tests, hands-on trials, and fresh review. Keep a trivial single-read
 local when delegation overhead costs more than it saves. Delegate one bounded
 step at a time; the main thread chooses the next step after inspecting it.
 
+A bounded subagent must not spawn descendants unless the main thread explicitly
+authorizes a specifically bounded nested delegation. If a Luna task appears
+to need descendants, it stops and reports. For non-direction-setting synthesis
+only, the main thread may decompose the work into disjoint bounded Luna lanes
+or route genuinely broad or ambiguous synthesis to Sol at medium; it may also
+narrow scope, stop, or accept incomplete evidence. This fallback cannot replace
+or reduce the two independent fresh-context Luna `xhigh` passes required for
+direction-setting ideation, or the two independent fresh-context Sol `medium`
+passes required for an activated morphology dossier lane. For either required
+lane, incomplete evidence does not satisfy the required pass count. No worker
+may self-escalate, widen scope, or decide product or architecture direction.
+
 Every delegation prompt states all of the following:
 
 - the absolute worktree path and expected branch;
