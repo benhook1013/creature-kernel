@@ -9,6 +9,9 @@ under the accepted DR-0001 Revision 5 governance process; they do not accept
 any product, specification, or architecture proposal.
 
 States: `active`, `planned`, `triggered`, `deferred`, `not-applicable`, `retired`.
+Horizon values are `Now`, `Next`, `Later`, and `Historical`; `Historical`
+identifies retained evidence or history that is no longer active and may pair
+with the independently recorded `retired` state.
 Product `Stage 1`–`Stage 4` names are outcome gates from the roadmap; readiness
 levels name separate implementation/activation gates. This ledger qualifies
 which namespace a trigger uses rather than treating the two numbering systems

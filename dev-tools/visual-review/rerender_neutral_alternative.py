@@ -10,6 +10,7 @@ import importlib.metadata
 import json
 import math
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -54,13 +55,22 @@ RUNTIME_MODULE_FILE_MAX_COUNT = 128
 RUNTIME_IMPORT_NAMES = {
     "numpy": "numpy",
     "scikit-image": "skimage",
-    "Pillow": "PIL",
+    "pillow": "PIL",
 }
 RUNTIME_MODULE_SUFFIXES = {".py", ".pyc", ".so", ".pyd", ".dll", ".dylib"}
 
 
 def _fail(message: str) -> NoReturn:
     raise NeutralAlternativeRerenderError(message)
+
+
+def _normalize_distribution_name(distribution: str) -> str:
+    return re.sub(r"[-_.]+", "-", distribution.lower())
+
+
+def _runtime_import_name(distribution: str) -> str:
+    normalized_distribution = _normalize_distribution_name(distribution)
+    return RUNTIME_IMPORT_NAMES.get(normalized_distribution, normalized_distribution.replace("-", "_"))
 
 
 def _validate_sampling(samples: int, padding: float, smooth_k: float) -> None:
@@ -165,13 +175,13 @@ def _runtime_identity(requirements_path: Path) -> dict[str, Any]:
         if line.count("==") != 1:
             _fail(f"pinned runtime requirements line {line_number} must use name==version")
         distribution, expected_version = (part.strip() for part in line.split("==", 1))
-        normalized_distribution = distribution.lower().replace("_", "-")
+        normalized_distribution = _normalize_distribution_name(distribution)
         if not distribution or not expected_version:
             _fail(f"pinned runtime requirements line {line_number} is incomplete")
         if normalized_distribution in seen_distributions:
             _fail(f"pinned runtime requirements contain duplicate distribution {distribution}")
         seen_distributions.add(normalized_distribution)
-        import_name = RUNTIME_IMPORT_NAMES.get(distribution, distribution.replace("-", "_"))
+        import_name = _runtime_import_name(distribution)
         try:
             installed_version = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError as exc:
@@ -192,7 +202,7 @@ def _runtime_identity(requirements_path: Path) -> dict[str, Any]:
         module_file = getattr(module, "__file__", None)
         if not isinstance(module_file, str) or not module_file:
             _fail(f"pinned runtime import {import_name!r} has no file-backed module")
-        for loaded_name, loaded_module in sys.modules.items():
+        for loaded_name, loaded_module in tuple(sys.modules.items()):
             if loaded_name != import_name and not loaded_name.startswith(f"{import_name}."):
                 continue
             loaded_file = getattr(loaded_module, "__file__", None)

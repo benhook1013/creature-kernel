@@ -218,6 +218,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                     self.assertTrue(destination.is_symlink())
 
     def test_later_profile_alternative_builder_failure_fails_closed_before_render_or_install(self) -> None:
+        creature_kernel = self.require_creature_kernel()
         reviews_root = self.root / "reviews"
         reviews_root.mkdir()
         expected_profile_order = [
@@ -268,7 +269,7 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
                 adapter.publish_successor_anatomy_gallery(
                     reviews_root,
                     self.source_manifest,
-                    creature_kernel=self.creature_kernel,
+                    creature_kernel=creature_kernel,
                     review_id="later-profile-builder-failure",
                 )
 

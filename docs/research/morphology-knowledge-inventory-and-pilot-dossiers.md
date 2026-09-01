@@ -2,9 +2,12 @@
 
 Status: Provisional research input
 
-This record prepares the current anatomy-focused implementation work after the
-bounded Godot feasibility checkpoint was dispositioned. It is deliberately small: a source-backed
-inventory of functional coverage and exactly two pilot dossiers. It is not a
+This record is retained research context only from the prior anatomy-focused
+work after the bounded Godot feasibility checkpoint was dispositioned. It is
+deliberately small: a source-backed inventory of functional coverage and
+exactly two pilot dossiers. It does not authorize or prepare current
+implementation; the [Active runway](../project/status.md#active-runway) is the
+sole source for the current stop state and any continuation. It is not a
 schema, roadmap, architecture, supported-morphology promise, or executable
 truth.
 
@@ -37,7 +40,7 @@ ratios, its geometry algorithm, or its future contracts. The existing
 [procedural-surface references](references.md) remain available for surface
 method questions; they do not supply anatomy facts here.
 
-### Current implementation observation and procedural inference
+### Historical implementation observation and procedural inference
 
 The bounded successor-v9 artifact
 `authored-form-expressivity-exact-field-components-checkpoint-v2` and Ben's

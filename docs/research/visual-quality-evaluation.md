@@ -25,7 +25,7 @@ evaluated as a generation and lineage proof. Shared pose/animation belongs to
 Stage 2, and contact/deformation and real-time interaction belong to Stage 3;
 an assessment must not transfer a later-stage claim to an earlier stage.
 
-## Current bounded baseline and candidate procedure
+## Closed bounded baseline and historical candidate procedure
 
 The preceding exact-five blocky smooth-union candidate is closed as failed
 visual evidence and frozen as the baseline. Its blocky torso/pelvis masses,
@@ -91,15 +91,18 @@ formal five-branch comparison remains inactive.
 
 ## Executed initial neutral attempt
 
+The `artifact-cache/...` prefix below is a logical local-cache identifier, not
+a repository path or a literal universal filesystem path.
+
 The initial `standard_neutral_reference` alternative attempt was executed and
 retained in the durable local cache
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
 Its actual capture is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
 its identity record is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
 and its retained mesh is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
 The identity record captures source/configuration/output hashes, including
 PNG SHA-256
 `86c2888d7415c0a9be69f359244c0e968a90cf19c10e216392bdd0e4270380e4`. This
@@ -134,10 +137,10 @@ Stage 2 or Stage 3 or establish exact-five readiness.
 ## Completed corrected neutral and failed exact-five expansion
 
 Attempt B remains retained at
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
 as the hash-bound intermediate generated before final correctness fixes. The
 authoritative final corrected neutral is C at
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
 This is the same shared correction after final correctness fixes, not a second
 aesthetic correction. C's `standard_neutral_reference.png` has
 SHA-256
@@ -281,8 +284,8 @@ considers:
 - intentional shoulders, hips, muzzle, paws, and included branch junctions;
 - coherent proportions, style, and colour across the body and its regions.
 
-For the current candidate, record whether the ribcage, abdominal bridge, pelvis,
-and shoulder/hip roots read as intentional regional anatomy. These are
+For a candidate under appraisal, record whether the ribcage, abdominal bridge,
+pelvis, and shoulder/hip roots read as intentional regional anatomy. These are
 candidate-scoped visual observations, not canonical geometry prescriptions.
 
 Low-detail and cartoon results are acceptable. A result fails the visual floor

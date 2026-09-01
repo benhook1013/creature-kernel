@@ -18,6 +18,9 @@ This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may
 preserve evidence but do not redefine current continuation.
 
+The `artifact-cache/...` prefix below is a logical local-cache identifier, not
+a repository path or a literal universal filesystem path.
+
 ### Current destination
 
 The active runway is closed at the failed-candidate stop gate. Its bounded
@@ -114,13 +117,13 @@ acceptance, and did not prove topology, semantics, or deformation.
 
 The initial `standard_neutral_reference` alternative attempt has now been
 executed and retained in the durable local cache
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
 Its actual image is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
 its identity record is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
 and the retained mesh is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
 The identity record captures source/configuration/output hashes, including PNG
 SHA-256
 `86c2888d7415c0a9be69f359244c0e968a90cf19c10e216392bdd0e4270380e4`. This
@@ -154,10 +157,10 @@ correction/republication sequence recorded below.
 ### Completed correction and failed exact-five expansion
 
 Attempt B remains retained at
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
 as the hash-bound intermediate generated before final correctness fixes. The
 authoritative final corrected neutral is C at
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
 This is the same shared correction after final correctness fixes, not a second
 aesthetic correction. C's
 `standard_neutral_reference.png` has SHA-256
@@ -308,14 +311,14 @@ receive another hosted taper pass before the main thread manually used
 administrator merge. Ben identified that as a process failure on 2026-08-30 NZST;
 it is not precedent for later merges.
 
-The visual-review systemd service is active from `/home/ben/src/creature-kernel`;
+The visual-review systemd service is active from the primary repository
+checkout;
 the stable structural review remains
 `http://localhost:8765/review/shared-pose-structural-embodiment-gallery`.
 
-The active direct-prerequisite worktree is
-`/home/ben/src/creature-kernel-worktrees/godot-runtime-input-projection` on
-branch `codex/godot-runtime-input-projection`, based on merged `main` at
-`12d193f`.
+The active direct-prerequisite worktree is the
+`godot-runtime-input-projection` worktree on branch
+`codex/godot-runtime-input-projection`, based on merged `main` at `12d193f`.
 Proposed/provisional per-avatar, semantic pose/contact, and runtime experiment
 evidence only: the current
 per-avatar runtime identity candidate passes ordered
@@ -795,7 +798,7 @@ does not independently duplicate NumPy/SciPy geometry or prove rendered
 pixels, and this does not select a permanent backend. Live verification
 confirms
 the new persistent session at
-`/home/ben/.cache/creature-kernel/visual-reviews/authored-form-expressivity-exact-field-components-checkpoint-v2`
+`artifact-cache/creature-kernel/visual-reviews/authored-form-expressivity-exact-field-components-checkpoint-v2`
 contains `review.json`, exactly 8 PNGs, and no `response.json`. The systemd
 user service was restarted and is enabled/active on port 8765 in LAN read-only
 mode from the active worktree. The page and API return HTTP 200; all eight API

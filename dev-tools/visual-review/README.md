@@ -340,18 +340,20 @@ The superseded v15 predecessor retained four temporary thigh-root/hip bridges—
 one root bridge and one hip transition per side; this is historical context
 only, not a current run instruction.
 
-The current human checkpoint is the five-profile successor anatomy gallery,
-with the standard neutral reference first,
-described below. It freezes the exact source profiles named by the active
-runway and presents their successor skin captures for appraisal of stylized
-anatomy readability. The shared-pose structural embodiment gallery further
-below is completed historical evidence, not the current stop gate. See the
-active runway for the current human judgments, non-goals, and stop triggers.
+The last published five-profile appraisal is the successor anatomy gallery,
+with the standard neutral reference first, described below. It is explicitly
+rejected and closed as the failed visual baseline, not the current human
+checkpoint. The later regional candidate never published an exact-five
+gallery: its publication attempts failed before rendering/publication. The
+shared-pose structural embodiment gallery further below is completed
+historical evidence, not the current stop gate. See the [Active
+runway](../../docs/project/status.md#active-runway) for the current stop
+state, human judgments, non-goals, and stop triggers.
 
-The current diagnostic target is baseline preview format v3, regional guide
+The historical diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. The producer/profile identities remain
-unchanged: producer v11 with `authored_foot_profile` v1. The current successor
-region id is
+unchanged: producer v11 with `authored_foot_profile` v1. The historical
+successor region id is
 `successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16`.
 It contains exactly 25 successor components and replaces 52 baseline fields.
 The v16 hip-root successor derives one four-station pelvis-to-thigh
@@ -367,9 +369,9 @@ four spans. Hand-paw routes retain source-derived outward/up/forward station
 volumes. There is no successor arm root bridge, old underarm support, or
 duplicate legacy leg mass. Station tuning does not vary per side or variant.
 
-Run it from the isolated environment prepared by
-`experiments/current-form-surface-preview/README.md`, or an equivalent
-environment containing that experiment's pinned requirements.
+Reproduce it, when needed for retained evidence, from the isolated environment
+prepared by `experiments/current-form-surface-preview/README.md`, or an
+equivalent environment containing that experiment's pinned requirements.
 
 ```bash
 cargo build -p creature-kernel-cli
@@ -384,7 +386,8 @@ surface_preview_launcher=experiments/current-form-surface-preview/surface_previe
 ```
 
 For galleries that should survive WSL restarts, use a persistent Linux-side
-root such as `/home/ben/.cache/creature-kernel/visual-reviews`. The publisher
+root such as `${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews`.
+The publisher
 creates that final directory when its parent exists. Serve it for LAN review
 with the existing read-only command:
 
@@ -394,7 +397,7 @@ POSIX filesystem supporting the required operations.
 
 ```bash
 python3 dev-tools/visual-review/serve.py \
-  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
   --port 8765 --lan-read-only
 ```
 
@@ -526,12 +529,18 @@ evidence. The published form gallery is historical evidence, not the current
 human checkpoint, and publication itself is not acceptance. Keep generated
 bundles and sessions under `/tmp`; they are not repository artifacts.
 
-## Five-profile successor anatomy checkpoint
+## Historical reproduction of the last published five-profile anatomy appraisal (closed baseline)
+
+The commands below reproduce the closed candidate's exact five ordered source
+profiles and its immutable baseline publication for retained evidence. They
+are not current runway work, do not create or accept a human checkpoint, and
+must not be used for fresh candidate generation. A new candidate or revised
+publication requires a new Ben-authorized runway and a new review ID.
 
 Generate the exact five ordered source profiles, with the standard neutral
-reference first, build the local compiler, and
-publish one immutable successor-surface anatomy group through the pinned
-surface-preview environment:
+reference first, build the local compiler, and attempt the recorded immutable
+successor-surface anatomy publication through the pinned surface-preview
+environment:
 
 ```bash
 surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
@@ -542,7 +551,7 @@ source_dir=/tmp/ck-successor-anatomy-sources
   --output-dir "$source_dir"
 cargo build --locked --bin creature-kernel
 "$surface_preview_launcher" dev-tools/visual-review/publish_successor_anatomy_gallery.py \
-  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
   --source-manifest "$source_dir/manifest.json" \
   --creature-kernel target/debug/creature-kernel \
   --id successor-stylized-anatomy-five-profile-checkpoint-v1
@@ -574,7 +583,7 @@ profile images as one immutable review group:
 ```bash
 surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
 "$surface_preview_launcher" dev-tools/visual-review/publish_structural_embodiment.py \
-  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
   --gallery /tmp/ck-structural-embodiment-gallery
 ```
 

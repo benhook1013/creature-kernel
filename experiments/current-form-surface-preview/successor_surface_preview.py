@@ -6401,12 +6401,8 @@ def _alternative_torso_owner_key(point: np.ndarray, envelope: _AlternativeTorsoE
 
 def _alternative_corridor_bounds(
     corridor: _AlternativeHipSeamCorridor,
-    smooth_k: float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Enclose the raw corridor mask and its source-derived route centres."""
-
-    if not math.isfinite(float(smooth_k)) or smooth_k < 0.0:
-        _fail("alternative corridor bounds smooth-k must be finite and non-negative")
 
     start = _vec3(corridor.start_center, "alternative corridor bounds start")
     end = _vec3(corridor.end_center, "alternative corridor bounds end")
@@ -6426,7 +6422,6 @@ def _alternative_corridor_bounds(
 
 def _alternative_lower_body_bounds(
     region: NeutralAlternativeRegion,
-    smooth_k: float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Bound torso, corridor support, and the authored lower-body routes."""
 
@@ -6436,7 +6431,7 @@ def _alternative_lower_body_bounds(
     lowers.append(torso_lower)
     uppers.append(torso_upper)
     for corridor in region.lower_body.corridors:
-        corridor_lower, corridor_upper = _alternative_corridor_bounds(corridor, smooth_k)
+        corridor_lower, corridor_upper = _alternative_corridor_bounds(corridor)
         lowers.append(corridor_lower)
         uppers.append(corridor_upper)
         for sweep in (corridor.hip_route.sweep, corridor.leg_route.sweep):
@@ -6451,13 +6446,12 @@ def _alternative_lower_body_bounds(
 
 def _alternative_region_bounds(
     region: NeutralAlternativeRegion,
-    smooth_k: float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     lower, upper = _alternative_torso_bounds(region.torso)
     lowers = [lower]
     uppers = [upper]
     for corridor in region.lower_body.corridors:
-        corridor_lower, corridor_upper = _alternative_corridor_bounds(corridor, smooth_k)
+        corridor_lower, corridor_upper = _alternative_corridor_bounds(corridor)
         lowers.append(corridor_lower)
         uppers.append(corridor_upper)
         for sweep in (corridor.hip_route.sweep, corridor.leg_route.sweep):
@@ -6703,7 +6697,7 @@ def _validate_neutral_alternative_identity(form: Any, descriptors: tuple[Any, ..
 def _make_alternative_components(region: NeutralAlternativeRegion, smooth_k: float) -> tuple[_Component, ...]:
     """Create one lower-body operand plus the reused non-lower-body operands."""
 
-    lower_bounds = _alternative_lower_body_bounds(region, smooth_k)
+    lower_bounds = _alternative_lower_body_bounds(region)
     components: list[_Component] = [
         _Component(
             region.lower_body.torso.sections[0].owner,
@@ -6909,8 +6903,8 @@ def build_neutral_alternative_variant(
                 ],
                 "corridor_support_bounds": [
                     {
-                        "min": _alternative_corridor_bounds(item, smooth_k)[0].tolist(),
-                        "max": _alternative_corridor_bounds(item, smooth_k)[1].tolist(),
+                        "min": _alternative_corridor_bounds(item)[0].tolist(),
+                        "max": _alternative_corridor_bounds(item)[1].tolist(),
                     }
                     for item in region.lower_body.corridors
                 ],

@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import stat
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 
@@ -287,6 +288,62 @@ class NeutralAlternativeRerenderTests(unittest.TestCase):
             self.assertGreaterEqual(module_file["bytes"], 0)
             self.assertRegex(module_file["sha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(calls["publish"].call_count, 0)
+
+    def test_runtime_identity_snapshots_modules_before_reading_module_files(self) -> None:
+        requirements = self.root / "requirements.txt"
+        requirements.write_text(
+            f"numpy=={importlib.metadata.version('numpy')}\n",
+            encoding="utf-8",
+        )
+        mutating_name = "numpy._runtime_identity_mutating_module"
+        added_name = "numpy._runtime_identity_added_module"
+        sentinel = object()
+        previous_modules = {
+            name: sys.modules.get(name, sentinel)
+            for name in (mutating_name, added_name)
+        }
+        lookup_names: list[str] = []
+        mutating_module = ModuleType(mutating_name)
+
+        def module_getattr(name: str) -> None:
+            lookup_names.append(name)
+            sys.modules[added_name] = ModuleType(added_name)
+            return None
+
+        mutating_module.__getattr__ = module_getattr  # type: ignore[attr-defined]
+        sys.modules[mutating_name] = mutating_module
+        try:
+            with patch.object(
+                rerender,
+                "_file_identity",
+                return_value={"bytes": 0, "sha256": "0" * 64},
+            ):
+                runtime = rerender._runtime_identity(requirements)
+        finally:
+            for name, previous in previous_modules.items():
+                if previous is sentinel:
+                    sys.modules.pop(name, None)
+                else:
+                    sys.modules[name] = previous
+
+        self.assertEqual(lookup_names, ["__file__"])
+        self.assertEqual(runtime["requirements"][0]["import"], "numpy")
+        self.assertIsInstance(runtime["module_files"], list)
+
+    def test_runtime_import_name_normalizes_distribution_variants(self) -> None:
+        variants = {
+            "numpy": "numpy",
+            "NUMPY": "numpy",
+            "scikit-image": "skimage",
+            "scikit_image": "skimage",
+            "SCIKIT.IMAGE": "skimage",
+            "Pillow": "PIL",
+            "pillow": "PIL",
+            "PILLOW": "PIL",
+        }
+        for distribution, expected_import in variants.items():
+            with self.subTest(distribution=distribution):
+                self.assertEqual(rerender._runtime_import_name(distribution), expected_import)
 
     def test_pin_successor_error_is_translated(self) -> None:
         with patch.object(

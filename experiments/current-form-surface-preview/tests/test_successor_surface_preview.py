@@ -5111,7 +5111,7 @@ class NeutralAlternativeCandidateTests(unittest.TestCase):
         """A translated support mask must not add a detached lower-body surface."""
 
         corridor = self.region.lower_body.corridors[0]
-        body_lower, body_upper = successor._alternative_lower_body_bounds(self.region, 0.0)
+        body_lower, body_upper = successor._alternative_lower_body_bounds(self.region)
         original_centers = np.vstack((
             np.asarray(corridor.start_center, dtype=np.float64),
             np.asarray(corridor.end_center, dtype=np.float64),
@@ -5173,10 +5173,7 @@ class NeutralAlternativeCandidateTests(unittest.TestCase):
         components = successor._make_alternative_components(self.region, successor.DEFAULT_SMOOTH_K)
         lower_component = components[0]
         for corridor in self.region.lower_body.corridors:
-            corridor_lower, corridor_upper = successor._alternative_corridor_bounds(
-                corridor,
-                successor.DEFAULT_SMOOTH_K,
-            )
+            corridor_lower, corridor_upper = successor._alternative_corridor_bounds(corridor)
             self.assertTrue(np.all(lower_component.bounds[0] <= corridor_lower))
             self.assertTrue(np.all(lower_component.bounds[1] >= corridor_upper))
         lower, upper = successor._combined_bounds(components, 0.5)
@@ -5278,7 +5275,7 @@ class NeutralAlternativeCandidateTests(unittest.TestCase):
             )
             expected_lower = np.min(centers, axis=0) - base_extent
             expected_upper = np.max(centers, axis=0) + base_extent
-            expanded_lower, expanded_upper = successor._alternative_corridor_bounds(corridor, smooth_k)
+            expanded_lower, expanded_upper = successor._alternative_corridor_bounds(corridor)
             np.testing.assert_array_equal(expanded_lower, expected_lower)
             np.testing.assert_array_equal(expanded_upper, expected_upper)
             self.assertTrue(np.all(lower_component.bounds[0] <= expanded_lower))

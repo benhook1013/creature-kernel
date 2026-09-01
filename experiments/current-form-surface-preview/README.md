@@ -21,9 +21,9 @@ remains available through the documented commands.
 The historical integrated candidate is producer v11 with
 `authored_foot_profile` v1:
 153 authored dimensions, 43 authored landmarks, and 16 authored frames. The
-The historical diagnostic target is baseline preview format v3, regional guide
+historical diagnostic target is baseline preview format v3, regional guide
 v11, and successor preview v9. Producer v11 and `authored_foot_profile` v1 remain
-the source identities. The current successor region/profile identity is
+the source identities. The historical successor region/profile identity is
 `successor-torso-shoulder-head-neck-arm-leg-foot-profile-limb-extremity-tail-hip-root-sweeps-v16`.
 This v16 hip-root successor derives one four-station pelvis-to-thigh
 socket/cup/tangent-blend route per side from the lower-pelvis cage and authored
@@ -230,15 +230,18 @@ candidate, not durable geometry prescriptions.
 
 ### Executed initial alternative attempt
 
+The `artifact-cache/...` prefix below is a logical local-cache identifier, not
+a repository path or a literal universal filesystem path.
+
 The initial `standard_neutral_reference` alternative attempt is now retained in
 the durable local cache
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/`.
 Its actual capture is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/standard_neutral_reference.png`,
 its identity record is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/identity.json`,
 and its retained mesh is
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-a/surface.ply`.
 The identity record captures source/configuration/output hashes, including
 PNG SHA-256
 `86c2888d7415c0a9be69f359244c0e968a90cf19c10e216392bdd0e4270380e4`. This
@@ -273,10 +276,10 @@ No profile-specific corrections were applied.
 ### Completed corrected neutral and failed exact-five expansion
 
 Attempt B remains retained at
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
 as the hash-bound intermediate generated before final correctness fixes. The
 authoritative final corrected neutral is C at
-`/home/ben/.cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
+`artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-c/`.
 This is the same shared correction after final correctness fixes, not a second
 aesthetic correction. C's `standard_neutral_reference.png` has
 SHA-256
@@ -366,7 +369,7 @@ fresh_id=replace-with-a-fresh-neutral-attempt-id
 "$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
   --output-dir "$source_dir"
 "$surface_preview_launcher" dev-tools/visual-review/rerender_neutral_alternative.py \
-  --output-parent /home/ben/.cache/creature-kernel/neutral-alternative-attempts \
+  --output-parent "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/neutral-alternative-attempts" \
   --id "$fresh_id" \
   --source-manifest "$source_dir/manifest.json" \
   --creature-kernel target/debug/creature-kernel \
@@ -649,7 +652,7 @@ immutable visual-review group:
 
 ```bash
 "$surface_preview_launcher" dev-tools/visual-review/publish_structural_embodiment.py \
-  --root /home/ben/.cache/creature-kernel/visual-reviews \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
   --gallery /tmp/ck-structural-embodiment-gallery
 ```
 
