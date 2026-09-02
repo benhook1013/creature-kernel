@@ -212,8 +212,8 @@ EXPECTED_ROUTE_SECTION_NAMES = {
         "muzzle-mid",
         "muzzle-tip",
     ],
-    "left-arm": ["torso-arm-interface", "upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"],
-    "right-arm": ["torso-arm-interface", "upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "forearm-distal"],
+    "left-arm": ["torso-arm-interface", "upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "wrist-transition", "forearm-distal"],
+    "right-arm": ["torso-arm-interface", "upper-arm-start", "upper-arm-midpoint", "elbow", "forearm-midpoint", "wrist-transition", "forearm-distal"],
     "left-leg": ["pelvis-seat", "hip-cup-rim", "femoral-neck", "thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"],
     "right-leg": ["pelvis-seat", "hip-cup-rim", "femoral-neck", "thigh-start", "thigh-midpoint", "knee", "shin-midpoint", "hock-endpoint"],
     "left-foot": ["hock-endpoint", "pad", "toe"],
@@ -222,7 +222,12 @@ EXPECTED_ROUTE_SECTION_NAMES = {
 EXPECTED_ARM_INTERFACE_ROUTE_INDEX = 0
 EXPECTED_ARM_SHOULDER_CLOSURE_ROUTE_INDEX = 1
 EXPECTED_ARM_ELBOW_ROUTE_INDEX = 3
+EXPECTED_ARM_WRIST_TRANSITION_ROUTE_INDEX = 5
+EXPECTED_ARM_TOTAL_SECTION_COUNT = 7
+EXPECTED_ARM_CONNECTION_COUNT = 6
 EXPECTED_ARM_AUTHORED_SOURCE_INDICES = [0, 1, 2, 3, 4]
+EXPECTED_ROUTE_BINDING_EVIDENCE_COUNT = 42
+EXPECTED_TOTAL_BINDING_EVIDENCE_COUNT = 53
 EXPECTED_LEG_PELVIS_SEAT_ROUTE_INDEX = 0
 EXPECTED_LEG_HIP_CUP_RIM_ROUTE_INDEX = 1
 EXPECTED_LEG_FEMORAL_NECK_ROUTE_INDEX = 2
@@ -241,6 +246,8 @@ EXPECTED_ROUTE_METADATA_FIELDS = {
     "required_head_neck_connections",
     "bilateral_arm_authored_sections",
     "bilateral_arm_total_sections",
+    "binding_evidence_count",
+    "total_binding_evidence_count",
     "bilateral_leg_authored_sections",
     "bilateral_leg_derived_sections",
     "bilateral_leg_total_sections",
@@ -493,7 +500,7 @@ def _validate_candidate_control_record(
 
 
 def _expected_arm_route_sections(route_name: str) -> list[dict[str, Any]]:
-    """Reconstruct the v3 candidate's arm route and derived torso interface."""
+    """Reconstruct the v3 candidate's arm route and derived interfaces."""
 
     if route_name not in {"left-arm", "right-arm"}:
         _fail(f"expected arm route requested for {route_name}")
@@ -504,7 +511,7 @@ def _expected_arm_route_sections(route_name: str) -> list[dict[str, Any]]:
         f"derived-torso-arm-interface:torso={torso_address}:"
         f"upper-arm={upper_arm_address}"
     )
-    return [
+    sections = [
         {
             "index": EXPECTED_ARM_INTERFACE_ROUTE_INDEX,
             "name": "torso-arm-interface",
@@ -512,22 +519,45 @@ def _expected_arm_route_sections(route_name: str) -> list[dict[str, Any]]:
             "semantic_key": f"section:{route_name}:torso-arm-interface:{interface_source}",
             "source_index": None,
             "derived": True,
-        },
-        *[
+        }
+    ]
+    authored_names = (
+        "upper-arm-start",
+        "upper-arm-midpoint",
+        "elbow",
+        "forearm-midpoint",
+        "forearm-distal",
+    )
+    for index, (name, source_index) in enumerate(
+        zip(authored_names, EXPECTED_ARM_AUTHORED_SOURCE_INDICES),
+        start=1,
+    ):
+        owner_role = "upper_arm" if source_index < 3 else "forearm"
+        source_key = f"source-route:{route_name}:{name}:{_source_address([side], owner_role)}"
+        sections.append(
             {
-                "index": index,
+                "index": index if index <= 4 else EXPECTED_ARM_WRIST_TRANSITION_ROUTE_INDEX + 1,
                 "name": name,
-                "source_key": f"source-route:{route_name}:{name}:{_source_address([side], 'upper_arm' if source_index < 3 else 'forearm')}",
-                "semantic_key": f"section:{route_name}:{name}:{_source_address([side], 'upper_arm' if source_index < 3 else 'forearm')}",
+                "source_key": source_key,
+                "semantic_key": f"section:{route_name}:{name}:{_source_address([side], owner_role)}",
                 "source_index": source_index,
                 "derived": False,
             }
-            for index, (name, source_index) in enumerate(
-                zip(EXPECTED_ROUTE_SECTION_NAMES[route_name][1:], EXPECTED_ARM_AUTHORED_SOURCE_INDICES),
-                start=1,
-            )
-        ],
-    ]
+        )
+    wrist_source = (
+        f"derived-wrist-transition:forearm={_source_address([side], 'forearm')}:"
+        f"hand={_source_address([side], 'hand')}"
+    )
+    wrist = {
+        "index": EXPECTED_ARM_WRIST_TRANSITION_ROUTE_INDEX,
+        "name": "wrist-transition",
+        "source_key": wrist_source,
+        "semantic_key": f"section:{route_name}:wrist-transition:{wrist_source}",
+        "source_index": None,
+        "derived": True,
+    }
+    sections.insert(EXPECTED_ARM_WRIST_TRANSITION_ROUTE_INDEX, wrist)
+    return sections
 
 
 def _expected_leg_route_sections(route_name: str) -> list[dict[str, Any]]:
@@ -663,6 +693,7 @@ def _expected_shared_interface_metadata() -> dict[str, Any]:
     return {
         "cranium_mid": {"head_section_index": 3, "connection_indices": [2, 3, 4]},
         "elbows": [EXPECTED_ARM_ELBOW_ROUTE_INDEX, EXPECTED_ARM_ELBOW_ROUTE_INDEX],
+        "wrist_transitions": [EXPECTED_ARM_WRIST_TRANSITION_ROUTE_INDEX, EXPECTED_ARM_WRIST_TRANSITION_ROUTE_INDEX],
         "knees": [EXPECTED_LEG_KNEE_ROUTE_INDEX, EXPECTED_LEG_KNEE_ROUTE_INDEX],
         "hocks": [EXPECTED_LEG_HOCK_ROUTE_INDEX, EXPECTED_LEG_HOCK_ROUTE_INDEX],
         "hip_cup_sections": EXPECTED_LEG_DERIVED_SECTION_NAMES,
@@ -1907,10 +1938,10 @@ def _validate_candidate_binding(
     )
     if route_metadata["count"] != len(EXPECTED_ROUTE_NAMES) or route_metadata["names"] != EXPECTED_ROUTE_NAMES:
         _fail("renderer candidate route inventory is invalid")
-    if route_metadata["required_head_neck_sections"] is not True or route_metadata["required_head_neck_connections"] is not True or route_metadata["bilateral_arm_authored_sections"] != [5, 5] or route_metadata["bilateral_arm_total_sections"] != [6, 6] or route_metadata["bilateral_leg_authored_sections"] != [EXPECTED_LEG_AUTHORED_SECTION_COUNT, EXPECTED_LEG_AUTHORED_SECTION_COUNT] or route_metadata["bilateral_leg_derived_sections"] != [EXPECTED_LEG_DERIVED_SECTION_NAMES, EXPECTED_LEG_DERIVED_SECTION_NAMES] or route_metadata["bilateral_leg_total_sections"] != [EXPECTED_LEG_TOTAL_SECTION_COUNT, EXPECTED_LEG_TOTAL_SECTION_COUNT] or route_metadata["bilateral_foot_authored_sections"] != [2, 2] or route_metadata["endpoint_closures_explicit"] is not True:
+    if route_metadata["required_head_neck_sections"] is not True or route_metadata["required_head_neck_connections"] is not True or route_metadata["bilateral_arm_authored_sections"] != [5, 5] or route_metadata["bilateral_arm_total_sections"] != [EXPECTED_ARM_TOTAL_SECTION_COUNT, EXPECTED_ARM_TOTAL_SECTION_COUNT] or route_metadata["binding_evidence_count"] != EXPECTED_ROUTE_BINDING_EVIDENCE_COUNT or route_metadata["total_binding_evidence_count"] != EXPECTED_TOTAL_BINDING_EVIDENCE_COUNT or route_metadata["bilateral_leg_authored_sections"] != [EXPECTED_LEG_AUTHORED_SECTION_COUNT, EXPECTED_LEG_AUTHORED_SECTION_COUNT] or route_metadata["bilateral_leg_derived_sections"] != [EXPECTED_LEG_DERIVED_SECTION_NAMES, EXPECTED_LEG_DERIVED_SECTION_NAMES] or route_metadata["bilateral_leg_total_sections"] != [EXPECTED_LEG_TOTAL_SECTION_COUNT, EXPECTED_LEG_TOTAL_SECTION_COUNT] or route_metadata["bilateral_foot_authored_sections"] != [2, 2] or route_metadata["endpoint_closures_explicit"] is not True:
         _fail("renderer candidate route counts or proofs are invalid")
     shared = _mapping(route_metadata["shared_interfaces"], "renderer candidate shared_interfaces")
-    _exact_fields(shared, {"cranium_mid", "elbows", "knees", "hocks", "hip_cup_sections", "feet_use_leg_hock_identity"}, "renderer candidate shared_interfaces")
+    _exact_fields(shared, set(_expected_shared_interface_metadata()), "renderer candidate shared_interfaces")
     if shared != _expected_shared_interface_metadata():
         _fail("renderer candidate shared interface metadata is invalid")
 
@@ -2108,6 +2139,8 @@ def _validate_candidate_binding(
             "connection_counts": [item["connection_count"] for item in compact_routes],
             "bilateral_arm_authored_sections": list(route_metadata["bilateral_arm_authored_sections"]),
             "bilateral_arm_total_sections": list(route_metadata["bilateral_arm_total_sections"]),
+            "binding_evidence_count": route_metadata["binding_evidence_count"],
+            "total_binding_evidence_count": route_metadata["total_binding_evidence_count"],
             "bilateral_leg_authored_sections": list(route_metadata["bilateral_leg_authored_sections"]),
             "bilateral_leg_total_sections": list(route_metadata["bilateral_leg_total_sections"]),
             "bilateral_foot_authored_sections": list(route_metadata["bilateral_foot_authored_sections"]),

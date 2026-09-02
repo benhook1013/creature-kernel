@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 37 open observations
+Status: Operational inbox; 38 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,10 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-09-02 21:17 NZST`: Route-cardinality edit omitted its renderer contract
+  - Observation: A bounded wrist-transition implementation changed the arm route from six sections to seven and updated candidate tests, but its write scope excluded the renderer's exact route inventory. The normal preview path therefore remained fail-closed until a second integration task synchronized the production renderer contract.
+  - Expected pattern: Treat an exact route-inventory change and every production consumer that validates that inventory as one bounded implementation slice; use disjoint scopes only for genuinely independent contracts, not producer and required consumer halves of the same change.
 
 - `2026-09-02 14:46 NZST`: Visual readiness was inferred from diagnostics and topology instead of final-skin coverage
   - Observation: The current regional successor explicitly kept shoulder and axilla controls diagnostic-only and tested that they could not affect the final skin, while narrow topology and regression reviews still led the main thread to present the exact-five gallery as internally ready. The named Stage-1 visual floor required specialized shoulder, hip, torso, and neck construction; reviewers completed their narrowed contracts, but main-thread integration did not reconcile every promised visible feature against the actual final field.

@@ -70,13 +70,18 @@ if [[ -n "$METHOD_PATTERN" ]]; then
   trap 'rm -f -- "$TEST_OUTPUT_FILE"' EXIT
   set +e
   "$LAUNCHER" -m unittest discover -v -s "$TEST_DIR" -p "$TEST_PATTERN" -k "$METHOD_PATTERN" 2>&1 | tee "$TEST_OUTPUT_FILE"
-  TEST_STATUS="${PIPESTATUS[0]}"
+  PIPELINE_STATUS=("${PIPESTATUS[@]}")
+  TEST_STATUS="${PIPELINE_STATUS[0]}"
+  TEE_STATUS="${PIPELINE_STATUS[1]}"
   set -e
   if grep -q '^Ran 0 tests' "$TEST_OUTPUT_FILE"; then
     error "method selector '$METHOD_PATTERN' matched no tests in '$TEST_PATTERN'"
   fi
   if [[ "$TEST_STATUS" -ne 0 ]]; then
     exit "$TEST_STATUS"
+  fi
+  if [[ "$TEE_STATUS" -ne 0 ]]; then
+    error "tee failed with status $TEE_STATUS"
   fi
   exit 0
 fi

@@ -190,6 +190,69 @@ def _candidate_without_neck_collar_lift(candidate):
     return replace(candidate, routes=tuple(routes), field=field, mesh=None)
 
 
+def _candidate_without_wrist_transition(candidate, side: str):
+    """Reconstruct the exact old arm span for a final-skin counterfactual."""
+
+    hybrid = candidate_module._load_hybrid()
+    route = next(item for item in candidate.routes if item.route_name == f"{side}-arm")
+    if route.sections[5].name != "wrist-transition":
+        raise AssertionError(f"{route.route_name} does not contain the derived wrist transition")
+    sections = route.sections[:5] + route.sections[6:]
+    connections = tuple(
+        hybrid.SectionConnection(
+            f"{route.route_name}:{sections[index].name}-to-{sections[index + 1].name}",
+            index,
+            index + 1,
+            "upper-arm-forearm",
+        )
+        for index in range(len(sections) - 1)
+    )
+    old_route = hybrid.AnisotropicSectionSweep(
+        sections,
+        connections,
+        route.endpoint_closures,
+        route.route_name,
+    )
+    attachments = tuple(
+        replace(item, field=old_route) if item.name == route.route_name else item
+        for item in candidate.field.attachments
+    )
+    interfaces = tuple(
+        replace(item, child=old_route) if item.child is route else item
+        for item in candidate.field.interfaces
+    )
+    field = hybrid.FullSectionComposite(candidate.chain, attachments, interfaces=interfaces)
+    return replace(
+        candidate,
+        routes=tuple(old_route if item is route else item for item in candidate.routes),
+        field=field,
+        mesh=None,
+    )
+
+
+def _independent_wrist_geometric_oracle(midpoint, distal, hand_closure, wrist):
+    """Check the returned slice against the hand ellipsoid and old span geometry."""
+
+    M = np.asarray(midpoint.center, dtype=np.float64)
+    D = np.asarray(distal.center, dtype=np.float64)
+    H = np.asarray(hand_closure.center, dtype=np.float64)
+    W = np.asarray(wrist.center, dtype=np.float64)
+    Rm = np.asarray(midpoint.radii, dtype=np.float64)
+    Rd = np.asarray(distal.radii, dtype=np.float64)
+    Rh = np.asarray(hand_closure.radii, dtype=np.float64)
+    forearm_delta = D - M
+    forearm_length = float(np.linalg.norm(forearm_delta))
+    axis = forearm_delta / forearm_length
+    wrist_fraction = float(np.dot(W - M, axis) / forearm_length)
+    hand_axial_coordinate = float(np.dot(W - H, axis))
+    hand_axial_normalized = hand_axial_coordinate / Rh[0]
+    if abs(hand_axial_normalized) >= 1.0:
+        raise AssertionError("wrist must lie within the hand ellipsoid axial extent")
+    hand_cross_section_radii = Rh[1:] * math.sqrt(1.0 - hand_axial_normalized**2)
+    old_forearm_radii_at_wrist = Rm + wrist_fraction * (Rd - Rm)
+    return hand_cross_section_radii, Rd[1:], old_forearm_radii_at_wrist
+
+
 def _ray_root(field, y: float, axis: int) -> float | None:
     radii = np.linspace(0.0, 1.8, 721, dtype=np.float64)
     points = np.zeros((len(radii), 3), dtype=np.float64)
@@ -641,8 +704,8 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
                 ("muzzle-mid-to-muzzle-tip", 6, 7, "forward-muzzle"),
             ),
         )
-        self.assertEqual([len(route.sections) for route in candidate.routes[1:3]], [6, 6])
-        self.assertEqual([len(route.connections) for route in candidate.routes[1:3]], [5, 5])
+        self.assertEqual([len(route.sections) for route in candidate.routes[1:3]], [7, 7])
+        self.assertEqual([len(route.connections) for route in candidate.routes[1:3]], [6, 6])
         for route in candidate.routes[1:3]:
             self.assertEqual(route.sections[0].name, "torso-arm-interface")
             self.assertEqual(route.sections[1].name, "upper-arm-start")
@@ -650,6 +713,10 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
             self.assertEqual(route.connections[0].to_section_index, 1)
             self.assertEqual(route.connections[2].to_section_index, 3)
             self.assertEqual(route.connections[3].from_section_index, 3)
+            self.assertEqual(route.sections[5].name, "wrist-transition")
+            self.assertEqual(route.sections[6].name, "forearm-distal")
+            self.assertEqual((route.connections[4].from_section_index, route.connections[4].to_section_index), (4, 5))
+            self.assertEqual((route.connections[5].from_section_index, route.connections[5].to_section_index), (5, 6))
         for route in candidate.routes[3:5]:
             self.assertEqual(len(route.sections), 8)
             self.assertEqual(len(route.connections), 7)
@@ -672,10 +739,11 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
         self.assertTrue(candidate.metadata["routes"]["required_head_neck_connections"])
         self.assertTrue(candidate.metadata["routes"]["shared_interfaces"]["feet_use_leg_hock_identity"])
         self.assertEqual(candidate.metadata["routes"]["bilateral_arm_authored_sections"], [5, 5])
-        self.assertEqual(candidate.metadata["routes"]["bilateral_arm_total_sections"], [6, 6])
+        self.assertEqual(candidate.metadata["routes"]["bilateral_arm_total_sections"], [7, 7])
+        self.assertEqual(candidate.metadata["routes"]["bilateral_arm_transition_sections"], [["wrist-transition"], ["wrist-transition"]])
         self.assertEqual(candidate.metadata["routes"]["bilateral_leg_authored_sections"], [5, 5])
         self.assertEqual(candidate.metadata["routes"]["bilateral_leg_sections"], [8, 8])
-        self.assertEqual(candidate.metadata["routes"]["binding_evidence_count"], 40)
+        self.assertEqual(candidate.metadata["routes"]["binding_evidence_count"], 42)
         self.assertEqual(candidate.metadata["routes"]["arm_connector_method"], "analytic live terminal-constituent ellipsoid ray level")
         self.assertEqual(candidate.metadata["routes"]["hip_cup_chain_method"], "shared analytic live initial-constituent ray boundary/interior with profile-independent factors")
         self.assertEqual(candidate.metadata["routes"]["shared_interfaces"]["hip_cup_sections"], ["pelvis-seat", "hip-cup-rim", "femoral-neck"])
@@ -705,7 +773,7 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
             for section in route.sections:
                 self.assertTrue(section.semantic_key.startswith("section:"))
                 if section.source_index is None:
-                    self.assertIn(section.name, {"torso-arm-interface", "pelvis-seat", "hip-cup-rim", "femoral-neck"})
+                    self.assertIn(section.name, {"torso-arm-interface", "wrist-transition", "pelvis-seat", "hip-cup-rim", "femoral-neck"})
                     self.assertTrue(section.source_key.startswith("derived-"))
                 else:
                     self.assertTrue(section.source_key.startswith("source-route:"))
@@ -767,7 +835,7 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
 
     def test_section_station_rejects_equal_but_wrong_authored_and_projected_indices(self) -> None:
         form = candidate_module._as_form(self.prepared)
-        variant_index, descriptors, _ = candidate_module._variant(form, "neutral-v0")
+        _, descriptors, _ = candidate_module._variant(form, "neutral-v0")
         authored = form.authored_head_neck_profile.sections[0]
         projected = form.variant_head_neck_profiles[variant_index].sections[0]
         malformed_authored = replace(authored, section_index=1)
@@ -1059,8 +1127,8 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
             for side_index, side in enumerate(("left", "right")):
                 route = candidate.routes[1 + side_index]
                 self.assertEqual(route.route_name, f"{side}-arm")
-                self.assertEqual(len(route.sections), 6)
-                self.assertEqual(len(route.connections), 5)
+                self.assertEqual(len(route.sections), 7)
+                self.assertEqual(len(route.connections), 6)
                 connector = route.sections[0]
                 child = route.sections[1]
                 expected_connector_radii = np.minimum(
@@ -1082,8 +1150,9 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
                 authored_sections = tuple(authored_arm_by_side[side].sections)
                 self.assertEqual(len(authored_sections), 5)
                 self.assertEqual(len(expected["arms"][side]), 5)
-                for source_index in range(5):
-                    station = route.sections[source_index + 1]
+                authored_route_indices = (1, 2, 3, 4, 6)
+                for source_index, route_index in enumerate(authored_route_indices):
+                    station = route.sections[route_index]
                     source = expected["arms"][side][source_index]
                     authored = authored_sections[source_index]
                     self.assertEqual(station.source_index, source_index)
@@ -1091,6 +1160,31 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
                     self.assertTrue(np.array_equal(np.asarray(station.radii), source["radii"]), f"{route.route_name}:{station.name}")
                     self.assertEqual(station.source_key, candidate_module._source_route_key(authored.owner, f"{route.route_name}:{authored.name}"))
                     self.assertEqual(station.semantic_key, f"section:{route.route_name}:{authored.name}:{candidate_module._key_text(authored.owner)}")
+                wrist = route.sections[5]
+                hand_closure = route.endpoint_closures[-1]
+                M = np.asarray(route.sections[4].center, dtype=np.float64)
+                D = np.asarray(route.sections[6].center, dtype=np.float64)
+                Rd = np.asarray(route.sections[6].radii, dtype=np.float64)
+                H = np.asarray(hand_closure.center, dtype=np.float64)
+                Rh = np.asarray(hand_closure.radii, dtype=np.float64)
+                u = (D - M) / np.linalg.norm(D - M)
+                q = max(Rd[1] / Rh[1], Rd[2] / Rh[2])
+                s = math.sqrt(1.0 - q * q)
+                W = H - u * Rh[0] * s
+                Rw = np.minimum(Rd, Rh)
+                lambda_value = float(np.dot(W - M, u) / np.linalg.norm(D - M))
+                self.assertTrue(np.array_equal(H, D))
+                self.assertTrue(np.allclose(wrist.center, W, rtol=0.0, atol=1.0e-15))
+                self.assertTrue(np.allclose(wrist.radii, Rw, rtol=0.0, atol=1.0e-15))
+                self.assertAlmostEqual(wrist.position, 3.0 + lambda_value, places=15)
+                self.assertIsNone(wrist.source_index)
+                self.assertTrue(wrist.source_key.startswith("derived-wrist-transition:forearm="))
+                wrist_evidence = next(
+                    item for item in candidate.binding_evidence if item["semantic_key"] == wrist.semantic_key
+                )
+                self.assertEqual(wrist_evidence["provenance"]["kind"], "forearm+hand")
+                self.assertEqual(wrist_evidence["provenance"]["forearm"], candidate_module._key_json(authored_sections[4].owner))
+                self.assertEqual(wrist_evidence["provenance"]["hand"], candidate_module._key_json((form.source["namespace"], (side,), "part", "hand")))
                 record = next(item for item in candidate.metadata["routes"]["routes"] if item["name"] == route.route_name)["sections"][0]
                 self.assertTrue(np.array_equal(np.asarray(record["constituent_boundary_center"]), expected_boundary))
                 self.assertEqual(record["mu"], mu)
@@ -1130,9 +1224,9 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
             for cup_index in range(3):
                 self.assertTrue(np.array_equal(np.asarray(candidate.routes[3].sections[cup_index].radii), np.asarray(candidate.routes[4].sections[cup_index].radii)))
             self.assertEqual((candidate.chain.start_cap_radius, candidate.chain.end_cap_radius), expected["caps"])
-            self.assertEqual(len(candidate.binding_evidence), 51)
+            self.assertEqual(len(candidate.binding_evidence), 53)
             binding_keys = tuple(record["semantic_key"] for record in candidate.binding_evidence)
-            self.assertEqual(len(set(binding_keys)), 51)
+            self.assertEqual(len(set(binding_keys)), 53)
             expected_keys = [station.semantic_key for station in candidate.stations]
             seen_route_objects = set()
             for route in candidate.routes:
@@ -1141,7 +1235,7 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
                         seen_route_objects.add(id(station))
                         expected_keys.append(station.semantic_key)
             expected_keys.extend(control.semantic_key for control in candidate.controls)
-            self.assertEqual(len(expected_keys), 51)
+            self.assertEqual(len(expected_keys), 53)
             self.assertEqual(set(binding_keys), set(expected_keys))
 
     def test_interface_authorities_include_exact_side_controls_without_changing_k(self) -> None:
@@ -1417,16 +1511,20 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
         candidate = self.candidate
         all_records = [section for route in candidate.metadata["routes"]["routes"] for section in route["sections"]]
         derived = [section for section in all_records if section.get("derived")]
-        self.assertEqual(len(derived), 8)
+        self.assertEqual(len(derived), 10)
         arm_connectors = [section for section in derived if section["name"] == "torso-arm-interface"]
         cup_sections = [section for section in derived if section["name"] in {"pelvis-seat", "hip-cup-rim", "femoral-neck"}]
+        wrist_sections = [section for section in derived if section["name"] == "wrist-transition"]
         self.assertEqual(len(arm_connectors), 2)
         self.assertEqual(len(cup_sections), 6)
+        self.assertEqual(len(wrist_sections), 2)
         self.assertTrue(all(section["source_index"] is None for section in derived))
         self.assertTrue(all(section["provenance"]["kind"] == "torso+upper-arm" for section in arm_connectors))
         self.assertTrue(all(section["provenance"]["kind"] == "pelvis+thigh" for section in cup_sections))
         self.assertTrue(all(set(section["provenance"]) >= {"torso", "upper_arm"} for section in arm_connectors))
         self.assertTrue(all(set(section["provenance"]) >= {"pelvis", "thigh"} for section in cup_sections))
+        self.assertTrue(all(section["provenance"]["kind"] == "forearm+hand" for section in wrist_sections))
+        self.assertTrue(all(set(section["provenance"]) >= {"forearm", "hand"} for section in wrist_sections))
         self.assertEqual(
             tuple(section["name"] for section in cup_sections),
             ("pelvis-seat", "hip-cup-rim", "femoral-neck") * 2,
@@ -1435,10 +1533,166 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
             tuple(section["route_index"] for section in cup_sections),
             (0, 1, 2) * 2,
         )
+        self.assertEqual(tuple(section["route_index"] for section in wrist_sections), (5, 5))
         source_records = [section for section in all_records if not section.get("derived")]
         self.assertTrue(all(section["source_index"] is not None for section in source_records))
         self.assertTrue(all(section.get("source_frame") and section.get("source_landmark") for section in source_records if "source_frame" in section))
         self.assertTrue(all(section["source_key"].startswith("source-route:") for section in source_records))
+
+    def test_wrist_transition_is_strictly_local_and_causal_for_every_exact_five_profile(self) -> None:
+        for profile_id, prepared in self.structural_prepared.items():
+            with self.subTest(profile_id=profile_id):
+                candidate = candidate_module.build_regional_surface_candidate(
+                    prepared, "neutral-v0", mesh_samples=None,
+                )
+                for side in ("left", "right"):
+                    with self.subTest(side=side):
+                        route = next(item for item in candidate.routes if item.route_name == f"{side}-arm")
+                        wrist = route.sections[5]
+                        hand_closure = route.endpoint_closures[-1]
+                        hand_cross_section, distal_cross_section, old_forearm_radii = _independent_wrist_geometric_oracle(
+                            route.sections[4], route.sections[6], hand_closure, wrist,
+                        )
+                        self.assertTrue(
+                            np.all(hand_cross_section >= distal_cross_section - 1.0e-12),
+                            f"{profile_id}:{side}:hand cross-section does not contain distal forearm",
+                        )
+                        self.assertTrue(
+                            np.any(np.isclose(hand_cross_section, distal_cross_section, rtol=0.0, atol=1.0e-12)),
+                            f"{profile_id}:{side}:hand cross-section has no tangent equality",
+                        )
+                        self.assertTrue(
+                            np.all(np.asarray(wrist.radii) <= old_forearm_radii + 1.0e-12),
+                            f"{profile_id}:{side}:wrist transition widens the old forearm interpolation",
+                        )
+                        counterfactual = _candidate_without_wrist_transition(candidate, side)
+                        for axis, direction in (
+                            ("up+", (0.0, 1.0, 0.0)),
+                            ("up-", (0.0, -1.0, 0.0)),
+                            ("forward+", (0.0, 0.0, 1.0)),
+                            ("forward-", (0.0, 0.0, -1.0)),
+                        ):
+                            old_extent = _final_skin_ray_extent(
+                                counterfactual, wrist.center, direction, maximum=1.2,
+                            )
+                            new_extent = _final_skin_ray_extent(
+                                candidate, wrist.center, direction, maximum=1.2,
+                            )
+                            self.assertGreater(
+                                old_extent - new_extent,
+                                1.0e-9,
+                                f"{profile_id}:{side}:{axis} did not narrow",
+                            )
+                            probe_extent = 0.5 * (old_extent + new_extent)
+                            probe = np.asarray(wrist.center) + probe_extent * np.asarray(direction)
+                            self.assertLess(float(counterfactual.evaluate(probe)), 0.0)
+                            self.assertGreater(float(candidate.evaluate(probe)), 0.0)
+                            influence = candidate.contribution_report(probe)["geometric_influence"]["components"].get(route.route_name, 0.0)
+                            self.assertGreater(influence, 1.0e-12)
+
+    def test_wrist_transition_fails_closed_for_hand_equality_axis_and_slice_domain(self) -> None:
+        candidate = self.candidate
+        route = candidate.routes[2]
+        old_sections = route.sections[:5] + route.sections[6:]
+        hand_closure = route.endpoint_closures[-1]
+        form = candidate_module._as_form(self.prepared)
+        variant_index, descriptors, _ = candidate_module._variant(form, "neutral-v0")
+        by_key = candidate_module._descriptor_map(descriptors, form.source["namespace"])
+        forearm_key = form.authored_arm_profile.sides[1].sections[4].owner
+        hand_key = (form.source["namespace"], ("right",), "part", "hand")
+        left_forearm_key = form.authored_arm_profile.sides[0].sections[4].owner
+        left_hand_key = (form.source["namespace"], ("left",), "part", "hand")
+        hand_source = candidate_module._descriptor_source(
+            candidate_module._load_surface_preview(), by_key[hand_key], form.reference_scale,
+        )
+        hybrid = candidate_module._load_hybrid()
+
+        with self.assertRaisesRegex(candidate_module.RegionalSurfaceCandidateError, "H==forearm-distal"):
+            candidate_module._derive_wrist_transition(
+                hybrid,
+                "right-arm",
+                old_sections,
+                replace(hand_closure, center=(hand_closure.center[0], hand_closure.center[1] + 0.01, hand_closure.center[2])),
+                hand_source,
+                forearm_key,
+                hand_key,
+            )
+
+        shifted_midpoint = replace(
+            old_sections[4],
+            center=(old_sections[4].center[0], old_sections[4].center[1] + 0.01, old_sections[4].center[2]),
+        )
+        shifted_sections = old_sections[:4] + (shifted_midpoint, old_sections[5])
+        with self.assertRaisesRegex(candidate_module.RegionalSurfaceCandidateError, "fixed arm axis relationship"):
+            candidate_module._derive_wrist_transition(
+                hybrid, "right-arm", shifted_sections, hand_closure, hand_source, forearm_key, hand_key,
+            )
+
+        invalid_slice_closure = replace(
+            hand_closure,
+            radii=(hand_closure.radii[0], old_sections[5].radii[1] * 0.5, hand_closure.radii[2]),
+        )
+        invalid_slice_hand_source = {
+            **hand_source,
+            "radii": invalid_slice_closure.radii,
+        }
+        with self.assertRaisesRegex(candidate_module.RegionalSurfaceCandidateError, "0 < q < 1"):
+            candidate_module._derive_wrist_transition(
+                hybrid, "right-arm", old_sections, invalid_slice_closure,
+                invalid_slice_hand_source, forearm_key, hand_key,
+            )
+
+        cases = (
+            (
+                "wrong-forearm-key",
+                {"forearm_key": left_forearm_key},
+                "wrong live forearm source binding",
+            ),
+            (
+                "opposite-side-hand-key",
+                {"hand_key": left_hand_key},
+                "wrong expected route-side hand binding",
+            ),
+            (
+                "wrong-route-side",
+                {"route_name": "left-arm"},
+                "wrong live forearm source binding",
+            ),
+            (
+                "forged-hand-closure-source-key",
+                {"hand_closure": replace(hand_closure, source_key="source-route:forged-hand")},
+                "wrong hand closure source identity",
+            ),
+            (
+                "forged-hand-closure-semantic-key",
+                {"hand_closure": replace(hand_closure, semantic_key="closure:right-arm:forged")},
+                "wrong hand closure semantic identity",
+            ),
+            (
+                "forged-live-forearm-station-source-key",
+                {"sections": old_sections[:4] + (replace(old_sections[4], source_key="source-route:forged-forearm"), old_sections[5])},
+                "forearm station outside the live source binding",
+            ),
+            (
+                "non-ellipsoid-hand-source",
+                {"hand_source": {**hand_source, "name": "capsule"}},
+                "requires an ellipsoid hand source",
+            ),
+        )
+        for label, kwargs, message in cases:
+            with self.subTest(label=label), self.assertRaisesRegex(
+                candidate_module.RegionalSurfaceCandidateError, message,
+            ):
+                candidate_module._derive_wrist_transition(
+                    hybrid,
+                    kwargs.pop("route_name", "right-arm"),
+                    kwargs.pop("sections", old_sections),
+                    kwargs.pop("hand_closure", hand_closure),
+                    kwargs.pop("hand_source", hand_source),
+                    kwargs.pop("forearm_key", forearm_key),
+                    kwargs.pop("hand_key", hand_key),
+                )
+                self.assertFalse(kwargs, f"unused wrist negative-test arguments: {kwargs}")
 
     def test_foot_metadata_marks_shared_hock_as_borrowed_leg_authored_identity(self) -> None:
         candidate = self.candidate

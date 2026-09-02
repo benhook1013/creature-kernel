@@ -139,19 +139,22 @@
     return description ? title + " — " + description : title;
   }
 
-  function subjectContextBlock(context, collapseDescriptor) {
-    if (!context) {
+  function subjectContextBlock(context, review) {
+    if (!context && !(review && review.description)) {
       return null;
     }
     var panel = node("section", null, "subject-context");
     panel.appendChild(node("h2", "What you're looking at"));
-    if (context.authored_summary) {
-      panel.appendChild(node("h3", "Authored summary"));
-      panel.appendChild(node("p", context.authored_summary.text));
-      if (context.authored_summary.unknowns && context.authored_summary.unknowns.length) {
+    var authoredSummary = context && context.authored_summary;
+    var purpose = authoredSummary && authoredSummary.text ? authoredSummary.text : review && review.description;
+    if (purpose) {
+      panel.appendChild(node("p", purpose, "subject-context-purpose"));
+    }
+    if (authoredSummary) {
+      if (authoredSummary.unknowns && authoredSummary.unknowns.length) {
         panel.appendChild(node("h4", "Unknowns"));
         var unknowns = node("ul");
-        context.authored_summary.unknowns.forEach(function (unknown) {
+        authoredSummary.unknowns.forEach(function (unknown) {
           unknowns.appendChild(node("li", unknown));
         });
         panel.appendChild(unknowns);
@@ -161,11 +164,10 @@
       ["descriptor_snapshot", "Generated descriptor snapshot"],
       ["provenance", "Build/render provenance"]
     ].forEach(function (entry) {
-      if (!context[entry[0]]) {
+      if (!context || !context[entry[0]]) {
         return;
       }
-      var open = entry[0] === "descriptor_snapshot" ? !collapseDescriptor : true;
-      panel.appendChild(jsonDisclosure(entry[1], context[entry[0]], "context-json", "json-disclosure", open));
+      panel.appendChild(jsonDisclosure(entry[1], context[entry[0]], "context-json", "json-disclosure"));
     });
     return panel;
   }
@@ -4239,13 +4241,11 @@
     app.appendChild(back);
     app.appendChild(node("h1", review.title));
     app.appendChild(node("code", review.id, "stable-id"));
-    if (review.description) {
-      app.appendChild(node("p", review.description, "lede"));
-    }
-    var regionalExactFiveGallery = review.groups.some(isRegionalExactFiveGroup);
-    var contextPanel = subjectContextBlock(review.subject_context, regionalExactFiveGallery);
+    var contextPanel = subjectContextBlock(review.subject_context, review);
     if (contextPanel) {
       app.appendChild(contextPanel);
+    } else if (review.description) {
+      app.appendChild(node("p", review.description, "lede"));
     }
     if (review.instructions) {
       var instructions = node("aside", null, "instructions");

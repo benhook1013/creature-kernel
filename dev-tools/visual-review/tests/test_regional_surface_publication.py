@@ -603,22 +603,30 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
                         "upper-arm-midpoint",
                         "elbow",
                         "forearm-midpoint",
+                        "wrist-transition",
                         "forearm-distal",
                     ],
                 )
                 self.assertEqual(
                     [item["index"] for item in sections],
-                    [0, 1, 2, 3, 4, 5],
+                    [0, 1, 2, 3, 4, 5, 6],
                 )
+                self.assertEqual(len(sections), publisher.EXPECTED_ARM_TOTAL_SECTION_COUNT)
+                self.assertEqual(len(sections) - 1, publisher.EXPECTED_ARM_CONNECTION_COUNT)
                 self.assertEqual(
                     [item["source_index"] for item in sections],
-                    [None, 0, 1, 2, 3, 4],
+                    [None, 0, 1, 2, 3, None, 4],
                 )
                 self.assertTrue(sections[0]["derived"])
                 self.assertIn("torso=", sections[0]["source_key"])
                 self.assertIn("upper-arm=", sections[0]["source_key"])
                 self.assertEqual(sections[3]["name"], "elbow")
                 self.assertEqual(sections[3]["source_index"], 2)
+                self.assertTrue(sections[5]["derived"])
+                self.assertEqual(sections[5]["name"], "wrist-transition")
+                self.assertEqual(sections[5]["source_index"], None)
+                self.assertIn("forearm=", sections[5]["source_key"])
+                self.assertIn("hand=", sections[5]["source_key"])
                 self.assertEqual(
                     sections[publisher.EXPECTED_ARM_SHOULDER_CLOSURE_ROUTE_INDEX]["name"],
                     "upper-arm-start",
@@ -779,6 +787,7 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
             {
                 "cranium_mid": {"head_section_index": 3, "connection_indices": [2, 3, 4]},
                 "elbows": [3, 3],
+                "wrist_transitions": [5, 5],
                 "knees": [5, 5],
                 "hocks": [7, 7],
                 "hip_cup_sections": ["pelvis-seat", "hip-cup-rim", "femoral-neck"],
@@ -963,8 +972,8 @@ print(json.dumps({
                 self.assertEqual(candidate["derived_patch_count"], 7)
                 self.assertEqual(candidate["authority_control_count"], 4)
                 self.assertEqual(len(payload["candidate_contract"]["routes"]["section_counts"]), 7)
-                self.assertEqual(payload["candidate_contract"]["routes"]["section_counts"], [8, 6, 6, 8, 8, 3, 3])
-                self.assertEqual(payload["candidate_contract"]["routes"]["connection_counts"], [7, 5, 5, 7, 7, 2, 2])
+                self.assertEqual(payload["candidate_contract"]["routes"]["section_counts"], [8, 7, 7, 8, 8, 3, 3])
+                self.assertEqual(payload["candidate_contract"]["routes"]["connection_counts"], [7, 6, 6, 7, 7, 2, 2])
                 self.assertEqual(payload["diagnostics"]["skin_source_count"], 8)
                 self.assertEqual(payload["diagnostics"]["derived_patch_count"], 7)
                 self.assertEqual(payload["diagnostics"]["authority_control_count"], 4)
@@ -972,6 +981,8 @@ print(json.dumps({
                 self.assertEqual(len(payload["diagnostic_inventory"]["skin_sources"]), 8)
                 self.assertEqual(len(payload["diagnostic_inventory"]["derived_patches"]), 7)
                 self.assertEqual(len(payload["diagnostic_inventory"]["authority_controls"]), 4)
+                self.assertEqual(payload["candidate_contract"]["routes"]["binding_evidence_count"], 42)
+                self.assertEqual(payload["candidate_contract"]["routes"]["total_binding_evidence_count"], 53)
                 authority_contract = payload["candidate_contract"]["authority_controls"]
                 self.assertEqual(authority_contract["counterfactual_authority_bound_influence"], "proven")
                 self.assertIs(authority_contract["control_local_final_skin_influence"], False)

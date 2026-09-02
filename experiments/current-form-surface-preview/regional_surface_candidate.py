@@ -69,6 +69,8 @@ _DEFAULT_SOURCE_NAMESPACE = "main"
 _SHOULDER_CONTROL_SOURCE_PREFIX = "source-landmark:"
 _SHOULDER_CONTROL_FRAME_ROLE = "form_shoulder_control"
 _SHOULDER_CONTROL_ROLES = ("form_shoulder_peak", "form_axilla")
+_WRIST_TRANSITION_NAME = "wrist-transition"
+_WRIST_AXIS_BY_SIDE = {"left": np.asarray((-1.0, 0.0, 0.0)), "right": np.asarray((1.0, 0.0, 0.0))}
 _BILATERAL_CENTER_TOLERANCE = 1.0e-8
 _BILATERAL_RADIUS_TOLERANCE = 1.0e-12
 
@@ -831,6 +833,148 @@ def _transform_section_station(
     return transformed, evidence
 
 
+def _derive_wrist_transition(
+    hybrid: Any,
+    route_name: str,
+    sections: tuple[Any, ...],
+    hand_closure: Any,
+    hand_source: dict[str, Any],
+    forearm_key: Any,
+    hand_key: Any,
+) -> tuple[Any, dict[str, Any]]:
+    """Derive one source-joint wrist slice from the live forearm and hand."""
+
+    if route_name not in {"left-arm", "right-arm"}:
+        _fail(f"{route_name} wrist transition has the wrong side-specific route owner")
+    side = route_name.split("-", 1)[0]
+    if not isinstance(hand_source, dict) or hand_source.get("name") != "ellipsoid":
+        _fail(f"{route_name} wrist transition requires an ellipsoid hand source")
+    expected_names = (
+        "torso-arm-interface",
+        "upper-arm-start",
+        "upper-arm-midpoint",
+        "elbow",
+        "forearm-midpoint",
+        "forearm-distal",
+    )
+    if tuple(section.name for section in sections) != expected_names:
+        _fail(f"{route_name} wrist transition requires the current six-section arm route")
+    _key_json(forearm_key)
+    if forearm_key[1] != (side,) or forearm_key[2:] != ("part", "forearm"):
+        _fail(f"{route_name} wrist transition has the wrong live forearm source binding")
+    midpoint = sections[4]
+    distal = sections[5]
+    expected_forearm_bindings = (
+        (midpoint, "forearm-midpoint", 3),
+        (distal, "forearm-distal", 4),
+    )
+    for station, name, source_index in expected_forearm_bindings:
+        expected_source_key = _source_route_key(forearm_key, f"{route_name}:{name}")
+        expected_semantic_key = f"section:{route_name}:{name}:{_key_text(forearm_key)}"
+        if station.source_key != expected_source_key or station.semantic_key != expected_semantic_key:
+            _fail(f"{route_name} wrist transition has a forearm station outside the live source binding")
+        if station.source_index != source_index:
+            _fail(f"{route_name} wrist transition has a forearm station outside the live source order")
+
+    _key_json(hand_key)
+    expected_hand_key = (forearm_key[0], (side,), "part", "hand")
+    if hand_key != expected_hand_key:
+        _fail(f"{route_name} wrist transition has the wrong expected route-side hand binding")
+    expected_closure_name = f"{route_name}:wrist-closure"
+    expected_closure_semantic_key = f"closure:{route_name}:wrist"
+    expected_closure_source_key = _source_route_key(expected_hand_key, "wrist")
+    if hand_closure.name != expected_closure_name:
+        _fail(f"{route_name} wrist transition requires the existing hand closure")
+    if hand_closure.semantic_key != expected_closure_semantic_key:
+        _fail(f"{route_name} wrist transition has the wrong hand closure semantic identity")
+    if hand_closure.source_key != expected_closure_source_key:
+        _fail(f"{route_name} wrist transition has the wrong hand closure source identity")
+
+    M = np.asarray(midpoint.center, dtype=np.float64)
+    D = np.asarray(distal.center, dtype=np.float64)
+    H = np.asarray(hand_closure.center, dtype=np.float64)
+    Rd = np.asarray(distal.radii, dtype=np.float64)
+    Rh = np.asarray(hand_closure.radii, dtype=np.float64)
+    if not np.array_equal(H, D):
+        _fail(f"{route_name} wrist transition requires hand closure center H==forearm-distal center D")
+    expected_hand_center = _vec3(hand_source.get("center"), f"{route_name}.hand_source.center")
+    expected_hand_radii = np.asarray(
+        tuple(
+            _positive_float(value, f"{route_name}.hand_source.radius")
+            for value in _vec3(hand_source.get("radii"), f"{route_name}.hand_source.radii")
+        ),
+        dtype=np.float64,
+    )
+    if not np.array_equal(H, expected_hand_center) or not np.array_equal(Rh, expected_hand_radii):
+        _fail(f"{route_name} wrist transition hand closure geometry is not the live ellipsoid geometry")
+    delta = D - M
+    length = float(np.linalg.norm(delta))
+    if not math.isfinite(length) or length <= _GEOMETRY_TOLERANCE:
+        _fail(f"{route_name} wrist transition requires a non-degenerate forearm axis")
+    u = delta / length
+    expected_axis = _WRIST_AXIS_BY_SIDE[side]
+    if not np.allclose(u, expected_axis, rtol=0.0, atol=_GEOMETRY_TOLERANCE):
+        _fail(f"{route_name} wrist transition requires the current fixed arm axis relationship")
+    if not np.all(np.isfinite(Rd)) or not np.all(np.isfinite(Rh)) or np.any(Rd <= 0.0) or np.any(Rh <= 0.0):
+        _fail(f"{route_name} wrist transition requires finite positive forearm and hand radii")
+    q = max(float(Rd[1] / Rh[1]), float(Rd[2] / Rh[2]))
+    if not math.isfinite(q) or not 0.0 < q < 1.0:
+        _fail(f"{route_name} wrist transition equality slice requires 0 < q < 1")
+    s = math.sqrt(1.0 - q * q)
+    W = H - u * Rh[0] * s
+    Rw = np.minimum(Rd, Rh)
+    lambda_value = float(np.dot(W - M, u) / length)
+    if not math.isfinite(lambda_value) or not 0.0 < lambda_value < 1.0:
+        _fail(f"{route_name} wrist transition equality slice must lie strictly between M and D")
+    if not np.allclose(W, M + lambda_value * delta, rtol=0.0, atol=_GEOMETRY_TOLERANCE):
+        _fail(f"{route_name} wrist transition equality slice left the current forearm axis")
+    if distal.position <= midpoint.position:
+        _fail(f"{route_name} wrist transition requires increasing forearm route positions")
+    position = float(midpoint.position + lambda_value * (distal.position - midpoint.position))
+    source_key = f"derived-wrist-transition:forearm={_key_text(forearm_key)}:hand={_key_text(hand_key)}"
+    semantic_key = f"section:{route_name}:{_WRIST_TRANSITION_NAME}:{source_key}"
+    station = hybrid.SectionStation(
+        _WRIST_TRANSITION_NAME,
+        position,
+        _tuple3(W, f"{route_name}.{_WRIST_TRANSITION_NAME}.center"),
+        _tuple3(Rw, f"{route_name}.{_WRIST_TRANSITION_NAME}.radii"),
+        semantic_key,
+        source_key,
+        None,
+    )
+    provenance = {
+        "kind": "forearm+hand",
+        "forearm": _key_json(forearm_key),
+        "hand": _key_json(hand_key),
+        "forearm_station": midpoint.name,
+        "forearm_distal_station": distal.name,
+        "hand_closure": hand_closure.name,
+        "hand_closure_source_key": hand_closure.source_key,
+    }
+    return station, {
+        "index": position,
+        "route_index": 5,
+        "name": station.name,
+        "source_index": None,
+        "derived": True,
+        "center": list(station.center),
+        "radii": list(station.radii),
+        "derivation": "H-u*Rh.lateral*sqrt(1-q^2);Rw=min(Rd,Rh);lambda=dot(W-M,u)/|D-M|",
+        "source_key": source_key,
+        "semantic_key": semantic_key,
+        "forearm_midpoint_center": list(midpoint.center),
+        "forearm_distal_center": list(distal.center),
+        "hand_closure_center": list(hand_closure.center),
+        "forearm_distal_radii": list(distal.radii),
+        "hand_closure_radii": list(hand_closure.radii),
+        "axis": list(u),
+        "q": q,
+        "s": s,
+        "lambda": lambda_value,
+        "provenance": provenance,
+    }
+
+
 def _lift_neck_collar_station(
     hybrid: Any,
     station: Any,
@@ -1158,8 +1302,8 @@ def _certify_torso_arm_overlap(hybrid: Any, chain: Any, route: Any, context: dic
 
     if not isinstance(chain, hybrid.AxialMassChain) or not isinstance(route, hybrid.AnisotropicSectionSweep):
         _fail("torso-arm overlap certificate requires live chain and arm route operands")
-    if len(route.sections) != 6 or len(route.connections) != 5:
-        _fail(f"{route.route_name} overlap certificate requires exact six-station/five-span inventory")
+    if len(route.sections) != 7 or len(route.connections) != 6:
+        _fail(f"{route.route_name} overlap certificate requires exact seven-station/six-span inventory")
     connector = context["connector"]
     child = context["child"]
     constituent = context["constituent"]
@@ -1827,6 +1971,33 @@ def _make_full_routes(
                 )
                 route_sections[0:0] = list(cup_sections)
                 section_evidence[0:0] = list(cup_evidence)
+            hand_closure = None
+            if kind == "arm":
+                hand_key = (namespace, (authored_side.side,), "part", "hand")
+                hand = by_key.get(hand_key)
+                if hand is None:
+                    _fail(f"{route_name} has no source hand endpoint")
+                hand_source = _descriptor_source(module, hand, form.reference_scale)
+                if hand_source["name"] != "ellipsoid":
+                    _fail(f"{route_name} wrist transition requires an ellipsoid hand source")
+                hand_closure = hybrid.EndpointClosure(
+                    f"{route_name}:wrist-closure",
+                    _tuple3(hand_source["center"], f"{route_name}.wrist.center"),
+                    _source_shape_radii(hand_source, f"{route_name}.wrist"),
+                    f"closure:{route_name}:wrist",
+                    _source_route_key(hand_key, "wrist"),
+                )
+                wrist_station, wrist_evidence = _derive_wrist_transition(
+                    hybrid,
+                    route_name,
+                    tuple(route_sections),
+                    hand_closure,
+                    hand_source,
+                    authored_sections[-1].owner,
+                    hand_key,
+                )
+                route_sections.insert(5, wrist_station)
+                section_evidence.insert(5, wrist_evidence)
             connections = tuple(
                 hybrid.SectionConnection(
                     f"{route_name}:{route_sections[index].name}-to-{route_sections[index + 1].name}",
@@ -1837,21 +2008,14 @@ def _make_full_routes(
                 for index in range(len(route_sections) - 1)
             )
             if kind == "arm":
-                hand_key = (namespace, (authored_side.side,), "part", "hand")
-                hand = by_key.get(hand_key)
-                if hand is None:
-                    _fail(f"{route_name} has no source hand endpoint")
-                hand_source = _descriptor_source(module, hand, form.reference_scale)
+                if hand_closure is None:
+                    _fail(f"{route_name} is missing its existing hand closure")
                 closures = (
                     hybrid.EndpointClosure(
                         f"{route_name}:shoulder-closure", route_sections[1].center, route_sections[1].radii,
                         f"closure:{route_name}:shoulder", route_sections[1].source_key,
                     ),
-                    hybrid.EndpointClosure(
-                        f"{route_name}:wrist-closure", _tuple3(hand_source["center"], f"{route_name}.wrist.center") if hand_source["name"] == "ellipsoid" else _tuple3(hand_source["to"], f"{route_name}.wrist.center"),
-                        _source_shape_radii(hand_source, f"{route_name}.wrist"),
-                        f"closure:{route_name}:wrist", _source_route_key(hand_key, "wrist"),
-                    ),
+                    hand_closure,
                 )
                 shared_station_indices = [3]
             else:
@@ -1961,11 +2125,11 @@ def _make_full_routes(
     expected_order = ("head-neck", "left-arm", "right-arm", "left-leg", "right-leg", "left-foot", "right-foot")
     if tuple(item.route_name for item in routes) != expected_order:
         _fail("full regional route order is not deterministic")
-    if tuple(len(route.sections) for route in routes) != (8, 6, 6, 8, 8, 3, 3):
+    if tuple(len(route.sections) for route in routes) != (8, 7, 7, 8, 8, 3, 3):
         _fail("full regional route station inventory is not exact")
-    if tuple(len(route.connections) for route in routes) != (7, 5, 5, 7, 7, 2, 2):
+    if tuple(len(route.connections) for route in routes) != (7, 6, 6, 7, 7, 2, 2):
         _fail("full regional route connection inventory is not exact")
-    if len(binding_evidence) != 40:
+    if len(binding_evidence) != 42:
         _fail("full regional route binding evidence cardinality is not exact")
     return tuple(routes), tuple(attachments), tuple(binding_evidence), {"routes": route_records}, tuple(route_records)
 
@@ -2514,6 +2678,10 @@ def build_regional_surface_candidate(
             "required_head_neck_connections": len(routes[0].connections) == 7,
             "bilateral_arm_authored_sections": [record["authored_section_count"] for record in route_records if record["kind"] == "arm-route"],
             "bilateral_arm_total_sections": [len(route.sections) for route in routes[1:3]],
+            "bilateral_arm_transition_sections": [
+                [section.name for section in route.sections if section.name == _WRIST_TRANSITION_NAME]
+                for route in routes[1:3]
+            ],
             "arm_connector_method": "analytic live terminal-constituent ellipsoid ray level",
             "bilateral_leg_sections": [len(route.sections) for route in routes[3:5]],
             "bilateral_leg_authored_sections": [record["authored_section_count"] for record in route_records if record["kind"] == "leg-route"],
@@ -2536,6 +2704,7 @@ def build_regional_surface_candidate(
             "shared_interfaces": {
                 "cranium_mid": {"head_section_index": 3, "connection_indices": [2, 3, 4]},
                 "elbows": [3, 3],
+                "wrist_transitions": [5, 5],
                 "knees": [5, 5],
                 "hocks": [7, 7],
                 "hip_cup_sections": list(_HIP_CUP_NAMES),
@@ -2569,10 +2738,10 @@ def build_regional_surface_candidate(
             "seven_ordered_torso_stations": len(stations) == 7,
             "three_explicit_regions": len(regions) == 3,
             "complete_head_neck_route": len(routes[0].sections) == 8 and len(routes[0].connections) == 7,
-            "complete_bilateral_arm_routes": all(len(route.sections) == 6 for route in routes[1:3]),
+            "complete_bilateral_arm_routes": all(len(route.sections) == 7 and len(route.connections) == 6 for route in routes[1:3]),
             "complete_bilateral_leg_routes": all(len(route.sections) == 8 and len(route.connections) == 7 for route in routes[3:5]),
             "complete_bilateral_foot_routes": all(len(route.sections) == 3 for route in routes[5:]),
-            "semantic_binding_complete": len(station_evidence) == 7 and len(route_binding) == 40 and len(control_evidence) == 4,
+            "semantic_binding_complete": len(station_evidence) == 7 and len(route_binding) == 42 and len(control_evidence) == 4,
             "finite_interface_authorities": len(authority_ids) == len(set(authority_ids)) and all(np.all(np.isfinite(item.authority.bounds[0])) and np.all(np.isfinite(item.authority.bounds[1])) for item in interfaces),
             "route_authorities_absent": all(item.authority is None and item.blend_radius is None for item in route_attachments),
             "explicit_source_derived_endpoint_closures": all(record["endpoint_closures"] and all(item["source_key"] for item in record["endpoint_closures"]) for record in route_records),

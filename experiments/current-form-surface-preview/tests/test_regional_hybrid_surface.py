@@ -269,7 +269,13 @@ class JunctionAndCompositeTests(unittest.TestCase):
             regional.SectionAttachment("beta", beta, None, None, "route:beta"),
             regional.SectionAttachment("gamma", gamma, None, None, "route:gamma"),
         )
-        authority = lambda name: regional.AuthorityVolume(f"authority:{name}", (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), 0.22)
+        def authority(name):
+            return regional.AuthorityVolume(
+                f"authority:{name}",
+                (0.0, 0.0, 0.0),
+                (1.0, 1.0, 1.0),
+                0.22,
+            )
         patches = (
             regional.ParentTargetedInterfacePatch("interface:torso->alpha", "torso", "alpha", base, alpha, authority("alpha"), 0.05, "interface:torso->alpha"),
             regional.ParentTargetedInterfacePatch("interface:torso->beta", "torso", "beta", base, beta, authority("beta"), 0.05, "interface:torso->beta"),

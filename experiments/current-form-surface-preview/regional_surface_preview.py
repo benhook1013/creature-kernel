@@ -102,8 +102,18 @@ EXPECTED_ROUTE_SECTIONS = {
         "muzzle-mid",
         "muzzle-tip",
     ),
-    "left-arm": ("torso-arm-interface", *EXPECTED_ARM_AUTHORED_SECTIONS),
-    "right-arm": ("torso-arm-interface", *EXPECTED_ARM_AUTHORED_SECTIONS),
+    "left-arm": (
+        "torso-arm-interface",
+        *EXPECTED_ARM_AUTHORED_SECTIONS[:4],
+        "wrist-transition",
+        EXPECTED_ARM_AUTHORED_SECTIONS[4],
+    ),
+    "right-arm": (
+        "torso-arm-interface",
+        *EXPECTED_ARM_AUTHORED_SECTIONS[:4],
+        "wrist-transition",
+        EXPECTED_ARM_AUTHORED_SECTIONS[4],
+    ),
     "left-leg": ("pelvis-seat", "hip-cup-rim", "femoral-neck", *EXPECTED_LEG_AUTHORED_SECTIONS),
     "right-leg": ("pelvis-seat", "hip-cup-rim", "femoral-neck", *EXPECTED_LEG_AUTHORED_SECTIONS),
     "left-foot": ("hock-endpoint", "pad", "toe"),
@@ -488,11 +498,17 @@ def _validate_candidate_graph(candidate: Any) -> tuple[Any, Any, tuple[Any, ...]
             _fail(f"candidate route {route_name} has incomplete endpoint source identity")
         if route_name.endswith("-arm"):
             connector = route.sections[0]
-            authored_sections = route.sections[1:]
+            authored_sections = tuple(
+                _named_route_section(route, name, f"candidate route {route_name}")
+                for name in EXPECTED_ARM_AUTHORED_SECTIONS
+            )
             if connector.source_index is not None:
                 _fail(f"candidate route {route_name} torso-arm interface is not derived")
             if tuple(section.source_index for section in authored_sections) != EXPECTED_ARM_SOURCE_INDICES:
                 _fail(f"candidate route {route_name} does not retain authored source indices 0..4")
+            wrist = _named_route_section(route, "wrist-transition", f"candidate route {route_name}")
+            if wrist.source_index is not None:
+                _fail(f"candidate route {route_name} wrist transition is not derived")
             if route.sections[3].name != "elbow" or route.sections[3].source_index != 2:
                 _fail(f"candidate route {route_name} does not retain the authored elbow identity")
             shoulder_closure = route.endpoint_closures[0]
@@ -819,6 +835,11 @@ def _candidate_metadata_summary(
     ordered_interfaces = tuple(
         interface_by_relation[relation] for relation in EXPECTED_INTERFACE_RELATIONS
     )
+    route_binding_evidence_count = sum(
+        len(route.sections) - (1 if route.route_name.endswith("-foot") else 0)
+        for route in routes
+    )
+    total_binding_evidence_count = len(chain.stations) + route_binding_evidence_count + len(control_bindings)
 
     semantic_binding_complete = all(
         bool(station.semantic_key)
@@ -838,10 +859,14 @@ def _candidate_metadata_summary(
         ),
         "complete_head_neck_route": len(routes[0].sections) == 8 and len(routes[0].connections) == 7,
         "complete_bilateral_limb_routes": all(
-            len(route.sections) == 6
-            and len(route.connections) == 5
+            len(route.sections) == 7
+            and len(route.connections) == 6
             and route.sections[0].source_index is None
-            and tuple(section.source_index for section in route.sections[1:]) == EXPECTED_ARM_SOURCE_INDICES
+            and tuple(
+                _named_route_section(route, name, f"{route.route_name} summary").source_index
+                for name in EXPECTED_ARM_AUTHORED_SECTIONS
+            ) == EXPECTED_ARM_SOURCE_INDICES
+            and _named_route_section(route, "wrist-transition", f"{route.route_name} summary").source_index is None
             for route in routes[1:3]
         ) and all(
             len(route.sections) == 8
@@ -919,6 +944,8 @@ def _candidate_metadata_summary(
                 for route in routes[1:3]
             ],
             "bilateral_arm_total_sections": [len(route.sections) for route in routes[1:3]],
+            "binding_evidence_count": route_binding_evidence_count,
+            "total_binding_evidence_count": total_binding_evidence_count,
             "bilateral_leg_authored_sections": [
                 sum(section.source_index is not None for section in route.sections)
                 for route in routes[3:5]
@@ -930,6 +957,7 @@ def _candidate_metadata_summary(
             "shared_interfaces": {
                 "cranium_mid": {"head_section_index": 3, "connection_indices": [2, 3, 4]},
                 "elbows": [3, 3],
+                "wrist_transitions": [5, 5],
                 "knees": [5, 5],
                 "hocks": [7, 7],
                 "hip_cup_sections": ["pelvis-seat", "hip-cup-rim", "femoral-neck"],

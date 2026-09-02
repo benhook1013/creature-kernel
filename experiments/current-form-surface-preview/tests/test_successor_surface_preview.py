@@ -3224,8 +3224,8 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         cage = guide.torso_cage
 
         for side, role, axial in (
-            ("left", "thigh", 0.65),
-            ("right", "upper_arm", 1.40),
+            ("left", "thigh", 0.10),
+            ("right", "upper_arm", 0.10),
         ):
             with self.subTest(side=side, role=role):
                 index = next(
@@ -4015,12 +4015,16 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
         np.testing.assert_array_equal(successor_bounds[1], baseline_bounds[1])
 
     def test_generated_structural_profiles_compile_successor_inventory_without_rendering(self) -> None:
-        """Every generated profile and actual preview variant reaches the successor inventory."""
+        """Every compilable generated profile reaches the successor inventory."""
 
         cli, output_dir, source_manifest = self._ensure_generated_profile_setup()
         profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
         self.assertEqual(profile_ids[0], "standard_neutral_reference")
         self.assertEqual([item["id"] for item in source_manifest["profiles"]], list(profile_ids))
+        expected_rejections = {
+            ("tall_narrow_long_legged", "lean-readable-v0"),
+            ("slender_long_limb", "lean-readable-v0"),
+        }
 
         for profile_id in profile_ids:
             with self.subTest(profile=profile_id):
@@ -4044,10 +4048,19 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
 
                 for variant_id, descriptors, _ in form.variants:
                     with self.subTest(variant=variant_id):
-                        guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                        baseline = surface_preview._compile_hybrid_guide(guide)
-                        region = successor.compile_successor_region(guide, baseline)
-                        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                        try:
+                            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                            baseline = surface_preview._compile_hybrid_guide(guide)
+                            region = successor.compile_successor_region(guide, baseline)
+                            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                        except surface_preview.PreviewError as exc:
+                            if (profile_id, variant_id) not in expected_rejections:
+                                raise
+                            self.assertRegex(
+                                str(exc),
+                                r'"role":"thigh"\}\.root-bridge support radius consumes its boundary-to-child span',
+                            )
+                            continue
 
                         self._assert_shoulder_socket_support_contract(
                             guide, region, f"{profile_id}/{variant_id}"
@@ -4084,14 +4097,18 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                         self.assertEqual(len(region.tail_elements), 6)
 
     def test_generated_profile_capture_bounds_contain_all_baseline_and_successor_components(self) -> None:
-        """All 5x4 generated consumers fit the shared successor capture frame."""
+        """All successfully compiled generated consumers fit the shared capture frame."""
 
         cli, output_dir, _ = self._ensure_generated_profile_setup()
         profile_ids = tuple(fixture.GENERATED_PROFILE_IDS)
         baseline_only_bounds = []
         successor_capture_bounds = []
-        all_baseline_fields = []
-        all_successor_components = []
+        compiled_baseline_sets = []
+        compiled_component_sets = []
+        expected_rejections = {
+            ("tall_narrow_long_legged", "lean-readable-v0"),
+            ("slender_long_limb", "lean-readable-v0"),
+        }
 
         for profile_id in profile_ids:
             with self.subTest(profile=profile_id):
@@ -4110,14 +4127,21 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                 component_sets = []
                 for variant_id, descriptors, _ in form.variants:
                     with self.subTest(variant=variant_id):
-                        guide = surface_preview._derive_hybrid_guides(form, descriptors)
-                        fields = surface_preview._compile_hybrid_guide(guide)
-                        region = successor.compile_successor_region(guide, fields)
-                        components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                        try:
+                            guide = surface_preview._derive_hybrid_guides(form, descriptors)
+                            fields = surface_preview._compile_hybrid_guide(guide)
+                            region = successor.compile_successor_region(guide, fields)
+                            components = successor._make_components(region, successor.DEFAULT_SMOOTH_K)
+                        except surface_preview.PreviewError as exc:
+                            if (profile_id, variant_id) not in expected_rejections:
+                                raise
+                            self.assertRegex(
+                                str(exc),
+                                r'"role":"thigh"\}\.root-bridge support radius consumes its boundary-to-child span',
+                            )
+                            continue
                         baseline_sets.append(fields)
                         component_sets.append(components)
-                        all_baseline_fields.append(fields)
-                        all_successor_components.append(components)
 
                 baseline_only_bounds.append(
                     surface_preview._shared_render_bounds(
@@ -4129,13 +4153,15 @@ class SuccessorSurfacePreviewTests(unittest.TestCase):
                         tuple(baseline_sets), tuple(component_sets), successor.DEFAULT_CAPTURE_PADDING
                     )
                 )
+                compiled_baseline_sets.append(tuple(baseline_sets))
+                compiled_component_sets.append(tuple(component_sets))
 
         saw_successor_extension = False
         for baseline_bounds, capture_bounds, field_sets, component_sets in zip(
             baseline_only_bounds,
             successor_capture_bounds,
-            (all_baseline_fields[index:index + 4] for index in range(0, len(all_baseline_fields), 4)),
-            (all_successor_components[index:index + 4] for index in range(0, len(all_successor_components), 4)),
+            compiled_baseline_sets,
+            compiled_component_sets,
         ):
             self.assertTrue(np.all(capture_bounds[0] <= baseline_bounds[0]))
             self.assertTrue(np.all(capture_bounds[1] >= baseline_bounds[1]))

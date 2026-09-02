@@ -287,9 +287,11 @@ these fields (unknown fields are rejected):
 - `provenance`: a JSON object describing build/render lineage. The gallery
   preserves and displays it but does not verify it.
 
-The `What you're looking at` panel displays these fields before instructions,
-including unknowns explicitly. Structured sections are rendered as compact
-JSON. Context strings and manifest material are treated as text, never HTML.
+The `What you're looking at` panel leads with the authored summary text as the
+artifact's purpose, or with the review description for older immutable
+galleries, then keeps supplied unknowns visible. Descriptor and provenance
+JSON are available in collapsed disclosures. Context strings and manifest
+material are treated as text, never HTML.
 The exact subject-context carrier has a final 12 KiB cap; ordinary strings
 remain capped at 8192 characters.
 

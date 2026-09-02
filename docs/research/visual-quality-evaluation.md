@@ -135,9 +135,19 @@ The retained `+0.25` neck-collar up-radius lift is a modest shared lower
 neck–torso improvement across all five profiles, exact-five topology-safe at 56
 and 80 samples, with main-thread vision and fresh Sol-medium corroboration. It
 does not solve the upper skull-base/planted-head pinch, which remains later,
-evidence-dependent work. The next implementation order toward the same
-checkpoint is the bounded wrist/hand transition, then restoration of the two
-derived linear foot midpoints for contract completeness and field equivalence.
+evidence-dependent work. The retained bilateral wrist-transition slice is
+bounded: each arm has
+one source-bound ellipsoid-tangent wrist station between forearm midpoint/distal
+and the existing hand closure. Counterfactual narrowing of the actual final
+skin is positive across all five profiles, and exact-five topology evidence
+passed at both 56 and 80 samples. Main-thread visual comparison found a real
+but modest forearm-to-hand junction refinement. A fresh independent review
+found a provenance fail-closed defect; it was fixed with live source/closure
+identity validation and negative tests. This remains implementation and
+advisory visual evidence only; it does not establish anatomy quality or human
+acceptance. The next implementation step toward the same checkpoint is
+restoration of the two field-equivalent foot-midpoints, followed by the
+remaining visible blockers toward the refreshed exact-five checkpoint.
 Publisher and schema correctness are implementation support, not the human
 checkpoint. The next human stop remains the refreshed exact-five checkpoint;
 no merge is authorized before Ben accepts it.

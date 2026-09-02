@@ -423,16 +423,20 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
             tuple((patch.parent_name, patch.child_name) for patch in interfaces),
             tuple(sorted(renderer.EXPECTED_INTERFACE_RELATIONS)),
         )
-        self.assertEqual([len(route.sections) for route in routes], [8, 6, 6, 8, 8, 3, 3])
+        self.assertEqual([len(route.sections) for route in routes], [8, 7, 7, 8, 8, 3, 3])
         for route in routes[1:3]:
             with self.subTest(route=route.route_name):
                 self.assertEqual(tuple(section.name for section in route.sections), renderer.EXPECTED_ROUTE_SECTIONS[route.route_name])
                 self.assertEqual(
                     tuple((connection.from_section_index, connection.to_section_index) for connection in route.connections),
-                    ((0, 1), (1, 2), (2, 3), (3, 4), (4, 5)),
+                    ((0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)),
                 )
                 self.assertIsNone(route.sections[0].source_index)
-                self.assertEqual(tuple(section.source_index for section in route.sections[1:]), (0, 1, 2, 3, 4))
+                self.assertEqual(
+                    tuple(section.source_index for section in route.sections[1:5] + route.sections[6:7]),
+                    (0, 1, 2, 3, 4),
+                )
+                self.assertEqual((route.sections[5].name, route.sections[5].source_index), ("wrist-transition", None))
                 self.assertEqual((route.sections[3].name, route.sections[3].source_index), ("elbow", 2))
                 shoulder_closure = route.endpoint_closures[0]
                 self.assertEqual(shoulder_closure.name, f"{route.route_name}:shoulder-closure")
@@ -553,17 +557,21 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
         )
         route_metadata = candidate_metadata["routes"]
         self.assertEqual(route_metadata["bilateral_arm_authored_sections"], [5, 5])
-        self.assertEqual(route_metadata["bilateral_arm_total_sections"], [6, 6])
+        self.assertEqual(route_metadata["bilateral_arm_total_sections"], [7, 7])
         self.assertNotIn("bilateral_arm_sections", route_metadata)
         self.assertEqual(route_metadata["shared_interfaces"]["elbows"], [3, 3])
         for arm in route_metadata["routes"][1:3]:
             with self.subTest(route=arm["name"]):
-                self.assertEqual(arm["section_count"], 6)
-                self.assertEqual(arm["connection_count"], 5)
+                self.assertEqual(arm["section_count"], 7)
+                self.assertEqual(arm["connection_count"], 6)
                 self.assertEqual(arm["shared_station_indices"], [3])
                 self.assertTrue(arm["sections"][0]["derived"])
                 self.assertIsNone(arm["sections"][0]["source_index"])
-                self.assertEqual([section["source_index"] for section in arm["sections"][1:]], [0, 1, 2, 3, 4])
+                self.assertEqual(
+                    [section["source_index"] for section in arm["sections"][1:5] + arm["sections"][6:7]],
+                    [0, 1, 2, 3, 4],
+                )
+                self.assertEqual((arm["sections"][5]["name"], arm["sections"][5]["source_index"]), ("wrist-transition", None))
                 self.assertEqual((arm["sections"][3]["name"], arm["sections"][3]["source_index"]), ("elbow", 2))
                 self.assertEqual(arm["endpoint_closures"][0]["source_key"], arm["sections"][1]["source_key"])
         self.assertEqual(route_metadata["bilateral_leg_authored_sections"], [5, 5])

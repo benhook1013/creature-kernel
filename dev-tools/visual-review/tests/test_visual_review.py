@@ -1067,7 +1067,11 @@ function reviewCase(groupId, itemCount) {
     review: {
       id: "review-" + groupId + "-" + itemCount,
       title: "Review",
-      subject_context: {descriptor_snapshot: {shape: "compact"}},
+      description: "Review purpose",
+      subject_context: {
+        descriptor_snapshot: {shape: "compact"},
+        provenance: {render: "test"},
+      },
       groups: [{
         id: groupId,
         title: "Gallery",
@@ -1083,12 +1087,13 @@ function reviewCase(groupId, itemCount) {
   const body = card.children[1];
   const metadata = body.children.find(function (child) { return child.tagName === "details" || child.tagName === "pre"; });
   const contextPanel = app.children.find(function (child) { return child.className === "subject-context"; });
-  const descriptor = contextPanel.children.find(function (child) { return child.tagName === "details"; });
+  const contextDetails = contextPanel.children.filter(function (child) { return child.tagName === "details"; });
   return {
     sectionClass: section.className,
     metadataTag: metadata.tagName,
     metadataOpen: metadata.open,
-    descriptorOpen: descriptor.open,
+    purpose: contextPanel.children[1].textContent,
+    contextDetailsOpen: contextDetails.map(function (details) { return details.open; }),
   };
 }
 
@@ -1110,24 +1115,27 @@ process.stdout.write(JSON.stringify({
                     "sectionClass": "review-group regional-exact-five-gallery",
                     "metadataTag": "details",
                     "metadataOpen": False,
-                    "descriptorOpen": False,
+                    "purpose": "Review purpose",
+                    "contextDetailsOpen": [False, False],
                 },
                 "regionalFour": {
                     "sectionClass": "review-group",
                     "metadataTag": "pre",
                     "metadataOpen": False,
-                    "descriptorOpen": True,
+                    "purpose": "Review purpose",
+                    "contextDetailsOpen": [False, False],
                 },
                 "nonRegionalFive": {
                     "sectionClass": "review-group",
                     "metadataTag": "pre",
                     "metadataOpen": False,
-                    "descriptorOpen": True,
+                    "purpose": "Review purpose",
+                    "contextDetailsOpen": [False, False],
                 },
             },
         )
 
-    def test_json_disclosures_render_closed_metadata_and_descriptor_by_default(self):
+    def test_subject_context_leads_with_purpose_and_collapses_json_by_default(self):
         context_setup = r'''
 function element(tagName) {
   return {
@@ -1162,13 +1170,22 @@ function detailsSummary(details) {
 }
 const metadata = context.__metadataBlock({id: "profile-a", metadata: {seed: 3}}, true);
 const panel = context.__subjectContextBlock({
+  authored_summary: {text: "The resolved artifact purpose.", unknowns: ["lighting"]},
   descriptor_snapshot: {shape: "compact"},
   provenance: {render: "test"},
-}, true);
+}, {description: "Legacy review purpose."});
+const fallbackPanel = context.__subjectContextBlock({
+  descriptor_snapshot: {shape: "legacy"},
+}, {description: "Legacy review purpose."});
+const descriptionOnlyPanel = context.__subjectContextBlock(null, {description: "Description-only review purpose."});
 process.stdout.write(JSON.stringify({
   metadata: detailsSummary(metadata),
-  descriptor: detailsSummary(panel.children[1]),
-  provenance: detailsSummary(panel.children[2]),
+  purpose: panel.children[1].textContent,
+  unknownHeading: panel.children[2].textContent,
+  descriptor: detailsSummary(panel.children[4]),
+  provenance: detailsSummary(panel.children[5]),
+  fallbackPurpose: fallbackPanel.children[1].textContent,
+  descriptionOnlyPurpose: descriptionOnlyPanel.children[1].textContent,
 }));
 '''
         completed = run_app_in_node(
@@ -1194,7 +1211,11 @@ process.stdout.write(JSON.stringify({
         )
         self.assertFalse(rendered["descriptor"]["open"])
         self.assertEqual(rendered["descriptor"]["summary"], "Generated descriptor snapshot")
-        self.assertTrue(rendered["provenance"]["open"])
+        self.assertEqual(rendered["purpose"], "The resolved artifact purpose.")
+        self.assertEqual(rendered["unknownHeading"], "Unknowns")
+        self.assertFalse(rendered["provenance"]["open"])
+        self.assertEqual(rendered["fallbackPurpose"], "Legacy review purpose.")
+        self.assertEqual(rendered["descriptionOnlyPurpose"], "Description-only review purpose.")
 
     def test_image_accessible_labels_include_description_without_html_interpolation(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
@@ -1493,7 +1514,7 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             "Earlier publication",
             "not approved or the project's next active checkpoint",
             "What you're looking at",
-            "Authored summary",
+            "subject-context-purpose",
             "Generated descriptor snapshot",
             "Build/render provenance",
         ):

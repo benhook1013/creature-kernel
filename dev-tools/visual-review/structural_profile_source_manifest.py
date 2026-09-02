@@ -17,7 +17,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from types import ModuleType
-from typing import Any
+from typing import Any, NoReturn
 
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parents[2] / "experiments" / "current-form-surface-preview"
@@ -192,7 +192,7 @@ class SourceManifestValidationResult:
         return self.generator
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     raise StructuralProfileSourceManifestError(message)
 
 
