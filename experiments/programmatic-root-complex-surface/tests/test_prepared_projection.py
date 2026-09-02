@@ -73,17 +73,12 @@ class PreparedProjectionTests(unittest.TestCase):
         self.assert_rejected(lambda source: source["body"]["dimensions"][6].__setitem__("value", 0))
         self.assert_rejected(lambda source: source["body"]["landmarks"][15].__setitem__("position", [0, 0, 0]))
         self.assert_rejected(lambda source: source["body"]["landmarks"].__setitem__(42, copy.deepcopy(source["body"]["landmarks"][24])))
+        self.assert_rejected(lambda source: source["body"]["landmarks"].__setitem__(0, {}))
         self.assert_rejected(lambda source: source["body"].__setitem__("unknown", []))
 
         def duplicate_pelvis_frame(source):
             frames = source["body"]["frames"]
             frames[1] = copy.deepcopy(frames[0])
-            self.assertEqual(len(frames), 16)
-            self.assertEqual(frames[1]["owner"], frames[0]["owner"])
-            self.assertEqual(frames[1]["role"], frames[0]["role"])
+            self.assertEqual((frames[1]["owner"], frames[1]["role"]), (frames[0]["owner"], frames[0]["role"]))
 
         self.assert_rejected(duplicate_pelvis_frame)
-
-
-if __name__ == "__main__":
-    unittest.main()
