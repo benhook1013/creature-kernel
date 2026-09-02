@@ -9,6 +9,18 @@ formal surface-comparison authority. It is not `EXP-0001`, does not claim
 formal support or reject, and cannot satisfy Stage 1 or select a production
 representation.
 
+Candidate-evolution ledger (experiment-local; not accepted architecture):
+
+1. The initial six-ring prototype was invalidated before viability because of
+   canonical left/right reversal and twisted/asymmetric pelvis correspondence.
+2. The symmetric six-ring successor (64 controls, 55 quads) fixed those
+   defects, but canonical rendering exposed the lower-ribcage/axilla ownership
+   mismatch and it was rejected.
+3. The current seven-ring successor (72 controls, 63 quads) adds the derived
+   axilla-transition ring; correction round 1 moves the shared shoulder/axilla
+   socket-and-collar centre formula toward the authored shoulder and axilla
+   landmarks and adds the bounded geometry-correctness gate.
+
 ## Purpose and scope
 
 The question is the standard-neutral directional root-complex continuation
@@ -56,26 +68,27 @@ select admitted data and provenance only.
 
 The experiment uses one profile-independent symbolic topology:
 
-- six ordered octagonal axial rings named `neck_collar`,
-  `upper_ribcage_shoulder`, `lower_ribcage`, `waist_abdomen`,
-  `iliac_overlap`, and `lower_pelvis`;
+- seven ordered octagonal axial rings named `neck_collar`,
+  `upper_ribcage_shoulder`, `axilla_transition`, `lower_ribcage`,
+  `waist_abdomen`, `iliac_overlap`, and `lower_pelvis`;
 - bilateral four-control shoulder collars; and
 - one fixed pair-of-pants pelvic macro leading to bilateral four-control thigh
   ports.
 
 The macro is reflection-symmetric. With lower-pelvis controls `P0..P7` equal
-to ring indices `0..7`, its left route is `P2,P3,P4,P5,P6` with cuff
+to ring-6 indices `48..55`, its left route is `P2,P3,P4,P5,P6` with cuff
 `Lm,Lf,Ll,Lb,Lm`, its right route is `P2,P1,P0,P7,P6` with cuff
 `Rm,Rf,Rl,Rb,Rm`, and its central saddle is `P2,Lm,P6,Rm`. Each cuff remains
-ordered medial, front, lateral, back. This candidate therefore has exactly
-`V=64`, `E=122`, `F=55`, 24 boundary edges, Euler `-3`, and valence inventory
-`((3,22),(4,32),(5,10))`.
+stored as medial, front, lateral, back; its directed boundary loop follows
+the oriented surface. This candidate therefore has exactly `V=72`, `E=138`,
+`F=63`, 24 boundary edges, Euler `-3`, and valence inventory
+`((3,22),(4,40),(5,10))`.
 
 The induced directed boundary loops are `neck=(0,1,2,3,4,5,6,7)`,
-`left_arm=(48,51,50,49)`, `right_arm=(52,55,54,53)`,
-`left_thigh=(56,59,58,57)`, and `right_thigh=(60,61,62,63)`.
+`left_arm=(56,59,58,57)`, `right_arm=(60,63,62,61)`,
+`left_thigh=(64,67,66,65)`, and `right_thigh=(68,69,70,71)`.
 
-The initial caps are 64 cage controls and 96 base quads. Extraordinary
+The initial caps are 72 cage controls and 96 base quads. Extraordinary
 controls must have only the declared valences 3 through 6. The symbolic
 topology preflight must prove connected manifold and boundary facts and
 Euler's relation before any anatomy coordinates are admitted. If the proposed
@@ -91,7 +104,7 @@ and frozen exploratory ranges are:
 | --- | ---: | ---: |
 | asymmetric-superellipse power `n` | 2.6 | [2.0, 3.2] |
 | iliac-overlap blend `lambda` | 0.25 | [0.0, 0.5] |
-| shoulder-peak outward factor | 1.0 | [0.8, 1.2] |
+| shoulder interpolation factor `sigma` | 0.80 | [0.70, 1.00] |
 | axilla outward factor | 0.55 | [0.35, 0.75] |
 | thigh-seat route fraction `eta` | 0.25 | [0.0, 0.5] |
 | medial-gap factor `gamma` | 0.08 | [0.04, 0.12] |
@@ -116,15 +129,40 @@ P(theta) = C_depth
   + d sign(sin(theta)) |sin(theta)|^(2/n) F
 ```
 
-The six axial rings use the same fixed eight angles. `iliac_overlap` blends
+The seven axial rings use the same fixed eight angles. `iliac_overlap` blends
 the source lower-abdomen and upper-pelvis centres and radii by `lambda`.
-Shoulder-collar upper and lower pairs derive from the source shoulder-peak and
-axilla landmarks plus source arm-root extents and the two shared outward
-factors. With `T = normalize(thigh_mid - thigh_start)`, the thigh seat is
-`thigh_start + eta * length(thigh_mid - thigh_start) * T`. The medial radius
-is clamped only by the shared minimum gap `gamma * lower_pelvis_lateral_radius`;
-a non-positive admissible radius rejects the input rather than changing
-topology or invoking repair.
+`axilla_transition` is derived between the lower- and upper-ribcage station
+records. Let `U` be the body up axis, let `target` be the mean of the
+projections of `axilla_left` and `axilla_right` onto `U`, and let
+`t = (target - dot(lower.center,U)) /
+dot(upper.center - lower.center,U)`. The input is rejected unless `t` is
+finite and strictly between zero and one. Its centre and each of its three
+extents are `(1-t)*lower + t*upper`; its controls depend explicitly on both
+axilla landmarks, both station records, and the body frame. The shoulder holes
+now connect the upper-ribcage and transition rings at segment 3 on the left
+and segment 0 on the right. Shoulder-collar upper and lower pairs derive from
+the source shoulder-peak and axilla landmarks plus source arm-root extents and
+the two shared outward factors. In correction round 1, for side sign `s`
+(`-1` left, `+1` right), the shared formula uses `sigma` as follows:
+
+```text
+upper_center = axilla + sigma * (shoulder_peak - axilla)
+               + s * sigma * arm_root_outward * L
+lower_center = axilla + s * axilla_factor * arm_root_outward * L
+```
+
+The upper-ribcage and axilla-transition torso socket controls retain their
+station subject-side lateral anchor while replacing their up/forward
+coordinates with the corresponding centre and `+/- arm_root_depth * F`.
+They use the same `shoulder.peak_axilla_collar` formula family as the collars,
+with station, landmark, arm-root, factor, and frame dependencies. This
+correction responds to the measured shoulder intersections by making each
+socket-to-collar bridge a direct lateral correspondence rather than a long
+diagonal into a generic ribcage ring. With `T = normalize(thigh_mid - thigh_start)`,
+the thigh seat is `thigh_start + eta * length(thigh_mid - thigh_start) * T`.
+The medial radius is clamped only by the shared minimum gap
+`gamma * lower_pelvis_lateral_radius`; a non-positive admissible radius rejects
+the input rather than changing topology or invoking repair.
 
 The trial scale `S` is the distance from the neck-port centroid to the midpoint
 of the two thigh-port centroids and must be finite and greater than zero. The
@@ -169,10 +207,21 @@ affected subdivision stencil must be unchanged. There may be no profile-ID
 branch and no direct override. Effect-magnitude and locality numbers are
 exploratory screens, not aesthetic passes.
 
-On evaluated skin, use profile-independent landmark probe formulas for the
-following exploratory negative-space screens: neck `>= 0.030 S`, axilla
-`>= 0.025 S`, groin `>= 0.020 S`, and medial thigh `>= 0.025 S`. Human vision
-remains authoritative for whether those spaces read anatomically.
+On every evaluated subdivision level, run the bounded non-adjacent triangle
+intersection validator and fail closed for any contact or overlap; the
+checkpoint records the individual intersection count for each level. On final
+level two only, use these profile-independent landmark probe formulas, with
+the listed scale-relative thresholds:
+
+- neck: `min(span_L(neck), span_F(neck)) >= 0.030 S`;
+- each axilla: `min(span_U(arm), span_F(arm)) >= 0.025 S`;
+- groin: signed `L` separation of the first right and left thigh samples
+  `>= 0.020 S`; and
+- medial thigh: minimum signed `L` separation across right-versus-left thigh
+  loop samples `>= 0.025 S`.
+
+Store and report the five ratios independently; there is no aggregate score.
+Human vision remains authoritative for whether those spaces read anatomically.
 
 ## Human evidence
 
@@ -194,9 +243,11 @@ numeric score substitutes for that human judgment.
 ## Complexity boundary and correction stop
 
 Before any gallery work, use only the existing pinned NumPy/Pillow environment;
-add no dependency. The hard caps are at most 700 non-test Python LOC, 600 test
-LOC, 7 Python files, 64 controls, 96 base quads, two subdivision levels, 12
-coordinate-formula functions, and 32 shared scalar tunables. The construction
+add no dependency. The narrow apparatus amendment for this correction is at
+most 975 non-test Python LOC, 775 test LOC, 8 Python files, and 170 non-test
+LOC in `mesh_correctness.py`. All geometry, topology, tunable, subdivision,
+and correction-round gates remain: 72 controls, 96 base quads, two subdivision
+levels, 12 coordinate-formula functions, and 32 shared scalar tunables. The construction
 has one axial template, one bilateral branch-root construction pattern, and
 one pelvic macro. It may not add profile-ID geometry branches or
 profile-shaped coordinate tables, a generic
@@ -220,11 +271,12 @@ credible neutral root complex.
 4. Derive formula coordinates.
 5. Apply Catmull-Clark.
 6. Render direct cage, one-level, and two-level diagnostics/skin.
-7. Stop for main-thread vision inspection.
-8. Expand to exact-five only if neutral geometry is credible, using unchanged
+7. Run the bounded intersection checks at levels one and two and the final
+   level-two clearance gates.
+8. Stop for main-thread vision inspection.
+9. Expand to exact-five only if neutral geometry is credible, using unchanged
    rules.
-9. Add only the necessary causality, intersection, and clearance validators.
-10. Run static rejection probes.
+10. Run static rejection probes and retain causality evidence.
 11. Add the thin gallery adapter last.
 12. Present the exact-five evidence to Ben for the named checkpoint.
 
@@ -234,5 +286,20 @@ All trial commands use [the root-complex launcher](root_complex_launcher.sh),
 which delegates interpreter, pinned-environment, and temporary-root selection
 to the current-form preview launcher. There is no bare-Python fallback. Keep
 generated outputs in `/tmp` or the approved cache, never in Git. The initial
-neutral output set is expected to contain `skin.ply`, `skin.png`, `cage.png`,
-`metrics.json`, and `manifest.json`; large artifacts remain uncommitted.
+neutral output set is expected to contain `prepared.json`, `skin.ply`,
+`skin.png`, `cage.png`, `metrics.json`, and `manifest.json`; large artifacts
+remain uncommitted. Metrics report the per-level intersection counts, a clear
+zero-intersection status, and the five final clearance ratios individually.
+
+From the repository root, copy-paste this standard-neutral build command:
+
+```bash
+OUTPUT_DIR="$(mktemp -d /tmp/ck-root-complex.XXXXXX)/standard-neutral" && \
+experiments/programmatic-root-complex-surface/root_complex_launcher.sh \
+  experiments/programmatic-root-complex-surface/build_root_complex.py \
+  examples/body-documents/stylized-digitigrade-biped-authored-form.json \
+  "$OUTPUT_DIR"
+```
+
+`OUTPUT_DIR` must not exist before the command; the builder creates it and
+fails closed if the target already exists or appears during the build.

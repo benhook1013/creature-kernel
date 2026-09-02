@@ -7,20 +7,24 @@ from typing import Mapping
 
 import numpy as np
 
+import mesh_correctness
+
 
 RING_NAMES = (
     "neck_collar",
     "upper_ribcage_shoulder",
+    "axilla_transition",
     "lower_ribcage",
     "waist_abdomen",
     "iliac_overlap",
     "lower_pelvis",
 )
-CONSTANTS = {"n": 2.6, "lambda": 0.25, "shoulder": 1.0, "axilla": 0.55,
+CONSTANTS = {"n": 2.6, "lambda": 0.25, "shoulder": 0.80, "axilla": 0.55,
              "eta": 0.25, "gamma": 0.08}
-RANGES = {"n": (2.0, 3.2), "lambda": (0.0, 0.5), "shoulder": (0.8, 1.2),
+RANGES = {"n": (2.0, 3.2), "lambda": (0.0, 0.5), "shoulder": (0.70, 1.00),
           "axilla": (0.35, 0.75), "eta": (0.0, 0.5), "gamma": (0.04, 0.12)}
-EXPECTED_VALENCES = ((3, 22), (4, 32), (5, 10))
+EXPECTED_VALENCES = ((3, 22), (4, 40), (5, 10))
+_FORBIDDEN_KEYS = frozenset("vertex vertices face faces edge edges ring rings connectivity perimeter perimetersample perimetersamples orderedperimetersample orderedperimetersamples pointcloud pointclouds field fields mask masks silhouette silhouettes correctiveoffset correctiveoffsets serialized serializedoutput serializedoutputs serializedoldoutput serializedoldoutputs profiles profileids".split())
 
 
 @dataclass(frozen=True)
@@ -39,6 +43,8 @@ class Mesh:
 class SurfaceEvaluation:
     cage: Mesh
     levels: tuple[Mesh, ...]
+    intersection_counts: tuple[int, ...] = ()
+    clearance_ratios: tuple[tuple[str, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -88,34 +94,34 @@ def _orient(faces):
 
 def symbolic_topology():
     """Return fixed control IDs, oriented quads, and named cuff loops."""
-    rings = [[r * 8 + i for i in range(8)] for r in range(6)]
+    rings = [[r * 8 + i for i in range(8)] for r in range(7)]
     ids = ([f"ring.{name}.{i}" for name in RING_NAMES for i in range(8)] +
            [f"shoulder.{side}.{i}" for side in ("left", "right") for i in range(4)] +
            [f"thigh.{side}.{i}" for side in ("left", "right") for i in range(4)])
     removed, faces = {(1, 0), (1, 3)}, []
-    for level in range(5):
+    for level in range(6):
         for i in range(8):
             if (level, i) not in removed:
                 j = (i + 1) % 8
                 faces.append((rings[level][i], rings[level][j], rings[level + 1][j], rings[level + 1][i]))
-    for segment, collar in ((3, range(48, 52)), (0, range(52, 56))):
+    for segment, collar in ((3, range(56, 60)), (0, range(60, 64))):
         j = (segment + 1) % 8
         hole = (rings[1][segment], rings[1][j], rings[2][j], rings[2][segment])
         collar = tuple(collar)
         for i in range(4):
             faces.append((hole[i], hole[(i + 1) % 4], collar[(i + 1) % 4], collar[i]))
     # Symmetric pair-of-pants: each pelvic path follows its matching cuff.
-    left_path = (rings[5][2], rings[5][3], rings[5][4], rings[5][5], rings[5][6])
-    right_path = (rings[5][2], rings[5][1], rings[5][0], rings[5][7], rings[5][6])
-    for path, thigh in ((left_path, range(56, 60)), (right_path, range(60, 64))):
+    left_path = (rings[6][2], rings[6][3], rings[6][4], rings[6][5], rings[6][6])
+    right_path = (rings[6][2], rings[6][1], rings[6][0], rings[6][7], rings[6][6])
+    for path, thigh in ((left_path, range(64, 68)), (right_path, range(68, 72))):
         cuff = tuple(thigh) + (thigh.start,)
         for i in range(4):
             faces.append((path[i], path[i + 1], cuff[i + 1], cuff[i]))
-    faces.append((rings[5][2], 56, rings[5][6], 60))
-    loops = (("neck", tuple(rings[0])), ("left_arm", (48, 51, 50, 49)),
-             ("right_arm", (52, 55, 54, 53)),
-             ("left_thigh", (56, 59, 58, 57)),
-             ("right_thigh", (60, 61, 62, 63)))
+    faces.append((rings[6][2], 64, rings[6][6], 68))
+    loops = (("neck", tuple(rings[0])), ("left_arm", (56, 59, 58, 57)),
+             ("right_arm", (60, 63, 62, 61)),
+             ("left_thigh", (64, 67, 66, 65)),
+             ("right_thigh", (68, 69, 70, 71)))
     return tuple(ids), _orient(faces), loops
 
 
@@ -188,13 +194,14 @@ def _record(mapping, key, kind):
 def _prepared(prepared):
     if not isinstance(prepared, Mapping):
         raise ValueError("prepared input must be a mapping")
-    forbidden = {"profile", "profile_id", "profile-id"}
     pending = [prepared]
-    while pending:
-        item = pending.pop()
+    for item in pending:
         if isinstance(item, Mapping):
-            if any(str(key).lower() in forbidden for key in item):
+            keys = {"".join(char for char in str(key).lower() if char.isalnum()) for key in item}
+            if keys & {"profile", "profileid"}:
                 raise ValueError("profile identity is forbidden geometry input")
+            if keys & _FORBIDDEN_KEYS:
+                raise ValueError("forbidden prepared geometry input")
             pending.extend(item.values())
         elif isinstance(item, (tuple, list)):
             pending.extend(item)
@@ -210,21 +217,25 @@ def _prepared(prepared):
     L, U, F = (axis / np.linalg.norm(axis) for axis in axes)
     if any(not np.isfinite(axis).all() for axis in (L, U, F)) or np.dot(np.cross(L, U), F) < 0.999:
         raise ValueError("body frame must be orthonormal and right-handed")
-    constants = dict(CONSTANTS)
+    constants, constant_provenance = dict(CONSTANTS), {
+        key: f"formula_constant.{key}.v1" for key in CONSTANTS}
     for key in constants:
         if key in scalars:
             rec = _record(scalars, key, "scalar")
             constants[key] = _number(rec.get("value"), f"scalars.{key}.value")
+            constant_provenance[key] = rec["provenance"]
         low, high = RANGES[key]
         if not low <= constants[key] <= high:
             raise ValueError(f"scalar {key} outside frozen range")
-    return stations, landmarks, scalars, (L, U, F), constants, frame["provenance"]
+    return (stations, landmarks, scalars, (L, U, F), constants,
+            constant_provenance, frame["provenance"])
 
 
 def build_cage(prepared):
-    stations, landmarks, scalars, (L, _, F), constants, frame_prov = _prepared(prepared)
+    (stations, landmarks, scalars, (L, U, F), constants,
+     constant_provenance, frame_prov) = _prepared(prepared)
     ids, faces, loops = symbolic_topology()
-    validate_topology(64, faces, loops, EXPECTED_VALENCES)
+    validate_topology(72, faces, loops, EXPECTED_VALENCES)
     points, formulas, dependencies, provenance = [], [], [], []
 
     def station_values(name):
@@ -236,8 +247,30 @@ def build_cage(prepared):
                      ("center", "lateral_radius", "front_extent", "back_extent"))
         return center, values, deps, rec["provenance"]
 
-    ring_sources = RING_NAMES[:4] + ("lower_pelvis",)
+    def landmark(name):
+        rec = _record(landmarks, name, "landmark")
+        return _vector(rec.get("point"), f"landmarks.{name}.point"), rec["provenance"]
+
+    ring_sources = ("neck_collar", "upper_ribcage_shoulder", "lower_ribcage",
+                    "waist_abdomen", "lower_pelvis")
     ring_data = {name: station_values(name) for name in ring_sources}
+    lower = ring_data["lower_ribcage"]
+    upper = ring_data["upper_ribcage_shoulder"]
+    axilla_left, axilla_left_prov = landmark("axilla_left")
+    axilla_right, axilla_right_prov = landmark("axilla_right")
+    target = float(np.mean((np.dot(axilla_left, U), np.dot(axilla_right, U))))
+    denominator = float(np.dot(upper[0] - lower[0], U))
+    t = (target - float(np.dot(lower[0], U))) / denominator if denominator else float("nan")
+    if not isfinite(t) or not 0.0 < t < 1.0:
+        raise ValueError("axilla transition interpolation must have 0 < t < 1")
+    transition_center = (1 - t) * lower[0] + t * upper[0]
+    transition_values = tuple((1 - t) * a + t * b for a, b in zip(lower[1], upper[1]))
+    transition_deps = ("landmarks.axilla_left", "landmarks.axilla_right",
+                       "stations.lower_ribcage", "stations.upper_ribcage_shoulder",
+                       "frames.body")
+    transition_prov = "|".join((lower[3], upper[3], axilla_left_prov, axilla_right_prov))
+    ring_data["axilla_transition"] = (transition_center, transition_values,
+                                       transition_deps, transition_prov)
     lower = station_values("lower_abdomen")
     upper = station_values("upper_pelvis")
     lam = constants["lambda"]
@@ -245,7 +278,48 @@ def build_cage(prepared):
     iliac_values = tuple((1 - lam) * a + lam * b for a, b in zip(lower[1], upper[1]))
     ring_data["iliac_overlap"] = (iliac_center, iliac_values,
                                    lower[2] + upper[2] + ("scalars.lambda",),
-                                   f"{lower[3]}|{upper[3]}")
+                                   f"{lower[3]}|{upper[3]}|{constant_provenance['lambda']}")
+
+    arm_depth_record = _record(scalars, "arm_root_depth", "scalar")
+    arm_out_record = _record(scalars, "arm_root_outward", "scalar")
+    arm_depth = _number(arm_depth_record.get("value"),
+                        "scalars.arm_root_depth.value", True)
+    arm_out = _number(arm_out_record.get("value"),
+                      "scalars.arm_root_outward.value", True)
+    branch_data = {}
+    socket_data = {}
+    for side, sign, front_index, back_index in (
+            ("left", -1, 3, 4), ("right", 1, 1, 0)):
+        peak, peak_prov = landmark(f"shoulder_peak_{side}")
+        axilla, axilla_prov = landmark(f"axilla_{side}")
+        sigma = constants["shoulder"]
+        upper_center = (axilla + sigma * (peak - axilla) +
+                        sign * sigma * arm_out * L)
+        lower_center = axilla + sign * constants["axilla"] * arm_out * L
+        upper_dependencies = (f"landmarks.shoulder_peak_{side}",
+                              f"landmarks.axilla_{side}", "scalars.arm_root_depth",
+                              "scalars.arm_root_outward", "scalars.shoulder", "frames.body")
+        lower_dependencies = (f"landmarks.axilla_{side}", "scalars.arm_root_depth",
+                              "scalars.arm_root_outward", "scalars.axilla", "frames.body")
+        upper_provenance = (peak_prov, axilla_prov, arm_depth_record["provenance"],
+                            arm_out_record["provenance"], constant_provenance["shoulder"], frame_prov)
+        lower_provenance = (axilla_prov, arm_depth_record["provenance"],
+                            arm_out_record["provenance"], constant_provenance["axilla"], frame_prov)
+        branch_data[side] = (upper_center, lower_center, upper_dependencies, lower_dependencies,
+                             upper_provenance, lower_provenance)
+        for ring_name, center, branch_dependencies, branch_provenance in (
+                ("upper_ribcage_shoulder", upper_center, upper_dependencies, upper_provenance),
+                ("axilla_transition", lower_center, lower_dependencies, lower_provenance)):
+            station_center, (radius, front, back), station_deps, station_prov = ring_data[ring_name]
+            anchor = (station_center + ((front - back) / 2) * F +
+                      sign * radius * L)
+            for index, depth_sign in ((front_index, 1), (back_index, -1)):
+                point = (float(np.dot(anchor, L)) * L +
+                        float(np.dot(center, U)) * U +
+                        (float(np.dot(center, F)) + depth_sign * arm_depth) * F)
+                socket_data[(ring_name, index)] = (
+                    point, station_deps + branch_dependencies,
+                    (station_prov,) + branch_provenance)
     for name in RING_NAMES:
         center, (radius, front, back), deps, prov = ring_data[name]
         depth_center = center + ((front - back) / 2) * F
@@ -258,36 +332,47 @@ def build_cage(prepared):
             power = 2 / constants["n"]
             point = depth_center + radius * np.sign(x) * abs(x) ** power * L
             point += depth * np.sign(z) * abs(z) ** power * F
-            points.append(point); formulas.append("iliac.blend.superellipse" if name == "iliac_overlap" else "station.asymmetric_superellipse")
-            dependencies.append(deps + ("frames.body", "scalars.n")); provenance.append((prov, frame_prov))
+            formula = ("iliac.blend.superellipse" if name == "iliac_overlap" else
+                       "shoulder.axilla_transition" if name == "axilla_transition" else
+                       "station.asymmetric_superellipse")
+            dependencies_for_point = deps + ("frames.body", "scalars.n")
+            provenance_for_point = (prov, frame_prov, constant_provenance["n"])
+            if (name, i) in socket_data:
+                point, dependencies_for_point, provenance_for_point = socket_data[(name, i)]
+                formula = "shoulder.peak_axilla_collar"
+            points.append(point); formulas.append(formula)
+            dependencies.append(dependencies_for_point); provenance.append(provenance_for_point)
 
-    def landmark(name):
-        rec = _record(landmarks, name, "landmark")
-        return _vector(rec.get("point"), f"landmarks.{name}.point"), rec["provenance"]
-
-    arm_depth = _number(_record(scalars, "arm_root_depth", "scalar").get("value"),
-                        "scalars.arm_root_depth.value", True)
-    arm_out = _number(_record(scalars, "arm_root_outward", "scalar").get("value"),
-                      "scalars.arm_root_outward.value", True)
     for side, sign in (("left", -1), ("right", 1)):
-        peak, peak_prov = landmark(f"shoulder_peak_{side}")
-        axilla, axilla_prov = landmark(f"axilla_{side}")
-        upper_center = peak + sign * constants["shoulder"] * arm_out * L
-        lower_center = axilla + sign * constants["axilla"] * arm_out * L
+        (upper_center, lower_center, upper_dependencies, lower_dependencies,
+         upper_provenance, lower_provenance) = branch_data[side]
         collar = (upper_center - F * arm_depth, upper_center + F * arm_depth,
                   lower_center + F * arm_depth, lower_center - F * arm_depth)
         if side == "left":
             collar = (collar[1], collar[0], collar[3], collar[2])
-        for point in collar:
+        for point, point_dependencies, point_provenance in zip(
+                collar, (upper_dependencies,) * 2 + (lower_dependencies,) * 2,
+                (upper_provenance,) * 2 + (lower_provenance,) * 2):
             points.append(point); formulas.append("shoulder.peak_axilla_collar")
-            dependencies.append((f"landmarks.shoulder_peak_{side}", f"landmarks.axilla_{side}",
-                                 "scalars.arm_root_depth", "scalars.arm_root_outward",
-                                 "scalars.shoulder", "scalars.axilla", "frames.body"))
-            provenance.append((peak_prov, axilla_prov, frame_prov))
+            dependencies.append(point_dependencies); provenance.append(point_provenance)
 
-    thigh_radius = _number(_record(scalars, "thigh_lateral_radius", "scalar").get("value"),
+    for sign, pairs in ((-1, ((11, 56), (12, 57), (19, 59), (20, 58))),
+                        (1, ((8, 60), (9, 61), (17, 62), (16, 63)))):
+        directions = []
+        for socket, collar in pairs:
+            delta = points[collar] - points[socket]
+            lateral_component = float(np.dot(delta, L)) * L
+            if np.linalg.norm(delta - lateral_component) > 1e-10:
+                raise ValueError("shoulder socket bridge is not purely lateral")
+            directions.append(sign * float(np.dot(delta, L)))
+        if not directions or any(value * directions[0] <= 0 for value in directions):
+            raise ValueError("shoulder socket bridges do not share a direction")
+
+    thigh_radius_record = _record(scalars, "thigh_lateral_radius", "scalar")
+    thigh_depth_record = _record(scalars, "thigh_depth", "scalar")
+    thigh_radius = _number(thigh_radius_record.get("value"),
                            "scalars.thigh_lateral_radius.value", True)
-    thigh_depth = _number(_record(scalars, "thigh_depth", "scalar").get("value"),
+    thigh_depth = _number(thigh_depth_record.get("value"),
                           "scalars.thigh_depth.value", True)
     pelvis_center, (pelvis_radius, _, _), _, pelvis_prov = ring_data["lower_pelvis"]
     for side, sign in (("left", -1), ("right", 1)):
@@ -309,7 +394,9 @@ def build_cage(prepared):
             dependencies.append((f"landmarks.thigh_start_{side}", f"landmarks.thigh_mid_{side}",
                                  "scalars.thigh_lateral_radius", "scalars.thigh_depth",
                                  "scalars.eta", "scalars.gamma", "stations.lower_pelvis", "frames.body"))
-            provenance.append((start_prov, mid_prov, pelvis_prov, frame_prov))
+            provenance.append((start_prov, mid_prov, pelvis_prov, frame_prov,
+                               thigh_radius_record["provenance"], thigh_depth_record["provenance"],
+                               constant_provenance["eta"], constant_provenance["gamma"]))
     vertices = tuple(tuple(float(v) for v in point) for point in points)
     mesh = Mesh(vertices, faces, ids, tuple(formulas), tuple(dependencies),
                 tuple(provenance), loops)
@@ -387,16 +474,20 @@ def _subdivide_once(mesh, level):
             neighbors = sorted(boundary_neighbors[i])
             value = (6 * point + vertices[neighbors[0]] + vertices[neighbors[1]]) / 8
             formula = "catmull_clark.open_boundary_vertex"
-            dependency = (mesh.control_ids[i], mesh.control_ids[neighbors[0]], mesh.control_ids[neighbors[1]])
+            dependency_indices = (i, *neighbors)
+            dependency = tuple(mesh.control_ids[j] for j in dependency_indices)
         else:
             faces = incident_faces[i]; edges = incident_edges[i]; n = len(faces)
             favg = np.mean(face_points[faces], axis=0)
             ravg = np.mean([(vertices[a] + vertices[b]) / 2 for a, b in edges], axis=0)
             value = (favg + 2 * ravg + (n - 3) * point) / n
             formula = "catmull_clark.interior_vertex"
-            dependency = (mesh.control_ids[i],) + tuple(mesh.control_ids[j] for e in edges for j in e if j != i)
+            dependency_indices = tuple(v for fi in faces for v in mesh.quads[fi])
+            dependency = tuple(mesh.control_ids[j] for j in dependency_indices)
         new_vertices.append(value); ids.append(f"L{level}.v.{mesh.control_ids[i]}")
-        formulas.append(formula); deps.append(tuple(dict.fromkeys(dependency))); prov.append(mesh.provenance_ids[i])
+        formulas.append(formula); deps.append(tuple(dict.fromkeys(dependency)))
+        prov.append(tuple(dict.fromkeys(p for j in dependency_indices
+                                     for p in mesh.provenance_ids[j])))
     edge_index = {}
     for edge in edge_keys:
         edge_index[edge] = len(new_vertices)
@@ -411,7 +502,10 @@ def _subdivide_once(mesh, level):
                 mesh.control_ids[v] for use in edge_uses for v in mesh.quads[use[0]])
         new_vertices.append(value); ids.append(f"L{level}.e.{mesh.control_ids[a]}|{mesh.control_ids[b]}")
         formulas.append(formula); deps.append(tuple(dict.fromkeys(dependency)))
-        prov.append(tuple(dict.fromkeys(mesh.provenance_ids[a] + mesh.provenance_ids[b])))
+        source_indices = (a, b) if len(edge_uses) == 1 else (a, b, *(
+            vertex for use in edge_uses for vertex in mesh.quads[use[0]]))
+        prov.append(tuple(dict.fromkeys(p for index in source_indices
+                                       for p in mesh.provenance_ids[index])))
     face_indices = []
     for fi, face in enumerate(mesh.quads):
         face_indices.append(len(new_vertices)); new_vertices.append(face_points[fi])
@@ -441,10 +535,23 @@ def _subdivide_once(mesh, level):
 def evaluate(prepared, levels=2):
     if levels not in (1, 2):
         raise ValueError("levels must be one or two")
+    _, _, _, (lateral, up, forward), _, _, _ = _prepared(prepared)
     cage = build_cage(prepared)
     outputs = []
+    intersection_counts, clearance_ratios = [], ()
     current = cage
     for level in range(1, levels + 1):
         current = _subdivide_once(current, level)
+        scale = validate_geometry(current, evaluated=True)
+        pairs = mesh_correctness.validate_triangle_intersections(
+            current.vertices, current.triangles, scale)
+        intersection_counts.append(len(pairs))
+        if level == 2:
+            values = mesh_correctness.validate_boundary_clearances(
+                current.vertices, dict(current.boundary_loops),
+                {"L": lateral, "U": up, "F": forward}, scale)
+            clearance_ratios = tuple((name, float(values[name])) for name in (
+                "neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
         outputs.append(current)
-    return SurfaceEvaluation(cage, tuple(outputs))
+    return SurfaceEvaluation(cage, tuple(outputs), tuple(intersection_counts),
+                             clearance_ratios)
