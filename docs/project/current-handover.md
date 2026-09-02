@@ -9,10 +9,10 @@ with live verification and navigation.
 The following values are expected last-known context and are explicitly
 untrusted until verified live:
 
-- Checkout: `/home/ben/src/creature-kernel-worktrees/surface-domain-runway`
-- Worktree: `/home/ben/src/creature-kernel-worktrees/surface-domain-runway`
-- Branch: `codex/surface-domain-runway`
-- Pull request: draft PR #124
+- Checkout: `/home/ben/src/creature-kernel-worktrees/programmatic-root-complex-surface`
+- Worktree: `/home/ben/src/creature-kernel-worktrees/programmatic-root-complex-surface`
+- Branch: `codex/programmatic-root-complex-surface`
+- Pull request: pending implementation PR (not yet created; no number assigned)
 
 ## Live verification checklist
 
