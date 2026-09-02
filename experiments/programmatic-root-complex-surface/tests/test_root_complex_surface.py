@@ -399,6 +399,7 @@ class FormulaAndInputTests(unittest.TestCase):
             side = socket_sides[socket]
             sign = -1 if side == "left" else 1
             directions[side].append(sign * float(np.dot(delta, lateral)))
+        self.assertEqual((len(directions["left"]), len(directions["right"])), (4, 4))
         for values in directions.values():
             self.assertTrue(all(value * values[0] > 0.0 for value in values))
 

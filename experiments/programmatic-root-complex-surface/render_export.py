@@ -79,10 +79,10 @@ def write_skin_ply(path: str | Path, vertices: object, quads: object) -> None:
     _write_new(path, _ply_bytes(points, triangles))
 
 
-def _frames(points: np.ndarray) -> tuple[list[np.ndarray], list[np.ndarray], float]:
+def _frame_data(points: np.ndarray) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray], float]:
     coordinate_bound = float(np.max(np.abs(points)))
-    points = points / coordinate_bound if coordinate_bound > np.finfo(np.float64).max / 4.0 else points
-    cameras = [points @ basis.T for basis in _VIEW_BASES]
+    normalized_points = points / coordinate_bound if coordinate_bound > np.finfo(np.float64).max / 4.0 else points
+    cameras = [normalized_points @ basis.T for basis in _VIEW_BASES]
     if not all(np.isfinite(camera).all() for camera in cameras):
         raise ValueError("projected coordinates must be finite")
     spans = [np.ptp(camera[:, :2], axis=0) for camera in cameras]
@@ -90,6 +90,12 @@ def _frames(points: np.ndarray) -> tuple[list[np.ndarray], list[np.ndarray], flo
     available = np.asarray(PANEL_SIZE, dtype=np.float64) - 2.0 * PANEL_MARGIN
     scale = float(np.min(available / np.maximum(maximum, 1.0e-12)))
     centres = [(camera[:, :2].min(axis=0) + camera[:, :2].max(axis=0)) * 0.5 for camera in cameras]
+    return normalized_points, cameras, centres, scale
+
+
+def _frames(points: np.ndarray) -> tuple[list[np.ndarray], list[np.ndarray], float]:
+    """Return camera frames while retaining the historical private API."""
+    _, cameras, centres, scale = _frame_data(points)
     return cameras, centres, scale
 
 
@@ -121,17 +127,17 @@ def _rasterize_triangle(pixels: np.ndarray, depth: np.ndarray, camera: np.ndarra
 
 
 def _skin_png_bytes(points: np.ndarray, triangles: np.ndarray) -> bytes:
-    cameras, centres, scale = _frames(points)
-    coordinate_bound = float(np.max(np.abs(points)))
-    lighting_points = points / coordinate_bound if coordinate_bound > np.finfo(np.float64).max / 4.0 else points
+    lighting_points, cameras, centres, scale = _frame_data(points)
+    colours = []
+    for triangle in triangles:
+        normal = np.cross(lighting_points[triangle[1]] - lighting_points[triangle[0]], lighting_points[triangle[2]] - lighting_points[triangle[0]])
+        length = float(np.linalg.norm(normal))
+        brightness = 0.38 if length == 0.0 else 0.38 + 0.62 * max(0.0, float(np.dot(normal / length, _LIGHT)))
+        colours.append(tuple(int(round(channel * brightness)) for channel in _BASE_COLOUR))
     pixels = np.full((CANVAS_SIZE[1], CANVAS_SIZE[0], 3), _BACKGROUND, dtype=np.uint8)
     for panel, camera in enumerate(cameras):
         depth = np.full((CANVAS_SIZE[1], CANVAS_SIZE[0]), -np.inf, dtype=np.float64)
-        for triangle in triangles:
-            normal = np.cross(lighting_points[triangle[1]] - lighting_points[triangle[0]], lighting_points[triangle[2]] - lighting_points[triangle[0]])
-            length = float(np.linalg.norm(normal))
-            brightness = 0.38 if length == 0.0 else 0.38 + 0.62 * max(0.0, float(np.dot(normal / length, _LIGHT)))
-            colour = tuple(int(round(channel * brightness)) for channel in _BASE_COLOUR)
+        for triangle, colour in zip(triangles, colours):
             _rasterize_triangle(pixels, depth, camera, triangle, centres[panel], scale, panel, colour)
     image = Image.fromarray(pixels, mode="RGB")
     draw = ImageDraw.Draw(image)
@@ -150,7 +156,7 @@ def render_skin_png(path: str | Path, vertices: object, quads: object) -> None:
 
 
 def _cage_png_bytes(points: np.ndarray, quads: np.ndarray) -> bytes:
-    cameras, centres, scale = _frames(points)
+    _, cameras, centres, scale = _frame_data(points)
     image = Image.new("RGB", CANVAS_SIZE, _BACKGROUND)
     draw = ImageDraw.Draw(image)
     for panel, camera in enumerate(cameras):
