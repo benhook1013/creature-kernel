@@ -1135,6 +1135,14 @@ process.stdout.write(JSON.stringify({
             },
         )
 
+    def test_regional_exact_five_thumbnails_match_capture_aspect_ratio(self):
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        self.assertIn(
+            ".regional-exact-five-gallery .image-button img { aspect-ratio: 6 / 5; }",
+            css,
+        )
+        self.assertIn("object-fit: contain", css)
+
     def test_subject_context_leads_with_purpose_and_collapses_json_by_default(self):
         context_setup = r'''
 function element(tagName) {
@@ -1308,6 +1316,13 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertIn("white-space: nowrap", css)
         self.assertIn("@media (max-width: 52rem)", css)
         self.assertIn("flex-wrap: wrap", css)
+
+    def test_image_comparator_reserves_position_label_space_for_stable_navigation(self):
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        self.assertIn(
+            ".image-position { flex: 0 0 24rem; width: 24rem; max-width: 100%; min-width: 0;",
+            css,
+        )
 
     def test_image_comparator_names_requested_item_during_initial_load(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")

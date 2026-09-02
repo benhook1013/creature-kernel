@@ -1559,8 +1559,12 @@ def _derive_pelvis_hip_cup_chain(
     rim_center = _tuple3(boundary_center, f"{route_name}.hip-cup-rim.center")
     seat_center = _tuple3(seat_center_raw, f"{route_name}.pelvis-seat.center")
     thigh_center = np.asarray(thigh_station.center, dtype=np.float64)
-    neck_center = np.asarray(rim_center, dtype=np.float64) + FEMORAL_NECK_CENTER_FACTOR * (
+    up_axis = np.asarray(initial_basis.axial_axis, dtype=np.float64)
+    neck_toward_thigh = FEMORAL_NECK_CENTER_FACTOR * (
         thigh_center - np.asarray(rim_center, dtype=np.float64)
+    )
+    neck_center = np.asarray(rim_center, dtype=np.float64) + up_axis * float(
+        np.dot(neck_toward_thigh, up_axis)
     )
     neck_radii = FEMORAL_NECK_RADIUS_FACTOR * rim_radii
     if not (0.0 < FEMORAL_NECK_CENTER_FACTOR < 1.0 and np.all(neck_radii < rim_radii)):
@@ -1645,7 +1649,7 @@ def _derive_pelvis_hip_cup_chain(
         0.0,
         _tuple3(neck_center, f"{route_name}.femoral-neck.center"),
         neck_radii,
-        "hip-cup-rim+0.55*(authored-thigh-start-hip-cup-rim);hip-cup-rim-radii*0.72",
+        "hip-cup-rim+up_axis*dot(0.55*(authored-thigh-start-hip-cup-rim),up_axis);hip-cup-rim-radii*0.72",
         f"derived-femoral-neck:pelvis={_key_text(pelvis_key)}:thigh={_key_text(thigh_key)}",
     )
     return (seat, rim, neck), (seat_evidence, rim_evidence, neck_evidence), {

@@ -88,6 +88,79 @@ class StructuralProfileSourceManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(validator.StructuralProfileSourceManifestError, message):
             validator.validate_structural_profile_source_manifest(manifest_path)
 
+    def test_import_does_not_mutate_sys_path(self) -> None:
+        module_name = "structural_profile_manifest_import_path_test"
+        original_path = sys.path.copy()
+        unconfigured_path = [entry for entry in original_path if entry != str(EXPERIMENT_ROOT)]
+        self.assertNotIn(str(EXPERIMENT_ROOT), unconfigured_path)
+
+        try:
+            with patch.object(sys, "path", unconfigured_path):
+                _load_module(module_name, VISUAL_REVIEW_ROOT / "structural_profile_source_manifest.py")
+                self.assertEqual(sys.path, unconfigured_path)
+        finally:
+            sys.modules.pop(module_name, None)
+
+        self.assertEqual(sys.path, original_path)
+
+    def test_validation_works_without_experiment_root_on_sys_path(self) -> None:
+        original_path = sys.path.copy()
+        unconfigured_path = [entry for entry in original_path if entry != str(EXPERIMENT_ROOT)]
+        helper_before = sys.modules.get("structural_atomic_publish")
+
+        with patch.object(sys, "path", unconfigured_path):
+            path_before_validation = sys.path.copy()
+            result = validator.validate_structural_profile_source_manifest(self.manifest_path)
+            self.assertEqual(sys.path, path_before_validation)
+            self.assertEqual(result.profile_ids, tuple(PROFILE_IDS))
+            self.assertIs(sys.modules.get("structural_atomic_publish"), helper_before)
+
+        self.assertEqual(sys.path, original_path)
+
+    def test_generator_snapshot_restores_process_state_after_success_and_failure(self) -> None:
+        generator_path = validator.EXPERIMENT_ROOT / "generate_structural_profile_sources.py"
+        _, generator_bytes = validator._read_regular_file(
+            generator_path,
+            validator.MAX_GENERATOR_BYTES,
+            "active profile generator",
+        )
+        original_path = sys.path.copy()
+        unconfigured_path = [entry for entry in original_path if entry != str(EXPERIMENT_ROOT)]
+        missing = object()
+        helper_before = sys.modules.pop("structural_atomic_publish", missing)
+
+        try:
+            with patch.object(sys, "path", unconfigured_path):
+                path_before_success = sys.path.copy()
+                modules_before_success = sys.modules.copy()
+                snapshot = validator._execute_generator_snapshot(generator_path, generator_bytes)
+                self.assertIsInstance(
+                    snapshot.structural_atomic_publish,
+                    validator._UnavailableGeneratorDependency,
+                )
+                self.assertNotIn("structural_atomic_publish", sys.modules)
+                self.assertEqual(sys.path, path_before_success)
+                self.assertEqual(sys.modules, modules_before_success)
+
+                failing_source = generator_bytes + b"\nstructural_atomic_publish.AtomicPublishError\n"
+                path_before_failure = sys.path.copy()
+                modules_before_failure = sys.modules.copy()
+                with self.assertRaisesRegex(
+                    validator.StructuralProfileSourceManifestError,
+                    "active profile generator snapshot could not be executed",
+                ):
+                    validator._execute_generator_snapshot(generator_path, failing_source)
+                self.assertNotIn("structural_atomic_publish", sys.modules)
+                self.assertEqual(sys.path, path_before_failure)
+                self.assertEqual(sys.modules, modules_before_failure)
+        finally:
+            if helper_before is missing:
+                sys.modules.pop("structural_atomic_publish", None)
+            else:
+                sys.modules["structural_atomic_publish"] = helper_before
+
+        self.assertEqual(sys.path, original_path)
+
     def test_valid_bundle_returns_ordered_immutable_records_and_lineage(self) -> None:
         result = validator.validate_structural_profile_source_manifest(self.manifest_path)
         manifest_value = self._read_manifest(self.manifest_path)

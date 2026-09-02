@@ -727,6 +727,111 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
                 self.assertTrue(all(item["control_local_final_skin_influence"] is False for item in control_witnesses))
                 self.assertTrue(all(item["control_local_final_skin_influence_status"] == "unverified" for item in control_witnesses))
 
+    def test_authority_witness_maps_local_score_order_to_actual_global_root_candidates(self) -> None:
+        patch_identifier = "interface:torso->left-arm"
+        control_identity = "source-landmark:left-shoulder-peak"
+        score_by_root = (100.0, 99.0, 98.0, 97.0, 96.0, 95.0, 94.0, 93.0, 10.0, 92.0, 9.0, 91.0)
+        roots = np.asarray([(float(index), 0.0, 0.0) for index in range(len(score_by_root))], dtype=np.float64)
+        roots[10] = (10.0, 3.0, 0.0)
+        local_root_indices = np.flatnonzero(
+            np.sum(((roots - np.asarray((10.0, 0.0, 0.0))) / np.asarray((1.0, 1.0, 1.0))) ** 2, axis=1) <= 1.0
+        )
+        self.assertEqual(local_root_indices.tolist(), [9, 11])
+
+        class FakeAuthority:
+            def __init__(self, identifier: str, value: float) -> None:
+                self.identifier = identifier
+                self.bounds = ((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0))
+                self.value = value
+
+            def gate(self, points: object) -> np.ndarray:
+                array = np.asarray(points, dtype=np.float64)
+                return np.full(len(np.atleast_2d(array)), self.value, dtype=np.float64)
+
+        class FakeTrace:
+            def __init__(self, *, semantic_keys: tuple[str, ...], interface: bool) -> None:
+                self.semantic_keys = semantic_keys
+                self.children = ()
+                self.sensitivity = (1.0,)
+                self.operator = "parent-targeted-interface-patch" if interface else "source"
+                self.authority_id = "authority:torso->left-arm" if interface else None
+                self.parent_id = "torso" if interface else None
+                self.child_id = "left-arm" if interface else None
+
+            def reconstruct(self) -> float:
+                return 0.0
+
+            def as_dict(self) -> dict[str, object]:
+                return {"operator": self.operator, "semantic_keys": list(self.semantic_keys)}
+
+        class FakeCounterfactualField:
+            def evaluate(self, points: object) -> object:
+                array = np.asarray(points, dtype=np.float64)
+                values = np.asarray(
+                    [score_by_root[int(round(point[0]))] for point in np.atleast_2d(array)],
+                    dtype=np.float64,
+                )
+                return float(values[0]) if array.ndim == 1 else values
+
+        full_authority = FakeAuthority("authority:torso->left-arm", 1.0)
+        omitted_authority = FakeAuthority("authority:torso->left-arm", 0.0)
+        interface_patch = SimpleNamespace(
+            identifier=patch_identifier,
+            semantic_key=patch_identifier,
+            parent_name="torso",
+            child_name="left-arm",
+            authority=full_authority,
+            blend_radius=0.04,
+        )
+        counterfactual_patch = SimpleNamespace(
+            identifier=patch_identifier,
+            semantic_key=patch_identifier,
+            parent_name="torso",
+            child_name="left-arm",
+            authority=omitted_authority,
+            blend_radius=0.04,
+        )
+
+        class FakeCandidate:
+            field = SimpleNamespace(gradient=lambda point: np.zeros(3, dtype=np.float64))
+
+            def evaluate(self, points: object) -> object:
+                array = np.asarray(points, dtype=np.float64)
+                values = np.zeros(len(np.atleast_2d(array)), dtype=np.float64)
+                return float(values[0]) if array.ndim == 1 else values
+
+            def contribution_report(self, point: object) -> dict[str, object]:
+                index = int(round(float(np.asarray(point, dtype=np.float64)[0])))
+                weight = 1.0 if index in (9, 11) else 0.0
+                return {"geometric_influence": {"interfaces": {patch_identifier: weight}}}
+
+            def operation_trace(self, point: object) -> FakeTrace:
+                return FakeTrace(semantic_keys=(patch_identifier,), interface=True)
+
+        control = SimpleNamespace(
+            name="left-shoulder-peak",
+            center=(10.0, 0.0, 0.0),
+            radii=(1.0, 1.0, 1.0),
+            semantic_key=control_identity,
+            operation_trace=lambda point: FakeTrace(semantic_keys=(control_identity,), interface=False),
+            source_provenance=lambda point: {"source_semantic_keys": [control_identity]},
+        )
+
+        with patch.object(renderer, "_surface_edge_roots", return_value=tuple(roots)):
+            with patch.object(
+                renderer,
+                "_control_counterfactual",
+                return_value=(interface_patch, counterfactual_patch, FakeCounterfactualField()),
+            ):
+                witness = renderer._capture_authority_control_witness(FakeCandidate(), control)
+
+        self.assertEqual(witness["point"], roots[local_root_indices[0]].tolist())
+        self.assertEqual(witness["counterfactual_delta"], score_by_root[9])
+        self.assertEqual(witness["expected_path"], f"authority:{patch_identifier}")
+        self.assertEqual(witness["counterfactual_authority_bound_influence"], "proven")
+        self.assertEqual(witness["source_trace_semantic_keys"], [control_identity])
+        self.assertNotIn(control_identity, witness["trace_semantic_keys"])
+
     def test_missing_extra_and_undeclared_patches_fail_closed(self) -> None:
         candidate = self.candidate()
         with self.assertRaises(renderer.RegionalSurfacePreviewError):

@@ -21,6 +21,29 @@ preserve evidence but do not redefine current continuation.
 The `artifact-cache/...` prefix below is a logical local-cache identifier, not
 a repository path or a literal universal filesystem path.
 
+### Stage 1 visible-progress ledger (2026-09-03)
+
+This ledger is scoped to the current disk state and the exact gallery
+`regional-surface-wip-wrist-36ab72610d99`, together with Ben's 2026-09-03
+feedback. It separates implementation evidence from the latest actual
+final-skin result and from human acceptance.
+
+| Area | Underlying implementation | Latest final-skin visual result | Human acceptance | Next action |
+| --- | --- | --- | --- | --- |
+| Foundation/checkpoint | Regional foundation and publication exist; exact-five topology passes. | The published exact-five result still has visible blockers. | Overall checkpoint **not accepted**. | Apply the cumulative correction order below, then inspect the refreshed exact five and stop for Ben's appraisal. |
+| Torso/pelvis | Upper-pelvis flare correction is retained. | Bell flare is reduced, but torso/pelvis remains blocky and visually incomplete. | Not accepted as a visual floor. | Resolve remaining torso/pelvis visible blockers after actual hip/thigh seating. |
+| Hip seat/thigh roots | The `pelvis-seat -> hip-cup-rim -> femoral-neck -> authored thigh-start` route exists. | Final skin fails: legs/thigh roots emerge too centrally and form V/X convergence or a triangular shelf; they do not read as laterally seated hip sockets. | Not accepted. | Prioritize actual final-skin hip/thigh seating; it moves ahead of foot subtleties. |
+| Neck/collar | The lower-neck/collar improvement is retained but partial. | The skull-base/planted-head pinch remains. | Not accepted as solved. | Revisit after the higher-priority hip/thigh and torso/pelvis work. |
+| Wrists | Wrist narrowing is retained as a partial slice. | The final skin is visibly cone-shaped at the wrist transition. | Not accepted as final anatomy. | Keep as partial evidence; do not treat it as checkpoint completion. |
+| Shoulder/axilla | Four controls remain authority-only inputs to the existing `torso->arm` authority. | The attempted visible gate was rolled back/no-op; it is not visual progress. | No visual acceptance; authority-only status remains. | Preserve the rollback and do not reopen a visible gate in this ledger. |
+| Feet/ankles | Foot midpoints and the ankle-foot route remain pending. | No accepted final-skin improvement is established. | Pending. | Implement the foot/ankle route after hip/thigh seating and remaining torso/pelvis blockers. |
+
+The cumulative next-action order is: actual final-skin hip/thigh seating;
+remaining torso/pelvis visible blockers; foot/ankle route; then consolidated
+exact-five inspection and Ben appraisal. All corrections remain shared and
+causal, with no profile-keyed patches; this ledger records implementation and
+status truth, not a new product or architecture contract.
+
 ### Current destination
 
 Ben authorized a new Stage 1 runway on 2026-09-01. It retains hybrid surface

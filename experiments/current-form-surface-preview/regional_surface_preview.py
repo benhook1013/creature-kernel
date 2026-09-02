@@ -1937,8 +1937,9 @@ def _capture_authority_control_witness(candidate: Any, control: Any) -> dict[str
     ordered_indices = np.argsort(-scores, kind="stable")
     selected_indices = list(int(index) for index in ordered_indices[:8])
     selected_indices.extend(
-        int(index) for index in np.argsort(-scores[local_root_indices], kind="stable")[:8]
-        if int(local_root_indices[index]) not in selected_indices
+        int(local_root_indices[local_position])
+        for local_position in np.argsort(-scores[local_root_indices], kind="stable")[:8]
+        if int(local_root_indices[local_position]) not in selected_indices
     )
     best_local: tuple[float, dict[str, Any]] | None = None
     for root_index in selected_indices:

@@ -5,7 +5,9 @@ from dataclasses import replace
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -18,6 +20,7 @@ import numpy as np
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENT_ROOT = REPO_ROOT / "experiments/current-form-surface-preview"
 SOURCE_FORM = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+CLI = REPO_ROOT / "target/debug/creature-kernel"
 CANDIDATE_SPEC = importlib.util.spec_from_file_location(
     "regional_surface_candidate",
     EXPERIMENT_ROOT / "regional_surface_candidate.py",
@@ -29,6 +32,17 @@ CANDIDATE_SPEC.loader.exec_module(candidate_module)
 sys.path.insert(0, str(EXPERIMENT_ROOT))
 import generate_structural_profile_sources as profile_generator  # noqa: E402
 sys.path.pop(0)
+
+
+def inspection_command_prefix(cargo_path: str | None, cli_path: Path = CLI) -> list[str]:
+    if cargo_path:
+        return [cargo_path, "run", "-q", "-p", "creature-kernel-cli", "--"]
+    if cli_path.is_file() and os.access(cli_path, os.X_OK):
+        return [str(cli_path)]
+    raise AssertionError(
+        "neither cargo on PATH nor an executable fresh creature-kernel fallback is available: "
+        f"{cli_path}"
+    )
 
 
 def _prepared_radii(section, axes=("lateral", "up", "forward")) -> np.ndarray:
@@ -221,6 +235,53 @@ def _candidate_without_wrist_transition(candidate, side: str):
         replace(item, child=old_route) if item.child is route else item
         for item in candidate.field.interfaces
     )
+    field = hybrid.FullSectionComposite(candidate.chain, attachments, interfaces=interfaces)
+    return replace(
+        candidate,
+        routes=tuple(old_route if item is route else item for item in candidate.routes),
+        field=field,
+        mesh=None,
+    )
+
+
+def _candidate_without_femoral_neck_axis_decomposition(candidate, side: str):
+    """Reconstruct the diagonal femoral-neck route for a final-skin counterfactual."""
+
+    hybrid = candidate_module._load_hybrid()
+    route = next(item for item in candidate.routes if item.route_name == f"{side}-leg")
+    rim = route.sections[1]
+    neck = route.sections[2]
+    thigh = route.sections[3]
+    diagonal_center = np.asarray(rim.center, dtype=np.float64) + candidate_module.FEMORAL_NECK_CENTER_FACTOR * (
+        np.asarray(thigh.center, dtype=np.float64) - np.asarray(rim.center, dtype=np.float64)
+    )
+    diagonal_neck = hybrid.SectionStation(
+        neck.name,
+        neck.position,
+        tuple(diagonal_center),
+        neck.radii,
+        neck.semantic_key,
+        neck.source_key,
+        neck.source_index,
+    )
+    old_route = hybrid.AnisotropicSectionSweep(
+        route.sections[:2] + (diagonal_neck,) + route.sections[3:],
+        route.connections,
+        route.endpoint_closures,
+        route.route_name,
+    )
+    attachments = tuple(
+        replace(item, field=old_route) if item.field is route else item
+        for item in candidate.field.attachments
+    )
+    interfaces = []
+    for patch in candidate.field.interfaces:
+        kwargs = {}
+        if patch.parent is route:
+            kwargs["parent"] = old_route
+        if patch.child is route:
+            kwargs["child"] = old_route
+        interfaces.append(replace(patch, **kwargs) if kwargs else patch)
     field = hybrid.FullSectionComposite(candidate.chain, attachments, interfaces=interfaces)
     return replace(
         candidate,
@@ -516,9 +577,11 @@ def _expected_variant_geometry(form, profile_id: str) -> dict[str, object]:
         rim_center, seat_center, _ = _independent_endpoint_oracle(
             expected_chain, True, source_centers[0], mu,
         )
-        neck_center = rim_center + candidate_module.FEMORAL_NECK_CENTER_FACTOR * (
+        up_axis = np.asarray(expected_chain.regions[0].first_basis.axial_axis, dtype=np.float64)
+        neck_toward_thigh = candidate_module.FEMORAL_NECK_CENTER_FACTOR * (
             source_centers[0] - rim_center
         )
+        neck_center = rim_center + up_axis * float(np.dot(neck_toward_thigh, up_axis))
         legs[authored_side.side] = {
             "sections": source_sections,
             "cup": (
@@ -593,11 +656,9 @@ def _expected_interface_specs(geometry: dict[str, object]):
 class RegionalSurfaceCandidateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        command_prefix = inspection_command_prefix(shutil.which("cargo"))
         result = subprocess.run(
-            [
-                "cargo", "run", "-q", "-p", "creature-kernel-cli", "--",
-                "inspect-provisional-form", "--input", str(SOURCE_FORM),
-            ],
+            [*command_prefix, "inspect-provisional-form", "--input", str(SOURCE_FORM)],
             cwd=REPO_ROOT,
             check=True,
             capture_output=True,
@@ -614,13 +675,12 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
         )
         base_source = json.loads(SOURCE_FORM.read_text(encoding="utf-8"))
         generated_sources = profile_generator.generate_sources(candidate_table, base_source)
-        cli = REPO_ROOT / "target/debug/creature-kernel"
         cls.structural_prepared = {}
         for profile_id, source in zip(profile_generator.ACTIVE_PROFILE_IDS, generated_sources):
             source_path = structural_root / f"{profile_id}.json"
             source_path.write_text(json.dumps(source), encoding="utf-8")
             prepared = subprocess.run(
-                [str(cli), "inspect-provisional-form", "--input", str(source_path)],
+                [*command_prefix, "inspect-provisional-form", "--input", str(source_path)],
                 cwd=REPO_ROOT,
                 check=True,
                 capture_output=True,
@@ -835,7 +895,7 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
 
     def test_section_station_rejects_equal_but_wrong_authored_and_projected_indices(self) -> None:
         form = candidate_module._as_form(self.prepared)
-        _, descriptors, _ = candidate_module._variant(form, "neutral-v0")
+        variant_index, descriptors, _ = candidate_module._variant(form, "neutral-v0")
         authored = form.authored_head_neck_profile.sections[0]
         projected = form.variant_head_neck_profiles[variant_index].sections[0]
         malformed_authored = replace(authored, section_index=1)
@@ -1878,6 +1938,134 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
                 self.assertTrue(np.all(np.asarray(route.sections[2].radii) < np.asarray(route.sections[1].radii)))
                 for section in route.sections[:3]:
                     self.assertIn(section.semantic_key, {item["semantic_key"] for item in candidate.binding_evidence})
+
+    def test_femoral_neck_axis_decomposition_is_shared_bilateral_and_local_for_all_profiles(self) -> None:
+        expected_profiles = (
+            "standard_neutral_reference",
+            "compact_broad_short_limb_large_head",
+            "tall_narrow_long_legged",
+            "slender_long_limb",
+            "stocky_broad_chested",
+        )
+        self.assertEqual(tuple(self.structural_prepared), expected_profiles)
+        candidate_source = Path(candidate_module.__file__).read_text(encoding="utf-8")
+        for profile_id in expected_profiles:
+            self.assertNotIn(profile_id, candidate_source)
+
+        formula_signatures = set()
+        for structural_profile_id, prepared in self.structural_prepared.items():
+            with self.subTest(profile_id=structural_profile_id):
+                form = candidate_module._as_form(prepared)
+                candidate = candidate_module.build_regional_surface_candidate(
+                    form, "neutral-v0", mesh_samples=None,
+                )
+                route_records = {
+                    record["name"]: record for record in candidate.metadata["routes"]["routes"]
+                }
+                formula_signatures.add(
+                    (
+                        candidate.metadata["routes"]["hip_cup_chain_method"],
+                        tuple(
+                            route_records[f"{side}-leg"]["sections"][2]["derivation"]
+                            for side in ("left", "right")
+                        ),
+                        tuple(sorted(candidate.metadata["routes"]["hip_cup_factors"].items())),
+                    )
+                )
+
+                basis = candidate.chain.regions[0].first_basis
+                up_axis = np.asarray(basis.axial_axis, dtype=np.float64)
+                lateral_axis = np.asarray(basis.lateral_axis, dtype=np.float64)
+                forward_axis = np.asarray(basis.forward_axis, dtype=np.float64)
+                for side_index, side in enumerate(("left", "right")):
+                    route = candidate.routes[3 + side_index]
+                    rim = route.sections[1]
+                    neck = route.sections[2]
+                    thigh = route.sections[3]
+                    rim_center = np.asarray(rim.center, dtype=np.float64)
+                    thigh_center = np.asarray(thigh.center, dtype=np.float64)
+                    expected_center = rim_center + up_axis * float(
+                        np.dot(
+                            candidate_module.FEMORAL_NECK_CENTER_FACTOR * (thigh_center - rim_center),
+                            up_axis,
+                        )
+                    )
+                    np.testing.assert_allclose(neck.center, expected_center, rtol=0.0, atol=1.0e-12)
+                    self.assertAlmostEqual(
+                        float(np.dot(np.asarray(neck.center) - rim_center, lateral_axis)),
+                        0.0,
+                        places=12,
+                    )
+                    self.assertAlmostEqual(
+                        float(np.dot(np.asarray(neck.center) - rim_center, forward_axis)),
+                        0.0,
+                        places=12,
+                    )
+                    rim_up = float(np.dot(rim_center, up_axis))
+                    neck_up = float(np.dot(np.asarray(neck.center), up_axis))
+                    thigh_up = float(np.dot(thigh_center, up_axis))
+                    self.assertLess(min(rim_up, thigh_up), neck_up)
+                    self.assertLess(neck_up, max(rim_up, thigh_up))
+
+                    expected_thigh = _expected_variant_geometry(form, "neutral-v0")["legs"][side]["sections"][0]
+                    np.testing.assert_array_equal(thigh.center, expected_thigh["center"])
+                    np.testing.assert_array_equal(thigh.radii, expected_thigh["radii"])
+                    self.assertEqual(thigh.source_index, 0)
+                    self.assertEqual(
+                        thigh.source_key,
+                        candidate_module._source_route_key(
+                            (form.source["namespace"], (side,), "part", "thigh"),
+                            f"{side}-leg:thigh-start",
+                        ),
+                    )
+
+                    counterfactual = _candidate_without_femoral_neck_axis_decomposition(candidate, side)
+                    old_route = next(
+                        item for item in counterfactual.routes if item.route_name == f"{side}-leg"
+                    )
+                    self.assertIs(counterfactual.chain, candidate.chain)
+                    self.assertIs(counterfactual.stations, candidate.stations)
+                    self.assertIs(counterfactual.regions, candidate.regions)
+                    self.assertIs(counterfactual.controls, candidate.controls)
+                    self.assertEqual(len(old_route.sections), len(route.sections))
+                    self.assertEqual(len(old_route.connections), len(route.connections))
+                    for index, (actual, old) in enumerate(zip(route.sections, old_route.sections, strict=True)):
+                        self.assertEqual((actual.name, actual.position, actual.radii), (old.name, old.position, old.radii))
+                        self.assertEqual((actual.semantic_key, actual.source_key, actual.source_index), (old.semantic_key, old.source_key, old.source_index))
+                        if index != 2:
+                            np.testing.assert_array_equal(actual.center, old.center)
+                    self.assertNotEqual(route.sections[2].center, old_route.sections[2].center)
+                    for actual, old in zip(route.endpoint_closures, old_route.endpoint_closures, strict=True):
+                        self.assertEqual(actual, old)
+                    self.assertEqual(thigh.center, old_route.sections[3].center)
+                    self.assertEqual(thigh.radii, old_route.sections[3].radii)
+
+                    for actual_route, old_route_value in zip(
+                        candidate.routes, counterfactual.routes, strict=True
+                    ):
+                        if actual_route is not route:
+                            self.assertIs(actual_route, old_route_value)
+                    for actual_patch, old_patch in zip(
+                        candidate.interfaces, counterfactual.interfaces, strict=True
+                    ):
+                        self.assertEqual(actual_patch.identifier, old_patch.identifier)
+                        self.assertIs(actual_patch.authority, old_patch.authority)
+                        self.assertEqual(actual_patch.blend_radius, old_patch.blend_radius)
+                        self.assertEqual(actual_patch.semantic_key, old_patch.semantic_key)
+
+                left_route = candidate.routes[3]
+                right_route = candidate.routes[4]
+                for left_section, right_section in zip(left_route.sections, right_route.sections, strict=True):
+                    self.assertEqual(left_section.name, right_section.name)
+                    np.testing.assert_allclose(
+                        right_section.center,
+                        candidate_module._reflect_x(left_section.center, "test.left-leg.center"),
+                        rtol=0.0,
+                        atol=1.0e-12,
+                    )
+                    np.testing.assert_array_equal(left_section.radii, right_section.radii)
+
+        self.assertEqual(len(formula_signatures), 1)
 
     @unittest.skip("legacy two-section pelvis overlap test retained outside the bounded hip-cup slice")
     def test_all_structural_profiles_have_exact_finite_open_endpoint_overlaps(self) -> None:

@@ -8,6 +8,7 @@ validation path.
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import os
@@ -22,8 +23,6 @@ from typing import Any, NoReturn
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parents[2] / "experiments" / "current-form-surface-preview"
 REPOSITORY_ROOT = EXPERIMENT_ROOT.parents[1]
-if str(EXPERIMENT_ROOT) not in sys.path:
-    sys.path.insert(0, str(EXPERIMENT_ROOT))
 
 
 SOURCE_MANIFEST_FORMAT = "creature-kernel.disposable-structural-profile-source-manifest.v1"
@@ -43,6 +42,18 @@ VALIDATOR_IMPLEMENTATION_ID = (
 
 class StructuralProfileSourceManifestError(ValueError):
     """A bounded, fail-closed source-manifest validation failure."""
+
+
+_GENERATOR_PUBLISH_MODULE = "structural_atomic_publish"
+
+
+class _UnavailableGeneratorDependency(ModuleType):
+    """An explicitly unavailable publisher dependency for source-only execution."""
+
+    def __getattr__(self, name: str) -> NoReturn:
+        raise RuntimeError(
+            f"generator snapshot attempted to use unavailable {_GENERATOR_PUBLISH_MODULE}.{name}"
+        )
 
 
 # A descriptive alias keeps the public exception easy to discover for callers
@@ -277,16 +288,45 @@ def _read_regular_file(path: Path, maximum: int, where: str) -> tuple[Path, byte
 def _execute_generator_snapshot(path: Path, source: bytes) -> ModuleType:
     """Execute only the immutable generator bytes whose digest is recorded."""
 
+    original_path = sys.path
+    original_path_entries = original_path.copy()
+    original_modules = sys.modules
+    original_module_entries = original_modules.copy()
     try:
         module = ModuleType("_ck_structural_profile_generator_snapshot")
         module.__file__ = os.fspath(path)
         module.__package__ = ""
         module.__loader__ = None
+        unavailable_dependency = _UnavailableGeneratorDependency(_GENERATOR_PUBLISH_MODULE)
+        original_import = builtins.__import__
+
+        def import_snapshot_dependency(
+            name: str,
+            globals: dict[str, Any] | None = None,
+            locals: dict[str, Any] | None = None,
+            fromlist: object = (),
+            level: int = 0,
+        ) -> Any:
+            if level == 0 and name == _GENERATOR_PUBLISH_MODULE:
+                return unavailable_dependency
+            return original_import(name, globals, locals, fromlist, level)
+
+        snapshot_builtins = dict(vars(builtins))
+        snapshot_builtins["__import__"] = import_snapshot_dependency
+        module.__dict__["__builtins__"] = snapshot_builtins
         code = compile(source, os.fspath(path), "exec", dont_inherit=True)
         exec(code, module.__dict__)
         return module
     except Exception as exc:
         _fail(f"active profile generator snapshot could not be executed: {exc}")
+    finally:
+        if sys.path is not original_path:
+            sys.path = original_path
+        original_path[:] = original_path_entries
+        if sys.modules is not original_modules:
+            sys.modules = original_modules
+        original_modules.clear()
+        original_modules.update(original_module_entries)
 
 
 def _read_directory_file(
