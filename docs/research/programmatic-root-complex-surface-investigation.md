@@ -3,7 +3,7 @@
 Status: Terminal candidate outcome recorded; Ben-authorized bounded
 investigation; non-normative
 
-This is the settled plan for the next small investigation. It is an
+This records the settled plan and terminal result of the bounded,
 experiment-local, pre-Readiness-4 activity using explicitly identified
 authored/prepared input. It introduces no production `GeometryRequest` or
 `GeometryResult` contract, production-core dependency, claimed resolved graph,
@@ -39,12 +39,16 @@ to reactivate DR-0009, DR-0010, or another parked workstream.
 The contract owner and reproduction procedure remain
 [the experiment README](../../experiments/programmatic-root-complex-surface/README.md)
 and its [launcher](../../experiments/programmatic-root-complex-surface/root_complex_launcher.sh).
-The local generated evidence remains uncommitted under the artifact policy.
-For the terminal standard-neutral evidence, the recorded SHA-256 identities
-are:
+The local generated evidence remains uncommitted under the artifact policy. No
+approved durable binary artifact store exists, so generated binaries remain
+uncommitted; reproducibility is provided by the authoritative authored source,
+launcher, and recorded identities. For the terminal standard-neutral evidence,
+the recorded SHA-256 identities are:
 
 | Artifact | SHA-256 |
 | --- | --- |
+| `prepared.json` | `48503089e82b5332dc12caaad2b85eab8749639e2af8952a13badb4bff774916` |
+| `skin.ply` | `bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf` |
 | `skin.png` | `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce` |
 | `cage.png` | `06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046` |
 | `metrics.json` | `253786962faf206285a058804af58e4c19a40c643cc5cd1ed27d91242d018fa8` |

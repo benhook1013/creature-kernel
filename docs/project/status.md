@@ -128,14 +128,13 @@ roadmap, architecture, or executable truth.
 
 ### Closed candidate and stop state
 
-The active branch is `codex/post-godot-runway`; draft PR #122 remains open and
-unmerged. Its exact remote head, checks, and review state are live GitHub state
-and must be verified there rather than duplicated here: a commit that updates
-this paragraph would immediately make its own recorded hash stale. Before
-merge, the main thread must verify CI and the required hosted-plus-CLI review
-cycle on the pushed head and record the resulting dispositions in the PR. PR
-#122 still requires Ben's explicit authorization before merge; this branch/PR
-state does not reopen the runway or authorize another candidate.
+At that historical point, the then-active branch was
+`codex/post-godot-runway`; draft PR #122 was recorded as open and unmerged.
+This paragraph is historical context, not the current branch or PR state. Its
+remote head, checks, and review state must not be inferred from this record;
+any future reference must verify GitHub directly. PR #122 required Ben's
+explicit authorization before merge; that historical branch/PR state did not
+reopen the runway or authorize another candidate.
 
 The exact-five blocky smooth-union candidate and the regional candidate are
 closed and retained only as failed visual evidence. The regional candidate's
