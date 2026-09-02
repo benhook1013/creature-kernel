@@ -114,15 +114,15 @@ candidate record before rendering.
 All formulas are shared across sides, regions, and profiles. Initial constants
 and frozen exploratory ranges are:
 
-| Formula constant | Initial value | Frozen range |
+| Formula constant (scalar override key) | Initial value | Frozen range |
 | --- | ---: | ---: |
-| asymmetric-superellipse power `n` | 2.6 | [2.0, 3.2] |
-| iliac-overlap blend `lambda` | 0.25 | [0.0, 0.5] |
-| shoulder interpolation factor `sigma` | 0.80 | [0.70, 1.00] |
-| axilla outward factor | 0.55 | [0.35, 0.75] |
-| thigh-seat route fraction `eta` | 0.25 | [0.0, 0.5] |
-| medial-gap factor `gamma` | 0.08 | [0.04, 0.12] |
-| superior axial saddle `saddle` | 0.45 | [0.30, 0.60] |
+| asymmetric-superellipse power (`n`) | 2.6 | [2.0, 3.2] |
+| iliac-overlap blend (`lambda`) | 0.25 | [0.0, 0.5] |
+| shoulder interpolation factor (`shoulder`) | 0.80 | [0.70, 1.00] |
+| axilla outward factor (`axilla`) | 0.55 | [0.35, 0.75] |
+| thigh-seat route fraction (`eta`) | 0.25 | [0.0, 0.5] |
+| medial-gap factor (`gamma`) | 0.08 | [0.04, 0.12] |
+| superior axial saddle (`saddle`) | 0.45 | [0.30, 0.60] |
 
 The section coordinates use source-derived asymmetric superellipses with the
 visible shared power `n`. The iliac overlap uses the shared `lambda` blend.
@@ -158,11 +158,11 @@ now connect the upper-ribcage and transition rings at segment 3 on the left
 and segment 0 on the right. Shoulder-collar upper and lower pairs derive from
 the source shoulder-peak and axilla landmarks plus source arm-root extents and
 the two shared outward factors. In correction round 1, for side sign `s`
-(`-1` left, `+1` right), the shared formula uses `sigma` as follows:
+(`-1` left, `+1` right), the shared formula uses the `shoulder` scalar as follows:
 
 ```text
-upper_center = axilla + sigma * (shoulder_peak - axilla)
-               + s * sigma * arm_root_outward * L
+upper_center = axilla + shoulder * (shoulder_peak - axilla)
+               + s * shoulder * arm_root_outward * L
 lower_center = axilla + s * axilla_factor * arm_root_outward * L
 ```
 
@@ -268,10 +268,11 @@ extraordinary vertices or open ports.
 ## Determinism and causality
 
 The checkpoint determinism gate runs two fresh launcher processes with
-different `PYTHONHASHSEED` values in the same pinned environment. The prepared
-record, cage and evaluated PLY, dependency and metrics manifests, and
-metadata-free PNG must be byte-identical. Paths and timestamps are excluded
-from identity.
+different `PYTHONHASHSEED` values in the same pinned environment. The six
+published deterministic artifacts are `prepared.json`, `skin.ply`, `skin.png`,
+`cage.png`, `metrics.json`, and `manifest.json`; they must be byte-identical.
+Formula, dependency, and provenance IDs are in-memory construction records,
+not published artifacts. Paths and timestamps are excluded from identity.
 
 For causality, perturb admitted prepared controls and regenerate every output.
 Topology, IDs, and formula IDs must remain unchanged. Every generated control
@@ -365,11 +366,13 @@ which requires the sibling
 `experiments/current-form-surface-preview/surface_preview_launcher.sh` and
 delegates interpreter, pinned-environment, and temporary-root selection to it.
 The sibling launcher must exist and be executable; no fallback exists. Keep
-generated outputs in `/tmp` or the approved cache, never in Git. The initial
-neutral output set is expected to contain `prepared.json`, `skin.ply`,
-`skin.png`, `cage.png`, `metrics.json`, and `manifest.json`; large artifacts
-remain uncommitted. Metrics report the per-level intersection counts, a clear
-zero-intersection status, and the five final clearance ratios individually.
+generated outputs in `/tmp` or the approved cache, never in Git. The builder
+publishes exactly six deterministic artifacts: `prepared.json`, `skin.ply`,
+`skin.png`, `cage.png`, `metrics.json`, and `manifest.json`. Formula,
+dependency, and provenance IDs are in-memory construction records, not
+published artifacts. Large artifacts remain uncommitted. Metrics report the
+per-level intersection counts, a clear zero-intersection status, and the five
+final clearance ratios individually.
 
 From the repository root, copy-paste this standard-neutral build command:
 

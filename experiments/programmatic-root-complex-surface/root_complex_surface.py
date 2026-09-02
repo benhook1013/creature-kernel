@@ -141,7 +141,7 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
     uses = _edges(faces)
     if any(len(value) not in (1, 2) for value in uses.values()):
         raise ValueError("non-manifold edge")
-    _orient(faces)
+    if _orient(faces) != tuple(tuple(face) for face in faces): raise ValueError("shared interior edge uses the same direction")
     boundary = {edge for edge, value in uses.items() if len(value) == 1}
     boundary_directed = {(a, b) for value in uses.values() if len(value) == 1 for _, a, b in value}
     declared, declared_directed = set(), set()

@@ -133,10 +133,12 @@ class SymbolicTopologyTests(unittest.TestCase):
             surface.validate_topology(len(ids), quads[:-1] + ((0, 1, 2, 99),), loops)
         with self.assertRaisesRegex(ValueError, "declared boundary"):
             surface.validate_topology(len(ids), quads, loops[:-1])
-        reversed_loop = list(loops)
-        reversed_loop[1] = ("left_arm", tuple(reversed(loops[1][1])))
-        with self.assertRaisesRegex(ValueError, "directed winding"):
-            surface.validate_topology(len(ids), quads, tuple(reversed_loop))
+        reversed_loop = list(loops); reversed_loop[1] = ("left_arm", tuple(reversed(loops[1][1])))
+        with self.assertRaisesRegex(ValueError, "directed winding"): surface.validate_topology(len(ids), quads, tuple(reversed_loop))
+
+        same_direction = list(quads); same_direction[8] = tuple(reversed(same_direction[8]))
+        with self.assertRaisesRegex(ValueError, "same direction"): surface.validate_topology(len(ids), tuple(same_direction), loops)
+        reversed_faces = tuple(tuple(reversed(face)) for face in quads); reversed_loops = tuple((name, tuple(reversed(loop))) for name, loop in loops); self.assertEqual(surface.validate_topology(len(ids), reversed_faces, reversed_loops), surface.validate_topology(len(ids), quads, loops))
 
 
 class FormulaAndInputTests(unittest.TestCase):
@@ -306,6 +308,8 @@ class FormulaAndInputTests(unittest.TestCase):
         self.assertEqual((authored_cage.formula_ids[26], set(authored_cage.dependencies[26])),
                          ("station.asymmetric_superellipse", station_fields("lower_ribcage") | {"frames.body", "scalars.n"}))
 
+        exact_anchor = synthetic_prepared(); exact_anchor["stations"]["lower_ribcage"].update(center=(0.11, 0.72, 0.07), lateral_radius=1.0, front_extent=0.60, back_extent=0.56); exact_dependencies = set(surface.build_cage(exact_anchor).dependencies[26]); self.assertIn("stations.waist_abdomen.lateral_radius", exact_dependencies); self.assertNotIn("stations.upper_ribcage_shoulder.lateral_radius", exact_dependencies)
+
     def test_shoulder_bridges_are_outward_and_each_quad_is_unfolded(self):
         cage = surface.build_cage(synthetic_prepared()); _, faces, _ = surface.symbolic_topology()
         vertices = np.asarray(cage.vertices)
@@ -435,7 +439,7 @@ class FormulaAndInputTests(unittest.TestCase):
             target[path[-1]] = value
             with self.assertRaisesRegex(ValueError, "profile identity"):
                 surface.build_cage(prepared)
-        self.assertNotIn("profile", surface.build_cage.__code__.co_varnames)
+        self.assertFalse(any("profile" in name for name in surface.build_cage.__code__.co_varnames))
 
     def test_shared_formula_constants_have_local_expected_effects(self):
         baseline = surface.build_cage(synthetic_prepared())
@@ -643,8 +647,8 @@ class MeshCorrectnessTests(unittest.TestCase):
         axes = {"L": (1.0, 0.0, 0.0), "U": (0.0, 1.0, 0.0), "F": (0.0, 0.0, 1.0)}; scale = surface.validate_geometry(mesh, evaluated=True)
         baseline = mesh_correctness.boundary_clearance_ratios(vertices, loops, axes, scale)
         left, right = loops["left_thigh"], loops["right_thigh"]
-        lateral = np.asarray(axes["L"]); points = vertices / scale; medial_gap = float((points[list(right)] @ lateral).min() - (points[list(left)] @ lateral).max()); legacy_gap = float(np.dot(points[right[0]] - points[left[0]], lateral))
-        self.assertGreater(medial_gap, 0.0); self.assertEqual((baseline["groin"], medial_gap), (legacy_gap, legacy_gap))
+        lateral = np.asarray(axes["L"]); points = vertices / scale; left_lateral = points[list(left)] @ lateral; right_lateral = points[list(right)] @ lateral; medial_gap = float(right_lateral.min() - left_lateral.max()); groin_right = right[int(np.argmin(right_lateral))]; groin_left = left[int(np.argmax(left_lateral))]
+        self.assertGreater(medial_gap, 0.0); self.assertEqual(baseline["groin"], medial_gap)
         for left_shift, right_shift in ((i, j) for i in range(len(left)) for j in range(len(right))):
             rotated = dict(loops); rotated["left_thigh"] = left[left_shift:] + left[:left_shift]; rotated["right_thigh"] = right[right_shift:] + right[:right_shift]
             self.assertEqual(mesh_correctness.boundary_clearance_ratios(vertices, rotated, axes, scale), baseline)
@@ -653,9 +657,9 @@ class MeshCorrectnessTests(unittest.TestCase):
             if name in ("neck", "axilla_left", "axilla_right"):
                 loop_name = {"neck": "neck", "axilla_left": "left_arm", "axilla_right": "right_arm"}[name]; indices = loops[loop_name]; collapsed[list(indices)] = collapsed[indices[0]]
             elif name == "groin":
-                collapsed[loops["right_thigh"][0], 0] = collapsed[loops["left_thigh"][0], 0]
+                collapsed[groin_right, 0] = collapsed[groin_left, 0]
             else:
-                collapsed[right[0], 0] = collapsed[left[0], 0] + 0.022 * scale
+                collapsed[groin_right, 0] = collapsed[groin_left, 0] + 0.022 * scale
             with self.subTest(gate=name), self.assertRaisesRegex(ValueError, name):
                 mesh_correctness.validate_boundary_clearances(collapsed, loops, axes, scale)
 
