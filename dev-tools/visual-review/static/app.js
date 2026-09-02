@@ -120,8 +120,9 @@
       pre.setAttribute("aria-label", "Metadata for " + item.id);
       return pre;
     }
-    var details = jsonDisclosure("Technical metadata", item.metadata, "metadata", "json-disclosure metadata-disclosure");
-    details.setAttribute("aria-label", "Technical metadata for " + item.id);
+    var metadataLabel = "Technical metadata for " + item.id;
+    var details = jsonDisclosure(metadataLabel, item.metadata, "metadata", "json-disclosure metadata-disclosure");
+    details.setAttribute("aria-label", metadataLabel);
     return details;
   }
 

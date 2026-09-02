@@ -30,6 +30,13 @@ import generate_structural_profile_sources as profile_generator  # noqa: E402
 
 RENDERER_PATH = EXPERIMENT_ROOT / "regional_surface_preview.py"
 RENDER_MESH_SAMPLES = 56
+REQUIRED_PROFILE_IDS = (
+    "standard_neutral_reference",
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+)
 RENDERER_SPEC = importlib.util.spec_from_file_location("regional_surface_preview", RENDERER_PATH)
 assert RENDERER_SPEC and RENDERER_SPEC.loader
 renderer = importlib.util.module_from_spec(RENDERER_SPEC)
@@ -109,7 +116,12 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
             )
             return json.loads(result.stdout)
 
-        cls.profile_ids = tuple(renderer.EXTERNAL_PROFILE_IDS)
+        cls.profile_ids = REQUIRED_PROFILE_IDS
+        if tuple(renderer.EXTERNAL_PROFILE_IDS) != REQUIRED_PROFILE_IDS:
+            raise AssertionError(
+                "renderer external profiles do not match the required five profiles: "
+                f"expected={REQUIRED_PROFILE_IDS!r}, actual={tuple(renderer.EXTERNAL_PROFILE_IDS)!r}"
+            )
         cls.prepared_by_profile_id = {
             profile_id: inspect(generated_dir / f"{profile_id}.json")
             for profile_id in cls.profile_ids
@@ -127,6 +139,12 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
                 )
             except renderer.RegionalSurfacePreviewError as exc:
                 cls.render_failures_by_profile_id[profile_id] = str(exc)
+        if cls.render_failures_by_profile_id:
+            diagnostics = "\n".join(
+                f"  {profile_id}: {diagnostic}"
+                for profile_id, diagnostic in cls.render_failures_by_profile_id.items()
+            )
+            raise AssertionError(f"required profile render failures:\n{diagnostics}")
         cls.result = cls.results_by_profile_id[renderer.EXTERNAL_PROFILE_ID]
 
     @classmethod
@@ -250,16 +268,7 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
             builder.assert_not_called()
 
     def test_exact_five_generated_profiles_keep_external_source_and_neutral_candidate_bindings(self) -> None:
-        self.assertEqual(
-            self.profile_ids,
-            (
-                "standard_neutral_reference",
-                "compact_broad_short_limb_large_head",
-                "tall_narrow_long_legged",
-                "slender_long_limb",
-                "stocky_broad_chested",
-            ),
-        )
+        self.assertEqual(self.profile_ids, REQUIRED_PROFILE_IDS)
         self.assertEqual(self.profile_ids, tuple(profile_generator.ACTIVE_PROFILE_IDS))
 
         geometry_selection = "fixed neutral-v0; external profile identity does not branch geometry"
@@ -282,7 +291,6 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
                 prepared_identity = renderer._prepared_identity(prepared, form)
                 self.assertEqual(prepared_identity["document"], expected_document)
                 prepared_hashes.add(prepared_identity["sha256"])
-                source_hashes.add(prepared_identity["sha256"])
 
                 candidate = self.candidate_for(profile_id)
                 field, chain, routes, interfaces, controls = renderer._validate_candidate_contract(candidate, form)
@@ -326,6 +334,7 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
                 rendered_count += 1
                 metadata = result.metadata
                 source = metadata["source"]
+                source_hashes.add(source["sha256"])
                 self.assertEqual(metadata["profile_id"], profile_id)
                 self.assertEqual(metadata["source_variant_id"], renderer.SOURCE_VARIANT_ID)
                 self.assertEqual(source["document"], expected_document)
@@ -782,6 +791,10 @@ class RegionalSurfacePreviewTests(unittest.TestCase):
             renderer._capture_witness(disagreeing_candidate, "route:head-neck", point, "route:head-neck", "head-neck")
 
     def test_malformed_mesh_proofs_are_rejected_independently(self) -> None:
+        valid = valid_tetrahedron_proof()
+        valid_metadata = renderer._mesh_metadata(valid, 0.20)
+        self.assertTrue(valid_metadata["topology_proof"]["proven"])
+
         empty = valid_tetrahedron_proof(
             vertices=np.empty((0, 3), dtype=np.float64), faces=np.empty((0, 3), dtype=np.int64), normals=np.empty((0, 3), dtype=np.float64),
         )

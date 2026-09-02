@@ -66,12 +66,13 @@ fi
 
 cd -- "$REPOSITORY_ROOT"
 if [[ -n "$METHOD_PATTERN" ]]; then
+  TEST_OUTPUT_FILE="$(mktemp)"
+  trap 'rm -f -- "$TEST_OUTPUT_FILE"' EXIT
   set +e
-  TEST_OUTPUT="$("$LAUNCHER" -m unittest discover -s "$TEST_DIR" -p "$TEST_PATTERN" -k "$METHOD_PATTERN" 2>&1)"
-  TEST_STATUS="$?"
+  "$LAUNCHER" -m unittest discover -v -s "$TEST_DIR" -p "$TEST_PATTERN" -k "$METHOD_PATTERN" 2>&1 | tee "$TEST_OUTPUT_FILE"
+  TEST_STATUS="${PIPESTATUS[0]}"
   set -e
-  printf '%s\n' "$TEST_OUTPUT"
-  if grep -q '^Ran 0 tests' <<<"$TEST_OUTPUT"; then
+  if grep -q '^Ran 0 tests' "$TEST_OUTPUT_FILE"; then
     error "method selector '$METHOD_PATTERN' matched no tests in '$TEST_PATTERN'"
   fi
   if [[ "$TEST_STATUS" -ne 0 ]]; then
@@ -79,4 +80,4 @@ if [[ -n "$METHOD_PATTERN" ]]; then
   fi
   exit 0
 fi
-exec "$LAUNCHER" -m unittest discover -s "$TEST_DIR" -p "$TEST_PATTERN"
+exec "$LAUNCHER" -m unittest discover -v -s "$TEST_DIR" -p "$TEST_PATTERN"

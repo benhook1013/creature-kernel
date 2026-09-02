@@ -69,8 +69,9 @@ Ben's current instruction continues this same Stage 1 direction and authorizes
 shared, profile-independent corrections toward a refreshed exact-five
 checkpoint. The retained hip-cup baseline adds
 `pelvis-seat -> hip-cup-rim -> femoral-neck -> authored thigh-start` as actual
-final-skin route geometry. Twenty-four candidate tests pass with two legacy
-skips, and 17 preview tests pass; the exact five rendered as connected,
+final-skin route geometry. Twenty-nine candidate tests pass with two existing
+skips after removing duplicated topology remeshing, and 17 preview tests pass;
+the exact five rendered as connected,
 watertight, single-component surfaces. This is implementation evidence, not
 human acceptance or a completed visual floor. Each named visual-floor feature
 must be mapped to an actual final-skin consumer or influence, or explicitly
@@ -89,7 +90,9 @@ A bounded shared lateral-clearance cap was rejected and rolled back because
 seat-overlap/local-interface work is deferred, not silently accepted as solved.
 A bounded upper-ribcage source-radius restoration was also rejected and rolled
 back: it created a shoulder slab/bulge, and one neck-collar crossing test failed
-despite topology passing.
+despite topology passing. An attempted inserted derived torso-to-neck route/root
+station was rejected and rolled back because topology passed but the final
+pixels were visually no-op.
 
 The bounded shoulder/axilla slice is complete as authority-only causal input to
 the existing `torso->arm` authority. The four controls are
@@ -101,9 +104,9 @@ owned by the side-specific `part:upper_arm` AddressKey, with frame role
 `form_shoulder_control` and landmark role `form_shoulder_peak` or
 `form_axilla`. Their canonical source binding is the exact `source-landmark:`
 binding derived from those fields. Counterfactual authority-bound influence is
-proven. Local final-skin influence and shoulder/axilla visual-floor
-satisfaction remain unverified. Fresh vision found old and new visually no-op,
-with no regression; this slice is therefore not visually complete.
+proven. The attempted shoulder/axilla local gate was rejected and rolled back:
+causality and tests passed, but only ~0.54–0.64% of pixels changed
+and the shoulder shelf, axilla pits, and silhouette remained.
 
 The retained upper-pelvis correction bounds final upper pelvis by final lower
 pelvis, preserves the lower pelvis and hip cups, and passes exact-five topology.
@@ -112,13 +115,16 @@ profiles without meaningful regression, strongest for
 `stocky_broad_chested`. This remains implementation and advisory visual
 evidence, not human acceptance.
 
-The next implementation order toward the same checkpoint is the derived
-torso-to-neck root, then the bounded wrist/hand transition, then restoration of
-the two derived linear foot midpoints for contract completeness and field
-equivalence. Lower-rib, head-base, and joint-squeeze work remains later,
-evidence-dependent direct correction work, not new architecture. Publisher and
-schema correctness are implementation support, not the human checkpoint. The
-next human stop remains the refreshed exact-five checkpoint.
+The retained `+0.25` neck-collar up-radius lift is a modest shared lower
+neck–torso improvement across all five profiles, exact-five topology-safe at 56
+and 80 samples, with main-thread vision and fresh Sol-medium corroboration. It
+does not solve the upper skull-base/planted-head pinch, which remains later,
+evidence-dependent work. The next implementation order toward the same
+checkpoint is the bounded wrist/hand transition, then restoration of the two
+derived linear foot midpoints for contract completeness and field equivalence.
+Publisher and schema correctness are implementation support, not the human
+checkpoint. The next human stop remains the refreshed exact-five checkpoint;
+no merge is authorized before Ben accepts it.
 
 Use causal shared changes only, with no profile-keyed patches. There is no
 one-correction abandonment rule. Reconcile focused regression and fresh

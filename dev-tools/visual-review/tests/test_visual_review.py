@@ -33,6 +33,41 @@ serve = load_module("visual_review_serve", "serve.py")
 publish_structure = load_module("visual_review_publish_structure", "publish_structure.py")
 
 
+def run_app_in_node(
+    *,
+    entrypoint_replacement: str,
+    context_setup: str,
+    after_run: str = "",
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    script = (
+        r'''const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+if (source.split(entrypoint).length !== 2) {
+  throw new Error("unexpected browser app entrypoint");
+}
+source = source.replace(entrypoint, '''
+        + json.dumps(entrypoint_replacement)
+        + r''');
+'''
+        + context_setup
+        + r'''
+vm.runInNewContext(source, context, { filename: appPath });
+'''
+        + after_run
+    )
+    return subprocess.run(
+        ["node", "-e", script, str(HERE / "static" / "app.js")],
+        input=input_text,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
 class ReviewFixture(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -975,20 +1010,7 @@ class SubjectContextHTTPTests(ReviewFixture):
 
 class StaticAssetTests(unittest.TestCase):
     def test_regional_exact_five_markup_is_compact_and_json_is_collapsed(self):
-        script = r'''
-const fs = require("fs");
-const vm = require("vm");
-const appPath = process.argv[1];
-let source = fs.readFileSync(appPath, "utf8");
-const entrypoint = "  load();\n}());";
-if (source.split(entrypoint).length !== 2) {
-  throw new Error("unexpected browser app entrypoint");
-}
-source = source.replace(entrypoint, [
-  "  globalThis.__renderReview = renderReview;",
-  "}());",
-].join("\n"));
-
+        context_setup = r'''
 function element(tagName) {
   return {
     tagName: tagName,
@@ -1029,7 +1051,8 @@ const context = {
   },
   window: {},
 };
-vm.runInNewContext(source, context, { filename: appPath });
+'''
+        after_run = r'''
 
 function reviewCase(groupId, itemCount) {
   const items = Array.from({length: itemCount}, function (_, index) {
@@ -1075,11 +1098,10 @@ process.stdout.write(JSON.stringify({
   nonRegionalFive: reviewCase("other-gallery", 5),
 }));
 '''
-        completed = subprocess.run(
-            ["node", "-e", script, str(HERE / "static" / "app.js")],
-            capture_output=True,
-            text=True,
-            check=True,
+        completed = run_app_in_node(
+            entrypoint_replacement="  globalThis.__renderReview = renderReview;\n}());",
+            context_setup=context_setup,
+            after_run=after_run,
         )
         self.assertEqual(
             json.loads(completed.stdout),
@@ -1106,20 +1128,7 @@ process.stdout.write(JSON.stringify({
         )
 
     def test_json_disclosures_render_closed_metadata_and_descriptor_by_default(self):
-        script = r'''
-const fs = require("fs");
-const vm = require("vm");
-const appPath = process.argv[1];
-let source = fs.readFileSync(appPath, "utf8");
-const entrypoint = "  load();\n}());";
-if (source.split(entrypoint).length !== 2) {
-  throw new Error("unexpected browser app entrypoint");
-}
-source = source.replace(entrypoint, [
-  "  globalThis.__metadataBlock = metadataBlock;",
-  "  globalThis.__subjectContextBlock = subjectContextBlock;",
-  "}());",
-].join("\n"));
+        context_setup = r'''
 function element(tagName) {
   return {
     tagName: tagName,
@@ -1139,7 +1148,8 @@ const context = {
   },
   window: {},
 };
-vm.runInNewContext(source, context, { filename: appPath });
+'''
+        after_run = r'''
 function detailsSummary(details) {
   return {
     tagName: details.tagName,
@@ -1161,11 +1171,14 @@ process.stdout.write(JSON.stringify({
   provenance: detailsSummary(panel.children[2]),
 }));
 '''
-        completed = subprocess.run(
-            ["node", "-e", script, str(HERE / "static" / "app.js")],
-            capture_output=True,
-            text=True,
-            check=True,
+        completed = run_app_in_node(
+            entrypoint_replacement=(
+                "  globalThis.__metadataBlock = metadataBlock;\n"
+                "  globalThis.__subjectContextBlock = subjectContextBlock;\n"
+                "}());"
+            ),
+            context_setup=context_setup,
+            after_run=after_run,
         )
         rendered = json.loads(completed.stdout)
         self.assertEqual(
@@ -1174,7 +1187,7 @@ process.stdout.write(JSON.stringify({
                 "tagName": "details",
                 "className": "json-disclosure metadata-disclosure",
                 "open": False,
-                "summary": "Technical metadata",
+                "summary": "Technical metadata for profile-a",
                 "pre": '{\n  "seed": 3\n}',
                 "ariaLabel": "Technical metadata for profile-a",
             },
@@ -1185,33 +1198,24 @@ process.stdout.write(JSON.stringify({
 
     def test_image_accessible_labels_include_description_without_html_interpolation(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
-        script = r'''
-const fs = require("fs");
-const vm = require("vm");
-const appPath = process.argv[1];
-let source = fs.readFileSync(appPath, "utf8");
-const entrypoint = "  load();\n}());";
-if (source.split(entrypoint).length !== 2) {
-  throw new Error("unexpected browser app entrypoint");
-}
-source = source.replace(entrypoint, "  globalThis.__imageAccessibleLabel = imageAccessibleLabel;\n}());");
+        context_setup = r'''
 const context = {
   document: { getElementById: function () { return null; } },
   window: {}
 };
-vm.runInNewContext(source, context, { filename: appPath });
+'''
+        after_run = r'''
 const items = JSON.parse(fs.readFileSync(0, "utf8"));
 process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
 '''
-        completed = subprocess.run(
-            ["node", "-e", script, str(HERE / "static" / "app.js")],
-            input=json.dumps([
+        completed = run_app_in_node(
+            entrypoint_replacement="  globalThis.__imageAccessibleLabel = imageAccessibleLabel;\n}());",
+            context_setup=context_setup,
+            after_run=after_run,
+            input_text=json.dumps([
                 {"title": "Front", "description": "Control guide <not geometry>"},
                 {"title": "Side"},
             ]),
-            capture_output=True,
-            text=True,
-            check=True,
         )
         self.assertEqual(
             json.loads(completed.stdout),

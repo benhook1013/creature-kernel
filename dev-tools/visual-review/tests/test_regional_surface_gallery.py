@@ -373,7 +373,10 @@ class RegionalSurfaceGalleryTests(unittest.TestCase):
             descriptor["lineage"]["publication_identities_sha256"],
             group["description"],
         )
-        for item, expected_identity in zip(group["items"], expected_publication_identities):
+        self.assertEqual(len(group["items"]), len(expected_publication_identities))
+        for item, expected_identity in zip(
+            group["items"], expected_publication_identities, strict=True
+        ):
             self.assertEqual(item["metadata"]["renderer_source"], source_identity)
             self.assertEqual(
                 item["metadata"]["hashes"]["renderer_source_sha256"],

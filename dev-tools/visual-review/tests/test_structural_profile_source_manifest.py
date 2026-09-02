@@ -38,7 +38,10 @@ def _load_module(name: str, path: Path):
 
 class StructuralProfileSourceManifestTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(prefix="ck-source-manifest-tests-", dir="/tmp")
+        self.temp = tempfile.TemporaryDirectory(
+            prefix="ck-source-manifest-tests-",
+            dir=tempfile.gettempdir(),
+        )
         self.root = Path(self.temp.name)
         self.candidate = profile_generator.DEFAULT_CANDIDATE
         self.base_source = profile_generator.DEFAULT_SOURCE
@@ -122,7 +125,7 @@ class StructuralProfileSourceManifestTests(unittest.TestCase):
             hashlib.sha256(profile_generator.DEFAULT_SOURCE.read_bytes()).hexdigest(),
         )
 
-        for profile_id, source in zip(PROFILE_IDS, result.sources):
+        for profile_id, source in zip(PROFILE_IDS, result.sources, strict=True):
             record = next(item for item in manifest_value["profiles"] if item["id"] == profile_id)  # type: ignore[index]
             self.assertEqual(source.path, (self.source_dir / f"{profile_id}.json").absolute())
             self.assertEqual(source.document, record["document"])
@@ -336,7 +339,7 @@ class StructuralProfileSourceManifestTests(unittest.TestCase):
             generator.generate_sources = reversed_sources
 
         with self._override_generator(reversed_outputs):
-            self._assert_rejected(self.manifest_path, "regenerated source\[0\] source provenance")
+            self._assert_rejected(self.manifest_path, r"regenerated source\[0\] source provenance")
 
     def test_generator_hash_and_executed_code_share_one_race_safe_snapshot(self) -> None:
         generator_path = validator.EXPERIMENT_ROOT / "generate_structural_profile_sources.py"

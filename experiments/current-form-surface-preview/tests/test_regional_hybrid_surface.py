@@ -219,7 +219,8 @@ class AxialRegionalCoreTests(unittest.TestCase):
         back = np.asarray((0.0, 1.0, -0.55))
         self.assertAlmostEqual(float(chain.evaluate(front)), 0.0, places=10)
         self.assertAlmostEqual(float(chain.evaluate(back)), 0.0, places=10)
-        self.assertTrue(np.all(np.isfinite((front, back))))
+        field_values = np.asarray((chain.evaluate(front), chain.evaluate(back)))
+        self.assertTrue(np.all(np.isfinite(field_values)))
 
     def test_bounds_enclose_station_profiles_and_finite_caps(self) -> None:
         chain = make_chain()
@@ -227,7 +228,13 @@ class AxialRegionalCoreTests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(np.concatenate((lower, upper)))))
         self.assertTrue(np.all(upper > lower))
         for station in chain.stations:
-            for axis, radius in zip((basis().lateral_axis, basis().axial_axis, basis().forward_axis), station.radii):
+            station_basis = basis()
+            axes = (
+                station_basis.lateral_axis,
+                station_basis.forward_axis,
+                tuple(-component for component in station_basis.forward_axis),
+            )
+            for axis, radius in zip(axes, station.radii, strict=True):
                 point = np.asarray(station.center) + radius * np.asarray(axis)
                 self.assertTrue(np.all(lower <= point + 1.0e-12))
                 self.assertTrue(np.all(upper >= point - 1.0e-12))

@@ -93,7 +93,10 @@ workflow defines the exception and routing response.
 
 Route by decision leverage as well as task size. Luna remains the throughput
 default for routine bounded investigation, implementation, tool-driven work,
-and narrow correctness review. Select a fresh Sol-medium pass up front when
+and routine narrow correctness review. Fresh independent narrow correctness
+review uses Luna at `xhigh`, consistent with the [AI delegation and review
+workflow](docs/developer-workflows/ai-delegation-and-review.md). Select a fresh
+Sol-medium pass up front when
 bounded synthesis, interpretation, method or experiment design, an
 architecture-boundary challenge, or adversarial review could materially
 redirect what the project builds or how it evaluates ambiguous evidence. A

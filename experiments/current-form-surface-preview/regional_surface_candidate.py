@@ -80,6 +80,7 @@ HOCK_INTERFACE_PAD = 1.25
 INTERFACE_COLLAR_FRACTION = 0.22
 INTERFACE_BLEND_FRACTION = 0.15
 ENDPOINT_CONNECTOR_DEPTH_FRACTION = 0.25
+NECK_COLLAR_LIFT_UP_RADIUS_FRACTION = 0.25
 JOINT_RADIUS_FACTOR = 0.82
 HIP_CUP_SEAT_DEPTH_FRACTION = 0.25
 HIP_CUP_RIM_RADIUS_FACTOR = 1.0
@@ -828,6 +829,26 @@ def _transform_section_station(
     if provenance is not None:
         evidence["provenance"] = provenance
     return transformed, evidence
+
+
+def _lift_neck_collar_station(
+    hybrid: Any,
+    station: Any,
+    evidence: dict[str, Any],
+) -> tuple[Any, dict[str, Any]]:
+    """Apply the retained lower torso-to-neck collar lift to one live station."""
+
+    if station.name != "neck-collar":
+        _fail("neck-collar lift requires the neck-collar station")
+    center = np.asarray(station.center, dtype=np.float64).copy()
+    center[1] += NECK_COLLAR_LIFT_UP_RADIUS_FRACTION * float(station.radii[1])
+    return _transform_section_station(
+        hybrid,
+        station,
+        evidence,
+        center=center,
+        derivation="source-center+[0,0.25*neck-collar-up-radius,0]",
+    )
 
 
 def _route_attachment(hybrid: Any, route_name: str, field: Any, semantic_key: str) -> tuple[Any, dict[str, Any]]:
@@ -1685,6 +1706,8 @@ def _make_full_routes(
         radii = None
         center = None
         derivation_parts: list[str] = []
+        if station.name == "neck-collar":
+            station, evidence = _lift_neck_collar_station(hybrid, station, evidence)
         if station.name in HEAD_RADIUS_FACTORS:
             radii = np.asarray(station.radii, dtype=np.float64) * np.asarray(HEAD_RADIUS_FACTORS[station.name], dtype=np.float64)
             derivation_parts.append(f"source*{HEAD_RADIUS_FACTORS[station.name]}")
@@ -2496,6 +2519,12 @@ def build_regional_surface_candidate(
             "bilateral_leg_authored_sections": [record["authored_section_count"] for record in route_records if record["kind"] == "leg-route"],
             "bilateral_leg_derived_sections": [list(_HIP_CUP_NAMES), list(_HIP_CUP_NAMES)],
             "hip_cup_chain_method": "shared analytic live initial-constituent ray boundary/interior with profile-independent factors",
+            "neck_collar_lift": {
+                "axis": "+Y",
+                "fraction_of_up_radius": NECK_COLLAR_LIFT_UP_RADIUS_FRACTION,
+                "formula": "neck-collar.center.y += 0.25*neck-collar.up-radius",
+                "endpoint_closure": "reuses the translated neck-collar station center and radii",
+            },
             "hip_cup_factors": {
                 "seat_depth_fraction": HIP_CUP_SEAT_DEPTH_FRACTION,
                 "rim_radius_factor": HIP_CUP_RIM_RADIUS_FACTOR,

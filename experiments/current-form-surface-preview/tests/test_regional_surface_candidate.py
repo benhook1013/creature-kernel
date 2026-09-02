@@ -141,6 +141,95 @@ def _final_skin_ray_extent(candidate, center, direction, maximum: float) -> floa
     return float(samples[index] + fraction * (samples[index + 1] - samples[index]))
 
 
+def _candidate_without_neck_collar_lift(candidate):
+    """Rebuild the same live graph with only the retained lift reversed."""
+
+    hybrid = candidate_module._load_hybrid()
+    routes = list(candidate.routes)
+    route = routes[0]
+    station = route.sections[0]
+    center = np.asarray(station.center, dtype=np.float64).copy()
+    center[1] -= candidate_module.NECK_COLLAR_LIFT_UP_RADIUS_FRACTION * float(station.radii[1])
+    sections = list(route.sections)
+    sections[0] = hybrid.SectionStation(
+        station.name,
+        station.position,
+        tuple(center),
+        station.radii,
+        station.semantic_key,
+        station.source_key,
+        station.source_index,
+    )
+    closures = {item.name: item for item in route.endpoint_closures}
+    old = closures["neck-collar-closure"]
+    closures[old.name] = hybrid.EndpointClosure(
+        old.name,
+        sections[0].center,
+        sections[0].radii,
+        old.semantic_key,
+        old.source_key,
+    )
+    routes[0] = hybrid.AnisotropicSectionSweep(
+        tuple(sections),
+        route.connections,
+        tuple(closures[item.name] for item in route.endpoint_closures),
+        route.route_name,
+    )
+    attachments = tuple(
+        hybrid.SectionAttachment(item.route_name, item, None, None, f"route:{item.route_name}")
+        for item in routes
+    )
+    interfaces, _ = candidate_module._make_interface_patches(
+        hybrid,
+        candidate.chain,
+        tuple(routes),
+        candidate.controls,
+        candidate.source["namespace"],
+    )
+    field = hybrid.FullSectionComposite(candidate.chain, attachments, interfaces=interfaces)
+    return replace(candidate, routes=tuple(routes), field=field, mesh=None)
+
+
+def _ray_root(field, y: float, axis: int) -> float | None:
+    radii = np.linspace(0.0, 1.8, 721, dtype=np.float64)
+    points = np.zeros((len(radii), 3), dtype=np.float64)
+    points[:, 1] = y
+    points[:, axis] = radii
+    values = np.asarray(field.evaluate(points), dtype=np.float64)
+    inside = values <= 0.0
+    crossings = np.flatnonzero(inside[:-1] & ~inside[1:])
+    if len(crossings) == 0:
+        return None
+    index = int(crossings[-1])
+    first_radius, second_radius = radii[index:index + 2]
+    first_value, second_value = values[index:index + 2]
+    if second_value == first_value:
+        return float(first_radius)
+    return float(first_radius - first_value * (second_radius - first_radius) / (second_value - first_value))
+
+
+def _ray_root_band_delta(baseline, candidate, lower: float, upper: float) -> dict[str, float]:
+    ys = np.linspace(1.95, 3.05, 45, dtype=np.float64)
+    selected = (ys >= lower) & (ys <= upper)
+    result = {}
+    for label, axis in (("lateral", 0), ("forward", 2)):
+        baseline_roots = np.asarray(
+            [_ray_root(baseline.field, float(y), axis) for y in ys],
+            dtype=np.float64,
+        )
+        candidate_roots = np.asarray(
+            [_ray_root(candidate.field, float(y), axis) for y in ys],
+            dtype=np.float64,
+        )
+        delta = (candidate_roots - baseline_roots)[selected]
+        finite = delta[np.isfinite(delta)]
+        if len(finite) == 0:
+            raise AssertionError(f"no finite {label} roots in y={lower}:{upper}")
+        result[f"{label}_max_abs"] = float(np.max(np.abs(finite)))
+        result[f"{label}_mean_signed"] = float(np.mean(finite))
+    return result
+
+
 def _independent_endpoint_oracle(chain, lower: bool, toward, mu: float):
     """Closed-form oracle independent of candidate/hybrid ray helpers."""
 
@@ -271,6 +360,9 @@ def _expected_variant_geometry(form, profile_id: str) -> dict[str, object]:
     for authored, source_center, source_radii in zip(authored_head, head_source_centers, head_source_radii):
         center = source_center
         radii = source_radii
+        if authored.name == "neck-collar":
+            center = source_center.copy()
+            center[1] += candidate_module.NECK_COLLAR_LIFT_UP_RADIUS_FRACTION * source_radii[1]
         if authored.name in candidate_module.HEAD_RADIUS_FACTORS:
             radii = source_radii * np.asarray(candidate_module.HEAD_RADIUS_FACTORS[authored.name])
         if authored.name in candidate_module.MUZZLE_CENTER_FACTORS:
@@ -599,7 +691,8 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
     def test_source_bound_centers_radii_and_provenance_are_explicit(self) -> None:
         candidate = self.candidate
         expected_head_centers = (
-            (0.0, 2.15, 0.0), (0.0, 2.55, 0.0), (0.0, 2.65, 0.0), (0.0, 3.05, 0.0),
+            (0.0, 2.15 + candidate_module.NECK_COLLAR_LIFT_UP_RADIUS_FRACTION * candidate.routes[0].sections[0].radii[1], 0.0),
+            (0.0, 2.55, 0.0), (0.0, 2.65, 0.0), (0.0, 3.05, 0.0),
             (0.0, 3.4, 0.0), (0.0, 2.9, 0.25), (0.0, 2.877, 0.595), (0.0, 2.875, 0.9375),
         )
         self.assertTrue(np.allclose([item.center for item in candidate.routes[0].sections], expected_head_centers, rtol=0.0, atol=1.0e-12))
@@ -1424,6 +1517,79 @@ class RegionalSurfaceCandidateTests(unittest.TestCase):
                     np.all(np.asarray(upper_extents) <= np.asarray(lower_extents) + 0.01),
                     f"upper={upper_extents!r} lower={lower_extents!r}",
                 )
+
+    def test_exact_five_retained_neck_collar_lift_is_causal_and_local(self) -> None:
+        expected_profiles = (
+            "standard_neutral_reference",
+            "compact_broad_short_limb_large_head",
+            "tall_narrow_long_legged",
+            "slender_long_limb",
+            "stocky_broad_chested",
+        )
+        self.assertEqual(tuple(self.structural_prepared), expected_profiles)
+        for structural_profile_id, prepared in self.structural_prepared.items():
+            with self.subTest(structural_profile_id=structural_profile_id):
+                candidate = candidate_module.build_regional_surface_candidate(
+                    prepared, "neutral-v0", mesh_samples=None,
+                )
+                baseline = _candidate_without_neck_collar_lift(candidate)
+                lift = (
+                    np.asarray(candidate.routes[0].sections[0].center, dtype=np.float64)
+                    - np.asarray(baseline.routes[0].sections[0].center, dtype=np.float64)
+                )
+                collar_up_radius = float(candidate.routes[0].sections[0].radii[1])
+                np.testing.assert_allclose(
+                    lift,
+                    (0.0, candidate_module.NECK_COLLAR_LIFT_UP_RADIUS_FRACTION * collar_up_radius, 0.0),
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                self.assertEqual(
+                    candidate.metadata["routes"]["neck_collar_lift"],
+                    {
+                        "axis": "+Y",
+                        "fraction_of_up_radius": 0.25,
+                        "formula": "neck-collar.center.y += 0.25*neck-collar.up-radius",
+                        "endpoint_closure": "reuses the translated neck-collar station center and radii",
+                    },
+                )
+
+                self.assertEqual(
+                    tuple(item.route_name for item in candidate.routes),
+                    tuple(item.route_name for item in baseline.routes),
+                )
+                self.assertEqual(
+                    tuple(item.name for item in candidate.routes[0].connections),
+                    tuple(item.name for item in baseline.routes[0].connections),
+                )
+                for lifted, unchanged in zip(
+                    candidate.routes[0].sections[1:], baseline.routes[0].sections[1:], strict=True
+                ):
+                    self.assertEqual(lifted.name, unchanged.name)
+                    self.assertEqual(lifted.source_key, unchanged.source_key)
+                    np.testing.assert_array_equal(lifted.center, unchanged.center)
+                    np.testing.assert_array_equal(lifted.radii, unchanged.radii)
+                for lifted, unchanged in zip(
+                    candidate.routes[0].endpoint_closures[1:],
+                    baseline.routes[0].endpoint_closures[1:],
+                    strict=True,
+                ):
+                    self.assertEqual(lifted.name, unchanged.name)
+                    self.assertEqual(lifted.semantic_key, unchanged.semantic_key)
+                    self.assertEqual(lifted.source_key, unchanged.source_key)
+                    np.testing.assert_array_equal(lifted.center, unchanged.center)
+                    self.assertEqual(lifted.radii, unchanged.radii)
+                self.assertEqual(
+                    candidate.routes[0].endpoint_closures[0].center,
+                    candidate.routes[0].sections[0].center,
+                )
+
+                lower_delta = _ray_root_band_delta(baseline, candidate, 1.95, 2.50)
+                upper_delta = _ray_root_band_delta(baseline, candidate, 2.50, 3.05)
+                self.assertGreater(lower_delta["lateral_mean_signed"], 0.0)
+                self.assertGreater(lower_delta["forward_mean_signed"], 0.0)
+                self.assertLessEqual(upper_delta["lateral_max_abs"], 1.0e-3)
+                self.assertLessEqual(upper_delta["forward_max_abs"], 1.0e-3)
 
     def test_all_five_profiles_have_named_hip_cup_overlap_certificates_and_shared_factors(self) -> None:
         factors = None
