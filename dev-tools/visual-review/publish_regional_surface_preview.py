@@ -21,9 +21,11 @@ import stat
 import struct
 import sys
 import tempfile
+import threading
 import types
 import zlib
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, NamedTuple, NoReturn
 
@@ -40,7 +42,24 @@ PUBLISHER_IMPLEMENTATION_ID = "regional-surface-publication-v1"
 PREVIEW_FORMAT = "creature-kernel.disposable-regional-surface-preview.v2"
 CANDIDATE_FORMAT = "creature-kernel.disposable-regional-surface-candidate.v3"
 RENDERER_SOURCE_ID = "regional_surface_preview.render_regional_surface_preview"
+RENDERER_ENTRYPOINT_FILENAME = "regional_surface_preview.py"
+RENDERER_DEPENDENCY_FILENAMES = (
+    "regional_surface_candidate.py",
+    "regional_hybrid_surface.py",
+    "surface_preview.py",
+)
+RENDERER_SOURCE_FILENAMES = (
+    RENDERER_ENTRYPOINT_FILENAME,
+    *RENDERER_DEPENDENCY_FILENAMES,
+)
+RENDERER_IMPORTED_MODULE_NAMES = (
+    "regional_surface_preview_surface_preview",
+    "regional_surface_preview_candidate",
+    "regional_surface_candidate_surface_preview",
+    "regional_surface_candidate_hybrid",
+)
 MAX_RENDERER_SOURCE_BYTES = 4 * 1024 * 1024
+MAX_RENDERER_BUNDLE_BYTES = MAX_RENDERER_SOURCE_BYTES * len(RENDERER_SOURCE_FILENAMES)
 MAX_PUBLISHER_SOURCE_BYTES = 4 * 1024 * 1024
 EXTERNAL_ID = "standard_neutral_reference"
 SOURCE_VARIANT = "neutral-v0"
@@ -241,6 +260,10 @@ EXPECTED_HEAD_CONNECTIONS = [
 TRACE_TOLERANCE = 2.0e-9
 INFLUENCE_TOLERANCE = 1.0e-12
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_RENDERER_LOAD_LOCK = common.__dict__.setdefault(
+    "_CK_REGIONAL_SURFACE_RENDERER_LOAD_LOCK",
+    threading.RLock(),
+)
 
 
 class _IdentityUniverse:
@@ -259,8 +282,8 @@ class _IdentityUniverse:
         return self.semantic_keys | self.source_keys
 
 
-class RendererSourceSnapshot(NamedTuple):
-    """The exact renderer source bytes that will be compiled and executed."""
+class RendererDependencySourceSnapshot(NamedTuple):
+    """One exact file-relative renderer dependency retained for execution."""
 
     path: Path
     source_bytes: bytes
@@ -269,9 +292,27 @@ class RendererSourceSnapshot(NamedTuple):
     @property
     def identity(self) -> dict[str, Any]:
         return {
+            "id": self.path.name,
+            "bytes": len(self.source_bytes),
+            "sha256": self.sha256,
+        }
+
+
+class RendererSourceSnapshot(NamedTuple):
+    """The exact four-file renderer source bundle retained for execution."""
+
+    path: Path
+    source_bytes: bytes
+    sha256: str
+    dependencies: tuple[RendererDependencySourceSnapshot, ...]
+
+    @property
+    def identity(self) -> dict[str, Any]:
+        return {
             "id": RENDERER_SOURCE_ID,
             "bytes": len(self.source_bytes),
             "sha256": self.sha256,
+            "dependencies": [dependency.identity for dependency in self.dependencies],
         }
 
 
@@ -717,31 +758,78 @@ def _read_prepared_input(
 
 
 def _renderer_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "experiments" / "current-form-surface-preview" / "regional_surface_preview.py"
+    return (
+        Path(__file__).resolve().parents[2]
+        / "experiments"
+        / "current-form-surface-preview"
+        / RENDERER_ENTRYPOINT_FILENAME
+    )
 
 
-def _snapshot_renderer_source(path: Path | None = None) -> RendererSourceSnapshot:
-    """Read the renderer once and retain the bytes used for execution."""
-
-    renderer_path = Path(path) if path is not None else _renderer_path()
-    absolute = renderer_path.absolute()
+def _read_renderer_source_file(path: Path, where: str) -> bytes:
+    absolute = path.absolute()
     try:
-        reference = common._resolve_file_reference(
-            str(absolute), absolute, "regional surface renderer source"
-        )
-        with common.open_source_reference(reference, "regional surface renderer source") as stream:
-            info = os.fstat(stream.fileno())
-            if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_RENDERER_SOURCE_BYTES:
-                _fail("regional surface renderer source is not a bounded regular file")
+        reference = common._resolve_file_reference(str(absolute), absolute, where)
+        with common.open_source_reference(reference, where) as stream:
+            before = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_size > MAX_RENDERER_SOURCE_BYTES
+            ):
+                _fail(f"{where} is not a bounded regular file")
             source_bytes = stream.read(MAX_RENDERER_SOURCE_BYTES + 1)
-            final_info = os.fstat(stream.fileno())
-            if len(source_bytes) > MAX_RENDERER_SOURCE_BYTES or final_info.st_size != len(source_bytes):
-                _fail("regional surface renderer source changed or exceeds its bound")
+            after = os.fstat(stream.fileno())
+            if (
+                not source_bytes
+                or len(source_bytes) > MAX_RENDERER_SOURCE_BYTES
+                or after.st_size != len(source_bytes)
+                or (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
+            ):
+                _fail(f"{where} changed, is empty, or exceeds its bound")
     except RegionalSurfacePublicationError:
         raise
     except (OSError, ValidationError) as exc:
-        _fail(f"could not read regional surface renderer source: {exc}")
-    return RendererSourceSnapshot(absolute, source_bytes, _sha256(source_bytes))
+        _fail(f"could not read {where}: {exc}")
+    return source_bytes
+
+
+def _snapshot_renderer_source(path: Path | None = None) -> RendererSourceSnapshot:
+    """Read and retain the exact four files used by the renderer."""
+
+    renderer_path = Path(path) if path is not None else _renderer_path()
+    absolute = renderer_path.absolute()
+    if absolute.name != RENDERER_ENTRYPOINT_FILENAME:
+        _fail(
+            "regional surface renderer source must be named "
+            f"{RENDERER_ENTRYPOINT_FILENAME}"
+        )
+    source_bytes = _read_renderer_source_file(
+        absolute,
+        "regional surface renderer source",
+    )
+    dependencies = tuple(
+        RendererDependencySourceSnapshot(
+            dependency_path,
+            dependency_bytes,
+            _sha256(dependency_bytes),
+        )
+        for dependency_name in RENDERER_DEPENDENCY_FILENAMES
+        for dependency_path in [absolute.with_name(dependency_name)]
+        for dependency_bytes in [
+            _read_renderer_source_file(
+                dependency_path,
+                f"regional surface renderer dependency {dependency_name}",
+            )
+        ]
+    )
+    return _validate_renderer_source_snapshot(
+        RendererSourceSnapshot(
+            absolute,
+            source_bytes,
+            _sha256(source_bytes),
+            dependencies,
+        )
+    )
 
 
 def _snapshot_publisher_source(path: Path | None = None) -> PublisherSourceSnapshot:
@@ -808,18 +896,58 @@ def _bootstrap_publisher_source() -> None:
 
 def _renderer_source_identity(value: Any, where: str = "renderer source identity") -> dict[str, Any]:
     identity = _mapping(value, where)
-    _exact_fields(identity, {"id", "bytes", "sha256"}, where)
+    _exact_fields(identity, {"id", "bytes", "sha256", "dependencies"}, where)
     if identity["id"] != RENDERER_SOURCE_ID:
         _fail(f"{where}.id is not the regional surface renderer")
     if type(identity["bytes"]) is not int or not 0 < identity["bytes"] <= MAX_RENDERER_SOURCE_BYTES:
         _fail(f"{where}.bytes is invalid")
     digest = _digest(identity["sha256"], f"{where}.sha256")
-    return {"id": identity["id"], "bytes": identity["bytes"], "sha256": digest}
+    dependencies = identity["dependencies"]
+    if not isinstance(dependencies, list) or len(dependencies) != len(
+        RENDERER_DEPENDENCY_FILENAMES
+    ):
+        _fail(f"{where}.dependencies must identify the exact renderer dependencies")
+    normalized_dependencies = []
+    total_bytes = identity["bytes"]
+    for index, (value, expected_id) in enumerate(
+        zip(dependencies, RENDERER_DEPENDENCY_FILENAMES)
+    ):
+        dependency_where = f"{where}.dependencies[{index}]"
+        dependency = _mapping(value, dependency_where)
+        _exact_fields(dependency, {"id", "bytes", "sha256"}, dependency_where)
+        if dependency["id"] != expected_id:
+            _fail(f"{dependency_where}.id is not {expected_id}")
+        if (
+            type(dependency["bytes"]) is not int
+            or not 0 < dependency["bytes"] <= MAX_RENDERER_SOURCE_BYTES
+        ):
+            _fail(f"{dependency_where}.bytes is invalid")
+        total_bytes += dependency["bytes"]
+        normalized_dependencies.append(
+            {
+                "id": expected_id,
+                "bytes": dependency["bytes"],
+                "sha256": _digest(
+                    dependency["sha256"],
+                    f"{dependency_where}.sha256",
+                ),
+            }
+        )
+    if total_bytes > MAX_RENDERER_BUNDLE_BYTES:
+        _fail(f"{where} exceeds the renderer bundle byte bound")
+    return {
+        "id": identity["id"],
+        "bytes": identity["bytes"],
+        "sha256": digest,
+        "dependencies": normalized_dependencies,
+    }
 
 
 def _validate_renderer_source_snapshot(
     snapshot: RendererSourceSnapshot,
 ) -> RendererSourceSnapshot:
+    if snapshot.path.name != RENDERER_ENTRYPOINT_FILENAME:
+        _fail("regional surface renderer source snapshot has the wrong filename")
     if type(snapshot.source_bytes) is not bytes:
         _fail("regional surface renderer source snapshot bytes are invalid")
     if not 0 < len(snapshot.source_bytes) <= MAX_RENDERER_SOURCE_BYTES:
@@ -833,36 +961,164 @@ def _validate_renderer_source_snapshot(
         _fail("regional surface renderer source snapshot hash does not match its bytes")
     if snapshot.identity["bytes"] != len(snapshot.source_bytes):
         _fail("regional surface renderer source snapshot byte count does not match its bytes")
+    if type(snapshot.dependencies) is not tuple or len(snapshot.dependencies) != len(
+        RENDERER_DEPENDENCY_FILENAMES
+    ):
+        _fail("regional surface renderer source snapshot dependencies are invalid")
+    total_bytes = len(snapshot.source_bytes)
+    for expected_name, dependency in zip(
+        RENDERER_DEPENDENCY_FILENAMES,
+        snapshot.dependencies,
+    ):
+        if not isinstance(dependency, RendererDependencySourceSnapshot):
+            _fail("regional surface renderer dependency snapshot is invalid")
+        if dependency.path.name != expected_name:
+            _fail("regional surface renderer dependency snapshot has the wrong filename")
+        if type(dependency.source_bytes) is not bytes or not (
+            0 < len(dependency.source_bytes) <= MAX_RENDERER_SOURCE_BYTES
+        ):
+            _fail("regional surface renderer dependency snapshot bytes are invalid")
+        recorded_dependency_sha256 = _digest(
+            dependency.sha256,
+            f"regional surface renderer dependency {expected_name}.sha256",
+        )
+        if recorded_dependency_sha256 != _sha256(dependency.source_bytes):
+            _fail(
+                "regional surface renderer dependency snapshot hash does not match "
+                "its bytes"
+            )
+        total_bytes += len(dependency.source_bytes)
+    if total_bytes > MAX_RENDERER_BUNDLE_BYTES:
+        _fail("regional surface renderer source snapshot exceeds its bundle bound")
+    _renderer_source_identity(snapshot.identity)
     return snapshot
 
 
-def _load_renderer(
-    snapshot: RendererSourceSnapshot | Path | None = None,
-) -> tuple[Any, type[Exception]]:
-    """Compile and load the exact source bytes in ``snapshot``."""
+def _renderer_module_name(snapshot: RendererSourceSnapshot) -> str:
+    return f"_ck_current_regional_surface_preview_{snapshot.sha256}"
 
-    if snapshot is None:
-        snapshot = _snapshot_renderer_source()
-    elif isinstance(snapshot, Path):
-        snapshot = _snapshot_renderer_source(snapshot)
+
+def _renderer_bundle_sources(
+    snapshot: RendererSourceSnapshot,
+) -> tuple[tuple[str, bytes, str], ...]:
+    return (
+        (RENDERER_ENTRYPOINT_FILENAME, snapshot.source_bytes, snapshot.sha256),
+        *tuple(
+            (dependency.path.name, dependency.source_bytes, dependency.sha256)
+            for dependency in snapshot.dependencies
+        ),
+    )
+
+
+def _validate_materialized_renderer_bundle(
+    snapshot: RendererSourceSnapshot,
+    entrypoint: Path,
+) -> Path:
+    execution_path = entrypoint.absolute()
+    if execution_path.name != RENDERER_ENTRYPOINT_FILENAME:
+        _fail("materialized regional surface renderer has the wrong entrypoint filename")
+    for filename, source_bytes, expected_sha256 in _renderer_bundle_sources(snapshot):
+        materialized = _read_renderer_source_file(
+            execution_path.with_name(filename),
+            f"materialized regional surface renderer source {filename}",
+        )
+        if len(materialized) != len(source_bytes) or _sha256(materialized) != expected_sha256:
+            _fail("materialized regional surface renderer bundle does not match its snapshot")
+    return execution_path
+
+
+@contextmanager
+def _materialized_renderer_bundle(
+    snapshot: RendererSourceSnapshot,
+) -> Iterator[Path]:
+    """Yield one private read-only directory containing the retained bundle."""
+
+    snapshot = _validate_renderer_source_snapshot(snapshot)
+    with tempfile.TemporaryDirectory(prefix="ck-regional-renderer-bundle-") as directory:
+        bundle_root = Path(directory)
+        try:
+            for filename, source_bytes, _ in _renderer_bundle_sources(snapshot):
+                destination = bundle_root / filename
+                flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                flags |= getattr(os, "O_NOFOLLOW", 0)
+                descriptor = os.open(destination, flags, stat.S_IRUSR)
+                try:
+                    with os.fdopen(descriptor, "wb", closefd=True) as stream:
+                        descriptor = -1
+                        stream.write(source_bytes)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                finally:
+                    if descriptor >= 0:
+                        os.close(descriptor)
+            entrypoint = _validate_materialized_renderer_bundle(
+                snapshot,
+                bundle_root / RENDERER_ENTRYPOINT_FILENAME,
+            )
+            os.chmod(bundle_root, stat.S_IRUSR | stat.S_IXUSR)
+        except OSError as exc:
+            _fail(f"could not materialize regional surface renderer bundle: {exc}")
+        try:
+            yield entrypoint
+        finally:
+            try:
+                os.chmod(bundle_root, stat.S_IRWXU)
+            except OSError:
+                pass
+
+
+@contextmanager
+def _isolated_renderer_modules(snapshot: RendererSourceSnapshot) -> Iterator[None]:
+    """Prevent fixed file-relative module names from crossing render calls."""
+
+    module_names = (
+        _renderer_module_name(snapshot),
+        *RENDERER_IMPORTED_MODULE_NAMES,
+    )
+    with _RENDERER_LOAD_LOCK:
+        retained = {
+            name: sys.modules[name]
+            for name in module_names
+            if name in sys.modules
+        }
+        for name in module_names:
+            sys.modules.pop(name, None)
+        try:
+            yield
+        finally:
+            for name in module_names:
+                sys.modules.pop(name, None)
+            sys.modules.update(retained)
+
+
+def _load_renderer(
+    snapshot: RendererSourceSnapshot,
+    execution_path: Path,
+) -> tuple[Any, type[Exception]]:
+    """Compile retained bytes with imports rooted in the materialized bundle."""
+
     if not isinstance(snapshot, RendererSourceSnapshot):
         _fail("regional surface renderer source snapshot is invalid")
     snapshot = _validate_renderer_source_snapshot(snapshot)
+    execution_path = _validate_materialized_renderer_bundle(
+        snapshot,
+        Path(execution_path),
+    )
+    module_name = _renderer_module_name(snapshot)
     try:
-        module_name = f"_ck_current_regional_surface_preview_{snapshot.sha256}"
         spec = importlib.util.spec_from_loader(
             module_name,
             loader=None,
-            origin=str(snapshot.path),
+            origin=str(execution_path),
         )
         if spec is None:
             _fail("current regional surface renderer has no importable module")
         module = types.ModuleType(module_name)
         module.__spec__ = spec
-        module.__file__ = str(snapshot.path)
+        module.__file__ = str(execution_path)
         module.__package__ = ""
         sys.modules[module_name] = module
-        code = compile(snapshot.source_bytes, str(snapshot.path), "exec")
+        code = compile(snapshot.source_bytes, str(execution_path), "exec")
         exec(code, module.__dict__)
     except RegionalSurfacePublicationError:
         raise
@@ -3214,25 +3470,30 @@ def render_and_validate_regional_surface_item(
         renderer_source_snapshot.identity,
         "executed renderer source identity",
     )
-    renderer, renderer_validation_error = _load_renderer(renderer_source_snapshot)
-    try:
-        result = renderer(
-            validated_prepared,
-            external_profile_id=stable_external_id,
-            mesh_samples=mesh_samples,
-            mesh_padding=mesh_padding,
-        )
-    except Exception as exc:
-        if type(exc) is not renderer_validation_error:
-            raise
-        detail = " ".join(str(exc).split())
-        if not detail:
-            detail = "renderer rejected the requested preview"
-        if len(detail) > 512:
-            detail = detail[:509] + "..."
-        raise RegionalSurfacePublicationError(
-            f"renderer validation failed: {detail}"
-        ) from exc
+    with _materialized_renderer_bundle(renderer_source_snapshot) as execution_path:
+        with _isolated_renderer_modules(renderer_source_snapshot):
+            renderer, renderer_validation_error = _load_renderer(
+                renderer_source_snapshot,
+                execution_path,
+            )
+            try:
+                result = renderer(
+                    validated_prepared,
+                    external_profile_id=stable_external_id,
+                    mesh_samples=mesh_samples,
+                    mesh_padding=mesh_padding,
+                )
+            except Exception as exc:
+                if type(exc) is not renderer_validation_error:
+                    raise
+                detail = " ".join(str(exc).split())
+                if not detail:
+                    detail = "renderer rejected the requested preview"
+                if len(detail) > 512:
+                    detail = detail[:509] + "..."
+                raise RegionalSurfacePublicationError(
+                    f"renderer validation failed: {detail}"
+                ) from exc
     post_render_prepared = _mapping(
         _json_copy(
             validated_prepared,

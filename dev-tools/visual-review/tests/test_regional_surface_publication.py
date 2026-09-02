@@ -62,6 +62,38 @@ def _renderer_source(marker: str) -> bytes:
     ).encode("utf-8")
 
 
+def _renderer_snapshot(
+    source_bytes: bytes,
+    root: Path = Path("/immutable"),
+    publication_module=publisher,
+) -> object:
+    dependencies = tuple(
+        publication_module.RendererDependencySourceSnapshot(
+            root / filename,
+            dependency_bytes,
+            hashlib.sha256(dependency_bytes).hexdigest(),
+        )
+        for filename in publication_module.RENDERER_DEPENDENCY_FILENAMES
+        for dependency_bytes in [f"# retained test source: {filename}\n".encode("utf-8")]
+    )
+    return publication_module.RendererSourceSnapshot(
+        root / publication_module.RENDERER_ENTRYPOINT_FILENAME,
+        source_bytes,
+        hashlib.sha256(source_bytes).hexdigest(),
+        dependencies,
+    )
+
+
+def _write_renderer_bundle(root: Path, source_bytes: bytes) -> Path:
+    entrypoint = root / publisher.RENDERER_ENTRYPOINT_FILENAME
+    entrypoint.write_bytes(source_bytes)
+    for filename in publisher.RENDERER_DEPENDENCY_FILENAMES:
+        (root / filename).write_bytes(
+            f"# live test source: {filename}\n".encode("utf-8")
+        )
+    return entrypoint
+
+
 class RegionalSurfacePublicationTests(unittest.TestCase):
     def test_publisher_identity_uses_retained_executed_source_after_live_path_replacement(self) -> None:
         source_bytes = (HERE / "publish_regional_surface_preview.py").read_bytes()
@@ -78,6 +110,98 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
         self.assertEqual(identity["id"], publisher.PUBLISHER_IMPLEMENTATION_ID)
         self.assertEqual(identity["bytes"], len(source_bytes))
         self.assertEqual(identity["sha256"], hashlib.sha256(source_bytes).hexdigest())
+
+    def test_duplicate_publisher_imports_serialize_renderer_module_isolation(self) -> None:
+        module_names = (
+            "visual_review_regional_preview_shared_lock_a",
+            "visual_review_regional_preview_shared_lock_b",
+        )
+        loaded_modules = []
+        shared_module_name = publisher.RENDERER_IMPORTED_MODULE_NAMES[0]
+        missing = object()
+        original_shared_module = sys.modules.get(shared_module_name, missing)
+        first_entered = threading.Event()
+        release_first = threading.Event()
+        second_attempting = threading.Event()
+        second_entered = threading.Event()
+        second_observations: list[bool] = []
+        failures: list[BaseException] = []
+        threads: list[threading.Thread] = []
+
+        try:
+            for module_name in module_names:
+                loaded_modules.append(
+                    _load_module(
+                        module_name,
+                        HERE / "publish_regional_surface_preview.py",
+                    )
+                )
+            first_module, second_module = loaded_modules
+            source_bytes = _renderer_source("shared-lock")
+            first_snapshot = _renderer_snapshot(
+                source_bytes,
+                publication_module=first_module,
+            )
+            second_snapshot = _renderer_snapshot(
+                source_bytes,
+                publication_module=second_module,
+            )
+
+            def hold_first_scope() -> None:
+                try:
+                    with first_module._isolated_renderer_modules(first_snapshot):
+                        sys.modules[shared_module_name] = first_module
+                        first_entered.set()
+                        if not release_first.wait(5):
+                            raise AssertionError("timed out waiting to release first scope")
+                except BaseException as exc:  # noqa: BLE001 - return thread failures
+                    failures.append(exc)
+                    first_entered.set()
+
+            def enter_second_scope() -> None:
+                try:
+                    if not first_entered.wait(5):
+                        raise AssertionError("first scope did not start")
+                    second_attempting.set()
+                    with second_module._isolated_renderer_modules(second_snapshot):
+                        second_observations.append(shared_module_name in sys.modules)
+                        sys.modules[shared_module_name] = second_module
+                        second_entered.set()
+                except BaseException as exc:  # noqa: BLE001 - return thread failures
+                    failures.append(exc)
+                    second_entered.set()
+
+            first_thread = threading.Thread(target=hold_first_scope)
+            second_thread = threading.Thread(target=enter_second_scope)
+            threads.extend((first_thread, second_thread))
+            first_thread.start()
+            self.assertTrue(first_entered.wait(5))
+            second_thread.start()
+            self.assertTrue(second_attempting.wait(5))
+            serialized = not second_entered.wait(0.25)
+            release_first.set()
+            first_thread.join(5)
+            second_thread.join(5)
+
+            self.assertTrue(serialized)
+            self.assertFalse(first_thread.is_alive())
+            self.assertFalse(second_thread.is_alive())
+            self.assertEqual(failures, [])
+            self.assertEqual(second_observations, [False])
+            if original_shared_module is missing:
+                self.assertNotIn(shared_module_name, sys.modules)
+            else:
+                self.assertIs(sys.modules.get(shared_module_name), original_shared_module)
+        finally:
+            release_first.set()
+            for thread in threads:
+                thread.join(5)
+            for module_name in module_names:
+                sys.modules.pop(module_name, None)
+            if original_shared_module is missing:
+                sys.modules.pop(shared_module_name, None)
+            else:
+                sys.modules[shared_module_name] = original_shared_module
 
     def test_prepared_form_duplicate_members_are_rejected_before_validation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -106,16 +230,20 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
 
     def test_renderer_replacement_after_snapshot_executes_snapshot_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "regional_surface_preview.py"
             source_a = _renderer_source("snapshot-a")
             source_b = _renderer_source("replacement-b")
-            path.write_bytes(source_a)
+            path = _write_renderer_bundle(Path(directory), source_a)
             snapshot = publisher._snapshot_renderer_source(path)
             path.write_bytes(source_b)
 
-            renderer, error_type = publisher._load_renderer(snapshot)
+            with publisher._materialized_renderer_bundle(snapshot) as execution_path:
+                with publisher._isolated_renderer_modules(snapshot):
+                    renderer, error_type = publisher._load_renderer(
+                        snapshot,
+                        execution_path,
+                    )
 
-            self.assertEqual(renderer(), "snapshot-a")
+                    self.assertEqual(renderer(), "snapshot-a")
             self.assertEqual(error_type.__name__, "RegionalSurfacePreviewError")
             self.assertEqual(
                 snapshot.identity,
@@ -123,30 +251,94 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
                     "id": publisher.RENDERER_SOURCE_ID,
                     "bytes": len(source_a),
                     "sha256": hashlib.sha256(source_a).hexdigest(),
+                    "dependencies": [
+                        dependency.identity for dependency in snapshot.dependencies
+                    ],
                 },
             )
 
+    def test_dependency_only_mutation_changes_identity_and_live_bytes_are_not_loaded(self) -> None:
+        renderer_root = (
+            HERE.parents[1] / "experiments" / "current-form-surface-preview"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            live_root = Path(directory) / "live-renderer"
+            live_root.mkdir()
+            for filename in publisher.RENDERER_SOURCE_FILENAMES:
+                (live_root / filename).write_bytes((renderer_root / filename).read_bytes())
+            entrypoint = live_root / publisher.RENDERER_ENTRYPOINT_FILENAME
+            retained = publisher._snapshot_renderer_source(entrypoint)
+
+            mutated_path = live_root / "regional_surface_candidate.py"
+            mutated_path.write_bytes(
+                b"raise RuntimeError('live dependency mutation was consumed')\n"
+            )
+            mutated = publisher._snapshot_renderer_source(entrypoint)
+
+            self.assertEqual(retained.sha256, mutated.sha256)
+            self.assertNotEqual(retained.identity, mutated.identity)
+            retained_dependencies = {
+                item["id"]: item for item in retained.identity["dependencies"]
+            }
+            mutated_dependencies = {
+                item["id"]: item for item in mutated.identity["dependencies"]
+            }
+            self.assertNotEqual(
+                retained_dependencies["regional_surface_candidate.py"],
+                mutated_dependencies["regional_surface_candidate.py"],
+            )
+            for filename in (
+                "regional_hybrid_surface.py",
+                "surface_preview.py",
+            ):
+                self.assertEqual(
+                    retained_dependencies[filename],
+                    mutated_dependencies[filename],
+                )
+
+            with publisher._materialized_renderer_bundle(retained) as execution_path:
+                with publisher._isolated_renderer_modules(retained):
+                    renderer, _ = publisher._load_renderer(retained, execution_path)
+                    renderer_module = sys.modules[renderer.__module__]
+                    candidate = renderer_module.regional_surface_candidate
+                    candidate_surface = candidate._load_surface_preview()
+                    hybrid = candidate._load_hybrid()
+                    loaded = {
+                        publisher.RENDERER_ENTRYPOINT_FILENAME: renderer_module,
+                        "regional_surface_candidate.py": candidate,
+                        "regional_hybrid_surface.py": hybrid,
+                        "surface_preview.py": candidate_surface,
+                    }
+                    for filename, module in loaded.items():
+                        module_path = Path(module.__file__)
+                        self.assertEqual(module_path.parent, execution_path.parent)
+                        self.assertEqual(
+                            hashlib.sha256(module_path.read_bytes()).hexdigest(),
+                            next(
+                                digest
+                                for source_name, _, digest in publisher._renderer_bundle_sources(
+                                    retained
+                                )
+                                if source_name == filename
+                            ),
+                        )
+
     def test_renderer_snapshot_rejects_a_mismatched_recorded_digest(self) -> None:
         source_bytes = _renderer_source("snapshot-integrity")
-        snapshot = publisher.RendererSourceSnapshot(
-            Path("/immutable/regional_surface_preview.py"),
-            source_bytes,
-            "f" * 64,
-        )
+        snapshot = _renderer_snapshot(source_bytes)._replace(sha256="f" * 64)
         with self.assertRaisesRegex(
             publisher.RegionalSurfacePublicationError,
             "snapshot hash does not match its bytes",
         ):
-            publisher._load_renderer(snapshot)
+            publisher._load_renderer(
+                snapshot,
+                Path("/immutable/regional_surface_preview.py"),
+            )
 
     def test_direct_item_carries_exact_renderer_identity_into_publication(self) -> None:
         prepared = _prepared()
         source_bytes = _renderer_source("identity")
-        snapshot = publisher.RendererSourceSnapshot(
-            Path("/immutable/regional_surface_preview.py"),
-            source_bytes,
-            hashlib.sha256(source_bytes).hexdigest(),
-        )
+        snapshot = _renderer_snapshot(source_bytes)
         canonical_hash = publisher._sha256_value(
             prepared,
             "test prepared form",
@@ -209,7 +401,10 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
             mesh_samples=publisher.MIN_MESH_SAMPLES,
             mesh_padding=0.20,
         )
-        load_renderer.assert_called_once_with(snapshot)
+        load_renderer.assert_called_once()
+        load_args = load_renderer.call_args.args
+        self.assertIs(load_args[0], snapshot)
+        self.assertEqual(load_args[1].name, publisher.RENDERER_ENTRYPOINT_FILENAME)
         self.assertEqual(captured["renderer_source_identity"], snapshot.identity)
         self.assertEqual(item["renderer_source"], snapshot.identity)
         self.assertEqual(
@@ -229,11 +424,7 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
             maximum=publisher.MAX_PREPARED_INPUT_BYTES,
         )
         source_bytes = _renderer_source("mutation")
-        snapshot = publisher.RendererSourceSnapshot(
-            Path("/immutable/regional_surface_preview.py"),
-            source_bytes,
-            hashlib.sha256(source_bytes).hexdigest(),
-        )
+        snapshot = _renderer_snapshot(source_bytes)
 
         def mutate(value: dict[str, object], **kwargs: object) -> object:
             value["reference_scale"] = {"squared_length": 2}
@@ -361,11 +552,7 @@ class RegionalSurfacePublicationTests(unittest.TestCase):
             input_path = Path(directory) / "prepared.json"
             input_path.write_text(json.dumps(prepared), encoding="utf-8")
             source_bytes = _renderer_source("unused")
-            snapshot = publisher.RendererSourceSnapshot(
-                Path("/immutable/regional_surface_preview.py"),
-                source_bytes,
-                hashlib.sha256(source_bytes).hexdigest(),
-            )
+            snapshot = _renderer_snapshot(source_bytes)
             renderer = Mock(side_effect=RuntimeError("secret renderer internals"))
             stderr = io.StringIO()
             with patch.object(

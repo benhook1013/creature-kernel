@@ -365,7 +365,10 @@ The main thread prepares substantial coherent PRs that make a reviewable unit
 of progress. It combines directly related implementation, evidence, and
 correctness work when their interactions matter, while preserving disjoint
 reversible prerequisites where separation improves safety. It does not create
-small slice churn merely to manufacture review events.
+small slice churn merely to manufacture review events, or trigger hosted review
+on a trivial or incoherent head. Open the substantial coherent PR early enough
+that its stable pushed head can receive useful hosted review while local
+follow-up work continues separately.
 
 Autonomous merging is limited to the recorded active runway. The main thread
 may merge an internal, reversible preparatory PR only after its required local
@@ -393,25 +396,33 @@ merge authority.
 
 ## CodeRabbit and external review
 
-For a substantial PR that is final-review-ready, the main thread launches the
-hosted CodeRabbit pass and the committed-diff CLI pass in parallel as one
-deliberate cycle. Both review the same clean, immutable pushed OID. Before
-launching, the main thread fetches the PR branch, requires a clean worktree,
-verifies local `HEAD` equals the remote PR-head OID, and records that OID with
-both results.
+Automatic CodeRabbit review remains disabled. While an open PR has a
+substantial coherent pushed head and no hosted run is active, the main thread
+may trigger `@coderabbitai full review` against that immutable remote head,
+normally no more than once per hourly allowance. Repeated hosted cycles on an
+unchanged head are allowed when prior cycles still surfaced material findings
+or hosted tapering has not been established. The main thread must not trigger
+hosted review on a trivial or incoherent head.
 
-The CLI pass supports the hosted pass but cannot satisfy the hosted taper gate.
-Every changed pushed head receives a fresh hosted-plus-CLI cycle; findings
-from an earlier OID do not cover a later head. While the hosted pass runs, the
-main thread does not push or mutate the remote PR head. It may prepare local
-fixes without presenting them as reviewed.
+During active development, an hourly hosted pass need not have a simultaneous
+CLI pass. The main thread must not push a new remote head while hosted review
+is running, but may continue local follow-up work separately and must not
+present those local changes as reviewed. Once the PR is genuinely
+final-review-ready, the main thread launches the hosted pass and the
+committed-diff CLI pass in parallel as one deliberate cycle. Both review the
+same clean, immutable pushed OID. Before that final cycle, the main thread
+fetches the PR branch, requires a clean worktree, verifies local `HEAD` equals
+the remote PR-head OID, and records that OID with both results. Findings from
+an earlier OID do not cover a later pushed head.
 
 After both results complete, the main thread verifies each finding, fixes or
 explicitly dispositions it, runs the required local and CI checks, and pushes
 the next head only when the result is ready for a new cycle. Hosted taper is
-reached when a fresh hosted pass produces no new material findings, or only
-repeats, non-actionable findings, disproportionate suggestions, or
-out-of-scope items. Remaining items have recorded dispositions.
+required before merge: it is reached when a fresh hosted pass produces no new
+material findings, or only repeats, non-actionable findings, disproportionate
+suggestions, or out-of-scope items. The CLI accelerates finding and fixing but
+does not satisfy this hosted taper gate. Remaining non-material or repeated
+items need recorded dispositions; ceremonial absolute zero is not required.
 
 When warranted, the committed-diff command is
 `coderabbit review --agent --committed --base <remote>/<base-ref>` against a

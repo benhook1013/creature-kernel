@@ -113,6 +113,21 @@ candidate must not be merged autonomously; it requires Ben's explicit, recorded
 authorization. An instruction for one PR is not standing authority for later
 PRs.
 
+Automatic CodeRabbit review remains disabled. Open a substantial coherent PR
+early enough that its stable pushed head can receive useful hosted review while
+local follow-up continues separately. With no hosted run active, the main
+thread may trigger `@coderabbitai full review` on that immutable remote head,
+normally no more than once per hourly allowance; repeated passes on an
+unchanged head are allowed when prior cycles still surfaced material findings
+or tapering is not established. Do not push a new remote head during an active
+hosted review.
+During active development, an hourly hosted pass need not have a simultaneous
+CLI pass; when genuinely final-review-ready, run hosted and committed-diff CLI
+review in parallel on the same immutable pushed head. Before merge, hosted
+material findings must have tapered; the CLI accelerates finding and fixing but
+does not replace hosted tapering, and repeated or non-material residual items
+need recorded disposition rather than ceremonial zero.
+
 Changes to agent authority, workflow routing, merge authority, retained-human
 boundaries, or the governing runway scope are presented to Ben and require his
 explicit, recorded authorization before merge. They are outside routine

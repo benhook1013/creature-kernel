@@ -46,13 +46,31 @@ def _record(profile_id: str, path: Path | None = None) -> SimpleNamespace:
     )
 
 
+def _renderer_source_snapshot(
+    source: bytes = b"renderer-source-snapshot",
+) -> object:
+    root = Path("/immutable")
+    dependencies = tuple(
+        regional_item.RendererDependencySourceSnapshot(
+            root / filename,
+            dependency_source,
+            hashlib.sha256(dependency_source).hexdigest(),
+        )
+        for filename in regional_item.RENDERER_DEPENDENCY_FILENAMES
+        for dependency_source in [
+            f"# retained gallery source: {filename}\n".encode("utf-8")
+        ]
+    )
+    return regional_item.RendererSourceSnapshot(
+        root / regional_item.RENDERER_ENTRYPOINT_FILENAME,
+        source,
+        hashlib.sha256(source).hexdigest(),
+        dependencies,
+    )
+
+
 def _renderer_source_identity() -> dict[str, object]:
-    source = b"renderer-source-snapshot"
-    return {
-        "id": regional_item.RENDERER_SOURCE_ID,
-        "bytes": len(source),
-        "sha256": hashlib.sha256(source).hexdigest(),
-    }
+    return _renderer_source_snapshot().identity
 
 
 def _implementation(renderer_source: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -135,6 +153,45 @@ def _item_result(rendered: gallery._RenderedProfile) -> dict[str, object]:
 
 
 class RegionalSurfaceGalleryTests(unittest.TestCase):
+    def test_checkpoint_identity_accepts_retained_and_generic_mesh_settings(self) -> None:
+        retained = gallery._validate_checkpoint_identity(
+            gallery.EXACT_FIVE_CHECKPOINT_ID,
+            gallery.EXPECTED_SAMPLES,
+            gallery.EXPECTED_PADDING,
+        )
+        self.assertEqual(
+            retained,
+            {
+                "id": gallery.EXACT_FIVE_CHECKPOINT_ID,
+                "mesh": {
+                    "samples_per_axis": gallery.EXPECTED_SAMPLES,
+                    "padding": gallery.EXPECTED_PADDING,
+                },
+            },
+        )
+
+        generic = gallery._validate_checkpoint_identity(
+            "regional-surface-custom-review",
+            32,
+            0.5,
+        )
+        self.assertEqual(generic["mesh"], {"samples_per_axis": 32, "padding": 0.5})
+
+    def test_exact_five_checkpoint_rejects_non_retained_mesh_settings(self) -> None:
+        with patch.object(gallery, "_refuse_existing_destination"):
+            with self.assertRaisesRegex(
+                gallery.RegionalSurfaceGalleryError,
+                "requires mesh_samples=56 and mesh_padding=0.2",
+            ):
+                gallery.publish_regional_surface_gallery(
+                    Path("/unused/reviews"),
+                    Path("/unused/manifest.json"),
+                    Path("/unused/creature-kernel"),
+                    review_id=gallery.EXACT_FIVE_CHECKPOINT_ID,
+                    mesh_samples=55,
+                    mesh_padding=gallery.EXPECTED_PADDING,
+                )
+
     def test_implementation_identity_uses_all_retained_executed_sources(self) -> None:
         renderer_identity = _renderer_source_identity()
         gallery_source_bytes = (HERE / "publish_regional_surface_gallery.py").read_bytes()
@@ -266,6 +323,11 @@ class RegionalSurfaceGalleryTests(unittest.TestCase):
             sources=tuple(item.inspected.record for item in rendered),
         )
         implementation = _implementation(source_identity)
+        checkpoint_identity = gallery._validate_checkpoint_identity(
+            gallery.EXACT_FIVE_CHECKPOINT_ID,
+            gallery.EXPECTED_SAMPLES,
+            gallery.EXPECTED_PADDING,
+        )
         descriptor = gallery._descriptor_snapshot(
             validation,
             SimpleNamespace(bytes=1, sha256="e" * 64),
@@ -273,7 +335,9 @@ class RegionalSurfaceGalleryTests(unittest.TestCase):
             rendered,
             gallery.EXPECTED_SAMPLES,
             gallery.EXPECTED_PADDING,
+            checkpoint_identity=checkpoint_identity,
         )
+        self.assertEqual(descriptor["checkpoint_identity"], checkpoint_identity)
         self.assertEqual(descriptor["lineage"]["renderer_source"], source_identity)
         self.assertEqual(
             [item["renderer_source"] for item in descriptor["profiles"]],
@@ -297,7 +361,7 @@ class RegionalSurfaceGalleryTests(unittest.TestCase):
                 rendered,
                 descriptor,
                 Path(directory),
-                review_id="gallery-lineage",
+                review_id=gallery.EXACT_FIVE_CHECKPOINT_ID,
                 mesh_samples=gallery.EXPECTED_SAMPLES,
                 mesh_padding=gallery.EXPECTED_PADDING,
             )
@@ -333,11 +397,7 @@ class RegionalSurfaceGalleryTests(unittest.TestCase):
     def test_gallery_reuses_one_renderer_snapshot_for_every_profile(self) -> None:
         records = tuple(_record(profile_id) for profile_id in gallery.PROFILE_IDS)
         validation = SimpleNamespace(sources=records)
-        snapshot = regional_item.RendererSourceSnapshot(
-            Path("/immutable/renderer.py"),
-            b"renderer-source",
-            hashlib.sha256(b"renderer-source").hexdigest(),
-        )
+        snapshot = _renderer_source_snapshot(b"renderer-source")
         implementation = _implementation(snapshot.identity)
         inspected = {
             record.id: gallery._InspectedProfile(record, {}, "1" * 64, "2" * 64)
@@ -429,11 +489,7 @@ class RegionalSurfaceGalleryTests(unittest.TestCase):
     def test_unexpected_renderer_exception_is_fixed_at_gallery_boundary(self) -> None:
         records = tuple(_record(profile_id) for profile_id in gallery.PROFILE_IDS)
         validation = SimpleNamespace(sources=records)
-        snapshot = regional_item.RendererSourceSnapshot(
-            Path("/immutable/renderer.py"),
-            b"renderer",
-            hashlib.sha256(b"renderer").hexdigest(),
-        )
+        snapshot = _renderer_source_snapshot(b"renderer")
         with patch.object(gallery, "_refuse_existing_destination"), patch.object(
             gallery, "_validate_sampling", return_value=(gallery.EXPECTED_SAMPLES, gallery.EXPECTED_PADDING)
         ), patch.object(gallery, "_validate_source_manifest", return_value=validation), patch.object(
@@ -466,11 +522,7 @@ class RegionalSurfaceGalleryTests(unittest.TestCase):
     def test_unexpected_publisher_exception_is_fixed_at_gallery_boundary(self) -> None:
         records = tuple(_record(profile_id) for profile_id in gallery.PROFILE_IDS)
         validation = SimpleNamespace(sources=records)
-        snapshot = regional_item.RendererSourceSnapshot(
-            Path("/immutable/renderer.py"),
-            b"renderer",
-            hashlib.sha256(b"renderer").hexdigest(),
-        )
+        snapshot = _renderer_source_snapshot(b"renderer")
         rendered = _rendered_profile(gallery.PROFILE_IDS[0], snapshot.identity)
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(gallery, "_refuse_existing_destination"), patch.object(

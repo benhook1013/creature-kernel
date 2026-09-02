@@ -57,6 +57,7 @@ SOURCE_MANIFEST_FORMAT = "creature-kernel.disposable-structural-profile-source-m
 GALLERY_FORMAT = "creature-kernel.disposable-regional-surface-gallery.v1"
 GALLERY_IMPLEMENTATION_ID = "regional-surface-gallery-v1"
 GROUP_ID = "regional-surface-gallery"
+EXACT_FIVE_CHECKPOINT_ID = "regional-surface-exact-five-checkpoint-v1"
 TITLE = "Five ordered regional-surface profiles"
 DESCRIPTION = (
     "Disposable exact-five regional-surface gallery for simplified stylized anatomy; "
@@ -279,6 +280,36 @@ def _validate_sampling(mesh_samples: Any, mesh_padding: Any) -> tuple[int, float
     if not math.isfinite(padding) or not 0.0 <= padding <= MAX_MESH_PADDING:
         _fail("mesh_padding must be a finite non-negative bounded number")
     return mesh_samples, padding
+
+
+def _checkpoint_identity(
+    review_id: str,
+    mesh_samples: int,
+    mesh_padding: float,
+) -> dict[str, Any]:
+    return {
+        "id": review_id,
+        "mesh": {
+            "samples_per_axis": mesh_samples,
+            "padding": mesh_padding,
+        },
+    }
+
+
+def _validate_checkpoint_identity(
+    review_id: str,
+    mesh_samples: int,
+    mesh_padding: float,
+) -> dict[str, Any]:
+    identity = _checkpoint_identity(review_id, mesh_samples, mesh_padding)
+    if review_id == EXACT_FIVE_CHECKPOINT_ID and (
+        mesh_samples != EXPECTED_SAMPLES or mesh_padding != EXPECTED_PADDING
+    ):
+        _fail(
+            f"{EXACT_FIVE_CHECKPOINT_ID} requires mesh_samples={EXPECTED_SAMPLES} "
+            f"and mesh_padding={EXPECTED_PADDING}"
+        )
+    return identity
 
 
 def _refuse_existing_destination(reviews_root: Path, review_id: str) -> None:
@@ -631,6 +662,8 @@ def _descriptor_snapshot(
     rendered: tuple[_RenderedProfile, ...],
     mesh_samples: int,
     mesh_padding: float,
+    *,
+    checkpoint_identity: dict[str, Any],
 ) -> dict[str, Any]:
     publication_identities = [
         {
@@ -665,6 +698,7 @@ def _descriptor_snapshot(
             "sha256": executable.sha256,
         },
         "implementation": implementation,
+        "checkpoint_identity": checkpoint_identity,
         "lineage": {
             "source_variant_id": SOURCE_VARIANT_ID,
             "renderer_source": implementation["renderer"],
@@ -856,6 +890,11 @@ def _publish_regional_surface_gallery(
         _fail("review id must differ from every exact-five profile item id")
     _refuse_existing_destination(reviews_root, stable_review_id)
     mesh_samples, mesh_padding = _validate_sampling(mesh_samples, mesh_padding)
+    checkpoint_identity = _validate_checkpoint_identity(
+        stable_review_id,
+        mesh_samples,
+        mesh_padding,
+    )
     validation = _validate_source_manifest(source_manifest)
     executable_reference = _validate_executable(creature_kernel)
 
@@ -908,6 +947,7 @@ def _publish_regional_surface_gallery(
             rendered,
             mesh_samples,
             mesh_padding,
+            checkpoint_identity=checkpoint_identity,
         )
         review_manifest, expected_sources = _review_manifest(
             rendered,
