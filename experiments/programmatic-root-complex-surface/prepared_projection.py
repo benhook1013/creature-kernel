@@ -18,6 +18,7 @@ _COUNT = {"parts": 18, "frames": 16, "landmarks": 43, "dimensions": 153}
 _I = (0, 0, 0, 1)
 _D = "derivation=source_dimension_integer_as_thousandths_of_canonical_metre_v1"
 _P = "derivation=parent_local_part_translation_plus_landmark_position_v1"
+_BILATERAL_SCALARS = {"arm_root_depth": ("upper_arm", "form_arm_profile_upper_arm_start_forward_radius"), "arm_root_outward": ("upper_arm", "form_arm_profile_upper_arm_start_lateral_radius"), "thigh_lateral_radius": ("thigh", "form_leg_profile_thigh_start_lateral_radius"), "thigh_depth": ("thigh", "form_leg_profile_thigh_start_forward_radius")}
 
 
 def _bad(where, message): raise PreparedProjectionError(f"{where}: {message}")
@@ -65,7 +66,10 @@ def _point(pair, owner, part_data, world):
     local, where = pair; point = _add(world[owner], local); return point, f"{where}.position; {part_data[owner][1]}.placement.translation; {_P}"
 def _frame(rows, owner, role):
     row, where = _pick(rows, owner, role, {"owner", "role", "transform"}, "frames"); transform = _dict(row["transform"], where); _ok(set(transform) == {"translation", "rotation_xyzw"} and _vec(transform["translation"], where) == (0, 0, 0) and _vec(transform["rotation_xyzw"], where, 4) == _I, where, "non-identity named frame")
-def _scalar(rows, owner, role, name): value, provenance = _dimension(rows, owner, role); return {"value": value, "provenance": provenance}
+def _bilateral_scalar(rows, owners, role, name):
+    left, right = (_dimension(rows, owner, role) for owner in owners)
+    _ok(left[0] == right[0], f"scalars.{name}", "left and right dimensions must match")
+    return {"value": left[0], "provenance": "; ".join((left[1], right[1], "derivation=validated_bilateral_scalar_v1"))}
 
 
 def prepare_standard_neutral(path):
@@ -102,8 +106,9 @@ def prepare_standard_neutral(path):
         owner = part(role); local, where = _landmark(body["landmarks"], owner, station_role, (owner, "form_torso_profile_control" if role != "neck" else "form_head_neck_profile_control")); center, center_provenance = _point((local, where), owner, p, world); prefix = station_role + "_"
         lateral, lp = _dimension(body["dimensions"], owner, prefix + "lateral_radius"); forward = name == "neck_collar"; front, fp = _dimension(body["dimensions"], owner, prefix + ("forward_radius" if forward else "anterior_radius")); back, bp = _dimension(body["dimensions"], owner, prefix + ("forward_radius" if forward else "posterior_radius")); bp += "; derivation=symmetric_neck_depth_from_forward_radius_v1" if forward else ""
         stations[name] = {"center": center, "lateral_radius": lateral, "front_extent": front, "back_extent": back, "provenance": "; ".join((center_provenance, lp, fp, bp))}
-    arm, thigh = part("upper_arm", "left"), part("thigh", "left")
-    scalars = {"arm_root_depth": _scalar(body["dimensions"], arm, "form_arm_profile_upper_arm_start_forward_radius", "arm_root_depth"), "arm_root_outward": _scalar(body["dimensions"], arm, "form_arm_profile_upper_arm_start_lateral_radius", "arm_root_outward"), "thigh_lateral_radius": _scalar(body["dimensions"], thigh, "form_leg_profile_thigh_start_lateral_radius", "thigh_lateral_radius"), "thigh_depth": _scalar(body["dimensions"], thigh, "form_leg_profile_thigh_start_forward_radius", "thigh_depth")}
+    owners = {role: tuple(part(role, side) for side in ("left", "right")) for role in ("upper_arm", "thigh")}
+    scalars = {name: _bilateral_scalar(body["dimensions"], owners[role], dimension_role, name)
+               for name, (role, dimension_role) in _BILATERAL_SCALARS.items()}
     return {"source": {"document": source["source"]["document"], "namespace": ns, "sha256": digest, "provenance": "raw_source_utf8_bytes_sha256_v1"}, "basis": dict(source["basis"]), "frames": {"body": frame_body}, "landmarks": landmarks, "stations": stations, "scalars": scalars}
 
 

@@ -16,7 +16,7 @@ The execution procedure below is retained as the investigation's historical
 plan. The terminal outcome recorded here supersedes its continuation steps for
 this seven-ring candidate.
 
-## Terminal outcome (2026-09-03)
+## Terminal outcome (2026-09-03 NZST)
 
 The seven-ring candidate exhausted exactly three frozen shared correction
 rounds. Round 1 fixed the measured shoulder intersections; round 2 improved
@@ -47,12 +47,12 @@ the recorded SHA-256 identities are:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `prepared.json` | `48503089e82b5332dc12caaad2b85eab8749639e2af8952a13badb4bff774916` |
+| `prepared.json` | `7d9c6e50d0d6c85bc9e9e2793f74c5a292b3962764bb913c055b593275b74c80` |
 | `skin.ply` | `bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf` |
 | `skin.png` | `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce` |
 | `cage.png` | `06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046` |
-| `metrics.json` | `253786962faf206285a058804af58e4c19a40c643cc5cd1ed27d91242d018fa8` |
-| `manifest.json` | `b13659dfc1cd347582cf3cc4cea8a2e4177c67654b1fd26acb76b43b9006b3fb` |
+| `metrics.json` | `f7470ef2472e16dd8decea6849d1854d2c524419edc950a357430069841c0221` |
+| `manifest.json` | `0e233864d232d7101debd932664a3348c28e1f072c725d3f2ed26e1ce5d7c2a6` |
 
 The evidence can be regenerated with the README's standard-neutral launcher
 command; its output target must be a new temporary path. The next retained

@@ -11,16 +11,21 @@ def _sha256(path: Path) -> str: return hashlib.sha256(path.read_bytes()).hexdige
 
 
 def _publish_no_replace(stage: Path, target: Path) -> None:
-    if sys.platform != "linux": raise RuntimeError("atomic no-replace publication requires Linux renameat2")
+    if sys.platform != "linux":
+        raise RuntimeError("atomic no-replace publication requires Linux renameat2")
     try:
         renameat2 = ctypes.CDLL(None, use_errno=True).renameat2
     except (AttributeError, OSError) as exc:
         raise RuntimeError("Linux renameat2 is unavailable; refusing unsafe publication") from exc
-    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]; renameat2.restype = ctypes.c_int
-    if renameat2(-100, os.fsencode(stage), -100, os.fsencode(target), 1) == 0: return
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    if renameat2(-100, os.fsencode(stage), -100, os.fsencode(target), 1) == 0:
+        return
     error = ctypes.get_errno()
-    if error == errno.EEXIST: raise FileExistsError(error, os.strerror(error), target)
-    if error in {errno.EINVAL, errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP}: raise RuntimeError("Linux renameat2 no-replace publication is unavailable")
+    if error == errno.EEXIST:
+        raise FileExistsError(error, os.strerror(error), target)
+    if error in {errno.EINVAL, errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP}:
+        raise RuntimeError("Linux renameat2 no-replace publication is unavailable")
     raise OSError(error, os.strerror(error), target)
 
 
@@ -44,7 +49,8 @@ def build(source: str | Path, output_dir: str | Path) -> Path:
                    "cage_quads": len(cage.quads), "skin_vertices": len(final.vertices),
                    "skin_quads": len(final.quads), "intersection_status": "zero" if not any(intersection_counts) else "nonzero",
                    "intersection_count": sum(intersection_counts), "intersection_counts_by_level": intersection_counts,
-                   "clearance_ratios": dict(evaluated.clearance_ratios), "files": files}; (stage / "metrics.json").write_bytes(canonical_json_bytes(metrics))
+                   "clearance_ratios": dict(evaluated.clearance_ratios), "files": files.copy()}
+        (stage / "metrics.json").write_bytes(canonical_json_bytes(metrics))
         files["metrics.json"] = _sha256(stage / "metrics.json")
         manifest = {"schema": "programmatic-root-complex.manifest.v1", "source_sha256": prepared["source"]["sha256"], "files": files}
         (stage / "manifest.json").write_bytes(canonical_json_bytes(manifest))

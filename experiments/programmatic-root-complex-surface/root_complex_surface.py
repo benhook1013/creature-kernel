@@ -144,12 +144,11 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
     if _orient(faces) != tuple(tuple(face) for face in faces): raise ValueError("shared interior edge uses the same direction")
     boundary = {edge for edge, value in uses.items() if len(value) == 1}
     boundary_directed = {(a, b) for value in uses.values() if len(value) == 1 for _, a, b in value}
-    declared, declared_directed = set(), set()
-    for _, loop in loops:
-        if len(loop) < 3 or len(set(loop)) != len(loop):
-            raise ValueError("boundary loop is not simple")
-        edges = [(loop[i], loop[(i + 1) % len(loop)]) for i in range(len(loop))]
-        declared.update(tuple(sorted(edge)) for edge in edges); declared_directed.update(edges)
+    if any(len(loop) < 3 or len(set(loop)) != len(loop) for _, loop in loops):
+        raise ValueError("boundary loop is not simple")
+    loop_edges = [(loop[i], loop[(i + 1) % len(loop)]) for _, loop in loops for i in range(len(loop))]
+    declared = {tuple(sorted(edge)) for edge in loop_edges}
+    declared_directed = set(loop_edges)
     if declared != boundary:
         raise ValueError("declared boundary loops do not match mesh boundary")
     if declared_directed != boundary_directed:
@@ -162,8 +161,7 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
     inventory = tuple(sorted(Counter(len(v) for v in neighbors.values()).items()))
     if expected_valences is not None and inventory != tuple(expected_valences):
         raise ValueError(f"unexpected valence inventory: {inventory}")
-    report = TopologyReport(vertex_count, len(uses), len(faces), len(boundary),
-                            vertex_count - len(uses) + len(faces), tuple(len(loop) for _, loop in loops), inventory)
+    report = TopologyReport(vertex_count, len(uses), len(faces), len(boundary), vertex_count - len(uses) + len(faces), tuple(len(loop) for _, loop in loops), inventory)
     if report.euler != 2 - len(loops):
         raise ValueError("Euler characteristic does not match boundary count")
     return report
@@ -189,10 +187,7 @@ def _number(value, path, positive=False):
 
 
 def _record(mapping, key, kind):
-    try:
-        value = mapping[key]
-    except (KeyError, TypeError) as exc:
-        raise ValueError(f"missing {kind} {key}") from exc
+    value = mapping.get(key)
     if (not isinstance(value, Mapping) or set(value) != _RECORD_FIELDS[kind] or not
             (isinstance(value.get("provenance"), str) and value["provenance"].strip())):
         raise ValueError(f"{kind} {key} has unknown or missing fields or requires provenance")
@@ -219,18 +214,16 @@ def _prepared(prepared):
         elif isinstance(item, (tuple, list)):
             pending.extend(item)
     _exact_keys(prepared, _PREPARED_FIELDS, "prepared input"); _exact_keys(prepared["source"], _SOURCE_FIELDS, "prepared.source"); _exact_keys(prepared["basis"], _BASIS_FIELDS, "prepared.basis")
-    for name, expected, required in (("frames", _FRAME_NAMES, None), ("landmarks", _LANDMARK_NAMES, None), ("stations", _STATION_NAMES, None), ("scalars", _SCALAR_NAMES, _REQUIRED_SCALARS)):
-        _exact_keys(prepared[name], expected, f"prepared.{name}", required)
+    for name, expected, required in (("frames", _FRAME_NAMES, None), ("landmarks", _LANDMARK_NAMES, None), ("stations", _STATION_NAMES, None), ("scalars", _SCALAR_NAMES, _REQUIRED_SCALARS)): _exact_keys(prepared[name], expected, f"prepared.{name}", required)
     stations, landmarks = prepared.get("stations"), prepared.get("landmarks"); frames, scalars = prepared.get("frames"), prepared.get("scalars")
     if not all(isinstance(x, Mapping) for x in (stations, landmarks, frames, scalars)):
         raise ValueError("stations, landmarks, frames, and scalars mappings are required")
     if len(stations) > 10 or len(landmarks) > 24 or len(frames) > 8:
         raise ValueError("prepared input exceeds admission caps")
     frame = _record(frames, "body", "frame")
-    axes = tuple(_vector(frame[name], f"frames.body.{name}") for name in
-                 ("lateral_axis", "up_axis", "forward_axis"))
+    axes = tuple(_vector(frame[name], f"frames.body.{name}") for name in ("lateral_axis", "up_axis", "forward_axis"))
     L, U, F = (axis / np.linalg.norm(axis) for axis in axes)
-    if any(not np.isfinite(axis).all() for axis in (L, U, F)) or np.dot(np.cross(L, U), F) < 0.999:
+    if any(abs(np.dot((L, U, F)[i], (L, U, F)[j])) > 1e-8 for i in range(3) for j in range(i)) or np.dot(np.cross(L, U), F) <= 1 - 1e-8:
         raise ValueError("body frame must be orthonormal and right-handed")
     constants, constant_provenance = dict(CONSTANTS), {key: f"formula_constant.{key}.v1" for key in CONSTANTS}
     for key in constants:
@@ -246,8 +239,7 @@ def _prepared(prepared):
 
 def build_cage(prepared):
     stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame_prov = _prepared(prepared)
-    ids, faces, loops = symbolic_topology()
-    validate_topology(72, faces, loops, EXPECTED_VALENCES)
+    ids, faces, loops = symbolic_topology(); validate_topology(72, faces, loops, EXPECTED_VALENCES)
     points, formulas, dependencies, provenance = [], [], [], []
 
     def station_values(name):
@@ -263,8 +255,7 @@ def build_cage(prepared):
         rec = _record(landmarks, name, "landmark")
         return _vector(rec.get("point"), f"landmarks.{name}.point"), rec["provenance"]
 
-    ring_sources = ("neck_collar", "upper_ribcage_shoulder", "lower_ribcage", "waist_abdomen",
-                    "lower_abdomen", "upper_pelvis", "lower_pelvis")
+    ring_sources = ("neck_collar", "upper_ribcage_shoulder", "lower_ribcage", "waist_abdomen", "lower_abdomen", "upper_pelvis", "lower_pelvis")
     ring_data = {name: station_values(name) for name in ring_sources}
     thigh_radius_record = _record(scalars, "thigh_lateral_radius", "scalar"); thigh_depth_record = _record(scalars, "thigh_depth", "scalar")
     thigh_radius = _number(thigh_radius_record.get("value"), "scalars.thigh_lateral_radius.value", True); thigh_depth = _number(thigh_depth_record.get("value"), "scalars.thigh_depth.value", True)
@@ -276,18 +267,15 @@ def build_cage(prepared):
         thigh_data[side] = (start, mid, start + constants["eta"] * route, start_prov, mid_prov)
 
     clamp_names = ("lower_ribcage", "lower_abdomen", "lower_pelvis"); clamped_ring_names = set()
-    envelope = [(float(np.dot(ring_data[name][0], U)), *ring_data[name][1:]) for name in
-                ("upper_ribcage_shoulder", "waist_abdomen", "upper_pelvis")]
+    envelope = [(float(np.dot(ring_data[name][0], U)), *ring_data[name][1:]) for name in ("upper_ribcage_shoulder", "waist_abdomen", "upper_pelvis")]
     seats = tuple(thigh_data[side][2] for side in ("left", "right"))
-    seat_deps = tuple(f"landmarks.thigh_{point}_{side}" for side in ("left", "right") for point in
-                      ("start", "mid")) + ("scalars.thigh_lateral_radius", "scalars.thigh_depth", "scalars.eta")
+    seat_deps = tuple(f"landmarks.thigh_{point}_{side}" for side in ("left", "right") for point in ("start", "mid")) + ("scalars.thigh_lateral_radius", "scalars.thigh_depth", "scalars.eta")
     seat_prov = "|".join((*[item for side in ("left", "right") for item in thigh_data[side][3:]],
                           thigh_radius_record["provenance"], thigh_depth_record["provenance"],
                           constant_provenance["eta"]))
     seat_extents = (max(abs(float(np.dot(seat, L))) for seat in seats) + thigh_radius,
                     thigh_depth, thigh_depth)
-    envelope.append((float(np.mean([np.dot(seat, U) for seat in seats])), seat_extents,
-                     seat_deps, seat_prov))
+    envelope.append((float(np.mean([np.dot(seat, U) for seat in seats])), seat_extents, seat_deps, seat_prov))
     if any(high[0] <= low[0] for high, low in zip(envelope, envelope[1:])): raise ValueError("axial envelope anchors must descend strictly")
     for name in clamp_names:
         center, values, deps, prov = ring_data[name]
@@ -325,8 +313,8 @@ def build_cage(prepared):
 
     arm_depth_record = _record(scalars, "arm_root_depth", "scalar"); arm_out_record = _record(scalars, "arm_root_outward", "scalar")
     arm_depth = _number(arm_depth_record.get("value"), "scalars.arm_root_depth.value", True); arm_out = _number(arm_out_record.get("value"), "scalars.arm_root_outward.value", True)
-    neck_center, neck_prov = ring_data["neck_collar"][0], ring_data["neck_collar"][3]; upper_center = ring_data["upper_ribcage_shoulder"][0]
-    neck_separation = float(np.dot(neck_center - upper_center, U))
+    neck_center, neck_prov = ring_data["neck_collar"][0], ring_data["neck_collar"][3]; upper_station_center = ring_data["upper_ribcage_shoulder"][0]
+    neck_separation = float(np.dot(neck_center - upper_station_center, U))
     if not isfinite(neck_separation) or neck_separation <= 0:
         raise ValueError("neck must be above upper ribcage")
     branch_data, socket_data = {}, {}
@@ -511,8 +499,7 @@ def _subdivide_once(mesh, level):
             dependency = tuple(mesh.control_ids[j] for j in dependency_indices)
         new_vertices.append(value); ids.append(f"L{level}.v.{mesh.control_ids[i]}")
         formulas.append(formula); deps.append(tuple(dict.fromkeys(dependency)))
-        prov.append(tuple(dict.fromkeys(p for j in dependency_indices
-                                     for p in mesh.provenance_ids[j])))
+        prov.append(tuple(dict.fromkeys(p for j in dependency_indices for p in mesh.provenance_ids[j])))
     edge_index = {}
     for edge in edge_keys:
         edge_index[edge] = len(new_vertices)
@@ -523,14 +510,12 @@ def _subdivide_once(mesh, level):
         else:
             value = (vertices[a] + vertices[b] + face_points[edge_uses[0][0]] + face_points[edge_uses[1][0]]) / 4
             formula = "catmull_clark.interior_edge"
-            dependency = (mesh.control_ids[a], mesh.control_ids[b]) + tuple(
-                mesh.control_ids[v] for use in edge_uses for v in mesh.quads[use[0]])
+            dependency = (mesh.control_ids[a], mesh.control_ids[b]) + tuple(mesh.control_ids[v] for use in edge_uses for v in mesh.quads[use[0]])
         new_vertices.append(value); ids.append(f"L{level}.e.{mesh.control_ids[a]}|{mesh.control_ids[b]}")
         formulas.append(formula); deps.append(tuple(dict.fromkeys(dependency)))
         source_indices = (a, b) if len(edge_uses) == 1 else (a, b, *(
             vertex for use in edge_uses for vertex in mesh.quads[use[0]]))
-        prov.append(tuple(dict.fromkeys(p for index in source_indices
-                                       for p in mesh.provenance_ids[index])))
+        prov.append(tuple(dict.fromkeys(p for index in source_indices for p in mesh.provenance_ids[index])))
     face_indices = []
     for fi, face in enumerate(mesh.quads):
         face_indices.append(len(new_vertices)); new_vertices.append(face_points[fi])
@@ -541,8 +526,7 @@ def _subdivide_once(mesh, level):
     for fi, face in enumerate(mesh.quads):
         for i, vertex in enumerate(face):
             previous = face[i - 1]; following = face[(i + 1) % 4]
-            quads.append((vertex, edge_index[tuple(sorted((vertex, following)))],
-                          face_indices[fi], edge_index[tuple(sorted((previous, vertex)))]))
+            quads.append((vertex, edge_index[tuple(sorted((vertex, following)))], face_indices[fi], edge_index[tuple(sorted((previous, vertex)))]))
     loops = []
     for name, loop in mesh.boundary_loops:
         expanded = []

@@ -9,6 +9,8 @@ REQUIRED_LOOPS = ("neck", "left_arm", "right_arm", "left_thigh", "right_thigh")
 INTERSECTION_TOLERANCE = 1e-10
 MAX_TRIANGLES = 2048
 MAX_CANDIDATES = 250000
+CLEARANCE_THRESHOLDS = {"neck": .030, "axilla_left": .025, "axilla_right": .025,
+                        "groin": .020, "medial_thigh": .025}
 
 
 def _vertices(raw, scale):
@@ -65,13 +67,16 @@ def _axes(a, b):
 def _disjoint(a, b, tolerance):
     for index, axis in enumerate(_axes(a, b)):
         length = np.linalg.norm(axis)
-        if not np.isfinite(axis).all() or not np.isfinite(length): raise ValueError("SAT axis must be finite")
+        if not np.isfinite(axis).all() or not np.isfinite(length):
+            raise ValueError("SAT axis must be finite")
         if index >= 2 and length <= np.finfo(float).eps:
             continue
         axis = axis / length
-        if not np.isfinite(axis).all(): raise ValueError("SAT axis must be finite")
+        if not np.isfinite(axis).all():
+            raise ValueError("SAT axis must be finite")
         left, right = a @ axis, b @ axis
-        if not np.isfinite(left).all() or not np.isfinite(right).all(): raise ValueError("SAT projections must be finite")
+        if not np.isfinite(left).all() or not np.isfinite(right).all():
+            raise ValueError("SAT projections must be finite")
         if left.max() < right.min() - tolerance or right.max() < left.min() - tolerance:
             return True
     return False
@@ -183,13 +188,11 @@ def boundary_clearance_ratios(vertices, boundary_loops, axes, scale):
 def validate_boundary_clearances(vertices, boundary_loops, axes, scale):
     """Raise when any named negative-space clearance is below its threshold."""
     values = boundary_clearance_ratios(vertices, boundary_loops, axes, scale)
-    thresholds = {"neck": .030, "axilla_left": .025, "axilla_right": .025,
-                  "groin": .020, "medial_thigh": .025}
-    for name in thresholds:
-        if values[name] < thresholds[name]:
-            raise ValueError(f"{name} clearance {values[name]:.6g} < {thresholds[name]:.3f}")
+    for name, threshold in CLEARANCE_THRESHOLDS.items():
+        if values[name] < threshold:
+            raise ValueError(f"{name} clearance {values[name]:.6g} < {threshold:.3f}")
     return values
 
 
-__all__ = ["boundary_clearance_ratios", "intersecting_triangle_pairs",
+__all__ = ["CLEARANCE_THRESHOLDS", "boundary_clearance_ratios", "intersecting_triangle_pairs",
            "validate_boundary_clearances", "validate_triangle_intersections"]

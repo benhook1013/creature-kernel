@@ -24,7 +24,9 @@ DEPTH_QUADS = np.asarray(((0, 1, 2, 3), (4, 5, 6, 7)), dtype=np.int64); EXTREME_
 def png_chunk_types(data: bytes) -> list[bytes]:
     offset, result = 8, []
     while offset < len(data):
-        length = struct.unpack(">I", data[offset : offset + 4])[0]; result.append(data[offset + 4 : offset + 8]); offset += 12 + length
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        result.append(data[offset + 4 : offset + 8])
+        offset += 12 + length
     return result
 
 
@@ -96,7 +98,7 @@ class RenderExportTests(unittest.TestCase):
     def test_builder_publishes_complete_metrics_and_manifest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-build-") as d:
             target = Path(d) / "standard-neutral"; self.assertEqual(builder.build(SOURCE, target), target); self.assertEqual({p.name for p in target.iterdir()}, set(ARTIFACTS))
-            metrics = json.loads((target / "metrics.json").read_text(encoding="utf-8")); manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8")); self.assertEqual(metrics["intersection_status"], "zero"); self.assertEqual(metrics["intersection_counts_by_level"], [0, 0]); self.assertEqual(set(manifest["files"]), set(ARTIFACTS) - {"manifest.json"}); self.assertEqual(manifest["files"]["metrics.json"], hashlib.sha256((target / "metrics.json").read_bytes()).hexdigest())
+            metrics = json.loads((target / "metrics.json").read_text(encoding="utf-8")); manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8")); self.assertEqual(metrics["intersection_status"], "zero"); self.assertEqual(metrics["intersection_counts_by_level"], [0, 0]); self.assertNotIn("metrics.json", metrics["files"]); self.assertEqual(set(manifest["files"]), set(ARTIFACTS) - {"manifest.json"}); self.assertEqual(manifest["files"]["metrics.json"], hashlib.sha256((target / "metrics.json").read_bytes()).hexdigest())
 
     def test_atomic_publication_refuses_existing_target_without_overwrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-publish-") as d:

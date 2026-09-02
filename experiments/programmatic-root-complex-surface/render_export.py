@@ -80,7 +80,8 @@ def write_skin_ply(path: str | Path, vertices: object, quads: object) -> None:
 
 
 def _frames(points: np.ndarray) -> tuple[list[np.ndarray], list[np.ndarray], float]:
-    coordinate_bound = float(np.max(np.abs(points))); points = points / coordinate_bound if coordinate_bound > np.finfo(np.float64).max / 4.0 else points
+    coordinate_bound = float(np.max(np.abs(points)))
+    points = points / coordinate_bound if coordinate_bound > np.finfo(np.float64).max / 4.0 else points
     cameras = [points @ basis.T for basis in _VIEW_BASES]
     if not all(np.isfinite(camera).all() for camera in cameras):
         raise ValueError("projected coordinates must be finite")
@@ -121,7 +122,8 @@ def _rasterize_triangle(pixels: np.ndarray, depth: np.ndarray, camera: np.ndarra
 
 def _skin_png_bytes(points: np.ndarray, triangles: np.ndarray) -> bytes:
     cameras, centres, scale = _frames(points)
-    coordinate_bound = float(np.max(np.abs(points))); lighting_points = points / coordinate_bound if coordinate_bound > np.finfo(np.float64).max / 4.0 else points
+    coordinate_bound = float(np.max(np.abs(points)))
+    lighting_points = points / coordinate_bound if coordinate_bound > np.finfo(np.float64).max / 4.0 else points
     pixels = np.full((CANVAS_SIZE[1], CANVAS_SIZE[0], 3), _BACKGROUND, dtype=np.uint8)
     for panel, camera in enumerate(cameras):
         depth = np.full((CANVAS_SIZE[1], CANVAS_SIZE[0]), -np.inf, dtype=np.float64)

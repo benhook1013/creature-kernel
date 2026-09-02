@@ -17,13 +17,8 @@ import mesh_correctness  # noqa: E402
 
 def synthetic_prepared():
     def station(center, radius, front, back, name):
-        return {
-            "center": center,
-            "lateral_radius": radius,
-            "front_extent": front,
-            "back_extent": back,
-            "provenance": f"synthetic.station.{name}",
-        }
+        return dict(center=center, lateral_radius=radius, front_extent=front,
+                    back_extent=back, provenance=f"synthetic.station.{name}")
 
     def landmark(point, name):
         return {"point": point, "provenance": f"synthetic.landmark.{name}"}
@@ -42,53 +37,35 @@ def synthetic_prepared():
     }
     landmarks = {}
     for side, sign in (("left", -1.0), ("right", 1.0)):
-        landmarks[f"shoulder_peak_{side}"] = landmark(
-            (sign * 1.38, 2.55, 0.0), f"shoulder_peak_{side}")
-        landmarks[f"axilla_{side}"] = landmark(
-            (sign * 1.25, 1.76, 0.0), f"axilla_{side}")
-        landmarks[f"thigh_start_{side}"] = landmark(
-            (sign * 0.78, -0.70, 0.0), f"thigh_start_{side}")
-        landmarks[f"thigh_mid_{side}"] = landmark(
-            (sign * 0.82, -1.85, 0.03), f"thigh_mid_{side}")
-    return {
-        "source": {"document": "synthetic_root_complex", "namespace": "synthetic", "sha256": "synthetic-source", "provenance": "synthetic.source"},
-        "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
-        "stations": stations,
-        "landmarks": landmarks,
-        "frames": {"body": {
-            "lateral_axis": (1.0, 0.0, 0.0),
-            "up_axis": (0.0, 1.0, 0.0),
-            "forward_axis": (0.0, 0.0, 1.0),
-            "provenance": "synthetic.frame.body",
-        }},
-        "scalars": {
-            "arm_root_depth": scalar(0.34, "arm_root_depth"),
-            "arm_root_outward": scalar(0.22, "arm_root_outward"),
-            "thigh_lateral_radius": scalar(0.70, "thigh_lateral_radius"),
-            "thigh_depth": scalar(0.42, "thigh_depth"),
-        },
-    }
+        for kind, x, y, z in (("shoulder_peak", 1.38, 2.55, 0.0),
+                              ("axilla", 1.25, 1.76, 0.0),
+                              ("thigh_start", 0.78, -0.70, 0.0),
+                              ("thigh_mid", 0.82, -1.85, 0.03)):
+            name = f"{kind}_{side}"; landmarks[name] = landmark((sign * x, y, z), name)
+    frame = dict(zip(("lateral_axis", "up_axis", "forward_axis"),
+                     ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))))
+    frame["provenance"] = "synthetic.frame.body"
+    scalars = {name: scalar(value, name) for name, value in (
+        ("arm_root_depth", 0.34), ("arm_root_outward", 0.22),
+        ("thigh_lateral_radius", 0.70), ("thigh_depth", 0.42))}
+    return {"source": {"document": "synthetic_root_complex", "namespace": "synthetic", "sha256": "synthetic-source", "provenance": "synthetic.source"},
+            "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
+            "stations": stations, "landmarks": landmarks, "frames": {"body": frame}, "scalars": scalars}
 
 
 def independent_subdivision_stencils(quads, loops, vertex_count):
     uses = {}
     for face_index, face in enumerate(quads):
-        for a, b in zip(face, face[1:] + face[:1]):
-            uses.setdefault(tuple(sorted((a, b))), []).append(face_index)
+        for a, b in zip(face, face[1:] + face[:1]): uses.setdefault(tuple(sorted((a, b))), []).append(face_index)
     boundary, incident = {}, {}
     for edge, face_indices in uses.items():
-        for vertex in edge:
-            incident.setdefault(vertex, []).extend(face_indices)
+        for vertex in edge: incident.setdefault(vertex, []).extend(face_indices)
         if len(face_indices) == 1:
-            boundary.setdefault(edge[0], []).append(edge[1])
-            boundary.setdefault(edge[1], []).append(edge[0])
+            boundary.setdefault(edge[0], []).append(edge[1]); boundary.setdefault(edge[1], []).append(edge[0])
     sources = []
-    for vertex in range(vertex_count):
-        sources.append({vertex, *boundary[vertex]} if vertex in boundary else {v for fi in incident[vertex] for v in quads[fi]})
+    for vertex in range(vertex_count): sources.append({vertex, *boundary[vertex]} if vertex in boundary else {v for fi in incident[vertex] for v in quads[fi]})
     edges = tuple(sorted(uses))
-    for edge in edges:
-        source = set(edge) | ({v for fi in uses[edge] for v in quads[fi]} if len(uses[edge]) == 2 else set())
-        sources.append(source)
+    for edge in edges: sources.append(set(edge) | ({v for fi in uses[edge] for v in quads[fi]} if len(uses[edge]) == 2 else set()))
     sources.extend(set(face) for face in quads)
     edge_index = {edge: vertex_count + i for i, edge in enumerate(edges)}
     face_index = {fi: vertex_count + len(edges) + fi for fi in range(len(quads))}
@@ -107,18 +84,15 @@ class SymbolicTopologyTests(unittest.TestCase):
         report = surface.validate_topology(len(ids), quads, loops, surface.EXPECTED_VALENCES)
         self.assertEqual(surface.RING_NAMES, ("neck_collar", "upper_ribcage_shoulder", "axilla_transition", "lower_ribcage", "waist_abdomen", "iliac_overlap", "lower_pelvis"))
         self.assertEqual((report.vertex_count, report.edge_count, report.face_count), (72, 138, 63))
-        self.assertEqual(report.boundary_edge_count, 24)
-        self.assertEqual(report.boundary_lengths, (8, 4, 4, 4, 4))
-        self.assertEqual(report.euler, -3)
-        self.assertEqual(report.valence_inventory, ((3, 22), (4, 40), (5, 10)))
-        self.assertEqual(loops, (("neck", (0, 1, 2, 3, 4, 5, 6, 7)),
-                                 ("left_arm", (56, 59, 58, 57)),
-                                 ("right_arm", (60, 63, 62, 61)),
-                                 ("left_thigh", (64, 67, 66, 65)),
+        self.assertEqual((report.boundary_edge_count, report.euler, report.boundary_lengths,
+                          report.valence_inventory), (24, -3, (8, 4, 4, 4, 4), ((3, 22), (4, 40), (5, 10))))
+        self.assertEqual(loops, (("neck", (0, 1, 2, 3, 4, 5, 6, 7)), ("left_arm", (56, 59, 58, 57)),
+                                 ("right_arm", (60, 63, 62, 61)), ("left_thigh", (64, 67, 66, 65)),
                                  ("right_thigh", (68, 69, 70, 71))))
-        self.assertEqual(ids[16:24], tuple(f"ring.axilla_transition.{i}" for i in range(8)))
-        self.assertEqual(ids[56:64], tuple(f"shoulder.{side}.{i}" for side in ("left", "right") for i in range(4)))
-        self.assertEqual(ids[64:72], tuple(f"thigh.{side}.{i}" for side in ("left", "right") for i in range(4)))
+        self.assertEqual((ids[16:24], ids[56:64], ids[64:72]),
+                         (tuple(f"ring.axilla_transition.{i}" for i in range(8)),
+                          tuple(f"shoulder.{side}.{i}" for side in ("left", "right") for i in range(4)),
+                          tuple(f"thigh.{side}.{i}" for side in ("left", "right") for i in range(4))))
         uses = {}
         for face in quads:
             for a, b in zip(face, face[1:] + face[:1]):
@@ -144,11 +118,9 @@ class SymbolicTopologyTests(unittest.TestCase):
 class FormulaAndInputTests(unittest.TestCase):
     def test_plain_mapping_build_has_complete_immutable_records(self):
         cage = surface.build_cage(synthetic_prepared())
-        self.assertEqual((len(cage.vertices), len(cage.quads)), (72, 63))
-        self.assertEqual(len(set(cage.control_ids)), 72)
-        self.assertEqual(len(cage.formula_ids), 72)
-        self.assertTrue(all(item for item in cage.dependencies))
-        self.assertTrue(all(item for item in cage.provenance_ids))
+        self.assertEqual((len(cage.vertices), len(cage.quads), len(set(cage.control_ids)),
+                          len(cage.formula_ids)), (72, 63, 72, 72))
+        self.assertTrue(all(item for item in cage.dependencies) and all(item for item in cage.provenance_ids))
         self.assertEqual(set(cage.formula_ids), {
             "station.asymmetric_superellipse", "iliac.blend.superellipse",
             "shoulder.axilla_transition", "shoulder.peak_axilla_collar",
@@ -443,22 +415,20 @@ class FormulaAndInputTests(unittest.TestCase):
 
     def test_shared_formula_constants_have_local_expected_effects(self):
         baseline = surface.build_cage(synthetic_prepared())
+        base_eval = surface.evaluate(synthetic_prepared(), levels=2)
         changed = synthetic_prepared(); changed["scalars"]["n"] = {"value": 3.1, "provenance": "synthetic.constant.n"}
         powered = surface.build_cage(changed)
         self.assertNotEqual(baseline.vertices[1], powered.vertices[1])
-        self.assertEqual((baseline.vertices[0], baseline.vertices[56:]),
-                         (powered.vertices[0], powered.vertices[56:]))
+        self.assertEqual((baseline.vertices[0], baseline.vertices[56:]), (powered.vertices[0], powered.vertices[56:]))
 
         changed = synthetic_prepared(); changed["scalars"]["lambda"] = {"value": 0.5, "provenance": "synthetic.constant.lambda"}
         blended = surface.build_cage(changed)
         self.assertNotEqual(baseline.vertices[40:48], blended.vertices[40:48])
-        self.assertEqual((baseline.vertices[:40], baseline.vertices[48:]),
-                         (blended.vertices[:40], blended.vertices[48:]))
+        self.assertEqual((baseline.vertices[:40], baseline.vertices[48:]), (blended.vertices[:40], blended.vertices[48:]))
 
         changed = synthetic_prepared(); changed["scalars"]["eta"] = {"value": 0.5, "provenance": "synthetic.constant.eta"}
         seated = surface.build_cage(changed)
-        self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]),
-                         (seated.vertices[:48], seated.vertices[56:64]))
+        self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]), (seated.vertices[:48], seated.vertices[56:64]))
         for region in (slice(48, 56), slice(64, 68), slice(68, 72)): self.assertNotEqual(baseline.vertices[region], seated.vertices[region])
         for side, offset in (("left", 64), ("right", 68)):
             start = np.asarray(changed["landmarks"][f"thigh_start_{side}"]["point"], dtype=float)
@@ -471,8 +441,7 @@ class FormulaAndInputTests(unittest.TestCase):
             self.assertAlmostEqual(projection / float(np.dot(route, route)), changed["scalars"]["eta"]["value"])
 
         changed = synthetic_prepared(); changed["stations"]["upper_pelvis"]["front_extent"] = 0.5; sourced = surface.build_cage(changed)
-        self.assertEqual((baseline.vertices[:8], baseline.vertices[56:]),
-                         (sourced.vertices[:8], sourced.vertices[56:]))
+        self.assertEqual((baseline.vertices[:8], baseline.vertices[56:]), (sourced.vertices[:8], sourced.vertices[56:]))
         self.assertNotEqual((baseline.vertices[42], baseline.vertices[50]), (sourced.vertices[42], sourced.vertices[50]))
 
         for key, changed_slice, stable_slice in (
@@ -499,7 +468,7 @@ class FormulaAndInputTests(unittest.TestCase):
             changed_indices = {i for i, (before, after) in enumerate(zip(baseline.vertices, candidate.vertices)) if before != after}
             self.assertEqual(changed_indices, expected_indices)
             self.assertEqual((baseline.quads, baseline.control_ids), (candidate.quads, candidate.control_ids))
-            base_eval = surface.evaluate(synthetic_prepared(), levels=2); changed_eval = surface.evaluate(changed, levels=2)
+            changed_eval = surface.evaluate(changed, levels=2)
             l1_inputs, l1_quads, l1_loops = independent_subdivision_stencils(baseline.quads, baseline.boundary_loops, len(baseline.vertices))
             l1_changed = {i for i, inputs in enumerate(l1_inputs) if inputs & changed_indices}
             l2_inputs, _, _ = independent_subdivision_stencils(l1_quads, l1_loops, len(base_eval.levels[0].vertices))
@@ -514,8 +483,7 @@ class FormulaAndInputTests(unittest.TestCase):
         gapped = surface.build_cage(changed)
         self.assertNotEqual((baseline.vertices[64], baseline.vertices[68]),
                             (gapped.vertices[64], gapped.vertices[68]))
-        self.assertEqual((baseline.vertices[65:68], baseline.vertices[69:72]),
-                         (gapped.vertices[65:68], gapped.vertices[69:72]))
+        self.assertEqual((baseline.vertices[65:68], baseline.vertices[69:72]), (gapped.vertices[65:68], gapped.vertices[69:72]))
 
         overrides = synthetic_prepared()
         for key, value in (("n", 2.7), ("lambda", 0.3), ("shoulder", 0.81),
@@ -544,15 +512,13 @@ class FormulaAndInputTests(unittest.TestCase):
         for index, (mutate, message) in enumerate(cases):
             with self.subTest(case=index):
                 prepared = synthetic_prepared(); mutate(prepared)
-                with self.assertRaisesRegex(ValueError, message):
-                    surface.build_cage(prepared)
+                self.assertRaisesRegex(ValueError, message, surface.build_cage, prepared)
 
 
 class SubdivisionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.prepared = synthetic_prepared()
-        cls.result = surface.evaluate(cls.prepared, levels=2)
+        cls.prepared = synthetic_prepared(); cls.result = surface.evaluate(cls.prepared, levels=2)
 
     def test_open_boundaries_subdivide_and_euler_is_preserved(self):
         first, second = self.result.levels
@@ -560,15 +526,14 @@ class SubdivisionTests(unittest.TestCase):
         self.assertEqual((len(second.vertices), len(second.quads)), (1053, 1008))
         for level, multiplier in ((first, 2), (second, 4)):
             report = surface.validate_topology(len(level.vertices), level.quads, level.boundary_loops)
-            self.assertEqual(report.euler, -3)
-            self.assertEqual(report.boundary_lengths, tuple(multiplier * n for n in (8, 4, 4, 4, 4)))
-            self.assertEqual(len(level.triangles), 2 * len(level.quads))
+            self.assertEqual((report.euler, report.boundary_lengths, len(level.triangles)),
+                             (-3, tuple(multiplier * n for n in (8, 4, 4, 4, 4)), 2 * len(level.quads)))
             surface.validate_geometry(level, evaluated=True)
         self.assertEqual(self.result.intersection_counts, (0, 0))
         self.assertEqual(tuple(name for name, _ in self.result.clearance_ratios),
                          ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
-        self.assertTrue(all(value > threshold for (_, value), threshold in zip(
-            self.result.clearance_ratios, (0.030, 0.025, 0.025, 0.020, 0.025))))
+        self.assertTrue(all(value > mesh_correctness.CLEARANCE_THRESHOLDS[name]
+                            for name, value in self.result.clearance_ratios))
 
     def test_final_level_clearance_gate_runs_at_requested_level(self):
         self.assertEqual(tuple(name for name, _ in surface.evaluate(self.prepared, levels=1).clearance_ratios), ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
