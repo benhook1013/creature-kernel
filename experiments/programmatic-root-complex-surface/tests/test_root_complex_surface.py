@@ -190,8 +190,7 @@ class FormulaAndInputTests(unittest.TestCase):
             expected.extend((path[i], path[i + 1], cuff[i + 1], cuff[i])
                             for i in range(4))
         expected.append((50, 64, 54, 68))
-        self.assertEqual({frozenset(face) for face in faces[-9:]},
-                         {frozenset(face) for face in expected})
+        self.assertEqual(faces[-9:], tuple(expected[:4]) + tuple(tuple(reversed(face)) for face in expected[4:8]) + (expected[8],))
 
     def test_pelvic_routes_have_no_proper_front_projection_crossings(self):
         cage = surface.build_cage(synthetic_prepared())
@@ -325,7 +324,7 @@ class FormulaAndInputTests(unittest.TestCase):
                 for a, b in cross_edges:
                     point = vertices[a] if a in collar else vertices[b]
                     other = vertices[b] if a in collar else vertices[a]
-                    self.assertNotEqual(sign * (other[0] - point[0]), 0.0)
+                    self.assertGreater(sign * (point[0] - other[0]), 0.0)
                 def orientation(a, b, c):
                     return ((b[0] - a[0]) * (c[1] - a[1])
                             - (b[1] - a[1]) * (c[0] - a[0]))
@@ -566,6 +565,9 @@ class SubdivisionTests(unittest.TestCase):
                          ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
         self.assertTrue(all(value > threshold for (_, value), threshold in zip(
             self.result.clearance_ratios, (0.030, 0.025, 0.025, 0.020, 0.025))))
+
+    def test_final_level_clearance_gate_runs_at_requested_level(self):
+        self.assertEqual(tuple(name for name, _ in surface.evaluate(self.prepared, levels=1).clearance_ratios), ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
 
     def test_correspondence_order_and_results_are_deterministic(self):
         repeated = surface.evaluate(synthetic_prepared(), levels=2)

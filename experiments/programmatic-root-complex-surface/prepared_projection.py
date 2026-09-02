@@ -46,7 +46,7 @@ def _addr(value, where):
 def _pick(rows, owner, role, fields, name):
     hits = []
     for i, raw in enumerate(rows):
-        where, row = f"body.{name}[{i}]", _dict(raw, f"body.{name}[{i}]"); key = "owner" if "owner" in row else "address"
+        where, row = f"body.{name}[{i}]", _dict(raw, f"body.{name}[{i}]"); key = "owner" if "owner" in row else "address"; _ok(key in row, where, "missing record selector")
         if _addr(row[key], f"{where}.{key}") == owner and row.get("role", owner[3]) == role: hits.append((row, where))
     _ok(len(hits) == 1, f"body.{name}.{role}", "missing or duplicate required record"); row, where = hits[0]
     _ok(set(row) == fields, where, "unknown or missing required field"); return row, where

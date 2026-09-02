@@ -289,8 +289,8 @@ the listed scale-relative thresholds:
 
 - neck: `min(span_L(neck), span_F(neck)) >= 0.030 S`;
 - each axilla: `min(span_U(arm), span_F(arm)) >= 0.025 S`;
-- groin: signed `L` separation of the first right and left thigh samples
-  `>= 0.020 S`; and
+- groin: signed `L` separation of the right thigh loop's minimum and the left
+  thigh loop's maximum `L` projections (`min(right) - max(left)`) `>= 0.020 S`; and
 - medial thigh: minimum signed `L` separation across right-versus-left thigh
   loop samples `>= 0.025 S`.
 

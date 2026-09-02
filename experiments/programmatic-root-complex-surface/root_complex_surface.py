@@ -567,7 +567,7 @@ def evaluate(prepared, levels=2):
         pairs = mesh_correctness.validate_triangle_intersections(
             current.vertices, current.triangles, scale)
         intersection_counts.append(len(pairs))
-        if level == 2:
+        if level == levels:
             values = mesh_correctness.validate_boundary_clearances(
                 current.vertices, dict(current.boundary_loops),
                 {"L": lateral, "U": up, "F": forward}, scale)

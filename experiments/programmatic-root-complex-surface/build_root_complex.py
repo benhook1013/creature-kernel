@@ -30,8 +30,8 @@ def build(source: str | Path, output_dir: str | Path) -> Path:
         raise FileExistsError(f"output directory must be new and have an existing parent: {target}")
     stage = Path(tempfile.mkdtemp(prefix=f".{target.name}.staging-", dir=target.parent))
     try:
-        prepared = prepare_standard_neutral(source)
-        evaluated = surface.evaluate(prepared, levels=2)
+        prepared = prepare_standard_neutral(source); evaluated = surface.evaluate(prepared, levels=2); intersection_counts = tuple(evaluated.intersection_counts)
+        if any(intersection_counts): raise ValueError("refusing publication with nonzero evaluated intersections")
         final, cage = evaluated.levels[-1], evaluated.cage
         (stage / "prepared.json").write_bytes(canonical_json_bytes(prepared))
         render_export.write_skin_ply(stage / "skin.ply", final.vertices, final.quads)
@@ -39,14 +39,12 @@ def build(source: str | Path, output_dir: str | Path) -> Path:
         render_export.render_cage_png(stage / "cage.png", cage.vertices, cage.quads)
         files = {name: _sha256(stage / name) for name in ("prepared.json", "skin.ply", "skin.png", "cage.png")}
         scale = surface.validate_geometry(final, evaluated=True)
-        intersection_counts = tuple(evaluated.intersection_counts)
         metrics = {"schema": "programmatic-root-complex.metrics.v1", "level": 2,
                    "scale": scale, "cage_vertices": len(cage.vertices),
                    "cage_quads": len(cage.quads), "skin_vertices": len(final.vertices),
                    "skin_quads": len(final.quads), "intersection_status": "zero" if not any(intersection_counts) else "nonzero",
                    "intersection_count": sum(intersection_counts), "intersection_counts_by_level": intersection_counts,
-                   "clearance_ratios": dict(evaluated.clearance_ratios), "files": files}
-        (stage / "metrics.json").write_bytes(canonical_json_bytes(metrics))
+                   "clearance_ratios": dict(evaluated.clearance_ratios), "files": files}; (stage / "metrics.json").write_bytes(canonical_json_bytes(metrics))
         files["metrics.json"] = _sha256(stage / "metrics.json")
         manifest = {"schema": "programmatic-root-complex.manifest.v1", "source_sha256": prepared["source"]["sha256"], "files": files}
         (stage / "manifest.json").write_bytes(canonical_json_bytes(manifest))
