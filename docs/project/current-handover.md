@@ -12,7 +12,7 @@ untrusted until verified live:
 - Checkout: `/home/ben/src/creature-kernel-worktrees/surface-domain-runway`
 - Worktree: `/home/ben/src/creature-kernel-worktrees/surface-domain-runway`
 - Branch: `codex/surface-domain-runway`
-- Pull request: pending governance PR; no number assigned
+- Pull request: draft PR #124
 
 ## Live verification checklist
 
