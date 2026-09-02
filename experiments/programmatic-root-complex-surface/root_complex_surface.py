@@ -1,9 +1,9 @@
 """Experiment-local root-complex cage grammar and deterministic evaluator."""
 
 from collections import Counter, defaultdict, deque
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import cos, isfinite, pi, sin
-from typing import Mapping
 
 import numpy as np
 

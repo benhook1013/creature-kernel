@@ -316,8 +316,9 @@ numeric score substitutes for that human judgment.
 
 ## Complexity boundary and correction stop
 
-Before any gallery work, use only the existing pinned NumPy/Pillow environment;
-add no dependency. The narrow apparatus amendment for this correction is at
+Before any gallery work, use only the existing pinned NumPy/Pillow/scikit-image
+environment (`render_export.py` imports `skimage.draw`); add no dependency. The
+narrow apparatus amendment for this correction is at
 most 975 non-test Python LOC, 775 test LOC, 8 Python files, and 170 non-test
 LOC in `mesh_correctness.py`. All geometry, topology, tunable, subdivision,
 and correction-round gates remain: 72 controls, 96 base quads, two subdivision
@@ -360,8 +361,10 @@ context only; it is not current continuation after the terminal outcome above.
 ## Reproduction and outputs
 
 All trial commands use [the root-complex launcher](root_complex_launcher.sh),
-which delegates interpreter, pinned-environment, and temporary-root selection
-to the current-form preview launcher. There is no bare-Python fallback. Keep
+which requires the sibling
+`experiments/current-form-surface-preview/surface_preview_launcher.sh` and
+delegates interpreter, pinned-environment, and temporary-root selection to it.
+The sibling launcher must exist and be executable; no fallback exists. Keep
 generated outputs in `/tmp` or the approved cache, never in Git. The initial
 neutral output set is expected to contain `prepared.json`, `skin.ply`,
 `skin.png`, `cage.png`, `metrics.json`, and `manifest.json`; large artifacts

@@ -169,11 +169,11 @@ def boundary_clearance_ratios(vertices, boundary_loops, axes, scale):
         "axilla_left": min(span("left_arm", U), span("left_arm", F)),
         "axilla_right": min(span("right_arm", U), span("right_arm", F)),
     }
-    left = points[loops["left_thigh"][0]]
-    right = points[loops["right_thigh"][0]]
-    values["groin"] = float(np.dot(right - left, L))
     left_samples = points[list(loops["left_thigh"])]
     right_samples = points[list(loops["right_thigh"])]
+    left_lateral = left_samples @ L
+    right_lateral = right_samples @ L
+    values["groin"] = float(right_lateral.min() - left_lateral.max())
     values["medial_thigh"] = float(((right_samples[:, None, :] - left_samples[None, :, :]) @ L).min())
     if not all(np.isfinite(value) for value in values.values()):
         raise ValueError("boundary clearances must be finite")

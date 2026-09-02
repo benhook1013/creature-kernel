@@ -84,12 +84,10 @@ def independent_subdivision_stencils(quads, loops, vertex_count):
             boundary.setdefault(edge[1], []).append(edge[0])
     sources = []
     for vertex in range(vertex_count):
-        sources.append({vertex, *boundary[vertex]} if vertex in boundary else
-                       {v for fi in incident[vertex] for v in quads[fi]})
+        sources.append({vertex, *boundary[vertex]} if vertex in boundary else {v for fi in incident[vertex] for v in quads[fi]})
     edges = tuple(sorted(uses))
     for edge in edges:
-        source = set(edge) | ({v for fi in uses[edge] for v in quads[fi]}
-                               if len(uses[edge]) == 2 else set())
+        source = set(edge) | ({v for fi in uses[edge] for v in quads[fi]} if len(uses[edge]) == 2 else set())
         sources.append(source)
     sources.extend(set(face) for face in quads)
     edge_index = {edge: vertex_count + i for i, edge in enumerate(edges)}
@@ -99,13 +97,15 @@ def independent_subdivision_stencils(quads, loops, vertex_count):
     return tuple(sources), next_quads, next_loops
 
 
+def station_fields(name):
+    return {f"stations.{name}.{key}" for key in ("center", "lateral_radius", "front_extent", "back_extent")}
+
+
 class SymbolicTopologyTests(unittest.TestCase):
     def test_exact_counts_loops_euler_orientation_and_valences(self):
         ids, quads, loops = surface.symbolic_topology()
         report = surface.validate_topology(len(ids), quads, loops, surface.EXPECTED_VALENCES)
-        self.assertEqual(surface.RING_NAMES, (
-            "neck_collar", "upper_ribcage_shoulder", "axilla_transition",
-            "lower_ribcage", "waist_abdomen", "iliac_overlap", "lower_pelvis"))
+        self.assertEqual(surface.RING_NAMES, ("neck_collar", "upper_ribcage_shoulder", "axilla_transition", "lower_ribcage", "waist_abdomen", "iliac_overlap", "lower_pelvis"))
         self.assertEqual((report.vertex_count, report.edge_count, report.face_count), (72, 138, 63))
         self.assertEqual(report.boundary_edge_count, 24)
         self.assertEqual(report.boundary_lengths, (8, 4, 4, 4, 4))
@@ -117,10 +117,8 @@ class SymbolicTopologyTests(unittest.TestCase):
                                  ("left_thigh", (64, 67, 66, 65)),
                                  ("right_thigh", (68, 69, 70, 71))))
         self.assertEqual(ids[16:24], tuple(f"ring.axilla_transition.{i}" for i in range(8)))
-        self.assertEqual(ids[56:64], tuple(
-            f"shoulder.{side}.{i}" for side in ("left", "right") for i in range(4)))
-        self.assertEqual(ids[64:72], tuple(
-            f"thigh.{side}.{i}" for side in ("left", "right") for i in range(4)))
+        self.assertEqual(ids[56:64], tuple(f"shoulder.{side}.{i}" for side in ("left", "right") for i in range(4)))
+        self.assertEqual(ids[64:72], tuple(f"thigh.{side}.{i}" for side in ("left", "right") for i in range(4)))
         uses = {}
         for face in quads:
             for a, b in zip(face, face[1:] + face[:1]):
@@ -235,7 +233,7 @@ class FormulaAndInputTests(unittest.TestCase):
             assert_mirror(mesh.vertices)
 
     def test_axial_envelope_and_axilla_transition_use_exact_interpolation(self):
-        prepared = synthetic_prepared(); cage = surface.build_cage(prepared)
+        prepared = synthetic_prepared(); prepared["scalars"]["thigh_lateral_radius"]["value"] = 0.73; prepared["scalars"]["thigh_depth"]["value"] = 0.47; cage = surface.build_cage(prepared)
         keys = ("lateral_radius", "front_extent", "back_extent")
         anchors = [(prepared["stations"][name]["center"][1], tuple(
             prepared["stations"][name][key] for key in keys)) for name in
@@ -246,7 +244,8 @@ class FormulaAndInputTests(unittest.TestCase):
                          prepared["landmarks"][f"thigh_start_{side}"]["point"]))
                  for side in ("left", "right")]
         anchors.append((np.mean([seat[1] for seat in seats]),
-                        (max(abs(seat[0]) for seat in seats) + 0.70, 0.42, 0.42)))
+                        (max(abs(seat[0]) for seat in seats) + prepared["scalars"]["thigh_lateral_radius"]["value"],
+                         prepared["scalars"]["thigh_depth"]["value"], prepared["scalars"]["thigh_depth"]["value"])))
 
         def limited(name):
             station = prepared["stations"][name]; position = station["center"][1]
@@ -265,7 +264,6 @@ class FormulaAndInputTests(unittest.TestCase):
             for index, point in zip((0, 2, 4, 6), expected):
                 np.testing.assert_allclose(cage.vertices[start + index], point)
                 self.assertEqual(cage.formula_ids[start + index], "station.axial_envelope.min_clamp")
-        station_fields = lambda name: {f"stations.{name}.{key}" for key in ("center", *keys)}
         self.assertEqual(cage.formula_ids[10], "shoulder.superior_axial_saddle")
         self.assertEqual(set(cage.dependencies[10]), station_fields("upper_ribcage_shoulder") | {
             "stations.neck_collar.center", "frames.body", "scalars.n", "scalars.saddle"})
@@ -394,8 +392,6 @@ class FormulaAndInputTests(unittest.TestCase):
                                 (float(np.dot(center, forward)) + depth_sign * arm["arm_root_depth"]["value"]) * forward)
                     np.testing.assert_allclose(vertices[actual_index], expected)
                     self.assertEqual(cage.formula_ids[actual_index], "shoulder.peak_axilla_collar")
-                    station_fields = lambda name: {f"stations.{name}.{key}" for key in
-                                                   ("center", "lateral_radius", "front_extent", "back_extent")}
                     if ring_name == "upper_ribcage_shoulder":
                         expected_dependencies = station_fields(ring_name) | {
                             f"landmarks.shoulder_peak_{side}", f"landmarks.axilla_{side}",
@@ -460,8 +456,7 @@ class FormulaAndInputTests(unittest.TestCase):
         seated = surface.build_cage(changed)
         self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]),
                          (seated.vertices[:48], seated.vertices[56:64]))
-        self.assertNotEqual((baseline.vertices[48:56], baseline.vertices[64:]),
-                            (seated.vertices[48:56], seated.vertices[64:]))
+        for region in (slice(48, 56), slice(64, 68), slice(68, 72)): self.assertNotEqual(baseline.vertices[region], seated.vertices[region])
         for side, offset in (("left", 64), ("right", 68)):
             start = np.asarray(changed["landmarks"][f"thigh_start_{side}"]["point"], dtype=float)
             mid = np.asarray(changed["landmarks"][f"thigh_mid_{side}"]["point"], dtype=float)
@@ -542,11 +537,12 @@ class FormulaAndInputTests(unittest.TestCase):
                 surface.build_cage(prepared)
 
     def test_invalid_inputs_fail_closed(self):
-        mutations = (lambda p: p["stations"].pop("neck_collar"), lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)))
-        for index, mutate in enumerate(mutations):
+        cases = ((lambda p: p["stations"].pop("neck_collar"), r"prepared\.stations has unknown or missing fields"), (lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), r"stations\.waist_abdomen\.center must be a finite 3-vector"), (lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), "body frame must be orthonormal and right-handed"), (lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), "thigh route left must have positive length"), (lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), "thigh medial radius left is non-positive"), (lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], "axilla transition interpolation must have 0 < t < 1"), (lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)), "neck must be above upper ribcage"))
+        for index, (mutate, message) in enumerate(cases):
             with self.subTest(case=index):
                 prepared = synthetic_prepared(); mutate(prepared)
-                with self.assertRaises(ValueError): surface.build_cage(prepared)
+                with self.assertRaisesRegex(ValueError, message):
+                    surface.build_cage(prepared)
 
 
 class SubdivisionTests(unittest.TestCase):
@@ -600,7 +596,7 @@ class MeshCorrectnessTests(unittest.TestCase):
             dtype=float)
         triangles = np.asarray(((0, 1, 2), (3, 4, 5)), dtype=np.int64)
         self.assert_pairs(crossing, triangles, ((0, 1),))
-        with self.assertRaisesRegex(ValueError, "first pair \(0, 1\)"):
+        with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"):
             mesh_correctness.validate_triangle_intersections(crossing, triangles, 1.0)
 
         coplanar_overlap = np.vstack((
@@ -639,28 +635,27 @@ class MeshCorrectnessTests(unittest.TestCase):
         finally:
             mesh_correctness.MAX_CANDIDATES = old_cap
 
-    def test_each_named_clearance_gate_rejects_independent_collapse(self):
-        result = surface.evaluate(synthetic_prepared(), levels=2)
-        mesh = result.levels[-1]
-        vertices = np.asarray(mesh.vertices, dtype=float)
-        loops = dict(mesh.boundary_loops)
-        axes = {"L": (1.0, 0.0, 0.0), "U": (0.0, 1.0, 0.0), "F": (0.0, 0.0, 1.0)}
-        scale = surface.validate_geometry(mesh, evaluated=True)
+    def test_boundary_clearances_are_rotation_invariant_and_reject_each_collapse(self):
+        result = surface.evaluate(synthetic_prepared(), levels=2); mesh = result.levels[-1]
+        vertices = np.asarray(mesh.vertices, dtype=float); loops = dict(mesh.boundary_loops)
+        axes = {"L": (1.0, 0.0, 0.0), "U": (0.0, 1.0, 0.0), "F": (0.0, 0.0, 1.0)}; scale = surface.validate_geometry(mesh, evaluated=True)
+        baseline = mesh_correctness.boundary_clearance_ratios(vertices, loops, axes, scale)
+        left, right = loops["left_thigh"], loops["right_thigh"]
+        lateral = np.asarray(axes["L"]); points = vertices / scale; medial_gap = float((points[list(right)] @ lateral).min() - (points[list(left)] @ lateral).max()); legacy_gap = float(np.dot(points[right[0]] - points[left[0]], lateral))
+        self.assertGreater(medial_gap, 0.0); self.assertEqual((baseline["groin"], medial_gap), (legacy_gap, legacy_gap))
+        for left_shift, right_shift in ((i, j) for i in range(len(left)) for j in range(len(right))):
+            rotated = dict(loops); rotated["left_thigh"] = left[left_shift:] + left[:left_shift]; rotated["right_thigh"] = right[right_shift:] + right[:right_shift]
+            self.assertEqual(mesh_correctness.boundary_clearance_ratios(vertices, rotated, axes, scale), baseline)
         for name in ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"):
             collapsed = vertices.copy()
             if name in ("neck", "axilla_left", "axilla_right"):
-                loop_name = {"neck": "neck", "axilla_left": "left_arm", "axilla_right": "right_arm"}[name]
-                indices = loops[loop_name]
-                collapsed[list(indices)] = collapsed[indices[0]]
+                loop_name = {"neck": "neck", "axilla_left": "left_arm", "axilla_right": "right_arm"}[name]; indices = loops[loop_name]; collapsed[list(indices)] = collapsed[indices[0]]
             elif name == "groin":
                 collapsed[loops["right_thigh"][0], 0] = collapsed[loops["left_thigh"][0], 0]
             else:
-                left, right = loops["left_thigh"], loops["right_thigh"]
-                collapsed[right[1], 0] = collapsed[left[1], 0] + 0.001
-            with self.subTest(gate=name):
-                with self.assertRaisesRegex(ValueError, name):
-                    mesh_correctness.validate_boundary_clearances(
-                        collapsed, loops, axes, scale)
+                collapsed[right[0], 0] = collapsed[left[0], 0] + 0.022 * scale
+            with self.subTest(gate=name), self.assertRaisesRegex(ValueError, name):
+                mesh_correctness.validate_boundary_clearances(collapsed, loops, axes, scale)
 
 
 if __name__ == "__main__":
