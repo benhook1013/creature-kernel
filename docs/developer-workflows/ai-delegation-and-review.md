@@ -3,6 +3,9 @@
 Status: Proposed transition guidance; current safety and authority controls
 remain operational under Accepted DR-0001 Revision 5
 
+Ben explicitly authorized the routing direction in this revision on
+2026-09-01; formal Revision 6 acceptance remains pending.
+
 Use this workflow whenever work involves delegation, model-backed review,
 hands-on feature trials, AI-control-plane changes, pull-request or
 external-review activity, or merge activity. This is the sole
@@ -85,7 +88,11 @@ the option spaces and contributes its own synthesis before forming a proposal.
 These passes are not delegated direction and do not replace post-proposal
 adversarial review. Bounded factual investigation, routine or small technical
 choices, and implementation of an already-decided direction do not require
-this two-pass ideation.
+this two-pass ideation. A fresh Sol-medium synthesis or challenge selected
+under the routing heuristic below complements these option-generation passes
+by testing their framing, alternatives, or implications; it does not replace
+either pass, reduce the required count, or displace main-thread synthesis and
+human decision authority.
 
 ### Morphology dossiers
 
@@ -95,26 +102,48 @@ and source-backed factual or shape-knowledge questions. The main thread
 synthesizes the two results and presents the outcome for human review. The
 dossiers are research input, not executable truth, a schema, a supported
 morphology promise, or an accepted product or architecture contract. If the
-lane is not activated, these passes are not required.
+lane is not activated, these passes are not required. Any additional
+Sol-medium synthesis or challenge of the dossier method or combined evidence
+complements the two source-backed passes; it does not count as or replace
+either required pass.
 
 ## Model routing
 
+Choose the model up front by decision leverage and reasoning shape, not only
+by corpus size, duration, or whether Luna has already failed. Modest work can
+be high leverage: if stronger synthesis or challenge could prevent a wrong
+implementation or evaluation direction, its short length is not a reason to
+route it to Luna.
+
 - Use `gpt-5.6-luna` at `high` for routine bounded investigation, mechanical
-  patches, straightforward test updates, and multi-step search or tool-driven
-  work. Prefer this route when it preserves main-thread context or lowers cost.
+  patches, straightforward implementation and test updates, and multi-step
+  search or tool-driven work. Prefer this route when the task is primarily
+  throughput work and it preserves main-thread context or lowers cost.
 - Use `gpt-5.6-luna` at `xhigh` for substantial delegated work and independent
-  review. This is the normal Luna ceiling.
+  narrow correctness or convergence review. This is the normal Luna ceiling.
 - Use `gpt-5.6-luna` at `max` only under the admission gate below.
-- Use `gpt-5.6-sol` at `medium` when broad synthesis, ambiguous evidence, or
-  general reasoning matters more than coding-agent throughput. This is a
-  task-type escalation, not an automatic next tier after Luna.
-- Use fresh Sol-medium review for foundational adversarial work by default
-  when its breadth and authority boundaries require it. Use Luna-xhigh for
-  narrow convergence, implementation, or bounded technical review when that
-  better fits the corpus.
+- Select a fresh `gpt-5.6-sol` pass at `medium` up front for bounded synthesis,
+  interpretation, method selection, experiment or test-design challenge,
+  architecture-boundary challenge, or adversarial review when its conclusions
+  could materially redirect what the project builds, how it evaluates the
+  result, or how ambiguous evidence is interpreted. Do not require a failed
+  Luna pass first.
+- Use fresh Sol-medium review for foundational or otherwise
+  redirection-sensitive adversarial work even when the target is short. Use
+  Luna-xhigh for narrow convergence, implementation fidelity, factual
+  checking, or bounded technical correctness review. This distinction keeps
+  Sol selective; not every review is a Sol task.
 - `gpt-5.6-sol` at `high` requires explicit human approval and is the absolute
   subagent ceiling. Sol above medium is never implicit.
 - Terra is not a normal routing tier.
+
+A single Luna reviewer must not become the deciding intelligence for
+redirection-sensitive work. Luna may provide implementation, factual evidence,
+variance, and narrow review; a fresh Sol-medium challenge may inform the
+choice, the main Sol thread retains synthesis and final repository judgment,
+and Ben retains product, architecture, and other human decisions. A selected
+Sol challenge complements rather than substitutes for any independently
+required ideation, research, or review passes.
 
 ### Luna max admission gate
 
@@ -276,6 +305,15 @@ Later changes retain this safeguard. A purely internal change without an
 operable entrypoint uses one focused integration-consumer exercise when two
 user trials add no value.
 
+## Visual checkpoint completeness
+
+Before presenting a visual checkpoint, the main thread maps every named
+visual-floor feature to an actual final-skin consumer or influence, or explicitly
+marks it absent; an absence is not a pass. Diagnostics, metadata, topology, and
+overlap cannot satisfy that mapping. It runs a focused regression and a fresh
+open-ended `gpt-5.6-sol` medium visual critique, reconciles the findings, and
+keeps model vision advisory to Ben's human acceptance.
+
 ## Independent model review
 
 Use a fresh-context reviewer that did not implement the material under review
@@ -297,6 +335,14 @@ The risk-scaled levels are:
   disputed, or difficult-to-audit work. It means two genuinely independent
   fresh passes with distinct named lenses, normally Sol at `medium` for
   foundational work.
+
+Within either level, select fresh Sol-medium review when even a short challenge
+could materially redirect implementation, evaluation method, an architecture
+boundary, or interpretation of ambiguous evidence. Use Luna for narrow
+correctness, implementation-fidelity, factual, or convergence review. Review
+level and model routing are separate choices: this heuristic neither turns
+every review into a Sol task nor changes the number of passes the selected
+level requires.
 
 More than `Double`, or Sol above `medium`, requires explicit human approval.
 A material change to a proposal, constraints, alternatives, or consequences
@@ -330,6 +376,14 @@ PR that reaches that checkpoint, changes user-visible CLI/viewer/API behaviour
 for Ben's appraisal, or crosses a retained-human boundary is presented to Ben
 before merge, must not be merged autonomously, and requires Ben's explicit,
 recorded authorization.
+
+At each merged-PR closeout, after verifying the exact merge and that the
+associated worktree is clean, remove that worktree and its merged local branch.
+Before creating another worktree, inventory `git worktree list` and local
+branches. The normal steady state is the primary `main` worktree plus one active
+lane. Preserve dirty or unmerged work; record or escalate only when it genuinely
+must remain or cleanup is blocked. This is silent operational hygiene, not a
+routine user-facing report.
 
 Control-plane changes—including this workflow, review or automation
 configuration, permissions, or merge policy—are presented to Ben and require

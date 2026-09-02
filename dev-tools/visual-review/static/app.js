@@ -101,13 +101,28 @@
     });
   }
 
-  function metadataBlock(item) {
+  function jsonDisclosure(label, value, preClass, className, open) {
+    var details = node("details", null, className || "json-disclosure");
+    details.appendChild(node("summary", label));
+    details.appendChild(node("pre", jsonText(value), preClass));
+    if (open) {
+      details.open = true;
+    }
+    return details;
+  }
+
+  function metadataBlock(item, collapsed) {
     if (!item.metadata) {
       return null;
     }
-    var pre = node("pre", JSON.stringify(item.metadata, null, 2), "metadata");
-    pre.setAttribute("aria-label", "Metadata for " + item.id);
-    return pre;
+    if (!collapsed) {
+      var pre = node("pre", JSON.stringify(item.metadata, null, 2), "metadata");
+      pre.setAttribute("aria-label", "Metadata for " + item.id);
+      return pre;
+    }
+    var details = jsonDisclosure("Technical metadata", item.metadata, "metadata", "json-disclosure metadata-disclosure");
+    details.setAttribute("aria-label", "Technical metadata for " + item.id);
+    return details;
   }
 
   function imageDescription(item) {
@@ -123,7 +138,7 @@
     return description ? title + " — " + description : title;
   }
 
-  function subjectContextBlock(context) {
+  function subjectContextBlock(context, collapseDescriptor) {
     if (!context) {
       return null;
     }
@@ -148,11 +163,8 @@
       if (!context[entry[0]]) {
         return;
       }
-      var details = node("details");
-      details.open = true;
-      details.appendChild(node("summary", entry[1]));
-      details.appendChild(node("pre", JSON.stringify(context[entry[0]], null, 2), "context-json"));
-      panel.appendChild(details);
+      var open = entry[0] === "descriptor_snapshot" ? !collapseDescriptor : true;
+      panel.appendChild(jsonDisclosure(entry[1], context[entry[0]], "context-json", "json-disclosure", open));
     });
     return panel;
   }
@@ -4196,6 +4208,10 @@
     showItem(requestedIndex, false);
   }
 
+  function isRegionalExactFiveGroup(group) {
+    return group && group.id === "regional-surface-gallery" && group.items.length === 5;
+  }
+
   function renderReview(data) {
     document.title = "Creature Kernel visual review";
     if (data && data.kind === "provisional-form") {
@@ -4225,7 +4241,8 @@
     if (review.description) {
       app.appendChild(node("p", review.description, "lede"));
     }
-    var contextPanel = subjectContextBlock(review.subject_context);
+    var regionalExactFiveGallery = review.groups.some(isRegionalExactFiveGroup);
+    var contextPanel = subjectContextBlock(review.subject_context, regionalExactFiveGallery);
     if (contextPanel) {
       app.appendChild(contextPanel);
     }
@@ -4238,7 +4255,12 @@
     var form = node("form");
     form.addEventListener("submit", function (event) { event.preventDefault(); saveReview(review, form); });
     review.groups.forEach(function (group) {
-      var section = node("section", null, "review-group");
+      var sectionClass = "review-group";
+      var isRegionalExactFive = isRegionalExactFiveGroup(group);
+      if (isRegionalExactFive) {
+        sectionClass += " regional-exact-five-gallery";
+      }
+      var section = node("section", null, sectionClass);
       section.dataset.groupId = group.id;
       var heading = node("h2", group.title);
       heading.appendChild(node("code", group.id, "stable-id").cloneNode(true));
@@ -4274,7 +4296,7 @@
         if (item.description) {
           body.appendChild(node("p", item.description));
         }
-        var metadata = metadataBlock(item);
+        var metadata = metadataBlock(item, isRegionalExactFive);
         if (metadata) {
           body.appendChild(metadata);
         }

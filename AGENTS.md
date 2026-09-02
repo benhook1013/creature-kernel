@@ -91,6 +91,17 @@ unless the main thread explicitly authorizes a narrowly bounded exception. The
 main thread inspects, integrates, and disposes of delegated work; the detailed
 workflow defines the exception and routing response.
 
+Route by decision leverage as well as task size. Luna remains the throughput
+default for routine bounded investigation, implementation, tool-driven work,
+and narrow correctness review. Select a fresh Sol-medium pass up front when
+bounded synthesis, interpretation, method or experiment design, an
+architecture-boundary challenge, or adversarial review could materially
+redirect what the project builds or how it evaluates ambiguous evidence. A
+short task is not a reason to prefer Luna when stronger reasoning can prevent
+a wrong direction; Sol-medium is a task-type choice, not merely a fallback.
+Subagents still only advise: a Luna reviewer does not decide such a redirect,
+the main Sol thread owns synthesis, and Ben retains human decisions.
+
 ## Runway and merge control
 
 Autonomous merge authority exists only inside a recorded Active runway and
@@ -139,6 +150,12 @@ belongs to [the decision-record process](docs/decisions/README.md).
   generator or renderer, and revision shown. Re-baseline it when the
   representation or consumer materially changes unless Ben promotes the
   underlying outcome into product intent.
+- Before presenting a visual checkpoint, map every named visual-floor feature to
+  an actual final-skin consumer or influence, or explicitly mark it absent; an
+  absence is not a pass. Diagnostics, metadata, topology, and overlap cannot
+  satisfy that mapping. Run a focused regression and a fresh open-ended
+  `gpt-5.6-sol` medium visual critique, reconcile the findings, and keep model
+  vision advisory to Ben's human acceptance.
 - Record failed and inconclusive experiments, their limitations, provenance,
   and reproduction commands. Evidence informs decisions but does not accept a
   contract automatically.

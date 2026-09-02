@@ -28,11 +28,17 @@ an assessment must not transfer a later-stage claim to an earlier stage.
 ## Closed bounded baseline and historical candidate procedure
 
 The preceding exact-five blocky smooth-union candidate is closed as failed
-visual evidence and frozen as the baseline. Its blocky torso/pelvis masses,
-external thigh bulbs, and upside-down-bell lower torso are observations about
-that displayed candidate only. Retain its captures and provenance, but do not
-treat this disposition as an EXP-0001 result, a formal branch comparison, a
-production topology, or proof that global implicit blending is impossible.
+visual evidence and frozen as the baseline. Historical regional attempt C is
+the failed geometry and is not reopened. PR #122 is merged reusable predecessor
+infrastructure at merge commit `d976a09506cf4bb1d89fba85cea1f57ddec5d4e4` on
+2026-09-02 NZST; it is not the failed geometry candidate described here and
+does not contain the new uncommitted successor implementation. Historical
+regional attempt C's blocky
+torso/pelvis masses, external thigh bulbs, and upside-down-bell lower torso are
+observations about that displayed candidate only. Retain its captures and
+provenance, but do not treat this disposition as an EXP-0001 result, a formal
+branch comparison, a production topology, or proof that global implicit
+blending is impossible.
 
 The exact displayed baseline is the immutable local session
 `successor-stylized-anatomy-five-profile-checkpoint-v1`, published on
@@ -52,7 +58,7 @@ convincing anatomy. The lower body also read as external thigh bulbs rather
 than hip/leg roots seated inside the pelvis, with an upside-down-bell lower
 torso. These observations are scoped to that displayed candidate and revision.
 
-The completed attempt was one bounded landmark-driven regional procedural
+Historical regional attempt C was one bounded landmark-driven regional procedural
 candidate:
 explicit ribcage, abdominal-bridge, and pelvis regions; swept anisotropic
 limbs; specialized shoulder and hip roots; controlled local blending; and
@@ -60,14 +66,75 @@ optional lofted or patched regional surfaces where global implicit blending
 creates blocky masses. These are candidate implementation hypotheses, not a
 new product promise or accepted surface architecture.
 
-The recorded procedure generated and inspected `standard_neutral_reference`
+The recorded historical procedure generated and inspected `standard_neutral_reference`
 first as authoring/technical triage, retained the initial attempt, applied one
 shared correction/republication, and then used the unchanged candidate for the
 exact-five publication attempts recorded below. It did not use per-profile or
-per-fixture corrections.
+per-fixture corrections. That historical sequence does not establish a
+one-correction abandonment rule for the new runway.
 Subjective visual pass/fail was reserved for Ben's exact-five human anatomy
 checkpoint, which was never reached. The heavy formal five-branch comparison
 remains inactive; this procedure does not activate EXP-0001 or DR-0009/0010.
+
+## Current Stage 1 evidence and interpretation
+
+The current candidate disposition, retained exact-five evidence, active
+correction slice, and live PR/merge state are owned by the
+[Active runway](../project/status.md#active-runway) in project status. This
+protocol applies its visual-floor and final-skin completeness rules to the
+refreshed exact-five checkpoint. Automated/topology results remain
+candidate-scoped evidence; model vision remains advisory, and no merge is
+authorized before Ben accepts the refreshed exact-five checkpoint.
+
+The retained hip-cup baseline adds
+`pelvis-seat -> hip-cup-rim -> femoral-neck -> authored thigh-start` as actual
+final-skin route geometry. Twenty-four candidate tests pass with two legacy
+skips, and 17 preview tests pass. The exact five rendered as connected,
+watertight, single-component surfaces. Open-ended Sol vision found a real but
+modest seating improvement, with a central wedge/shelf in broad profiles and
+V/X convergence in narrow profiles. These are candidate-scoped observations;
+they do not establish visual acceptance.
+
+The default candidate and preview extraction is now 56 samples per axis because
+20- and 32-sample extraction disconnected supported narrow profiles. The exact
+five pass connected, watertight, single-component topology at 56 samples, and
+explicit 80-sample extraction remains tested.
+
+A bounded shared lateral-clearance cap was rejected and rolled back because
+`slender_long_limb` became three closed components at 56 samples. Harder
+seat-overlap/local-interface work is deferred, not solved. A bounded
+upper-ribcage source-radius restoration was likewise rejected and rolled back:
+it created a shoulder slab/bulge, and one neck-collar crossing test failed
+despite topology passing.
+
+The bounded shoulder/axilla slice is complete as authority-only causal input to
+the existing `torso->arm` authority. The four controls are
+`left-shoulder-peak`, `left-axilla`, `right-shoulder-peak`, and `right-axilla`;
+each is source-authored under `ck.resource.body.r2` in namespace `main`, from
+the profile document
+`stylized_digitigrade_biped_authored_form__structural_profile__<profile_id>`,
+owned by the side-specific `part:upper_arm` AddressKey, with frame role
+`form_shoulder_control` and landmark role `form_shoulder_peak` or
+`form_axilla`. Their canonical source binding is the exact `source-landmark:`
+binding derived from those fields. Counterfactual authority-bound influence is
+proven. Local final-skin influence and shoulder/axilla visual-floor
+satisfaction remain unverified. Fresh vision found old and new visually no-op,
+with no regression; this slice is therefore not visually complete.
+
+The retained upper-pelvis correction bounds final upper pelvis by final lower
+pelvis, preserves the lower pelvis and hip cups, and passes exact-five topology.
+Main-thread and fresh Sol vision indicate reduced bell flare across all five
+profiles without meaningful regression, strongest for
+`stocky_broad_chested`. This remains implementation and advisory visual
+evidence, not human acceptance.
+
+The next implementation order toward the same checkpoint is the derived
+torso-to-neck root, then the bounded wrist/hand transition, then restoration of
+the two derived linear foot midpoints for contract completeness and field
+equivalence. Lower-rib, head-base, and joint-squeeze work remains later,
+evidence-dependent direct correction work, not new architecture. Publisher and
+schema correctness are implementation support, not the human checkpoint. The
+next human stop remains the refreshed exact-five checkpoint.
 
 ## Bounded advisory model-vision pilot
 
@@ -134,7 +201,7 @@ retained, followed by the single shared correction/republication sequence below.
 No profile-specific corrections were allowed, and this record did not advance
 Stage 2 or Stage 3 or establish exact-five readiness.
 
-## Completed corrected neutral and failed exact-five expansion
+## Historical corrected neutral and failed exact-five expansion
 
 Attempt B remains retained at
 `artifact-cache/creature-kernel/neutral-alternative-attempts/2026-09-01-b/`
@@ -174,15 +241,17 @@ The exact-five publication ID
 after B and again after final correctness fixes and C. Both attempts failed
 before rendering/publication because `slender_long_limb` had six connected
 components. No target directory was installed, and no exact-five human
-checkpoint exists. The candidate is closed as failed under the
-one-shared-correction stop rule. Stage 2 and Stage 3 remain inactive. No
-autonomous next candidate or tuning is authorized; Ben must authorize a new
-Stage 1 direction.
+checkpoint exists. Candidate C is closed as historical failed evidence and is
+not reopened. PR #122 is merged reusable predecessor infrastructure at merge
+commit `d976a09506cf4bb1d89fba85cea1f57ddec5d4e4` on 2026-09-02 NZST; it is
+separate from the new uncommitted successor implementation. Stage 2 and Stage
+3 remain inactive; this failure does not close the new Stage 1 runway.
 
 ## Evaluation inputs and views
 
-For the closed post-Godot candidate, the intended ordered five-profile set used
-the same generation operations, configuration, and seed policy,
+For the current Stage 1 runway, the refreshed exact-five gallery is the next
+named human stop checkpoint, using the same generation operations, configuration,
+and seed policy,
 using these stable proposed IDs:
 `standard_neutral_reference`, `compact_broad_short_limb_large_head`,
 `tall_narrow_long_legged`, `slender_long_limb`, and `stocky_broad_chested`. The
@@ -191,8 +260,9 @@ stature/aspect and lower-leg emphasis with moderate thickness; the slender
 profile tests low girth/thickness and long arm/leg proportions without extreme
 stature as its main axis. At least one profile must contrast optional-module
 presence, absence, or style.
-The standard neutral entry was the first reference for this attempted candidate;
-it does not modify the separate, inactive EXP-0001 registration.
+The standard neutral entry is the first reference. Each profile must show actual
+final skin plus diagnostics derived from the actual contributors; this does not
+modify the separate, inactive EXP-0001 registration.
 The project may select hypotheses and intended discriminating profiles before
 exact fixtures are frozen. Before EXP-0001 execution or evidence, freeze stable
 fixture IDs, concrete source inputs, discriminating parameters,
@@ -235,9 +305,11 @@ assessment. The checks should cover, as applicable to the claimed stage:
 - expected attachments and junctions, including required modules and enabled
   named-socket features;
 - material regions and basic appearance inputs;
-- source-linked semantic joint frames and semantic region intent/lineage. These
-  checks do not establish a usable bone hierarchy, bind weights/skinning,
-  analytic collision proxies, shared pose, actual contact, or deformation.
+- source-linked semantic joint frames and semantic region intent/lineage;
+- diagnostics derived from the actual surface contributors, rather than an
+  aggregate or surrogate record. These checks do not establish a usable bone
+  hierarchy, bind weights/skinning, analytic collision proxies, shared pose,
+  actual contact, or deformation.
 
 For semantic comparison records, preserve cross-operator contributor
 distribution, top-k residual/discarded mass, deterministic ties, and chart
@@ -266,23 +338,30 @@ Stage 2 begins, a separate representation/topology adequacy gate must confirm:
 - preserved semantic regions and ownership;
 - repeatable output across the declared profiles without profile patches.
 
-For the closed candidate, the neutral technical triage was not this human gate.
-After this pre-Stage-2 gate, an early Stage 2 continuation gate
-follows a provisional rig and weights exercise; topology and correspondence are
-then tested through one representative bend/binding scenario. Correctives may
-be evaluated as a candidate technical approach, but they are not a mandatory
-product contract. A failed continuation check does not activate the formal
-comparison or authorize indefinite tuning.
+For the continuing runway, reusable partial slices and internal vision review
+are implementation evidence only; they are not this human gate. Before the
+refreshed checkpoint is presented, final-skin completeness must be checked for
+each named visual-floor feature. After this
+pre-Stage-2 gate, an early Stage 2 continuation gate follows a provisional rig
+and weights exercise; topology and correspondence are then tested through one
+representative bend/binding scenario. Correctives may be evaluated as a
+candidate technical approach, but they are not a mandatory product contract. A
+failed continuation check does not activate the formal comparison or authorize
+indefinite tuning.
 
 ## Subjective visual floor
 
 Human reviewers assess whether the result reads as a coherent, intentional
-stylized digitigrade anthropomorphic/animal-like biped in front, side, and three-quarter views. The assessment
-considers:
+stylized digitigrade anthropomorphic/animal-like biped in front, side, and
+three-quarter views. The assessment considers:
 
 - a legible silhouette and legible body modules;
-- intentional shoulders, hips, muzzle, paws, and included branch junctions;
-- coherent proportions, style, and colour across the body and its regions.
+- a readable ribcage-abdomen-waist-pelvis progression, seated thigh roots and
+  hip cups, and integrated neck and shoulders;
+- tapered non-rod limbs and intentional muzzle, paws, and included branch
+  junctions;
+- coherent variation, proportions, style, and colour across the body and its
+  regions under the same rules.
 
 For a candidate under appraisal, record whether the ribcage, abdominal bridge,
 pelvis, and shoulder/hip roots read as intentional regional anatomy. These are
@@ -296,10 +375,11 @@ views, concise rationale, and disagreements or uncertainty, without inventing
 a numeric aesthetic score or implying inter-reviewer precision that has not
 been measured.
 
-For the closed candidate, subjective visual pass/fail was reserved for Ben's
-exact-five checkpoint. The corrected neutral did not reach that checkpoint
-because the exact-five expansion failed before rendering or publication; the
-neutral technical triage did not exercise this visual floor.
+Subjective visual pass/fail is reserved for Ben's refreshed exact-five human
+checkpoint. The historical corrected neutral did not reach that checkpoint
+because its exact-five expansion failed before rendering or publication. The
+retained current exact-five gallery is candidate evidence; its technical,
+comparative, and model-vision evidence cannot substitute for Ben's appraisal.
 
 The subjective visual floor is a mandatory Stage 1 gate, not a comparative
 visual score. It answers whether each valid fixture is an intentional,
@@ -376,11 +456,13 @@ only when the hybrid otherwise passes.
 ## Stage 1 exclusions
 
 The following are deferred or semantic-only in Stage 1 and must not be treated
-as required visual-quality failures: face or mouth interiors; detailed eyes or
-eyelids; teeth or tongue; fingers, toes, or claws; dense fur or hair;
-clothing/cloth; contact or deformation; cinematic rendering; and
+as required visual-quality failures: detailed anatomy, detailed hands/faces,
+muscles/tissue, face or mouth interiors; detailed eyes or eyelids; teeth or
+tongue; fingers, toes, or claws; dense fur or hair; clothing/cloth; deformation,
+runtime physics, production topology, contact, cinematic rendering, and
 arbitrary anatomy. A simplified muzzle and hands/paws or feet/paws remain part
-of the bounded family, while their detailed subfeatures are deferred.
+of the bounded family, while their detailed subfeatures are deferred. Stage 1
+remains simplified stylized anatomy.
 
 ## Evidence record and interpretation
 

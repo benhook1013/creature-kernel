@@ -974,6 +974,215 @@ class SubjectContextHTTPTests(ReviewFixture):
 
 
 class StaticAssetTests(unittest.TestCase):
+    def test_regional_exact_five_markup_is_compact_and_json_is_collapsed(self):
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+if (source.split(entrypoint).length !== 2) {
+  throw new Error("unexpected browser app entrypoint");
+}
+source = source.replace(entrypoint, [
+  "  globalThis.__renderReview = renderReview;",
+  "}());",
+].join("\n"));
+
+function element(tagName) {
+  return {
+    tagName: tagName,
+    children: [],
+    attributes: {},
+    className: "",
+    dataset: {},
+    style: {},
+    open: false,
+    textContent: "",
+    appendChild: function (child) { this.children.push(child); return child; },
+    removeChild: function (child) {
+      const index = this.children.indexOf(child);
+      if (index >= 0) { this.children.splice(index, 1); }
+      return child;
+    },
+    get firstChild() { return this.children[0] || null; },
+    setAttribute: function (name, value) { this.attributes[name] = String(value); },
+    addEventListener: function () {},
+    cloneNode: function () {
+      const copy = element(this.tagName);
+      copy.className = this.className;
+      copy.textContent = this.textContent;
+      copy.attributes = Object.assign({}, this.attributes);
+      return copy;
+    },
+  };
+}
+
+const app = element("main");
+const context = {
+  document: {
+    title: "",
+    body: element("body"),
+    documentElement: element("html"),
+    getElementById: function () { return app; },
+    createElement: element,
+  },
+  window: {},
+};
+vm.runInNewContext(source, context, { filename: appPath });
+
+function reviewCase(groupId, itemCount) {
+  const items = Array.from({length: itemCount}, function (_, index) {
+    return {
+      id: "item-" + index,
+      title: "Item " + index,
+      image: "assets/item-" + index + ".png",
+      metadata: {index: index},
+    };
+  });
+  context.__renderReview({
+    review: {
+      id: "review-" + groupId + "-" + itemCount,
+      title: "Review",
+      subject_context: {descriptor_snapshot: {shape: "compact"}},
+      groups: [{
+        id: groupId,
+        title: "Gallery",
+        selection_mode: "none",
+        items: items,
+      }],
+    },
+    response: {selections: {}, group_notes: {}, overall_note: ""},
+  });
+  const form = app.children.find(function (child) { return child.tagName === "form"; });
+  const section = form.children.find(function (child) { return child.tagName === "section" && child.dataset.groupId === groupId; });
+  const card = section.children[1].children[0];
+  const body = card.children[1];
+  const metadata = body.children.find(function (child) { return child.tagName === "details" || child.tagName === "pre"; });
+  const contextPanel = app.children.find(function (child) { return child.className === "subject-context"; });
+  const descriptor = contextPanel.children.find(function (child) { return child.tagName === "details"; });
+  return {
+    sectionClass: section.className,
+    metadataTag: metadata.tagName,
+    metadataOpen: metadata.open,
+    descriptorOpen: descriptor.open,
+  };
+}
+
+process.stdout.write(JSON.stringify({
+  exactFive: reviewCase("regional-surface-gallery", 5),
+  regionalFour: reviewCase("regional-surface-gallery", 4),
+  nonRegionalFive: reviewCase("other-gallery", 5),
+}));
+'''
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(
+            json.loads(completed.stdout),
+            {
+                "exactFive": {
+                    "sectionClass": "review-group regional-exact-five-gallery",
+                    "metadataTag": "details",
+                    "metadataOpen": False,
+                    "descriptorOpen": False,
+                },
+                "regionalFour": {
+                    "sectionClass": "review-group",
+                    "metadataTag": "pre",
+                    "metadataOpen": False,
+                    "descriptorOpen": True,
+                },
+                "nonRegionalFive": {
+                    "sectionClass": "review-group",
+                    "metadataTag": "pre",
+                    "metadataOpen": False,
+                    "descriptorOpen": True,
+                },
+            },
+        )
+
+    def test_json_disclosures_render_closed_metadata_and_descriptor_by_default(self):
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+if (source.split(entrypoint).length !== 2) {
+  throw new Error("unexpected browser app entrypoint");
+}
+source = source.replace(entrypoint, [
+  "  globalThis.__metadataBlock = metadataBlock;",
+  "  globalThis.__subjectContextBlock = subjectContextBlock;",
+  "}());",
+].join("\n"));
+function element(tagName) {
+  return {
+    tagName: tagName,
+    children: [],
+    attributes: {},
+    className: "",
+    open: false,
+    textContent: "",
+    appendChild: function (child) { this.children.push(child); return child; },
+    setAttribute: function (name, value) { this.attributes[name] = String(value); },
+  };
+}
+const context = {
+  document: {
+    getElementById: function () { return null; },
+    createElement: element,
+  },
+  window: {},
+};
+vm.runInNewContext(source, context, { filename: appPath });
+function detailsSummary(details) {
+  return {
+    tagName: details.tagName,
+    className: details.className,
+    open: details.open,
+    summary: details.children[0].textContent,
+    pre: details.children[1].textContent,
+    ariaLabel: details.attributes["aria-label"] || null,
+  };
+}
+const metadata = context.__metadataBlock({id: "profile-a", metadata: {seed: 3}}, true);
+const panel = context.__subjectContextBlock({
+  descriptor_snapshot: {shape: "compact"},
+  provenance: {render: "test"},
+}, true);
+process.stdout.write(JSON.stringify({
+  metadata: detailsSummary(metadata),
+  descriptor: detailsSummary(panel.children[1]),
+  provenance: detailsSummary(panel.children[2]),
+}));
+'''
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        rendered = json.loads(completed.stdout)
+        self.assertEqual(
+            rendered["metadata"],
+            {
+                "tagName": "details",
+                "className": "json-disclosure metadata-disclosure",
+                "open": False,
+                "summary": "Technical metadata",
+                "pre": '{\n  "seed": 3\n}',
+                "ariaLabel": "Technical metadata for profile-a",
+            },
+        )
+        self.assertFalse(rendered["descriptor"]["open"])
+        self.assertEqual(rendered["descriptor"]["summary"], "Generated descriptor snapshot")
+        self.assertTrue(rendered["provenance"]["open"])
+
     def test_image_accessible_labels_include_description_without_html_interpolation(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         script = r'''

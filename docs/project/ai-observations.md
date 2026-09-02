@@ -1,6 +1,6 @@
 # AI observations
 
-Status: Operational inbox; 33 open observations
+Status: Operational inbox; 37 open observations
 
 This inbox records only unexpected, evidenced operational friction that is
 recurring, reusable, or likely to save future retries or work rounds. Every
@@ -25,6 +25,18 @@ Copyable entry scaffold:
 - `YYYY-MM-DD HH:MM TZ`: short title
   - Observation: what happened and where
   - Expected pattern: what should happen instead
+
+- `2026-09-02 14:46 NZST`: Visual readiness was inferred from diagnostics and topology instead of final-skin coverage
+  - Observation: The current regional successor explicitly kept shoulder and axilla controls diagnostic-only and tested that they could not affect the final skin, while narrow topology and regression reviews still led the main thread to present the exact-five gallery as internally ready. The named Stage-1 visual floor required specialized shoulder, hip, torso, and neck construction; reviewers completed their narrowed contracts, but main-thread integration did not reconcile every promised visible feature against the actual final field.
+  - Expected pattern: Before presenting a visual checkpoint, map every named visual-floor feature to an actual final-skin consumer or explicitly mark it absent. Diagnostics, metadata, topology, overlap certificates, and narrowly scoped regression passes cannot satisfy visible-feature coverage; reconcile a focused regression pass with a fresh open-ended visual critique before claiming readiness.
+
+- `2026-09-02 14:46 NZST`: Merged PR worktrees accumulated without closeout cleanup
+  - Observation: Thirty-two registered worktrees accumulated even though only one implementation lane remained active; most were clean historical PR worktrees whose pull requests had already merged. The main thread had no closeout step that retired the worktree and local branch after verifying the merge.
+  - Expected pattern: At merged-PR closeout, verify the exact merge and clean worktree, remove the merged worktree and local branch, and inventory existing worktrees before creating another. The normal steady state is primary `main` plus one active lane; preserve and escalate only genuinely dirty, unmerged, or cleanup-blocked exceptions without routine user-facing housekeeping reports.
+
+- `2026-09-02 05:25 NZST`: Subagents defaulted to the primary checkout instead of the active worktree
+  - Observation: A bounded publisher worker was given the absolute `hybrid-surface-interfaces` worktree path but edited four same-named untracked files under the primary `/home/ben/src/creature-kernel` checkout; a follow-up transfer worker safely stopped when its root assertion exposed the same default checkout. The main thread verified both trees and retained the accidental files only as a temporary patch source. The exact harness reason the worker ignored the supplied path is unknown.
+  - Expected pattern: Every bounded write prompt for a named worktree must begin with an explicit `cd` to its absolute path and require both `pwd` and `git rev-parse --show-toplevel` to equal that path before any edit or test. Stop on mismatch; do not rely on the subagent's default working directory or same-named files in another checkout.
 
 - `2026-09-01 16:44 NZST`: One-off managed-launcher render lost implementation binding
   - Observation: A one-off managed-launcher render met runtime/tool rules but placed generated evidence in `/tmp` and omitted implementation identity/regeneration binding; it had to be copied to durable cache and downgraded to observational evidence.
@@ -157,3 +169,7 @@ Copyable entry scaffold:
 - `2026-09-01 16:49 NZST`: Neutral-alternative tests reused production-derived expectations
   - Observation: Two independent final reviewers found several neutral-alternative tests reconstructing expected lower-body composition, bounds, or metadata with the same production helpers or transformations, so tests passed while semantic attribution, expanded bounds, and malformed `AddressKey` serialization remained wrong.
   - Expected pattern: For semantic ownership, bounds, or compatibility claims, use independent analytical probes, literal canonical fixtures, or frozen behavior signatures rather than production-helper-derived expectations.
+
+- `2026-09-02 01:34 NZST`: Subagent test shell omitted an available Cargo toolchain
+  - Observation: One renderer worker reported Cargo unavailable and changed its focused test setup to reuse an existing debug CLI binary before falling back to `cargo run`; the main WSL shell immediately found Cargo at `/home/ben/.cargo/bin/cargo`. The worker made one successful fallback attempt, while the exact subagent PATH difference remains unknown.
+  - Expected pattern: Treat a subagent-only missing `cargo` result as an environment/PATH discrepancy until the main thread verifies it. Reuse an existing binary only when its freshness and the unchanged producer scope are explicit; otherwise run the documented build route rather than silently accepting stale executable evidence.

@@ -1,0 +1,1040 @@
+#!/usr/bin/env python3
+"""Publish the exact-five regional-surface appraisal gallery.
+
+This adapter owns only the multi-profile orchestration boundary.  Source
+documents are validated by the checked-in exact-five manifest validator,
+prepared forms come from independent pinned CLI inspections, and surface
+rendering remains owned by ``render_and_validate_regional_surface_item``.
+"""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+import hashlib
+import json
+import math
+import os
+import stat
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, NoReturn
+
+import common
+from common import ValidationError, canonical_json, validate_id
+from publish import PublishError, publish_session
+from publish_provisional_form import (
+    MAX_INPUT_COPY_BYTES,
+    ProvisionalFormPublishError,
+    _copy_input_reference,
+    _parse_inspection,
+    _run_inspection,
+)
+import publish_regional_surface_preview as regional_item
+from publish_regional_surface_preview import render_and_validate_regional_surface_item
+try:
+    import structural_profile_source_manifest as source_manifest_validator
+except ModuleNotFoundError:  # The regional slice may be staged without its experiment extras.
+    source_manifest_validator = None
+
+
+class RegionalSurfaceGalleryError(RuntimeError):
+    """A bounded, fail-closed exact-five gallery publication failure."""
+
+
+VISUAL_REVIEW_ROOT = Path(__file__).resolve().parent
+EXPERIMENT_ROOT = VISUAL_REVIEW_ROOT.parents[1] / "experiments" / "current-form-surface-preview"
+PROFILE_IDS = (
+    "standard_neutral_reference",
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+)
+SOURCE_VARIANT_ID = "neutral-v0"
+SOURCE_MANIFEST_FORMAT = "creature-kernel.disposable-structural-profile-source-manifest.v1"
+GALLERY_FORMAT = "creature-kernel.disposable-regional-surface-gallery.v1"
+GALLERY_IMPLEMENTATION_ID = "regional-surface-gallery-v1"
+GROUP_ID = "regional-surface-gallery"
+TITLE = "Five ordered regional-surface profiles"
+DESCRIPTION = (
+    "Disposable exact-five regional-surface gallery for simplified stylized anatomy; "
+    "this is implementation evidence and records no acceptance decision."
+)
+INSTRUCTIONS = (
+    "Compare the five ordered final-skin regional previews, starting with the standard "
+    "neutral reference, for readable ribcage-to-pelvis progression, seated thigh roots, "
+    "integrated neck and shoulders, tapered limbs, diagnostics, and coherent variation."
+)
+EXPECTED_SAMPLES = 56
+EXPECTED_PADDING = 0.20
+MIN_MESH_SAMPLES = 20
+MAX_MESH_SAMPLES = 80
+MAX_MESH_PADDING = 1_000_000.0
+MAX_EXECUTABLE_BYTES = 256 * 1024 * 1024
+MAX_IMPLEMENTATION_BYTES = 4 * 1024 * 1024
+MAX_DESCRIPTOR_BYTES = common.MAX_CONTEXT_JSON
+SHA256_LENGTH = 64
+
+
+@dataclass(frozen=True)
+class _PinnedExecutable:
+    path: Path
+    sha256: str
+    bytes: int
+
+
+@dataclass(frozen=True)
+class _InspectedProfile:
+    record: Any
+    prepared: dict[str, Any]
+    prepared_input_sha256: str
+    raw_prepared_form_sha256: str
+
+
+@dataclass(frozen=True)
+class _RenderedProfile:
+    inspected: _InspectedProfile
+    png_bytes: bytes
+    png_sha256: str
+    renderer_metadata_sha256: str
+    renderer_source_identity: dict[str, Any]
+    publication_identity: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _GallerySourceSnapshot:
+    """The immutable gallery bytes from which all public behavior executes."""
+
+    path: Path
+    source_bytes: bytes
+    sha256: str
+
+    @property
+    def identity(self) -> dict[str, Any]:
+        return {
+            "id": GALLERY_IMPLEMENTATION_ID,
+            "bytes": len(self.source_bytes),
+            "sha256": self.sha256,
+        }
+
+
+class _DuplicateJSONMemberError(ValueError):
+    """Raised when a prepared-form inspection repeats an object member."""
+
+
+def _reject_duplicate_json_members(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateJSONMemberError(
+                f"duplicate JSON object member {key!r}"
+            )
+        result[key] = value
+    return result
+
+
+def _parse_strict_json(raw: bytes, where: str) -> Any:
+    try:
+        return json.loads(
+            raw.decode("utf-8"),
+            parse_constant=common._reject_constant,
+            object_pairs_hook=_reject_duplicate_json_members,
+        )
+    except _DuplicateJSONMemberError as exc:
+        _fail(f"{where} contains duplicate JSON object members")
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError):
+        _fail(f"{where} is not valid JSON")
+
+
+def _fail(message: str) -> NoReturn:
+    raise RegionalSurfaceGalleryError(message)
+
+
+def _mapping(value: Any, where: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        _fail(f"{where} must be an object")
+    return value
+
+
+def _digest(value: Any, where: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != SHA256_LENGTH
+        or value == "0" * SHA256_LENGTH
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        _fail(f"{where} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _canonical_bytes(value: Any, where: str) -> bytes:
+    try:
+        return json.dumps(
+            value,
+            allow_nan=False,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    except (TypeError, ValueError, RecursionError, OverflowError) as exc:
+        _fail(f"{where} is not canonical JSON: {exc}")
+
+
+def _hash_file(path: Path, maximum: int, where: str) -> tuple[int, str]:
+    absolute = path.absolute()
+    try:
+        reference = common._resolve_file_reference(str(absolute), absolute, where)
+        with common.open_source_reference(reference, where) as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > maximum:
+                _fail(f"{where} is not a bounded regular file")
+            digest = hashlib.sha256()
+            size = 0
+            while True:
+                chunk = stream.read(min(1024 * 1024, maximum - size + 1))
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > maximum:
+                    _fail(f"{where} exceeds the bounded size")
+                digest.update(chunk)
+            final = os.fstat(stream.fileno())
+            if final.st_size != size:
+                _fail(f"{where} changed while being hashed")
+    except RegionalSurfaceGalleryError:
+        raise
+    except (OSError, ValidationError) as exc:
+        _fail(f"{where} cannot be hashed safely: {exc}")
+    return size, digest.hexdigest()
+
+
+def _snapshot_gallery_source(path: Path | None = None) -> _GallerySourceSnapshot:
+    """Read one immutable gallery source descriptor for bootstrap execution."""
+
+    source_path = Path(path) if path is not None else Path(__file__)
+    absolute = source_path.absolute()
+    try:
+        reference = common._resolve_file_reference(
+            str(absolute), absolute, "regional gallery publisher source"
+        )
+        with common.open_source_reference(reference, "regional gallery publisher source") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_IMPLEMENTATION_BYTES:
+                _fail("regional gallery publisher source is not a bounded regular file")
+            source_bytes = stream.read(MAX_IMPLEMENTATION_BYTES + 1)
+            after = os.fstat(stream.fileno())
+            if (
+                len(source_bytes) > MAX_IMPLEMENTATION_BYTES
+                or after.st_size != len(source_bytes)
+                or (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
+            ):
+                _fail("regional gallery publisher source changed or exceeds its bound")
+    except RegionalSurfaceGalleryError:
+        raise
+    except (OSError, ValidationError) as exc:
+        _fail(f"regional gallery publisher source cannot be read safely: {exc}")
+    if not source_bytes:
+        _fail("regional gallery publisher source is empty")
+    return _GallerySourceSnapshot(
+        absolute,
+        source_bytes,
+        hashlib.sha256(source_bytes).hexdigest(),
+    )
+
+
+def _gallery_source_snapshot() -> _GallerySourceSnapshot:
+    snapshot = globals().get("_GALLERY_IMPLEMENTATION_SOURCE_SNAPSHOT")
+    if not isinstance(snapshot, _GallerySourceSnapshot):
+        _fail("regional gallery publisher source snapshot is unavailable")
+    if hashlib.sha256(snapshot.source_bytes).hexdigest() != snapshot.sha256:
+        _fail("regional gallery publisher source snapshot is invalid")
+    return snapshot
+
+
+def _bootstrap_gallery_source() -> None:
+    """Re-execute this module from the exact immutable bytes it will identify."""
+
+    snapshot = _snapshot_gallery_source()
+    globals()["_GALLERY_SNAPSHOT_EXECUTION"] = True
+    globals()["_GALLERY_SNAPSHOT_PATH"] = snapshot.path
+    globals()["_GALLERY_SNAPSHOT_BYTES"] = snapshot.source_bytes
+    globals()["_GALLERY_SNAPSHOT_SHA256"] = snapshot.sha256
+    code = compile(
+        snapshot.source_bytes,
+        os.fspath(snapshot.path),
+        "exec",
+        dont_inherit=True,
+    )
+    exec(code, globals())
+
+
+def _validate_sampling(mesh_samples: Any, mesh_padding: Any) -> tuple[int, float]:
+    if type(mesh_samples) is not int or not MIN_MESH_SAMPLES <= mesh_samples <= MAX_MESH_SAMPLES:
+        _fail(f"mesh_samples must be an integer in {MIN_MESH_SAMPLES}..{MAX_MESH_SAMPLES}")
+    if type(mesh_padding) not in {int, float}:
+        _fail("mesh_padding must be a finite non-negative number")
+    padding = float(mesh_padding)
+    if not math.isfinite(padding) or not 0.0 <= padding <= MAX_MESH_PADDING:
+        _fail("mesh_padding must be a finite non-negative bounded number")
+    return mesh_samples, padding
+
+
+def _refuse_existing_destination(reviews_root: Path, review_id: str) -> None:
+    try:
+        root = common.ensure_root(reviews_root)
+        common.require_secure_fs_support()
+        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except (ValidationError, OSError) as exc:
+        _fail(str(exc))
+    try:
+        try:
+            info = os.stat(review_id, dir_fd=root_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            _fail(f"could not inspect review destination: {exc}")
+        if stat.S_ISLNK(info.st_mode):
+            _fail(f"refusing existing destination symlink: {review_id}")
+        _fail(f"refusing to overwrite existing destination: {review_id}")
+    finally:
+        try:
+            os.close(root_fd)
+        except OSError:
+            pass
+
+
+def _validate_source_manifest(manifest_path: Path) -> source_manifest_validator.SourceManifestValidationResult:
+    if source_manifest_validator is None:
+        _fail("structural source-manifest validator is unavailable")
+    try:
+        validation = source_manifest_validator.validate_structural_profile_source_manifest(manifest_path)
+    except source_manifest_validator.StructuralProfileSourceManifestError as exc:
+        _fail(str(exc))
+    if validation.manifest.format != SOURCE_MANIFEST_FORMAT:
+        _fail("source manifest format is not the active exact-five format")
+    if validation.profile_ids != PROFILE_IDS or len(validation.sources) != len(PROFILE_IDS):
+        _fail("source manifest does not contain the exact required neutral-first five-profile order")
+    if tuple(record.id for record in validation.sources) != PROFILE_IDS:
+        _fail("source manifest source records are not in the exact required order")
+    if len({record.sha256 for record in validation.sources}) != len(PROFILE_IDS):
+        _fail("source manifest source documents are not distinct")
+    return validation
+
+
+def _validate_executable(executable: Path) -> common.SourceReference:
+    absolute = executable.absolute()
+    try:
+        reference = common._resolve_file_reference(str(absolute), absolute, "creature-kernel executable")
+        if not os.access(reference.path, os.X_OK):
+            _fail("creature-kernel executable is not executable")
+    except RegionalSurfaceGalleryError:
+        raise
+    except (OSError, ValidationError) as exc:
+        _fail(str(exc))
+    return reference
+
+
+def _pin_executable(reference: common.SourceReference, temporary_root: Path) -> _PinnedExecutable:
+    destination = temporary_root / "pinned-creature-kernel"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    source_digest = hashlib.sha256()
+    source_bytes = 0
+    output_fd: int | None = None
+    destination_created = False
+    try:
+        with common.open_source_reference(reference, "creature-kernel executable") as source:
+            source_info = os.fstat(source.fileno())
+            if not stat.S_ISREG(source_info.st_mode) or source_info.st_size > MAX_EXECUTABLE_BYTES:
+                _fail("creature-kernel executable is not a bounded regular file")
+            output_fd = os.open(destination, flags, 0o700)
+            destination_created = True
+            with os.fdopen(output_fd, "wb") as output:
+                output_fd = None
+                while True:
+                    chunk = source.read(min(1024 * 1024, MAX_EXECUTABLE_BYTES - source_bytes + 1))
+                    if not chunk:
+                        break
+                    source_bytes += len(chunk)
+                    if source_bytes > MAX_EXECUTABLE_BYTES:
+                        _fail("creature-kernel executable exceeds the bounded size")
+                    source_digest.update(chunk)
+                    output.write(chunk)
+                final_info = os.fstat(source.fileno())
+                if final_info.st_size != source_bytes:
+                    _fail("creature-kernel executable changed while being pinned")
+                os.fchmod(output.fileno(), 0o700)
+                output.flush()
+                os.fsync(output.fileno())
+    except RegionalSurfaceGalleryError:
+        if output_fd is not None:
+            os.close(output_fd)
+        if destination_created:
+            try:
+                destination.unlink()
+            except OSError:
+                pass
+        raise
+    except (OSError, ValidationError) as exc:
+        if output_fd is not None:
+            os.close(output_fd)
+        if destination_created:
+            try:
+                destination.unlink()
+            except OSError:
+                pass
+        _fail(f"could not pin creature-kernel executable: {exc}")
+
+    pinned_bytes, pinned_sha256 = _hash_file(
+        destination,
+        MAX_EXECUTABLE_BYTES,
+        "pinned creature-kernel executable",
+    )
+    try:
+        mode = stat.S_IMODE(destination.stat().st_mode)
+    except OSError as exc:
+        _fail(f"could not inspect pinned creature-kernel executable: {exc}")
+    if mode != 0o700 or pinned_bytes != source_bytes or pinned_sha256 != source_digest.hexdigest():
+        _fail("pinned creature-kernel executable failed digest, size, or mode verification")
+    return _PinnedExecutable(destination, pinned_sha256, pinned_bytes)
+
+
+def _inspection_source_reference(record: Any) -> common.SourceReference:
+    try:
+        absolute = Path(record.path).absolute()
+        return common._resolve_file_reference(str(absolute), absolute, f"{record.id} source document")
+    except (OSError, ValidationError) as exc:
+        _fail(f"{record.id} source document cannot be reopened safely: {exc}")
+
+
+def _inspect_profile(
+    record: Any,
+    executable: _PinnedExecutable,
+    temporary_root: Path,
+) -> _InspectedProfile:
+    input_copy = temporary_root / f"inspect-{record.id}.json"
+    source_reference = _inspection_source_reference(record)
+    try:
+        _copy_input_reference(source_reference, input_copy)
+        copied = input_copy.read_bytes()
+    except (OSError, ValidationError, ProvisionalFormPublishError):
+        _fail(f"{record.id} source could not be prepared for independent inspection")
+    if len(copied) != record.bytes or hashlib.sha256(copied).hexdigest() != record.sha256:
+        _fail(f"{record.id} source changed while being prepared for inspection")
+    if len(copied) > MAX_INPUT_COPY_BYTES:
+        _fail(f"{record.id} source exceeds the inspection input bound")
+
+    try:
+        stdout, stderr, returncode = _run_inspection(
+            [str(executable.path), "inspect-provisional-form", "--input", str(input_copy)]
+        )
+    except ProvisionalFormPublishError:
+        _fail(f"{record.id} inspect-provisional-form failed")
+    if returncode != 0:
+        _fail(f"{record.id} inspect-provisional-form exited with status {returncode}")
+    _parse_strict_json(stdout, f"{record.id} inspect-provisional-form output")
+    try:
+        payload = _parse_inspection(stdout)
+    except ProvisionalFormPublishError:
+        _fail(f"{record.id} inspect-provisional-form produced invalid output")
+    if payload.get("format") != common.PROVISIONAL_FORM_V11_FORMAT:
+        _fail(f"{record.id} inspect-provisional-form did not produce the current v11 envelope")
+    try:
+        validated = common._validate_provisional_form_envelope(payload, f"{record.id} v11 envelope")
+    except ValidationError as exc:
+        _fail(f"{record.id} producer envelope is not a valid v11 form: {exc}")
+    source = _mapping(validated.get("source"), f"{record.id} v11 envelope.source")
+    if source.get("document") != record.document:
+        _fail(f"{record.id} producer source document does not match the exact source manifest record")
+    if source.get("namespace") != record.namespace:
+        _fail(f"{record.id} producer source namespace does not match the exact source manifest record")
+    variants = validated.get("variants")
+    if not isinstance(variants, list) or [
+        item.get("id") for item in variants if isinstance(item, dict)
+    ].count(SOURCE_VARIANT_ID) != 1:
+        _fail(f"{record.id} producer envelope does not contain exactly one {SOURCE_VARIANT_ID} variant")
+    prepared_hash = hashlib.sha256(
+        _canonical_bytes(validated, f"{record.id} validated v11 envelope")
+    ).hexdigest()
+    return _InspectedProfile(
+        record=record,
+        prepared=validated,
+        prepared_input_sha256=prepared_hash,
+        raw_prepared_form_sha256=hashlib.sha256(stdout).hexdigest(),
+    )
+
+
+def _rendered_item(
+    inspected: _InspectedProfile,
+    item: Any,
+    *,
+    expected_renderer_source: dict[str, Any],
+    expected_item_api: dict[str, Any],
+) -> _RenderedProfile:
+    item_obj = _mapping(item, f"{inspected.record.id} regional-surface item")
+    png_bytes = item_obj.get("png_bytes")
+    if type(png_bytes) is not bytes or not png_bytes:
+        _fail(f"{inspected.record.id} regional-surface item has no PNG bytes")
+    png_sha256 = _digest(item_obj.get("png_sha256"), f"{inspected.record.id} item png_sha256")
+    actual_png_sha256 = hashlib.sha256(png_bytes).hexdigest()
+    if png_sha256 != actual_png_sha256:
+        _fail(f"{inspected.record.id} regional-surface item PNG hash does not match its bytes")
+    prepared_sha256 = _digest(
+        item_obj.get("prepared_input_sha256"),
+        f"{inspected.record.id} item prepared_input_sha256",
+    )
+    raw_prepared_sha256 = _digest(
+        item_obj.get("raw_prepared_form_sha256"),
+        f"{inspected.record.id} item raw_prepared_form_sha256",
+    )
+    if prepared_sha256 != inspected.prepared_input_sha256 or raw_prepared_sha256 != inspected.raw_prepared_form_sha256:
+        _fail(f"{inspected.record.id} regional-surface item prepared identity does not match its inspection")
+    metadata = _mapping(item_obj.get("item_metadata"), f"{inspected.record.id} item metadata")
+    if metadata.get("external_id") != inspected.record.id or metadata.get("source_variant") != SOURCE_VARIANT_ID:
+        _fail(f"{inspected.record.id} regional-surface item metadata binding is invalid")
+    if metadata.get("prepared_input_sha256") != prepared_sha256 or metadata.get("raw_prepared_form_sha256") != raw_prepared_sha256:
+        _fail(f"{inspected.record.id} regional-surface item metadata prepared identity is invalid")
+    if metadata.get("png_sha256") != png_sha256:
+        _fail(f"{inspected.record.id} regional-surface item metadata PNG identity is invalid")
+    renderer_source = regional_item._renderer_source_identity(
+        item_obj.get("renderer_source"),
+        f"{inspected.record.id} item renderer source identity",
+    )
+    expected_renderer_source = regional_item._renderer_source_identity(
+        expected_renderer_source,
+        "expected renderer source identity",
+    )
+    if renderer_source != expected_renderer_source:
+        _fail(f"{inspected.record.id} regional-surface item renderer source identity is invalid")
+    metadata_renderer_source = regional_item._renderer_source_identity(
+        metadata.get("renderer_source"),
+        f"{inspected.record.id} item metadata renderer source identity",
+    )
+    if metadata_renderer_source != renderer_source:
+        _fail(f"{inspected.record.id} item metadata renderer source identity is invalid")
+    if metadata.get("renderer_source_sha256") != renderer_source["sha256"]:
+        _fail(f"{inspected.record.id} item metadata renderer source hash is invalid")
+    renderer_metadata_sha256 = _digest(
+        metadata.get("renderer_metadata_sha256"),
+        f"{inspected.record.id} item renderer_metadata_sha256",
+    )
+    publication_obj = _mapping(
+        item_obj.get("publication"),
+        f"{inspected.record.id} item publication",
+    )
+    if set(publication_obj) != {
+        "format",
+        "external_id",
+        "source_variant",
+        "renderer_metadata_sha256",
+        "identity",
+        "candidate_contract",
+    }:
+        _fail(f"{inspected.record.id} regional-surface publication fields are invalid")
+    if (
+        publication_obj.get("format") != regional_item.PREVIEW_FORMAT
+        or publication_obj.get("external_id") != inspected.record.id
+        or publication_obj.get("source_variant") != SOURCE_VARIANT_ID
+    ):
+        _fail(f"{inspected.record.id} regional-surface publication binding is invalid")
+    if publication_obj.get("renderer_metadata_sha256") != renderer_metadata_sha256:
+        _fail(f"{inspected.record.id} regional-surface publication metadata identity is invalid")
+    publication_identity = _mapping(
+        publication_obj.get("identity"),
+        f"{inspected.record.id} item publication identity",
+    )
+    if (
+        publication_identity.get("prepared_input_sha256") != prepared_sha256
+        or publication_identity.get("raw_prepared_form_sha256") != raw_prepared_sha256
+        or publication_identity.get("png_sha256") != png_sha256
+    ):
+        _fail(f"{inspected.record.id} regional-surface publication input/output identity is invalid")
+    publication_source = regional_item._renderer_source_identity(
+        publication_identity.get("renderer_source"),
+        f"{inspected.record.id} publication renderer source identity",
+    )
+    if (
+        publication_source != expected_renderer_source
+        or publication_identity.get("renderer_source_sha256") != expected_renderer_source["sha256"]
+    ):
+        _fail(f"{inspected.record.id} regional-surface publication renderer source identity is invalid")
+    publisher_identity = _mapping(
+        publication_identity.get("publisher"),
+        f"{inspected.record.id} publication publisher identity",
+    )
+    if publisher_identity != expected_item_api:
+        _fail(f"{inspected.record.id} regional-surface publication publisher identity is invalid")
+    top_level_identity = _mapping(
+        item_obj.get("publication_identity"),
+        f"{inspected.record.id} top-level publication identity",
+    )
+    metadata_identity = _mapping(
+        metadata.get("identity"),
+        f"{inspected.record.id} item metadata publication identity",
+    )
+    canonical_publication_identity = _canonical_bytes(
+        publication_identity,
+        f"{inspected.record.id} publication identity",
+    )
+    if (
+        _canonical_bytes(top_level_identity, f"{inspected.record.id} top-level publication identity")
+        != canonical_publication_identity
+        or _canonical_bytes(metadata_identity, f"{inspected.record.id} metadata publication identity")
+        != canonical_publication_identity
+    ):
+        _fail(f"{inspected.record.id} complete publication identity is inconsistent")
+    source = _mapping(item_obj.get("source"), f"{inspected.record.id} item source")
+    if source.get("document") != inspected.record.document or source.get("namespace") != inspected.record.namespace:
+        _fail(f"{inspected.record.id} regional-surface item source binding is invalid")
+    if source.get("sha256") != prepared_sha256:
+        _fail(f"{inspected.record.id} regional-surface item source hash is invalid")
+    return _RenderedProfile(
+        inspected,
+        png_bytes,
+        png_sha256,
+        renderer_metadata_sha256,
+        renderer_source,
+        json.loads(canonical_publication_identity.decode("utf-8")),
+    )
+
+
+def _implementation_identity(
+    renderer_source_identity: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    gallery_identity = _gallery_source_snapshot().identity
+    item_api_identity = regional_item._publisher_implementation_identity()
+    if renderer_source_identity is None:
+        renderer_source = regional_item._snapshot_renderer_source()
+        renderer_source_identity = renderer_source.identity
+    renderer_source_identity = regional_item._renderer_source_identity(
+        renderer_source_identity,
+        "regional surface renderer source identity",
+    )
+    if source_manifest_validator is None:
+        _fail("structural source-manifest validator is unavailable")
+    validator_identity = source_manifest_validator._implementation_source_identity()
+    return {
+        "gallery": gallery_identity,
+        "item_api": item_api_identity,
+        "renderer": {
+            **renderer_source_identity,
+        },
+        "source_validator": validator_identity,
+    }
+
+
+def _descriptor_snapshot(
+    validation: source_manifest_validator.SourceManifestValidationResult,
+    executable: _PinnedExecutable,
+    implementation: dict[str, dict[str, Any]],
+    rendered: tuple[_RenderedProfile, ...],
+    mesh_samples: int,
+    mesh_padding: float,
+) -> dict[str, Any]:
+    publication_identities = [
+        {
+            "id": item.inspected.record.id,
+            "identity": item.publication_identity,
+            "sha256": hashlib.sha256(
+                _canonical_bytes(
+                    item.publication_identity,
+                    f"{item.inspected.record.id} complete publication identity",
+                )
+            ).hexdigest(),
+        }
+        for item in rendered
+    ]
+    publication_identities_sha256 = hashlib.sha256(
+        _canonical_bytes(publication_identities, "complete publication identity inventory")
+    ).hexdigest()
+    snapshot = {
+        "format": GALLERY_FORMAT,
+        "source_manifest": {
+            "format": validation.manifest.format,
+            "sha256": validation.manifest.sha256,
+            "bytes": validation.manifest.bytes,
+            "generator_sha256": validation.generator.sha256,
+            "candidate_sha256": validation.manifest.candidate_sha256,
+            "base_source_sha256": validation.manifest.base_source_sha256,
+            "profile_ids": list(validation.profile_ids),
+        },
+        "executable": {
+            "id": "pinned-creature-kernel",
+            "bytes": executable.bytes,
+            "sha256": executable.sha256,
+        },
+        "implementation": implementation,
+        "lineage": {
+            "source_variant_id": SOURCE_VARIANT_ID,
+            "renderer_source": implementation["renderer"],
+            "renderer_source_sha256": implementation["renderer"]["sha256"],
+            "profile_order": list(PROFILE_IDS),
+            "publication_identity_inventory": [
+                {"id": item["id"], "sha256": item["sha256"]}
+                for item in publication_identities
+            ],
+            "publication_identities_sha256": publication_identities_sha256,
+        },
+        "geometry_binding": {
+            "source_variant_id": SOURCE_VARIANT_ID,
+            "selection": "fixed neutral-v0; external profile identity does not branch geometry",
+            "mesh_samples": mesh_samples,
+            "mesh_padding": mesh_padding,
+        },
+        "profiles": [
+            {
+                "id": item.inspected.record.id,
+                "document": item.inspected.record.document,
+                "source_sha256": item.inspected.record.sha256,
+                "prepared_input_sha256": item.inspected.prepared_input_sha256,
+                "raw_prepared_form_sha256": item.inspected.raw_prepared_form_sha256,
+                "renderer_metadata_sha256": item.renderer_metadata_sha256,
+                "renderer_source": item.renderer_source_identity,
+                "renderer_source_sha256": item.renderer_source_identity["sha256"],
+                "png_sha256": item.png_sha256,
+                "publication_identity_sha256": hashlib.sha256(
+                    _canonical_bytes(
+                        item.publication_identity,
+                        f"{item.inspected.record.id} complete publication identity",
+                    )
+                ).hexdigest(),
+            }
+            for item in rendered
+        ],
+    }
+    descriptor_bytes = _canonical_bytes(snapshot, "descriptor snapshot")
+    if len(descriptor_bytes) > MAX_DESCRIPTOR_BYTES:
+        _fail(f"descriptor snapshot exceeds {MAX_DESCRIPTOR_BYTES} bytes")
+    return snapshot
+
+
+def _write_bytes(path: Path, data: bytes) -> None:
+    fd: int | None = None
+    created = False
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        created = True
+        with os.fdopen(fd, "wb") as stream:
+            fd = None
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except OSError as exc:
+        if fd is not None:
+            os.close(fd)
+        if created:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        _fail(f"could not stage PNG {path.name}: {exc}")
+
+
+def _write_json(path: Path, value: Any) -> None:
+    _write_bytes(path, canonical_json(value).encode("utf-8"))
+
+
+def _review_manifest(
+    rendered: tuple[_RenderedProfile, ...],
+    descriptor: dict[str, Any],
+    temporary_root: Path,
+    *,
+    review_id: str,
+    mesh_samples: int,
+    mesh_padding: float,
+) -> tuple[Path, dict[str, dict[str, int | str]]]:
+    images: list[dict[str, Any]] = []
+    expected_sources: dict[str, dict[str, int | str]] = {}
+    implementation = descriptor["implementation"]
+    lineage = _mapping(descriptor.get("lineage"), "descriptor lineage")
+    publication_identity_inventory_sha256 = _digest(
+        lineage.get("publication_identities_sha256"),
+        "descriptor complete publication identity inventory SHA-256",
+    )
+    for item in rendered:
+        profile_id = item.inspected.record.id
+        png_path = temporary_root / f"{profile_id}.png"
+        _write_bytes(png_path, item.png_bytes)
+        item_metadata = {
+            "external_id": profile_id,
+            "source_variant": SOURCE_VARIANT_ID,
+            "source_binding": {
+                "document": item.inspected.record.document,
+                "namespace": item.inspected.record.namespace,
+            },
+            "hashes": {
+                "source_document_sha256": item.inspected.record.sha256,
+                "prepared_input_sha256": item.inspected.prepared_input_sha256,
+                "raw_prepared_form_sha256": item.inspected.raw_prepared_form_sha256,
+                "renderer_metadata_sha256": item.renderer_metadata_sha256,
+                "renderer_source_sha256": item.renderer_source_identity["sha256"],
+                "png_sha256": item.png_sha256,
+            },
+            "renderer_source": item.renderer_source_identity,
+            "publication_identity": item.publication_identity,
+            "publication_identity_sha256": hashlib.sha256(
+                _canonical_bytes(
+                    item.publication_identity,
+                    f"{profile_id} complete publication identity",
+                )
+            ).hexdigest(),
+            "implementation_ids": {
+                "gallery": implementation["gallery"]["id"],
+                "item_api": implementation["item_api"]["id"],
+                "renderer": implementation["renderer"]["id"],
+            },
+            "mesh": {
+                "samples_per_axis": mesh_samples,
+                "padding": mesh_padding,
+            },
+        }
+        expected_sources[profile_id] = {
+            "bytes": len(item.png_bytes),
+            "sha256": item.png_sha256,
+        }
+        images.append(
+            {
+                "id": profile_id,
+                "title": profile_id,
+                "source": str(png_path),
+                "description": "Final regional-surface skin with contributor and source diagnostics.",
+                "metadata": item_metadata,
+            }
+        )
+    if [item["id"] for item in images] != list(PROFILE_IDS) or len(images) != len(PROFILE_IDS):
+        _fail("regional gallery image items are not the exact required order")
+    review = {
+        "schema_version": 1,
+        "id": review_id,
+        "title": TITLE,
+        "description": DESCRIPTION,
+        "instructions": INSTRUCTIONS,
+        "subject_context": {"descriptor_snapshot": descriptor},
+        "kind": "image",
+        "groups": [
+            {
+                "id": GROUP_ID,
+                "title": "Five ordered source profiles (standard neutral first)",
+                "selection_mode": "none",
+                "description": (
+                    "Five items rendered by the exact source snapshot "
+                    f"{implementation['renderer']['id']} "
+                    f"({implementation['renderer']['bytes']} bytes, "
+                    f"SHA-256 {implementation['renderer']['sha256']}); complete direct "
+                    "publication identities are retained in the descriptor under digest "
+                    f"{publication_identity_inventory_sha256}."
+                ),
+                "items": images,
+            }
+        ],
+    }
+    manifest_path = temporary_root / "review-manifest.json"
+    _write_json(manifest_path, review)
+    return manifest_path, expected_sources
+
+
+def _publish_regional_surface_gallery(
+    reviews_root: Path,
+    source_manifest: Path,
+    creature_kernel: Path,
+    *,
+    review_id: str,
+    mesh_samples: int,
+    mesh_padding: float,
+) -> dict[str, Any]:
+    """Inspect, render, and atomically publish one exact-five gallery."""
+
+    reviews_root = Path(reviews_root)
+    source_manifest = Path(source_manifest)
+    creature_kernel = Path(creature_kernel)
+    try:
+        stable_review_id = validate_id(review_id, "review id")
+    except ValidationError as exc:
+        _fail(str(exc))
+    if stable_review_id in PROFILE_IDS:
+        _fail("review id must differ from every exact-five profile item id")
+    _refuse_existing_destination(reviews_root, stable_review_id)
+    mesh_samples, mesh_padding = _validate_sampling(mesh_samples, mesh_padding)
+    validation = _validate_source_manifest(source_manifest)
+    executable_reference = _validate_executable(creature_kernel)
+
+    with tempfile.TemporaryDirectory(prefix="ck-regional-surface-gallery-") as temporary:
+        temporary_root = Path(temporary)
+        executable = _pin_executable(executable_reference, temporary_root)
+        renderer_source_snapshot = regional_item._snapshot_renderer_source()
+        implementation = _implementation_identity(renderer_source_snapshot.identity)
+        inspected = tuple(
+            _inspect_profile(record, executable, temporary_root)
+            for record in validation.sources
+        )
+        if tuple(item.record.id for item in inspected) != PROFILE_IDS:
+            _fail("inspected source profiles are not in the exact required order")
+
+        rendered_items: list[_RenderedProfile] = []
+        for item in inspected:
+            try:
+                rendered = render_and_validate_regional_surface_item(
+                    item.prepared,
+                    prepared_input_sha256=item.prepared_input_sha256,
+                    raw_prepared_form_sha256=item.raw_prepared_form_sha256,
+                    external_profile_id=item.record.id,
+                    expected_source_document=item.record.document,
+                    mesh_samples=mesh_samples,
+                    mesh_padding=mesh_padding,
+                    renderer_source_snapshot=renderer_source_snapshot,
+                )
+            except regional_item.RegionalSurfacePublicationError as exc:
+                # This is the approved controlled renderer/publication
+                # diagnostic boundary.  Other exception types are opaque.
+                _fail(f"{item.record.id} regional-surface item failed: {exc}")
+            except Exception:  # noqa: BLE001 - child item failures are sanitized
+                _fail(f"{item.record.id} regional-surface item failed: unexpected renderer failure")
+            rendered_items.append(
+                _rendered_item(
+                    item,
+                    rendered,
+                    expected_renderer_source=implementation["renderer"],
+                    expected_item_api=implementation["item_api"],
+                )
+            )
+        rendered = tuple(rendered_items)
+        if len(rendered) != len(PROFILE_IDS):
+            _fail("regional gallery did not produce exactly five rendered items")
+        descriptor = _descriptor_snapshot(
+            validation,
+            executable,
+            implementation,
+            rendered,
+            mesh_samples,
+            mesh_padding,
+        )
+        review_manifest, expected_sources = _review_manifest(
+            rendered,
+            descriptor,
+            temporary_root,
+            review_id=stable_review_id,
+            mesh_samples=mesh_samples,
+            mesh_padding=mesh_padding,
+        )
+        try:
+            summary = publish_session(
+                reviews_root,
+                review_manifest,
+                expected_sources=expected_sources,
+            )
+        except (ValidationError, PublishError, OSError) as exc:
+            _fail(f"could not publish regional surface gallery: {exc}")
+        except Exception:  # noqa: BLE001 - publisher implementation text is opaque
+            _fail("could not publish regional surface gallery: unexpected publication failure")
+    return {
+        **summary,
+        "kind": "regional-surface-gallery",
+        "profiles": len(PROFILE_IDS),
+        "images": len(PROFILE_IDS),
+        "items": len(PROFILE_IDS),
+    }
+
+
+def publish_regional_surface_gallery(
+    reviews_root: Path,
+    source_manifest: Path,
+    creature_kernel: Path,
+    *,
+    review_id: str,
+    mesh_samples: int,
+    mesh_padding: float,
+) -> dict[str, Any]:
+    """Run the gallery API with arbitrary implementation failures sanitized."""
+
+    try:
+        return _publish_regional_surface_gallery(
+            reviews_root,
+            source_manifest,
+            creature_kernel,
+            review_id=review_id,
+            mesh_samples=mesh_samples,
+            mesh_padding=mesh_padding,
+        )
+    except RegionalSurfaceGalleryError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - public API exposes fixed unexpected errors
+        raise RegionalSurfaceGalleryError("unexpected gallery failure") from exc
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", required=True, type=Path, help="existing visual-review root")
+    parser.add_argument(
+        "--source-manifest",
+        required=True,
+        type=Path,
+        help="exact-five manifest.json from generate_structural_profile_sources.py",
+    )
+    parser.add_argument(
+        "--creature-kernel",
+        required=True,
+        type=Path,
+        help="pinned creature-kernel executable to use for each independent inspection",
+    )
+    parser.add_argument("--id", "--review-id", required=True, dest="review_id", help="fresh review/session ID")
+    parser.add_argument(
+        "--mesh-samples",
+        "--samples-per-axis",
+        required=True,
+        dest="mesh_samples",
+        type=int,
+        help=f"mesh samples per axis ({MIN_MESH_SAMPLES}..{MAX_MESH_SAMPLES}; checkpoint intended {EXPECTED_SAMPLES})",
+    )
+    parser.add_argument(
+        "--mesh-padding",
+        "--padding",
+        required=True,
+        dest="mesh_padding",
+        type=float,
+        help=f"finite mesh padding; checkpoint intended {EXPECTED_PADDING}",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        args = _parser().parse_args(argv)
+        summary = publish_regional_surface_gallery(
+            args.root,
+            args.source_manifest,
+            args.creature_kernel,
+            review_id=args.review_id,
+            mesh_samples=args.mesh_samples,
+            mesh_padding=args.mesh_padding,
+        )
+    except (RegionalSurfaceGalleryError, ValidationError, PublishError, OSError) as exc:
+        print(f"publish-regional-surface-gallery failed: {exc}", file=sys.stderr)
+        return 2
+    except Exception:
+        print("publish-regional-surface-gallery failed: unexpected gallery failure", file=sys.stderr)
+        return 2
+    print(canonical_json(summary), end="")
+    return 0
+
+
+if globals().get("_GALLERY_SNAPSHOT_EXECUTION", False):
+    _GALLERY_IMPLEMENTATION_SOURCE_SNAPSHOT = _GallerySourceSnapshot(
+        path=globals()["_GALLERY_SNAPSHOT_PATH"],
+        source_bytes=globals()["_GALLERY_SNAPSHOT_BYTES"],
+        sha256=globals()["_GALLERY_SNAPSHOT_SHA256"],
+    )
+    if __name__ == "__main__":
+        raise SystemExit(main())
+else:
+    if __name__ == "__main__":
+        try:
+            _bootstrap_gallery_source()
+        except Exception:  # noqa: BLE001 - bootstrap failures are opaque at the CLI
+            print(
+                "publish-regional-surface-gallery failed: unexpected gallery failure",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+    else:
+        _bootstrap_gallery_source()
