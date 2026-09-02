@@ -12,7 +12,7 @@ untrusted until verified live:
 - Checkout: `/home/ben/src/creature-kernel-worktrees/programmatic-root-complex-surface`
 - Worktree: `/home/ben/src/creature-kernel-worktrees/programmatic-root-complex-surface`
 - Branch: `codex/programmatic-root-complex-surface`
-- Pull request: pending implementation PR (not yet created; no number assigned)
+- Pull request: draft implementation PR #125
 
 ## Live verification checklist
 

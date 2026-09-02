@@ -1,6 +1,7 @@
 # Programmatic root-complex surface investigation
 
-Status: Candidate plan; Ben-authorized bounded investigation; non-normative
+Status: Terminal candidate outcome recorded; Ben-authorized bounded
+investigation; non-normative
 
 This is the settled plan for the next small investigation. It is an
 experiment-local, pre-Readiness-4 activity using explicitly identified
@@ -10,6 +11,50 @@ or durable domain, chart, or cage identity. It cannot satisfy or replace the
 DR-0013 Stage 1 proof. DR-0009 and DR-0010 remain parked. Any promotion stops
 for the appropriate decision record, canonical architecture work, and Ben's
 approval.
+
+The execution procedure below is retained as the investigation's historical
+plan. The terminal outcome recorded here supersedes its continuation steps for
+this seven-ring candidate.
+
+## Terminal outcome (2026-09-03)
+
+The seven-ring candidate exhausted exactly three frozen shared correction
+rounds. Round 1 fixed the measured shoulder intersections; round 2 improved
+axial taper and thigh seating; and round 3 applied the superior axial saddle.
+
+Main-thread direct vision of the fixed front, side, and three-quarter
+standard-neutral round-3 evidence found the terminal visual criterion unmet:
+neck emergence and downward shoulder departure remained too weak, while the
+arm ports still read in a broad superior shelf. Neutral credibility therefore
+failed. Exact-five, tail, and gallery expansion is blocked, and no fourth
+correction round is allowed.
+
+Structural evidence still passed: the cage has 72 vertices and 63 quads; the
+level-2 surface has 1,053 vertices and 1,008 quads; level-1 and level-2
+intersection counts are both zero; and all five final clearance ratios pass.
+This is a scoped rejection of this seven-ring candidate, not formal Stage 1,
+not a global rejection of programmatic or hybrid surfaces, and not authority
+to reactivate DR-0009, DR-0010, or another parked workstream.
+
+The contract owner and reproduction procedure remain
+[the experiment README](../../experiments/programmatic-root-complex-surface/README.md)
+and its [launcher](../../experiments/programmatic-root-complex-surface/root_complex_launcher.sh).
+The local generated evidence remains uncommitted under the artifact policy.
+For the terminal standard-neutral evidence, the recorded SHA-256 identities
+are:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `skin.png` | `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce` |
+| `cage.png` | `06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046` |
+| `metrics.json` | `253786962faf206285a058804af58e4c19a40c643cc5cd1ed27d91242d018fa8` |
+| `manifest.json` | `b13659dfc1cd347582cf3cc4cea8a2e4177c67654b1fd26acb76b43b9006b3fb` |
+
+The evidence can be regenerated with the README's standard-neutral launcher
+command; its output target must be a new temporary path. The next retained
+human action is Ben's disposition or a newly authorized direction. No
+autonomous substitute checkpoint or parked-work reactivation follows from
+this terminal result.
 
 ## Named question and scope
 
