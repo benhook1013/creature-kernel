@@ -19,8 +19,7 @@ RING_NAMES = (
     "iliac_overlap",
     "lower_pelvis",
 )
-CONSTANTS = {"n": 2.6, "lambda": 0.25, "shoulder": 0.80, "axilla": 0.55,
-             "eta": 0.25, "gamma": 0.08}
+CONSTANTS = {"n": 2.6, "lambda": 0.25, "shoulder": 0.80, "axilla": 0.55, "eta": 0.25, "gamma": 0.08}
 RANGES = {"n": (2.0, 3.2), "lambda": (0.0, 0.5), "shoulder": (0.70, 1.00),
           "axilla": (0.35, 0.75), "eta": (0.0, 0.5), "gamma": (0.04, 0.12)}
 EXPECTED_VALENCES = ((3, 22), (4, 40), (5, 10))
@@ -155,8 +154,7 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
     if expected_valences is not None and inventory != tuple(expected_valences):
         raise ValueError(f"unexpected valence inventory: {inventory}")
     report = TopologyReport(vertex_count, len(uses), len(faces), len(boundary),
-                            vertex_count - len(uses) + len(faces),
-                            tuple(len(loop) for _, loop in loops), inventory)
+                            vertex_count - len(uses) + len(faces), tuple(len(loop) for _, loop in loops), inventory)
     if report.euler != 2 - len(loops):
         raise ValueError("Euler characteristic does not match boundary count")
     return report
@@ -212,13 +210,12 @@ def _prepared(prepared):
     if len(stations) > 10 or len(landmarks) > 24 or len(frames) > 8:
         raise ValueError("prepared input exceeds admission caps")
     frame = _record(frames, "body", "frame")
-    axes = tuple(_vector(frame[name], f"frames.body.{name}")
-                 for name in ("lateral_axis", "up_axis", "forward_axis"))
+    axes = tuple(_vector(frame[name], f"frames.body.{name}") for name in
+                 ("lateral_axis", "up_axis", "forward_axis"))
     L, U, F = (axis / np.linalg.norm(axis) for axis in axes)
     if any(not np.isfinite(axis).all() for axis in (L, U, F)) or np.dot(np.cross(L, U), F) < 0.999:
         raise ValueError("body frame must be orthonormal and right-handed")
-    constants, constant_provenance = dict(CONSTANTS), {
-        key: f"formula_constant.{key}.v1" for key in CONSTANTS}
+    constants, constant_provenance = dict(CONSTANTS), {key: f"formula_constant.{key}.v1" for key in CONSTANTS}
     for key in constants:
         if key in scalars:
             rec = _record(scalars, key, "scalar")
@@ -227,13 +224,11 @@ def _prepared(prepared):
         low, high = RANGES[key]
         if not low <= constants[key] <= high:
             raise ValueError(f"scalar {key} outside frozen range")
-    return (stations, landmarks, scalars, (L, U, F), constants,
-            constant_provenance, frame["provenance"])
+    return stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame["provenance"]
 
 
 def build_cage(prepared):
-    (stations, landmarks, scalars, (L, U, F), constants,
-     constant_provenance, frame_prov) = _prepared(prepared)
+    stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame_prov = _prepared(prepared)
     ids, faces, loops = symbolic_topology()
     validate_topology(72, faces, loops, EXPECTED_VALENCES)
     points, formulas, dependencies, provenance = [], [], [], []
@@ -241,8 +236,8 @@ def build_cage(prepared):
     def station_values(name):
         rec = _record(stations, name, "station")
         center = _vector(rec.get("center"), f"stations.{name}.center")
-        values = tuple(_number(rec.get(key), f"stations.{name}.{key}", True)
-                       for key in ("lateral_radius", "front_extent", "back_extent"))
+        values = tuple(_number(rec.get(key), f"stations.{name}.{key}", True) for key in
+                       ("lateral_radius", "front_extent", "back_extent"))
         deps = tuple(f"stations.{name}.{key}" for key in
                      ("center", "lateral_radius", "front_extent", "back_extent"))
         return center, values, deps, rec["provenance"]
@@ -251,13 +246,51 @@ def build_cage(prepared):
         rec = _record(landmarks, name, "landmark")
         return _vector(rec.get("point"), f"landmarks.{name}.point"), rec["provenance"]
 
-    ring_sources = ("neck_collar", "upper_ribcage_shoulder", "lower_ribcage",
-                    "waist_abdomen", "lower_pelvis")
+    ring_sources = ("neck_collar", "upper_ribcage_shoulder", "lower_ribcage", "waist_abdomen",
+                    "lower_abdomen", "upper_pelvis", "lower_pelvis")
     ring_data = {name: station_values(name) for name in ring_sources}
-    lower = ring_data["lower_ribcage"]
-    upper = ring_data["upper_ribcage_shoulder"]
-    axilla_left, axilla_left_prov = landmark("axilla_left")
-    axilla_right, axilla_right_prov = landmark("axilla_right")
+    thigh_radius_record = _record(scalars, "thigh_lateral_radius", "scalar")
+    thigh_depth_record = _record(scalars, "thigh_depth", "scalar")
+    thigh_radius = _number(thigh_radius_record.get("value"), "scalars.thigh_lateral_radius.value", True)
+    thigh_depth = _number(thigh_depth_record.get("value"), "scalars.thigh_depth.value", True)
+    thigh_data = {}
+    for side in ("left", "right"):
+        start, start_prov = landmark(f"thigh_start_{side}"); mid, mid_prov = landmark(f"thigh_mid_{side}")
+        route = mid - start
+        if not isfinite(np.linalg.norm(route)) or np.linalg.norm(route) <= 0: raise ValueError(f"thigh route {side} must have positive length")
+        thigh_data[side] = (start, mid, start + constants["eta"] * route, start_prov, mid_prov)
+
+    clamp_names = ("lower_ribcage", "lower_abdomen", "lower_pelvis"); clamped_ring_names = set()
+    envelope = [(float(np.dot(ring_data[name][0], U)), *ring_data[name][1:]) for name in
+                ("upper_ribcage_shoulder", "waist_abdomen", "upper_pelvis")]
+    seats = tuple(thigh_data[side][2] for side in ("left", "right"))
+    seat_deps = tuple(f"landmarks.thigh_{point}_{side}" for side in ("left", "right") for point in
+                      ("start", "mid")) + ("scalars.thigh_lateral_radius", "scalars.thigh_depth", "scalars.eta")
+    seat_prov = "|".join((*[item for side in ("left", "right") for item in thigh_data[side][3:]],
+                          thigh_radius_record["provenance"], thigh_depth_record["provenance"],
+                          constant_provenance["eta"]))
+    seat_extents = (max(abs(float(np.dot(seat, L))) for seat in seats) + thigh_radius,
+                    thigh_depth, thigh_depth)
+    envelope.append((float(np.mean([np.dot(seat, U) for seat in seats])), seat_extents,
+                     seat_deps, seat_prov))
+    if any(high[0] <= low[0] for high, low in zip(envelope, envelope[1:])): raise ValueError("axial envelope anchors must descend strictly")
+    for name in clamp_names:
+        center, values, deps, prov = ring_data[name]
+        position = float(np.dot(center, U))
+        segment = next(((high, low) for high, low in zip(envelope, envelope[1:])
+                        if low[0] <= position <= high[0]), None)
+        if segment is None: raise ValueError(f"axial envelope does not bracket station {name}")
+        high, low = segment; fraction = (position - low[0]) / (high[0] - low[0])
+        limit = tuple(lo + fraction * (hi - lo) for hi, lo in zip(high[1], low[1]))
+        clamped = tuple(min(value, bound) for value, bound in zip(values, limit))
+        if not any(bound <= value for value, bound in zip(values, limit)): continue
+        active = tuple(anchor for weight, anchor in ((fraction, high), (1 - fraction, low)) if weight)
+        exact_deps = tuple(dict.fromkeys(deps + tuple(item for anchor in active for item in anchor[2]) + ("frames.body",)))
+        exact_prov = "|".join(dict.fromkeys((prov, *(anchor[3] for anchor in active))))
+        ring_data[name] = (center, clamped, exact_deps, exact_prov)
+        if name in RING_NAMES: clamped_ring_names.add(name)
+    lower, upper = ring_data["lower_ribcage"], ring_data["upper_ribcage_shoulder"]
+    axilla_left, axilla_left_prov = landmark("axilla_left"); axilla_right, axilla_right_prov = landmark("axilla_right")
     target = float(np.mean((np.dot(axilla_left, U), np.dot(axilla_right, U))))
     denominator = float(np.dot(upper[0] - lower[0], U))
     t = (target - float(np.dot(lower[0], U))) / denominator if denominator else float("nan")
@@ -265,40 +298,29 @@ def build_cage(prepared):
         raise ValueError("axilla transition interpolation must have 0 < t < 1")
     transition_center = (1 - t) * lower[0] + t * upper[0]
     transition_values = tuple((1 - t) * a + t * b for a, b in zip(lower[1], upper[1]))
-    transition_deps = ("landmarks.axilla_left", "landmarks.axilla_right",
-                       "stations.lower_ribcage", "stations.upper_ribcage_shoulder",
-                       "frames.body")
+    transition_deps = tuple(dict.fromkeys(lower[2] + upper[2] + ("landmarks.axilla_left",
+                                                                  "landmarks.axilla_right", "frames.body")))
     transition_prov = "|".join((lower[3], upper[3], axilla_left_prov, axilla_right_prov))
-    ring_data["axilla_transition"] = (transition_center, transition_values,
-                                       transition_deps, transition_prov)
-    lower = station_values("lower_abdomen")
-    upper = station_values("upper_pelvis")
-    lam = constants["lambda"]
-    iliac_center = (1 - lam) * lower[0] + lam * upper[0]
+    ring_data["axilla_transition"] = transition_center, transition_values, transition_deps, transition_prov
+    lower, upper = ring_data["lower_abdomen"], ring_data["upper_pelvis"]
+    lam = constants["lambda"]; iliac_center = (1 - lam) * lower[0] + lam * upper[0]
     iliac_values = tuple((1 - lam) * a + lam * b for a, b in zip(lower[1], upper[1]))
-    ring_data["iliac_overlap"] = (iliac_center, iliac_values,
-                                   lower[2] + upper[2] + ("scalars.lambda",),
-                                   f"{lower[3]}|{upper[3]}|{constant_provenance['lambda']}")
+    ring_data["iliac_overlap"] = (iliac_center, iliac_values, lower[2] + upper[2] + ("scalars.lambda",),
+                                  f"{lower[3]}|{upper[3]}|{constant_provenance['lambda']}")
 
     arm_depth_record = _record(scalars, "arm_root_depth", "scalar")
     arm_out_record = _record(scalars, "arm_root_outward", "scalar")
-    arm_depth = _number(arm_depth_record.get("value"),
-                        "scalars.arm_root_depth.value", True)
-    arm_out = _number(arm_out_record.get("value"),
-                      "scalars.arm_root_outward.value", True)
-    branch_data = {}
-    socket_data = {}
-    for side, sign, front_index, back_index in (
-            ("left", -1, 3, 4), ("right", 1, 1, 0)):
-        peak, peak_prov = landmark(f"shoulder_peak_{side}")
-        axilla, axilla_prov = landmark(f"axilla_{side}")
+    arm_depth = _number(arm_depth_record.get("value"), "scalars.arm_root_depth.value", True)
+    arm_out = _number(arm_out_record.get("value"), "scalars.arm_root_outward.value", True)
+    branch_data, socket_data = {}, {}
+    for side, sign, front_index, back_index in (("left", -1, 3, 4), ("right", 1, 1, 0)):
+        peak, peak_prov = landmark(f"shoulder_peak_{side}"); axilla, axilla_prov = landmark(f"axilla_{side}")
         sigma = constants["shoulder"]
-        upper_center = (axilla + sigma * (peak - axilla) +
-                        sign * sigma * arm_out * L)
+        upper_center = axilla + sigma * (peak - axilla) + sign * sigma * arm_out * L
         lower_center = axilla + sign * constants["axilla"] * arm_out * L
-        upper_dependencies = (f"landmarks.shoulder_peak_{side}",
-                              f"landmarks.axilla_{side}", "scalars.arm_root_depth",
-                              "scalars.arm_root_outward", "scalars.shoulder", "frames.body")
+        upper_dependencies = (f"landmarks.shoulder_peak_{side}", f"landmarks.axilla_{side}",
+                              "scalars.arm_root_depth", "scalars.arm_root_outward",
+                              "scalars.shoulder", "frames.body")
         lower_dependencies = (f"landmarks.axilla_{side}", "scalars.arm_root_depth",
                               "scalars.arm_root_outward", "scalars.axilla", "frames.body")
         upper_provenance = (peak_prov, axilla_prov, arm_depth_record["provenance"],
@@ -311,31 +333,26 @@ def build_cage(prepared):
                 ("upper_ribcage_shoulder", upper_center, upper_dependencies, upper_provenance),
                 ("axilla_transition", lower_center, lower_dependencies, lower_provenance)):
             station_center, (radius, front, back), station_deps, station_prov = ring_data[ring_name]
-            anchor = (station_center + ((front - back) / 2) * F +
-                      sign * radius * L)
+            anchor = station_center + ((front - back) / 2) * F + sign * radius * L
             for index, depth_sign in ((front_index, 1), (back_index, -1)):
-                point = (float(np.dot(anchor, L)) * L +
-                        float(np.dot(center, U)) * U +
-                        (float(np.dot(center, F)) + depth_sign * arm_depth) * F)
-                socket_data[(ring_name, index)] = (
-                    point, station_deps + branch_dependencies,
-                    (station_prov,) + branch_provenance)
+                point = (float(np.dot(anchor, L)) * L + float(np.dot(center, U)) * U +
+                         (float(np.dot(center, F)) + depth_sign * arm_depth) * F)
+                socket_data[(ring_name, index)] = (point, station_deps + branch_dependencies,
+                                                   (station_prov,) + branch_provenance)
     for name in RING_NAMES:
         center, (radius, front, back), deps, prov = ring_data[name]
         depth_center = center + ((front - back) / 2) * F
         depth = (front + back) / 2
         for i in range(8):
-            theta = i * pi / 4
-            x, z = cos(theta), sin(theta)
-            x = 0.0 if abs(x) < 1e-12 else x
-            z = 0.0 if abs(z) < 1e-12 else z
+            theta = i * pi / 4; x, z = cos(theta), sin(theta)
+            x = 0.0 if abs(x) < 1e-12 else x; z = 0.0 if abs(z) < 1e-12 else z
             power = 2 / constants["n"]
             point = depth_center + radius * np.sign(x) * abs(x) ** power * L
             point += depth * np.sign(z) * abs(z) ** power * F
-            formula = ("iliac.blend.superellipse" if name == "iliac_overlap" else
-                       "shoulder.axilla_transition" if name == "axilla_transition" else
-                       "station.asymmetric_superellipse")
-            dependencies_for_point = deps + ("frames.body", "scalars.n")
+            formula = ("station.axial_envelope.min_clamp" if name in clamped_ring_names else
+                       "iliac.blend.superellipse" if name == "iliac_overlap" else
+                       "shoulder.axilla_transition" if name == "axilla_transition" else "station.asymmetric_superellipse")
+            dependencies_for_point = tuple(dict.fromkeys(deps + ("frames.body", "scalars.n")))
             provenance_for_point = (prov, frame_prov, constant_provenance["n"])
             if (name, i) in socket_data:
                 point, dependencies_for_point, provenance_for_point = socket_data[(name, i)]
@@ -360,29 +377,16 @@ def build_cage(prepared):
                         (1, ((8, 60), (9, 61), (17, 62), (16, 63)))):
         directions = []
         for socket, collar in pairs:
-            delta = points[collar] - points[socket]
-            lateral_component = float(np.dot(delta, L)) * L
+            delta = points[collar] - points[socket]; lateral_component = float(np.dot(delta, L)) * L
             if np.linalg.norm(delta - lateral_component) > 1e-10:
                 raise ValueError("shoulder socket bridge is not purely lateral")
             directions.append(sign * float(np.dot(delta, L)))
         if not directions or any(value * directions[0] <= 0 for value in directions):
             raise ValueError("shoulder socket bridges do not share a direction")
 
-    thigh_radius_record = _record(scalars, "thigh_lateral_radius", "scalar")
-    thigh_depth_record = _record(scalars, "thigh_depth", "scalar")
-    thigh_radius = _number(thigh_radius_record.get("value"),
-                           "scalars.thigh_lateral_radius.value", True)
-    thigh_depth = _number(thigh_depth_record.get("value"),
-                          "scalars.thigh_depth.value", True)
-    pelvis_center, (pelvis_radius, _, _), _, pelvis_prov = ring_data["lower_pelvis"]
+    pelvis_center, (pelvis_radius, _, _), pelvis_deps, pelvis_prov = ring_data["lower_pelvis"]
     for side, sign in (("left", -1), ("right", 1)):
-        start, start_prov = landmark(f"thigh_start_{side}")
-        mid, mid_prov = landmark(f"thigh_mid_{side}")
-        route = mid - start
-        length = np.linalg.norm(route)
-        if not isfinite(length) or length <= 0:
-            raise ValueError(f"thigh route {side} must have positive length")
-        seat = start + constants["eta"] * length * route / length
+        start, mid, seat, start_prov, mid_prov = thigh_data[side]
         lateral_offset = sign * float(np.dot(seat - pelvis_center, L))
         medial_radius = min(thigh_radius, lateral_offset - constants["gamma"] * pelvis_radius)
         if medial_radius <= 0:
@@ -391,24 +395,23 @@ def build_cage(prepared):
                 seat + sign * thigh_radius * L, seat - thigh_depth * F)
         for point in loop:
             points.append(point); formulas.append("thigh.seat_gap_loop")
-            dependencies.append((f"landmarks.thigh_start_{side}", f"landmarks.thigh_mid_{side}",
-                                 "scalars.thigh_lateral_radius", "scalars.thigh_depth",
-                                 "scalars.eta", "scalars.gamma", "stations.lower_pelvis", "frames.body"))
+            dependencies.append(tuple(dict.fromkeys((
+                f"landmarks.thigh_start_{side}", f"landmarks.thigh_mid_{side}",
+                "scalars.thigh_lateral_radius", "scalars.thigh_depth", "scalars.eta",
+                "scalars.gamma", *pelvis_deps, "frames.body"))))
             provenance.append((start_prov, mid_prov, pelvis_prov, frame_prov,
                                thigh_radius_record["provenance"], thigh_depth_record["provenance"],
                                constant_provenance["eta"], constant_provenance["gamma"]))
     vertices = tuple(tuple(float(v) for v in point) for point in points)
-    mesh = Mesh(vertices, faces, ids, tuple(formulas), tuple(dependencies),
-                tuple(provenance), loops)
+    mesh = Mesh(vertices, faces, ids, tuple(formulas), tuple(dependencies), tuple(provenance), loops)
     validate_geometry(mesh)
     return mesh
 
 
 def _scale(mesh):
     loop_map = dict(mesh.boundary_loops)
-    centroids = []
-    for name in ("neck", "left_thigh", "right_thigh"):
-        centroids.append(np.mean([mesh.vertices[i] for i in loop_map[name]], axis=0))
+    centroids = [np.mean([mesh.vertices[i] for i in loop_map[name]], axis=0)
+                 for name in ("neck", "left_thigh", "right_thigh")]
     value = np.linalg.norm(centroids[0] - (centroids[1] + centroids[2]) / 2)
     if not isfinite(value) or value <= 0:
         raise ValueError("trial scale must be positive")

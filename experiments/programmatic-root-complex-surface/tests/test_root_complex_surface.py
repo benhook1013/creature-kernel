@@ -152,14 +152,13 @@ class FormulaAndInputTests(unittest.TestCase):
         self.assertEqual(set(cage.formula_ids), {
             "station.asymmetric_superellipse", "iliac.blend.superellipse",
             "shoulder.axilla_transition", "shoulder.peak_axilla_collar",
-            "thigh.seat_gap_loop",
+            "station.axial_envelope.min_clamp", "thigh.seat_gap_loop",
         })
         with self.assertRaises(FrozenInstanceError):
             cage.vertices = ()
 
     def test_named_boundaries_and_shoulder_offsets_use_canonical_sides(self):
-        prepared = synthetic_prepared()
-        cage = surface.build_cage(prepared)
+        prepared = synthetic_prepared(); cage = surface.build_cage(prepared)
         lateral = np.array((1.0, 0.0, 0.0))
         forward = np.array((0.0, 0.0, 1.0))
         for side, sign, arm, thigh in (("left", -1, 56, 64), ("right", 1, 60, 68)):
@@ -226,64 +225,74 @@ class FormulaAndInputTests(unittest.TestCase):
         for mesh in (result.cage, *result.levels):
             assert_mirror(mesh.vertices)
 
-    def test_axilla_transition_uses_exact_station_interpolation(self):
-        prepared = synthetic_prepared()
-        cage = surface.build_cage(prepared)
-        lower = prepared["stations"]["lower_ribcage"]
-        upper = prepared["stations"]["upper_ribcage_shoulder"]
-        axilla = [prepared["landmarks"][f"axilla_{side}"]["point"]
-                  for side in ("left", "right")]
-        up = np.asarray((0.0, 1.0, 0.0))
-        forward = np.asarray((0.0, 0.0, 1.0))
-        lower_center = np.asarray(lower["center"])
-        upper_center = np.asarray(upper["center"])
-        target = np.mean([np.dot(point, up) for point in axilla])
-        t = (target - np.dot(lower_center, up)) / np.dot(upper_center - lower_center, up)
-        self.assertAlmostEqual(t, 7 / 30)
-        center = (1 - t) * lower_center + t * upper_center
-        extents = tuple((1 - t) * lower[key] + t * upper[key]
-                        for key in ("lateral_radius", "front_extent", "back_extent"))
-        self.assertEqual(cage.formula_ids[16:24], (
-            "shoulder.peak_axilla_collar", "shoulder.peak_axilla_collar",
-            "shoulder.axilla_transition", "shoulder.peak_axilla_collar",
-            "shoulder.peak_axilla_collar", "shoulder.axilla_transition",
-            "shoulder.axilla_transition", "shoulder.axilla_transition"))
-        for item in ("landmarks.axilla_left", "landmarks.axilla_right",
-                     "stations.lower_ribcage", "stations.upper_ribcage_shoulder",
-                     "frames.body"):
-            self.assertTrue(all(item in deps for deps in cage.dependencies[16:24]))
-        power = 2 / surface.CONSTANTS["n"]
-        depth_center = center + ((extents[1] - extents[2]) / 2) * forward
-        expected = []
-        for i in range(8):
-            theta = i * np.pi / 4
-            x, z = np.cos(theta), np.sin(theta)
-            x = 0.0 if abs(x) < 1e-12 else x
-            z = 0.0 if abs(z) < 1e-12 else z
-            expected.append(depth_center
-                           + extents[0] * np.sign(x) * abs(x) ** power * np.asarray((1, 0, 0))
-                           + ((extents[1] + extents[2]) / 2) * np.sign(z) * abs(z) ** power * forward)
-        for index in (2, 5, 6, 7):
-            np.testing.assert_allclose(cage.vertices[16 + index], expected[index])
+    def test_axial_envelope_and_axilla_transition_use_exact_interpolation(self):
+        prepared = synthetic_prepared(); cage = surface.build_cage(prepared)
+        keys = ("lateral_radius", "front_extent", "back_extent")
+        anchors = [(prepared["stations"][name]["center"][1], tuple(
+            prepared["stations"][name][key] for key in keys)) for name in
+            ("upper_ribcage_shoulder", "waist_abdomen", "upper_pelvis")]
+        seats = [np.asarray(prepared["landmarks"][f"thigh_start_{side}"]["point"]) +
+                 surface.CONSTANTS["eta"] * (np.asarray(
+                     prepared["landmarks"][f"thigh_mid_{side}"]["point"]) - np.asarray(
+                         prepared["landmarks"][f"thigh_start_{side}"]["point"]))
+                 for side in ("left", "right")]
+        anchors.append((np.mean([seat[1] for seat in seats]),
+                        (max(abs(seat[0]) for seat in seats) + 0.70, 0.42, 0.42)))
 
-        lower_expected_center = lower_center + ((lower["front_extent"] - lower["back_extent"]) / 2) * forward
-        lower_expected = []
-        for i in range(8):
-            theta = i * np.pi / 4
-            x, z = np.cos(theta), np.sin(theta)
-            x = 0.0 if abs(x) < 1e-12 else x
-            z = 0.0 if abs(z) < 1e-12 else z
-            lower_expected.append(lower_expected_center
-                                  + lower["lateral_radius"] * np.sign(x) * abs(x) ** power * np.asarray((1, 0, 0))
-                                  + ((lower["front_extent"] + lower["back_extent"]) / 2) * np.sign(z) * abs(z) ** power * forward)
-        np.testing.assert_allclose(cage.vertices[24:32], lower_expected)
+        def limited(name):
+            station = prepared["stations"][name]; position = station["center"][1]
+            high, low = next(pair for pair in zip(anchors, anchors[1:]) if pair[1][0] <= position <= pair[0][0])
+            fraction = (position - low[0]) / (high[0] - low[0])
+            bound = tuple(lo + fraction * (hi - lo) for hi, lo in zip(high[1], low[1]))
+            return np.asarray(station["center"]), tuple(min(station[key], value) for key, value in zip(keys, bound))
+
+        def cardinal(center, extents):
+            radius, front, back = extents; middle = center + (0, 0, (front - back) / 2)
+            return (middle + (radius, 0, 0), center + (0, 0, front),
+                    middle - (radius, 0, 0), center - (0, 0, back))
+
+        for name, start in (("lower_ribcage", 24), ("lower_pelvis", 48)):
+            expected = cardinal(*limited(name))
+            for index, point in zip((0, 2, 4, 6), expected):
+                np.testing.assert_allclose(cage.vertices[start + index], point)
+                self.assertEqual(cage.formula_ids[start + index], "station.axial_envelope.min_clamp")
+        station_fields = lambda name: {f"stations.{name}.{key}" for key in ("center", *keys)}
+        for name, index in (("upper_ribcage_shoulder", 10), ("waist_abdomen", 34)):
+            self.assertEqual(cage.formula_ids[index], "station.asymmetric_superellipse")
+            self.assertEqual(set(cage.dependencies[index]), station_fields(name) | {"frames.body", "scalars.n"})
+        lower_center, lower_extents = limited("lower_abdomen"); upper = prepared["stations"]["upper_pelvis"]
+        fraction = surface.CONSTANTS["lambda"]
+        iliac = ((1 - fraction) * lower_center + fraction * np.asarray(upper["center"]), tuple(
+            (1 - fraction) * lo + fraction * upper[key] for lo, key in zip(lower_extents, keys)))
+        for index, point in zip((0, 2, 4, 6), cardinal(*iliac)):
+            np.testing.assert_allclose(cage.vertices[40 + index], point)
+        lower_center, lower_extents = limited("lower_ribcage"); upper_center, upper_extents = limited("upper_ribcage_shoulder")
+        target = np.mean([prepared["landmarks"][f"axilla_{side}"]["point"][1] for side in ("left", "right")])
+        fraction = (target - lower_center[1]) / (upper_center[1] - lower_center[1])
+        transition = ((1 - fraction) * lower_center + fraction * upper_center, tuple(
+            (1 - fraction) * lo + fraction * hi for lo, hi in zip(lower_extents, upper_extents)))
+        for index, point in zip((2, 6), cardinal(*transition)[1::2]):
+            np.testing.assert_allclose(cage.vertices[16 + index], point)
+        exact = station_fields("lower_pelvis") | station_fields("upper_pelvis") | {
+            f"landmarks.thigh_{point}_{side}" for side in ("left", "right") for point in ("start", "mid")}
+        exact |= {"scalars.thigh_lateral_radius", "scalars.thigh_depth", "scalars.eta", "frames.body", "scalars.n"}
+        self.assertEqual(set(cage.dependencies[50]), exact)
+        provenance = "|".join(cage.provenance_ids[50]); self.assertTrue(all(item in provenance for item in (
+            "synthetic.station.lower_pelvis",
+            "synthetic.station.upper_pelvis", "synthetic.landmark.thigh_start_left",
+            "synthetic.landmark.thigh_mid_right", "synthetic.scalar.thigh_lateral_radius",
+            "synthetic.scalar.thigh_depth", "formula_constant.eta.v1", "synthetic.frame.body")))
+
+        boundary = synthetic_prepared(); boundary["stations"]["lower_abdomen"]["center"] = boundary["stations"]["waist_abdomen"]["center"]
+        boundary_cage = surface.build_cage(boundary); boundary_deps = "|".join(boundary_cage.dependencies[42])
+        boundary_prov = "|".join(boundary_cage.provenance_ids[42]); self.assertEqual(("stations.waist_abdomen" in boundary_deps,
+                          "stations.upper_ribcage_shoulder" in boundary_deps,
+                          "synthetic.station.upper_rib" in boundary_prov), (True, False, False))
 
     def test_axilla_vertical_change_moves_transition_and_lower_collars_only(self):
-        baseline = surface.build_cage(synthetic_prepared())
-        changed = synthetic_prepared()
+        baseline = surface.build_cage(synthetic_prepared()); changed = synthetic_prepared()
         for side in ("left", "right"):
-            point = list(changed["landmarks"][f"axilla_{side}"]["point"])
-            point[1] += 0.12
+            point = list(changed["landmarks"][f"axilla_{side}"]["point"]); point[1] += 0.12
             changed["landmarks"][f"axilla_{side}"]["point"] = tuple(point)
         moved = surface.build_cage(changed)
         for start, end in ((16, 24), (58, 60), (62, 64)):
@@ -293,8 +302,7 @@ class FormulaAndInputTests(unittest.TestCase):
             self.assertEqual(baseline.vertices[index], moved.vertices[index])
 
     def test_shoulder_bridges_are_outward_and_each_quad_is_unfolded(self):
-        cage = surface.build_cage(synthetic_prepared())
-        _, faces, _ = surface.symbolic_topology()
+        cage = surface.build_cage(synthetic_prepared()); _, faces, _ = surface.symbolic_topology()
         vertices = np.asarray(cage.vertices)
         for side, sign, ring_segment, collar_start in (
                 ("left", -1, 3, 56), ("right", 1, 0, 60)):
@@ -335,8 +343,7 @@ class FormulaAndInputTests(unittest.TestCase):
                                                  projection[3], projection[0]))
 
     def test_shoulder_socket_coordinates_dependencies_and_lateral_bridges(self):
-        prepared = synthetic_prepared()
-        cage = surface.build_cage(prepared)
+        prepared = synthetic_prepared(); cage = surface.build_cage(prepared)
         vertices = np.asarray(cage.vertices)
         lateral = np.asarray((1.0, 0.0, 0.0))
         up = np.asarray((0.0, 1.0, 0.0))
@@ -354,16 +361,19 @@ class FormulaAndInputTests(unittest.TestCase):
                     ("upper_ribcage_shoulder", upper_center, 8),
                     ("axilla_transition", lower_center, 16)):
                 if ring_name == "axilla_transition":
-                    lower = prepared["stations"]["lower_ribcage"]
-                    upper = prepared["stations"]["upper_ribcage_shoulder"]
+                    lower, upper = (prepared["stations"][name] for name in
+                                    ("lower_ribcage", "upper_ribcage_shoulder"))
+                    waist = prepared["stations"]["waist_abdomen"]
+                    envelope_fraction = ((lower["center"][1] - waist["center"][1]) /
+                                         (upper["center"][1] - waist["center"][1]))
+                    limited = {key: min(lower[key], waist[key] + envelope_fraction *
+                                   (upper[key] - waist[key])) for key in (
+                                       "lateral_radius", "front_extent", "back_extent")}
                     t = (np.mean([prepared["landmarks"][f"axilla_{item}"]["point"][1]
                                   for item in ("left", "right")]) - lower["center"][1]) / (upper["center"][1] - lower["center"][1])
-                    station = {
-                        "center": tuple((1 - t) * a + t * b for a, b in zip(lower["center"], upper["center"])),
-                        "lateral_radius": (1 - t) * lower["lateral_radius"] + t * upper["lateral_radius"],
-                        "front_extent": (1 - t) * lower["front_extent"] + t * upper["front_extent"],
-                        "back_extent": (1 - t) * lower["back_extent"] + t * upper["back_extent"],
-                    }
+                    station = {"center": tuple((1 - t) * a + t * b for a, b in
+                                                zip(lower["center"], upper["center"])),
+                               **{key: (1 - t) * limited[key] + t * upper[key] for key in limited}}
                 else:
                     station = prepared["stations"][ring_name]
                 station_center = np.asarray(station["center"])
@@ -376,19 +386,20 @@ class FormulaAndInputTests(unittest.TestCase):
                                 (float(np.dot(center, forward)) + depth_sign * arm["arm_root_depth"]["value"]) * forward)
                     np.testing.assert_allclose(vertices[actual_index], expected)
                     self.assertEqual(cage.formula_ids[actual_index], "shoulder.peak_axilla_collar")
+                    station_fields = lambda name: {f"stations.{name}.{key}" for key in
+                                                   ("center", "lateral_radius", "front_extent", "back_extent")}
                     if ring_name == "upper_ribcage_shoulder":
-                        expected_dependencies = {f"stations.{ring_name}.{key}" for key in (
-                            "center", "lateral_radius", "front_extent", "back_extent")}
-                        expected_dependencies.update((f"landmarks.shoulder_peak_{side}",
-                                                       f"landmarks.axilla_{side}",
-                                                       "scalars.arm_root_depth", "scalars.arm_root_outward",
-                                                       "scalars.shoulder", "frames.body"))
+                        expected_dependencies = station_fields(ring_name) | {
+                            f"landmarks.shoulder_peak_{side}", f"landmarks.axilla_{side}",
+                            "scalars.arm_root_depth", "scalars.arm_root_outward",
+                            "scalars.shoulder", "frames.body"}
                     else:
-                        expected_dependencies = {"landmarks.axilla_left", "landmarks.axilla_right",
-                                                 "stations.lower_ribcage", "stations.upper_ribcage_shoulder",
-                                                 "frames.body", f"landmarks.axilla_{side}",
-                                                 "scalars.arm_root_depth", "scalars.arm_root_outward",
-                                                 "scalars.axilla"}
+                        expected_dependencies = (station_fields("upper_ribcage_shoulder") |
+                                                 station_fields("lower_ribcage") | station_fields("waist_abdomen"))
+                        expected_dependencies.update(("landmarks.axilla_left", "landmarks.axilla_right",
+                                                      "frames.body", f"landmarks.axilla_{side}",
+                                                      "scalars.arm_root_depth", "scalars.arm_root_outward",
+                                                      "scalars.axilla"))
                     self.assertEqual(set(cage.dependencies[actual_index]), expected_dependencies)
                     self.assertTrue(all(value for value in cage.provenance_ids[actual_index]))
 
@@ -415,8 +426,7 @@ class FormulaAndInputTests(unittest.TestCase):
     def test_profile_identity_is_not_an_input_path(self):
         for path, value in ((("profile_id",), "forbidden"),
                             (("stations", "neck_collar", "profile-id"), "also-forbidden")):
-            prepared = synthetic_prepared()
-            target = prepared
+            prepared = synthetic_prepared(); target = prepared
             for key in path[:-1]:
                 target = target[key]
             target[path[-1]] = value
@@ -440,7 +450,10 @@ class FormulaAndInputTests(unittest.TestCase):
 
         changed = synthetic_prepared(); changed["scalars"]["eta"] = {"value": 0.5, "provenance": "synthetic.constant.eta"}
         seated = surface.build_cage(changed)
-        self.assertEqual(baseline.vertices[:64], seated.vertices[:64]); self.assertNotEqual(baseline.vertices[64:], seated.vertices[64:])
+        self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]),
+                         (seated.vertices[:48], seated.vertices[56:64]))
+        self.assertNotEqual((baseline.vertices[48:56], baseline.vertices[64:]),
+                            (seated.vertices[48:56], seated.vertices[64:]))
         for side, offset in (("left", 64), ("right", 68)):
             start = np.asarray(changed["landmarks"][f"thigh_start_{side}"]["point"], dtype=float)
             mid = np.asarray(changed["landmarks"][f"thigh_mid_{side}"]["point"], dtype=float)
@@ -448,10 +461,13 @@ class FormulaAndInputTests(unittest.TestCase):
             centroid = np.mean(np.asarray(seated.vertices[offset:offset + 4]), axis=0)
             expected = start + changed["scalars"]["eta"]["value"] * route
             np.testing.assert_allclose(centroid, expected)
-            projection = float(np.dot(centroid - start, route))
-            self.assertGreater(projection, 0.0)
-            self.assertAlmostEqual(projection / float(np.dot(route, route)),
-                                   changed["scalars"]["eta"]["value"])
+            projection = float(np.dot(centroid - start, route)); self.assertGreater(projection, 0.0)
+            self.assertAlmostEqual(projection / float(np.dot(route, route)), changed["scalars"]["eta"]["value"])
+
+        changed = synthetic_prepared(); changed["stations"]["upper_pelvis"]["front_extent"] = 0.5; sourced = surface.build_cage(changed)
+        self.assertEqual((baseline.vertices[:8], baseline.vertices[56:]),
+                         (sourced.vertices[:8], sourced.vertices[56:]))
+        self.assertNotEqual((baseline.vertices[42], baseline.vertices[50]), (sourced.vertices[42], sourced.vertices[50]))
 
         for key, changed_slice, stable_slice in (
                 ("shoulder", slice(56, 58), slice(58, 60)),
@@ -463,8 +479,7 @@ class FormulaAndInputTests(unittest.TestCase):
             self.assertNotEqual(baseline.vertices[changed_slice], collar.vertices[changed_slice])
             self.assertEqual(baseline.vertices[stable_slice], collar.vertices[stable_slice])
 
-        changed = synthetic_prepared()
-        changed["scalars"]["shoulder"] = {"value": 0.81, "provenance": "synthetic.constant.shoulder"}
+        changed = synthetic_prepared(); changed["scalars"]["shoulder"] = {"value": 0.81, "provenance": "synthetic.constant.shoulder"}
         shoulder = surface.build_cage(changed)
         changed_indices = {index for index, (before, after) in enumerate(
             zip(baseline.vertices, shoulder.vertices)) if before != after}
@@ -486,8 +501,7 @@ class FormulaAndInputTests(unittest.TestCase):
             self.assertEqual(actual, expected)
             self.assertTrue(expected and set(range(len(base.vertices))) - expected)
 
-        changed = synthetic_prepared()
-        changed["scalars"]["gamma"] = {"value": 0.12, "provenance": "synthetic.constant.gamma"}
+        changed = synthetic_prepared(); changed["scalars"]["gamma"] = {"value": 0.12, "provenance": "synthetic.constant.gamma"}
         gapped = surface.build_cage(changed)
         self.assertNotEqual((baseline.vertices[64], baseline.vertices[68]),
                             (gapped.vertices[64], gapped.vertices[68]))

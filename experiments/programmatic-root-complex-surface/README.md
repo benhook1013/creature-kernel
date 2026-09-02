@@ -19,7 +19,10 @@ Candidate-evolution ledger (experiment-local; not accepted architecture):
 3. The current seven-ring successor (72 controls, 63 quads) adds the derived
    axilla-transition ring; correction round 1 moves the shared shoulder/axilla
    socket-and-collar centre formula toward the authored shoulder and axilla
-   landmarks and adds the bounded geometry-correctness gate.
+   landmarks and adds the bounded geometry-correctness gate. Correction round
+   2 adds the shared axial min-envelope described below; it improves taper and
+   thigh seating but does not establish neutral credibility or exact-five
+   readiness.
 
 ## Purpose and scope
 
@@ -158,11 +161,43 @@ They use the same `shoulder.peak_axilla_collar` formula family as the collars,
 with station, landmark, arm-root, factor, and frame dependencies. This
 correction responds to the measured shoulder intersections by making each
 socket-to-collar bridge a direct lateral correspondence rather than a long
-diagonal into a generic ribcage ring. With `T = normalize(thigh_mid - thigh_start)`,
-the thigh seat is `thigh_start + eta * length(thigh_mid - thigh_start) * T`.
+diagonal into a generic ribcage ring. The bilateral thigh seats are
+`seat_side = thigh_start_side + eta * (thigh_mid_side - thigh_start_side)`.
 The medial radius is clamped only by the shared minimum gap
 `gamma * lower_pelvis_lateral_radius`; a non-positive admissible radius rejects
 the input rather than changing topology or invoking repair.
+
+Correction round 2 derives one shared, profile-neutral axial min-envelope. Its
+seat anchor uses the mean seat projection on `U`, lateral extent
+`max(abs(dot(seat_left,L)), abs(dot(seat_right,L))) + thigh_lateral_radius`,
+and equal front/back extents `thigh_depth`. Together with the source upper-rib,
+waist, and upper-pelvis centres and extents, these form strictly descending
+anchors `(u_high,E_high)` through `(u_low,E_low)`. For the first descending
+segment containing station position `u`, the exact interpolation is:
+
+```text
+q = (u - u_low) / (u_high - u_low)
+E_envelope(u) = E_low + q * (E_high - E_low)
+E_output(u) = componentwise_min(E_authored(u), E_envelope(u))
+```
+
+The envelope anchors `upper_ribcage_shoulder`, `waist_abdomen`, and
+`upper_pelvis` remain authored stations with unchanged formula, dependencies,
+provenance, and geometry. Clamp candidates are exactly `lower_ribcage`,
+`lower_abdomen`, and `lower_pelvis`; station centres, the seven-ring topology,
+and `neck_collar` remain unchanged. A candidate records the min-clamp formula
+and envelope causality only when at least one envelope component wins or ties.
+At an exact interpolation boundary, only the non-zero-weight anchor is a
+dependency; when every authored component wins strictly, the station remains
+authored and records no envelope dependency. Thus only actually clamped direct
+rings receive `station.axial_envelope.min_clamp`; `axilla_transition` and
+`iliac_overlap` inherit causality from any clamped source stations they use.
+Each clamped control records its authored station, only the contributing
+interpolation-boundary station or seat anchors, every bilateral thigh landmark
+and radius/depth/`eta` scalar where the seat boundary contributes, and the body
+frame with actual provenance. There is no post-generation override, profile
+branch, render displacement, new prepared field, topology change, optimizer,
+field, repair, or relaxed validation.
 
 The trial scale `S` is the distance from the neck-port centroid to the midpoint
 of the two thigh-port centroids and must be finite and greater than zero. The
