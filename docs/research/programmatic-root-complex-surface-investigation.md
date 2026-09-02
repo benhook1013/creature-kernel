@@ -64,6 +64,14 @@ is:
 These are experiment-private layers, not accepted architecture, production
 identity, or a durable chart/cage model.
 
+The prepared projection may contain source-derived measurements, frames,
+landmarks, section parameters, and provenance. It may not provide the finished
+cage vertices, quad layout, or final shape. The shared surface program owns one
+profile-independent topology grammar and derives cage-control coordinates from
+those prepared controls through shared formulas. A topology template may be
+hard-coded only as experiment-local grammar; profile IDs may select data and
+provenance but never geometry code or stored final cage coordinates.
+
 ## Build order and complexity boundary
 
 Before geometry coding, freeze the exact measurable trial contract and the
@@ -108,6 +116,8 @@ are not durable domain or chart identity.
 Gates operate on the evaluated surface, not only on the control cage. Check:
 
 - source coverage and the causal dependency matrix;
+- rejection of fixture-supplied final cage coordinates or profile-selected
+  topology/geometry code;
 - shared rules;
 - topology and correspondence;
 - continuity;
