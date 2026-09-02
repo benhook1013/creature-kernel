@@ -63,6 +63,18 @@ The experiment uses one profile-independent symbolic topology:
 - one fixed pair-of-pants pelvic macro leading to bilateral four-control thigh
   ports.
 
+The macro is reflection-symmetric. With lower-pelvis controls `P0..P7` equal
+to ring indices `0..7`, its left route is `P2,P3,P4,P5,P6` with cuff
+`Lm,Lf,Ll,Lb,Lm`, its right route is `P2,P1,P0,P7,P6` with cuff
+`Rm,Rf,Rl,Rb,Rm`, and its central saddle is `P2,Lm,P6,Rm`. Each cuff remains
+ordered medial, front, lateral, back. This candidate therefore has exactly
+`V=64`, `E=122`, `F=55`, 24 boundary edges, Euler `-3`, and valence inventory
+`((3,22),(4,32),(5,10))`.
+
+The induced directed boundary loops are `neck=(0,1,2,3,4,5,6,7)`,
+`left_arm=(48,51,50,49)`, `right_arm=(52,55,54,53)`,
+`left_thigh=(56,59,58,57)`, and `right_thigh=(60,61,62,63)`.
+
 The initial caps are 64 cage controls and 96 base quads. Extraordinary
 controls must have only the declared valences 3 through 6. The symbolic
 topology preflight must prove connected manifold and boundary facts and
@@ -109,14 +121,15 @@ the source lower-abdomen and upper-pelvis centres and radii by `lambda`.
 Shoulder-collar upper and lower pairs derive from the source shoulder-peak and
 axilla landmarks plus source arm-root extents and the two shared outward
 factors. With `T = normalize(thigh_mid - thigh_start)`, the thigh seat is
-`thigh_start - eta * length(thigh_mid - thigh_start) * T`. The medial radius
+`thigh_start + eta * length(thigh_mid - thigh_start) * T`. The medial radius
 is clamped only by the shared minimum gap `gamma * lower_pelvis_lateral_radius`;
 a non-positive admissible radius rejects the input rather than changing
 topology or invoking repair.
 
 The trial scale `S` is the distance from the neck-port centroid to the midpoint
 of the two thigh-port centroids and must be finite and greater than zero. The
-right-handed frame is +Y up, +X subject-left, and +Z forward.
+right-handed frame is +Y up, +X subject-right, and +Z forward. Canonical
+anatomical left is therefore `-L/-X` and right is `+L/+X`.
 
 ## Checkpoint correctness
 
