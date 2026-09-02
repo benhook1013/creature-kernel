@@ -7,12 +7,14 @@ import copy
 import io
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
@@ -32,6 +34,20 @@ EXPECTED_PROFILE_IDS = (
     "tall_narrow_long_legged",
     "slender_long_limb",
     "stocky_broad_chested",
+)
+EXPECTED_AUTHORED_DIMENSIONS_PERMILLE = tuple(
+    int(value)
+    for value in """
+    1700 1200 900 1650 1200 900 1500 850 600 1350 780 560 1125 680 540
+    875 500 400 1225 725 560 1450 875 675 1500 900 700 420 380 400 340
+    320 330 520 400 480 780 560 720 700 520 650 500 360 520 430 300 500
+    340 240 360 350 1000 600 900 220 350 190 450 400 350 220 350 190 450
+    400 350 350 300 320 250 240 230 230 220 210 210 200 190 180 170 160
+    350 300 320 250 240 230 230 220 210 210 200 190 180 170 160 320 280 300
+    300 260 280 240 210 225 225 195 210 185 165 175 320 280 300 300 260 280
+    240 210 225 225 195 210 185 165 175 280 220 500 350 700 280 220 500 350
+    700 320 150 300 260 150 240 320 150 300 260 150 240 300 220 220 40
+    """.split()
 )
 
 
@@ -101,12 +117,179 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         raise AssertionError(f"missing Part {wanted}")
 
     @classmethod
-    def dimension(cls, document: dict[str, object], owner_role: str, dimension_role: str, anchors: list[str] | None = None) -> int:
+    def dimension(
+        cls,
+        document: dict[str, object],
+        owner_role: str,
+        dimension_role: str,
+        anchors: list[str] | None = None,
+    ) -> int | float | Decimal:
         wanted = address(owner_role, anchors)
         for dimension in document["body"]["dimensions"]:  # type: ignore[index]
             if dimension["owner"] == wanted and dimension["role"] == dimension_role:  # type: ignore[index]
                 return dimension["value"]  # type: ignore[index,return-value]
         raise AssertionError(f"missing dimension {wanted} {dimension_role}")
+
+    def test_authored_dimensions_are_exactly_153_converted_canonical_metres(self) -> None:
+        dimensions = self.base["body"]["dimensions"]  # type: ignore[index]
+        self.assertEqual(self.base["basis"]["length_unit"], "metre")  # type: ignore[index]
+        self.assertEqual(len(dimensions), 153)
+        self.assertEqual(len(EXPECTED_AUTHORED_DIMENSIONS_PERMILLE), 153)
+        for index, (dimension, expected_permille) in enumerate(
+            zip(dimensions, EXPECTED_AUTHORED_DIMENSIONS_PERMILLE, strict=True)
+        ):
+            with self.subTest(index=index):
+                value = Decimal(str(dimension["value"]))  # type: ignore[index]
+                self.assertGreater(value, 0)
+                self.assertEqual(value * 1000, Decimal(expected_permille))
+                self.assertLess(value, 2)
+
+    @staticmethod
+    def non_dimension_source_projection(document: dict[str, object]) -> dict[str, object]:
+        projection = copy.deepcopy(document)
+        projection["source"].pop("document")  # type: ignore[index]
+        for module in projection["body"]["modules"]:  # type: ignore[index]
+            module["declaration"].pop("document")  # type: ignore[index]
+        projection["body"].pop("dimensions")  # type: ignore[index]
+        return projection
+
+    def test_active_generation_preserves_non_dimension_source_projection(self) -> None:
+        neutral = self.sources["standard_neutral_reference"]
+        self.assertEqual(
+            self.non_dimension_source_projection(neutral),
+            self.non_dimension_source_projection(self.base),
+        )
+
+    def test_source_hash_is_exactly_bound_to_the_canonical_authored_bytes(self) -> None:
+        source_hash = hashlib.sha256(self.source_path.read_bytes()).hexdigest()
+        self.assertEqual(self.candidate["base_source"]["sha256"], source_hash)  # type: ignore[index]
+        manifest = json.loads((self.output_dir / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["source"]["source_sha256"], source_hash)
+
+    def test_profile_scaling_preserves_prior_effective_millimetre_values(self) -> None:
+        _, _, groups, _ = generator._validate_candidate(copy.deepcopy(self.candidate), copy.deepcopy(self.base))
+        for profile in self.candidate["profiles"]:  # type: ignore[index]
+            profile_id = profile["id"]  # type: ignore[index]
+            generated = self.sources[profile_id]
+            for index, (source_dimension, generated_dimension) in enumerate(
+                zip(
+                    self.base["body"]["dimensions"],  # type: ignore[index]
+                    generated["body"]["dimensions"],  # type: ignore[index]
+                    strict=True,
+                )
+            ):
+                with self.subTest(profile=profile_id, index=index):
+                    matches = [
+                        name
+                        for name, selector in groups.items()
+                        if generator._matches_dimension(source_dimension, selector)
+                    ]
+                    self.assertEqual(len(matches), 1)
+                    scale = profile["dimension_scales"][matches[0]]  # type: ignore[index]
+                    expected_permille = generator._round_permille(
+                        EXPECTED_AUTHORED_DIMENSIONS_PERMILLE[index],
+                        scale,
+                    )
+                    actual_metres = Decimal(str(generated_dimension["value"]))  # type: ignore[index]
+                    self.assertEqual(actual_metres * 1000, Decimal(expected_permille))
+
+    def test_active_profile_quantization_uses_millimetre_ties_to_even(self) -> None:
+        self.assertEqual(
+            generator._quantize_profile_metres(Decimal("0.65"), 1250),
+            Decimal("0.812"),
+        )
+        self.assertEqual(
+            generator._quantize_profile_metres(Decimal("0.65"), 1350),
+            Decimal("0.878"),
+        )
+        compact = self.sources["compact_broad_short_limb_large_head"]
+        self.assertEqual(
+            self.dimension(
+                compact,
+                "head",
+                "form_head_neck_profile_cranium_crown_forward_radius",
+            ),
+            0.812,
+        )
+
+    def test_active_profile_write_preserves_decimal_tokens_at_half_millimetre(self) -> None:
+        marker = b'"role": "form_head_neck_profile_cranium_crown_forward_radius", "value": 0.65'
+        expected_permille = {
+            "just_below": 812,
+            "tie": 812,
+            "just_above": 813,
+        }
+        for label, token in (
+            ("just_below", "0.6499999999999999999"),
+            ("tie", "0.65"),
+            ("just_above", "0.6500000000000000001"),
+        ):
+            with self.subTest(token=label):
+                source_bytes = self.source_path.read_bytes()
+                self.assertEqual(source_bytes.count(marker), 1)
+                source_bytes = source_bytes.replace(marker, marker.replace(b"0.65", token.encode("ascii")), 1)
+                source_path = self.root / f"{label}-source.json"
+                source_path.write_bytes(source_bytes)
+
+                loaded_source, loaded_bytes = generator.load_json_with_bytes(source_path, f"{label} source")
+                self.assertEqual(
+                    self.dimension(
+                        loaded_source,
+                        "head",
+                        "form_head_neck_profile_cranium_crown_forward_radius",
+                    ),
+                    Decimal(token),
+                )
+
+                candidate = copy.deepcopy(self.candidate)
+                candidate["base_source"]["sha256"] = hashlib.sha256(loaded_bytes).hexdigest()  # type: ignore[index]
+                candidate_path = self.root / f"{label}-candidate.json"
+                candidate_path.write_bytes(generator.canonical_bytes(candidate))
+                output_dir = self.root / f"{label}-sources"
+                manifest = generator.write_sources(candidate_path, source_path, output_dir)
+                generated = json.loads(
+                    (output_dir / "compact_broad_short_limb_large_head.json").read_text(encoding="utf-8")
+                )
+                actual_value = self.dimension(
+                    generated,
+                    "head",
+                    "form_head_neck_profile_cranium_crown_forward_radius",
+                )
+                self.assertEqual(Decimal(str(actual_value)) * 1000, Decimal(expected_permille[label]))
+                self.assertEqual(manifest["source"]["source_sha256"], hashlib.sha256(source_bytes).hexdigest())  # type: ignore[index]
+                values = [item["value"] for item in generated["body"]["dimensions"]]  # type: ignore[index]
+                self.assertTrue(
+                    all(
+                        isinstance(value, (int, float))
+                        and not isinstance(value, bool)
+                        and math.isfinite(float(value))
+                        for value in values
+                    )
+                )
+
+    def test_generated_dimensions_remain_positive_finite_canonical_metres(self) -> None:
+        for profile_id, document in self.sources.items():
+            with self.subTest(profile=profile_id):
+                self.assertEqual(document["basis"]["length_unit"], "metre")  # type: ignore[index]
+                values = [item["value"] for item in document["body"]["dimensions"]]  # type: ignore[index]
+                self.assertEqual(len(values), 153)
+                self.assertTrue(
+                    all(
+                        isinstance(value, (int, float))
+                        and not isinstance(value, bool)
+                        and math.isfinite(float(value))
+                        and Decimal(str(value)) > 0
+                        for value in values
+                    )
+                )
+                self.assertTrue(
+                    all(
+                        Decimal(str(value)) * 1000
+                        == (Decimal(str(value)) * 1000).to_integral_value()
+                        for value in values
+                    )
+                )
+                self.assertTrue(any(isinstance(value, float) for value in values))
 
     def test_freezes_exactly_five_canonical_sources_with_lineage(self) -> None:
         self.assertEqual(len(PROFILE_IDS), 5)
@@ -132,10 +315,22 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             serialized = (self.output_dir / f"{profile_id}.json").read_bytes()
             self.assertEqual(serialized, generator.canonical_source_bytes(document))
             self.assertLessEqual(len(serialized), generator.MAX_OUTPUT_JSON_BYTES)
-            self.assertTrue(all(isinstance(item["value"], int) and item["value"] > 0 for item in document["body"]["dimensions"]))  # type: ignore[index]
+            self.assertTrue(
+                all(
+                    isinstance(item["value"], (int, float))
+                    and not isinstance(item["value"], bool)
+                    and math.isfinite(float(item["value"]))
+                    and Decimal(str(item["value"])) > 0
+                    for item in document["body"]["dimensions"]  # type: ignore[index]
+                )
+            )
         self.assertLessEqual((self.output_dir / "manifest.json").stat().st_size, generator.MAX_OUTPUT_JSON_BYTES)
 
     def test_historical_four_profile_mode_is_explicit_and_byte_bound(self) -> None:
+        historical_candidate_bytes = generator.HISTORICAL_CANDIDATE.read_bytes()
+        historical_source_bytes = generator.HISTORICAL_SOURCE.read_bytes()
+        self.assertEqual(hashlib.sha256(historical_candidate_bytes).hexdigest(), generator.HISTORICAL_CANDIDATE_SHA256)
+        self.assertEqual(hashlib.sha256(historical_source_bytes).hexdigest(), generator.HISTORICAL_SOURCE_SHA256)
         historical_candidate = json.loads(generator.HISTORICAL_CANDIDATE.read_bytes())
         historical_source = json.loads(generator.HISTORICAL_SOURCE.read_bytes())
         with self.assertRaisesRegex(generator.ProfileGenerationError, "exactly 5 profiles"):
@@ -257,7 +452,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                     "pelvis",
                     "form_torso_profile_lower_pelvis_lateral_radius",
                 )
-                self.assertLess(abs(left[0]) * 1000, lower_pelvis_radius)
+                self.assertLess(Decimal(str(abs(left[0]))), Decimal(str(lower_pelvis_radius)))
                 expected_thigh_y = {
                     "standard_neutral_reference": -1,
                     "compact_broad_short_limb_large_head": -1,
@@ -297,20 +492,20 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             [0, 0.95, 0],
         )
         expected_radii = {
-            "form_torso_profile_lower_pelvis": (1500, 850, 600),
-            "form_torso_profile_upper_pelvis": (1350, 780, 560),
-            "form_torso_profile_lower_abdomen": (1125, 680, 540),
-            "form_torso_profile_waist_abdomen": (875, 500, 400),
-            "form_torso_profile_upper_abdomen": (1225, 725, 560),
-            "form_torso_profile_lower_ribcage": (1450, 875, 675),
-            "form_torso_profile_upper_ribcage_shoulder": (1500, 900, 700),
+            "form_torso_profile_lower_pelvis": (1.5, 0.85, 0.6),
+            "form_torso_profile_upper_pelvis": (1.35, 0.78, 0.56),
+            "form_torso_profile_lower_abdomen": (1.125, 0.68, 0.54),
+            "form_torso_profile_waist_abdomen": (0.875, 0.5, 0.4),
+            "form_torso_profile_upper_abdomen": (1.225, 0.725, 0.56),
+            "form_torso_profile_lower_ribcage": (1.45, 0.875, 0.675),
+            "form_torso_profile_upper_ribcage_shoulder": (1.5, 0.9, 0.7),
         }
         for role, (lateral, anterior, posterior) in expected_radii.items():
             with self.subTest(role=role):
                 self.assertEqual(self.dimension(neutral, "torso" if "pelvis" not in role else "pelvis", f"{role}_lateral_radius"), lateral)
                 self.assertEqual(self.dimension(neutral, "torso" if "pelvis" not in role else "pelvis", f"{role}_anterior_radius"), anterior)
                 self.assertEqual(self.dimension(neutral, "torso" if "pelvis" not in role else "pelvis", f"{role}_posterior_radius"), posterior)
-        self.assertEqual(self.dimension(neutral, "torso", "form_extent_y"), 1200)
+        self.assertEqual(self.dimension(neutral, "torso", "form_extent_y"), 1.2)
 
     def test_profile_inequalities_and_tail_style_contrast_are_real_source_differences(self) -> None:
         neutral = self.sources[PROFILE_IDS[0]]

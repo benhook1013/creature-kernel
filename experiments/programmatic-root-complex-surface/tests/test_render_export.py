@@ -96,6 +96,8 @@ class RenderExportTests(unittest.TestCase):
     def test_builder_publishes_complete_metrics_and_manifest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-build-") as d:
             target = Path(d) / "standard-neutral"; self.assertEqual(builder.build(SOURCE, target), target); self.assertEqual({p.name for p in target.iterdir()}, set(ARTIFACTS))
+            expected = {"skin.ply": "bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf", "skin.png": "695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce", "cage.png": "06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046"}
+            for name, digest in expected.items(): self.assertEqual(hashlib.sha256((target / name).read_bytes()).hexdigest(), digest, name)
             metrics = json.loads((target / "metrics.json").read_text(encoding="utf-8")); manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8")); self.assertEqual(metrics["intersection_status"], "zero"); self.assertEqual(metrics["intersection_counts_by_level"], [0, 0]); self.assertEqual(set(manifest["files"]), set(ARTIFACTS[:-1])); self.assertEqual(manifest["files"]["metrics.json"], hashlib.sha256((target / "metrics.json").read_bytes()).hexdigest())
 
     def test_atomic_publication_refuses_existing_target_without_overwrite(self) -> None:

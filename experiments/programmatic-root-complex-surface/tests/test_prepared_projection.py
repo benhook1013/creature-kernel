@@ -52,6 +52,35 @@ class PreparedProjectionTests(unittest.TestCase):
         self.assertGreater(self.prepared["landmarks"]["shoulder_peak_right"]["point"][0], 0)
         self.assertEqual(self.prepared["scalars"]["arm_root_depth"]["value"], 0.32)
         self.assertEqual(self.prepared["scalars"]["thigh_lateral_radius"]["value"], 0.32)
+        dimension_records = list(self.prepared["stations"].values()) + list(self.prepared["scalars"].values())
+        self.assertTrue(all("source_dimension_canonical_metre_value_v1" in record["provenance"] for record in dimension_records))
+
+    @staticmethod
+    def set_dimension_value(source, role, value):
+        matches = [row for row in source["body"]["dimensions"] if row.get("role") == role]
+        if not matches:
+            raise AssertionError(f"dimension role not found: {role}")
+        for row in matches:
+            row["value"] = value
+
+    def prepared_from_mutated_source(self, mutate):
+        source = json.loads(SOURCE.read_text(encoding="utf-8"))
+        mutate(source)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "source.json"; path.write_text(json.dumps(source), encoding="utf-8")
+            return prepare_standard_neutral(path)
+
+    def test_canonical_metre_dimensions_are_admitted_without_rescaling(self):
+        prepared = self.prepared_from_mutated_source(lambda source: (self.set_dimension_value(source, "form_torso_profile_lower_pelvis_lateral_radius", 1.5), self.set_dimension_value(source, "form_arm_profile_upper_arm_start_forward_radius", 0.32)))
+        self.assertEqual(prepared["stations"]["lower_pelvis"]["lateral_radius"], 1.5)
+        self.assertEqual(prepared["scalars"]["arm_root_depth"]["value"], 0.32)
+
+    def test_non_dimension_routes_remain_unchanged_when_dimensions_change(self):
+        prepared = self.prepared_from_mutated_source(lambda source: (self.set_dimension_value(source, "form_torso_profile_lower_pelvis_lateral_radius", 1.25), self.set_dimension_value(source, "form_arm_profile_upper_arm_start_forward_radius", 0.28)))
+        self.assertEqual(prepared["basis"], self.prepared["basis"])
+        self.assertEqual(prepared["frames"], self.prepared["frames"])
+        self.assertEqual(prepared["landmarks"], self.prepared["landmarks"])
+        self.assertEqual({name: station["center"] for name, station in prepared["stations"].items()}, {name: station["center"] for name, station in self.prepared["stations"].items()})
 
     def test_canonical_bytes_and_forbidden_payloads(self):
         again = prepare_standard_neutral(SOURCE)
@@ -67,10 +96,17 @@ class PreparedProjectionTests(unittest.TestCase):
             path = Path(directory) / "source.json"; path.write_text(json.dumps(source), encoding="utf-8")
             with self.assertRaises(PreparedProjectionError): prepare_standard_neutral(path)
 
+    def test_dimension_values_fail_closed_for_booleans_nonfinite_and_nonpositive_values(self):
+        for value in (True, False, float("nan"), float("inf"), 0, -0.01):
+            with self.subTest(value=value):
+                self.assert_rejected(lambda source, value=value: self.set_dimension_value(source, "form_torso_profile_lower_pelvis_lateral_radius", value))
+
+    def test_unused_dimension_value_fails_closed(self):
+        self.assert_rejected(lambda source: source["body"]["dimensions"][0].__setitem__("value", 0))
+
     def test_required_source_shape_and_routes_fail_closed(self):
         self.assert_rejected(lambda source: source["basis"].__setitem__("forward", "-z"))
         self.assert_rejected(lambda source: source["source"].__setitem__("document", "other"))
-        self.assert_rejected(lambda source: source["body"]["dimensions"][6].__setitem__("value", 0))
         self.assert_rejected(lambda source: source["body"]["landmarks"][15].__setitem__("position", [0, 0, 0]))
         self.assert_rejected(lambda source: source["body"]["landmarks"].__setitem__(42, copy.deepcopy(source["body"]["landmarks"][24])))
         self.assert_rejected(lambda source: source["body"]["landmarks"].__setitem__(0, {}))

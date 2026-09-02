@@ -3,9 +3,16 @@
 This is an exploratory visual workbench documenting the historical, closed
 four-variant
 `creature-kernel.provisional-form-preview.v11` envelope. It converts the
-source-authored dimension-backed integer descriptors into analytic ellipsoid, capsule, and
-linear-radius tapered-segment fields, folds them in stable full-AddressKey
-order, and extracts a bounded continuous surface on a fixed uniform grid.
+source-authored canonical metre-valued dimensions into analytic ellipsoid,
+capsule, and linear-radius tapered-segment fields, folds them in stable full-
+AddressKey order, and extracts a bounded continuous surface on a fixed uniform
+grid. The source contains 153 canonical metre-valued dimensions. The
+provisional display adapter explicitly derives retained descriptor-local integer
+`*_permille` fields for its display controls; those fields are not authored
+dimension units. Profile factors are separate integer-permille inputs applied at
+the display/profile boundary. Active generated-profile output applies those
+factors with exact decimal arithmetic, quantizes to the nearest millimetre
+using ties-to-even, and emits canonical metres.
 
 It is not a production geometry system, SDF contract, collision system,
 animation topology, rig, skin, runtime, Readiness 3/4 proof, or DR-0009/0010
@@ -569,6 +576,10 @@ source candidate IDs for the closed regional candidate reproduction, with the
 standard neutral reference first:
 `standard_neutral_reference`, `compact_broad_short_limb_large_head`,
 `tall_narrow_long_legged`, `slender_long_limb`, and `stocky_broad_chested`.
+Its active repaired-source binding is SHA-256
+`82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14`, and the
+candidate-table bytes are bound by SHA-256
+`a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640`.
 Generate their compact canonical
 BodyDocuments through one shared data-driven transform:
 
@@ -578,15 +589,20 @@ BodyDocuments through one shared data-driven transform:
   --output-dir /tmp/ck-structural-profile-sources
 ```
 
-The transform changes exact integer Part placements and source-authored
-permille form dimensions, retains the stable unit neck-to-head reference edge,
-preserves normalized route controls and identity rotations, and keeps one tail
-module present in each of the five generated profiles while varying tail
-length and taper. It fails closed on
+The transform changes exact integer Part placements and canonical metre-valued
+source dimensions by applying its integer-permille profile factors with exact
+decimal arithmetic. Active generated-profile output quantizes each generated
+dimension to the nearest millimetre using ties-to-even and emits canonical
+metres; it does not reinterpret authored dimensions as permille. It retains the
+stable unit neck-to-head reference edge, preserves normalized route controls and
+identity rotations, and keeps one tail module present in each of the five
+generated profiles while varying tail length and taper. It fails closed on
 incomplete targets, overlapping or uncovered dimension groups, broken
 bilateral/alignment/Attachment invariants, unsafe values, or non-atomic output.
 These are candidate source fixtures and lineage evidence, not public morphology
-limits or a production parameter system.
+limits or a production parameter system. This repair rebaselines active metadata
+hashes only; standard-neutral geometry is expected unchanged, and the historical
+source/evidence and its recorded outcome remain untouched.
 
 The five-profile source-generation command above is a historical
 closed-candidate reproduction command, not active runway work. The completed

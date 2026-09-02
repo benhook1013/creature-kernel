@@ -9,6 +9,28 @@ It does not define product behaviour, a production surface contract, canonical
 Regions or Sockets, a permanent topology, or a backend. It cannot satisfy or
 replace the DR-0013 Stage 1 proof. DR-0009 and DR-0010 remain parked.
 
+## Canonical metre repair evidence and boundary
+
+The active authored input has been rebaselined to the repaired canonical metre
+source. `examples/body-documents/stylized-digitigrade-biped-authored-form.json`
+is 56,984 bytes with SHA-256
+`82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14`. All 153
+canonical dimensions are metres. Non-dimension transforms and landmarks are
+unchanged. The provisional display adapter derives retained descriptor-local
+integer `*_permille` fields explicitly; those fields are not authored dimension
+units. Profile factors remain separate integer-permille display/profile inputs;
+active generated-profile output applies them with exact decimal arithmetic,
+quantizes to the nearest millimetre using ties-to-even, and emits canonical
+metres.
+
+The active candidate-table binding is
+`experiments/current-form-surface-preview/structural_profile_candidates.json`
+with SHA-256
+`a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640`. This is
+a source/hash metadata rebaseline only: standard-neutral geometry is expected
+to remain unchanged. Historical source and evidence remain untouched; this
+record does not claim that the successor contract is implemented.
+
 ## Research-question mapping
 
 This unregistered exploratory experiment targets four canonical questions:

@@ -22,12 +22,12 @@ Related DRs: DR-0013 context only; DR-0009 and DR-0010 remain parked
 
 ## Status and authority
 
-This is a draft contract for one new, bounded, standard-neutral experiment. It
-is the successor direction authorized after the seven-ring candidate in PR
-#125 reached its three-round stop rule. It does not accept a production
-schema, architecture, topology, supported morphology promise, or technology
-outcome. It does not reactivate a parked workstream or satisfy the DR-0013
-Stage 1 proof.
+This is the settled candidate plan for one new, bounded, standard-neutral
+experiment. It is the successor direction authorized after the seven-ring
+candidate in PR #125 reached its three-round stop rule. It does not accept a
+production schema, architecture, topology, supported morphology promise, or
+technology outcome. It does not reactivate a parked workstream or satisfy the
+DR-0013 Stage 1 proof.
 
 The previous candidate is evidence, not a foundation to transplant. Its
 seven-ring topology, projection, formulas, macros, IDs, thresholds, and
@@ -84,19 +84,31 @@ The first and only execution target in this plan is the standard-neutral
 profile. The exact source inputs are:
 
 1. `examples/body-documents/stylized-digitigrade-biped-authored-form.json`
-   — authoritative authored anatomy source at frozen-plan hash
-   `d4f0dad6f936d62f9ee8c0fa24701898ee4ae6e48bcdeaf44641bd4dc3b549de`.
+   — authoritative repaired authored anatomy source and frozen input, 56,984
+   bytes, at SHA-256
+   `82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14`.
 2. `experiments/current-form-surface-preview/structural_profile_candidates.json`
    — supporting source for the existing profile identity and its
-   standard-neutral selection, at frozen-plan hash
-   `6794c7ec273cdbdc66e5bbe1f4816237a45f60a086315e40e0ef4ce6d18ddc0a`.
+   standard-neutral selection, frozen as an input at SHA-256
+   `a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640`.
 
 The authored document owns the source addresses, roles, frames, landmarks,
 section measurements, module state, and provenance. The profile table may
 identify the standard-neutral source selection and later the existing ordered
 five-profile comparison; it must never select topology or geometry code.
-Before execution, the launcher records both source hashes and stops on source
-drift rather than silently using a new input.
+All 153 canonical dimensions in the repaired source are metre-valued; its
+non-dimension transforms and landmarks remain unchanged. The provisional
+display adapter derives any retained descriptor-local integer `*_permille`
+fields explicitly, while profile factors remain separate integer-permille
+inputs. Active generated-profile output applies those factors with exact
+decimal arithmetic, quantizes to the nearest millimetre using ties-to-even,
+and emits canonical metres. Before execution, the launcher records both active
+source hashes and stops on source drift rather than silently using a new input.
+
+This is a metadata/hash rebaseline only. Standard-neutral geometry is expected
+to remain unchanged, and the historical source/evidence is not rewritten. This
+README does not claim that the successor contract is implemented or that
+successor execution has begun.
 
 The prepared input may contain only source-derived frames, named landmarks,
 section measurements, derived scalar parameters, module state, and provenance.

@@ -16,7 +16,8 @@ _TOP = {"basis", "body", "contract", "extensions", "profiles", "source"}
 _BODY = {"attachments", "capabilities", "dimensions", "fields", "frames", "joints", "landmarks", "modules", "parts", "regions", "sockets"}
 _COUNT = {"parts": 18, "frames": 16, "landmarks": 43, "dimensions": 153}
 _I = (0, 0, 0, 1)
-_D = "derivation=source_dimension_integer_as_thousandths_of_canonical_metre_v1"
+_DIMENSION = {"owner", "role", "value"}
+_D = "provenance=source_dimension_canonical_metre_value_v1"
 _P = "derivation=parent_local_part_translation_plus_landmark_position_v1"
 
 
@@ -25,7 +26,9 @@ def _ok(condition, where, message):
     if not condition: _bad(where, message)
 def _dict(value, where): _ok(isinstance(value, dict), where, "expected object"); return value
 def _num(value, where, positive=False):
-    _ok(not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value), where, "expected finite number"); _ok(not positive or value > 0, where, "expected positive number"); return 0 if value == 0 else value
+    _ok(not isinstance(value, bool) and isinstance(value, (int, float)), where, "expected finite number")
+    _ok(not isinstance(value, float) or math.isfinite(value), where, "expected finite number")
+    _ok(not positive or value > 0, where, "expected positive number"); return 0 if value == 0 else value
 def _vec(value, where, size=3):
     _ok(isinstance(value, list) and len(value) == size, where, f"expected {size}-vector"); return tuple(_num(x, f"{where}[{i}]") for i, x in enumerate(value))
 def _pairs(items):
@@ -56,8 +59,15 @@ def _part(rows, owner, parent):
     _ok(containment == {"root": True} if parent is None else set(containment) == {"parent"} and _addr(containment["parent"], where) == parent, where, "invalid containment")
     return translation, where
 def _add(a, b): return tuple(x + y for x, y in zip(a, b))
+def _validate_dimensions(rows):
+    for i, raw in enumerate(rows):
+        where, row = f"body.dimensions[{i}]", _dict(raw, f"body.dimensions[{i}]")
+        _ok(set(row) == _DIMENSION, where, "unknown or missing required field")
+        _addr(row["owner"], f"{where}.owner")
+        _ok(isinstance(row["role"], str) and row["role"], f"{where}.role", "expected non-empty role")
+        _num(row["value"], f"{where}.value", positive=True)
 def _dimension(rows, owner, role):
-    row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); value = _num(row["value"], f"{where}.value", True) / 1000.0
+    row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); value = _num(row["value"], f"{where}.value", True)
     return value, f"{where}.value; {_D}"
 def _landmark(rows, owner, role, frame):
     row, where = _pick(rows, owner, role, {"owner", "role", "frame", "position"}, "landmarks"); ref = _dict(row["frame"], f"{where}.frame"); _ok(set(ref) == {"owner", "role"} and (_addr(ref["owner"], where), ref["role"]) == frame, where, "invalid landmark frame"); return _vec(row["position"], f"{where}.position"), where
@@ -76,6 +86,7 @@ def prepare_standard_neutral(path):
     _ok(source["profiles"] == {"semantic_numeric": "ck.numeric-frame.r1"} and source["extensions"] == [], "source", "unsupported profile or extension")
     body = _dict(source["body"], "source.body"); _ok(set(body) == _BODY, "source.body", "unknown or missing collection")
     for name, count in _COUNT.items(): _ok(isinstance(body[name], list) and len(body[name]) == count, f"body.{name}", f"expected {count} records")
+    _validate_dimensions(body["dimensions"])
     ns = source["source"]["namespace"]
     def part(role, side=None): return ns, () if side is None else (side,), "part", role
     p = {part("pelvis"): _part(body["parts"], part("pelvis"), None), part("torso"): _part(body["parts"], part("torso"), part("pelvis")), part("neck"): _part(body["parts"], part("neck"), part("torso"))}

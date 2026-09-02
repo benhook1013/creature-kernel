@@ -295,6 +295,19 @@ def _text(value: Any, where: str) -> str:
     return value
 
 
+def _validate_tail_signature(value: Any, where: str) -> None:
+    if not isinstance(value, list) or len(value) != 5:
+        _fail(f"{where} is invalid")
+    if any(
+        type(number) not in (int, float)
+        or (type(number) is float and not math.isfinite(number))
+        or number <= 0
+        or number > profile_source_generator.MAX_SAFE_INTEGER
+        for number in value
+    ):
+        _fail(f"{where} is invalid")
+
+
 def _read_reference_bytes(reference: common.SourceReference, maximum: int, where: str) -> bytes:
     try:
         with common.open_source_reference(reference, where) as stream:
@@ -658,12 +671,7 @@ def _validate_source_manifest(manifest_path: Path) -> tuple[dict[str, Any], byte
             _fail(f"{where}.bytes exceeds the inspect-provisional-form source bound")
         expected_hash = _hash(profile["sha256"], f"{where}.sha256")
         tail_signature = profile["tail_signature"]
-        if (
-            not isinstance(tail_signature, list)
-            or len(tail_signature) != 5
-            or any(type(value) is not int for value in tail_signature)
-        ):
-            _fail(f"{where}.tail_signature is invalid")
+        _validate_tail_signature(tail_signature, f"{where}.tail_signature")
         source_ref = _resolve_file(manifest_ref.path.parent / file_name, f"{where}.file")
         source_value, source_bytes = _read_canonical_json(source_ref, f"{where}.file", source=True)
         if source_bytes != generated_source_bytes[index]:

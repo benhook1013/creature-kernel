@@ -58,11 +58,28 @@ protocol](../../docs/research/visual-quality-evaluation.md).
 The admission gate accepts only source-derived scalar dimensions or
 measurements, rigid frames, individually named landmarks, section stations
 with scalar width/depth/offset/taper/squareness, module state, and provenance.
+Dimension values are finite, strictly positive canonical metre values and are
+admitted exactly as authored; this consumer does not interpret integers as
+thousandths or apply a `/1000` scale.
 The prepared input is capped at 8 frames, 24 landmarks, 10 stations, and 6
 scalars per station. Every numeric value carries source provenance or a
 deterministic derivation. The four scalar records emitted by the frozen
 projection and the seven declared shared formula-constant override names are
 the complete accepted scalar-name set.
+
+### Standard-neutral regression provenance
+
+The standard-neutral geometry and render outputs have durable regression
+identities at the actual builder boundary: `skin.ply` is
+`bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf`, `skin.png`
+is `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce`, and
+`cage.png` is
+`06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046`. These
+three digests were cross-checked against the prior exact commit
+`fc2d56555e063680b15c67f7d438c4eb375c498b`, built with the former
+source/adapter. Metadata hashes intentionally rebaseline across the canonical
+unit migration. This is regression provenance for unchanged geometry/rendering,
+not acceptance of the historical experiment.
 
 The following are forbidden inputs: cage or mesh vertices, faces, edges, rings,
 or connectivity; ordered perimeter samples; point clouds, fields, masks, or

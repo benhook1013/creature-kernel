@@ -19,6 +19,7 @@ import re
 import stat
 import sys
 import tempfile
+from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation, localcontext
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
@@ -130,6 +131,36 @@ def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _is_active_dimension_value_path(path: tuple[str | int, ...]) -> bool:
+    return (
+        len(path) == 4
+        and path[0] == "body"
+        and path[1] == "dimensions"
+        and isinstance(path[2], int)
+        and path[3] == "value"
+    )
+
+
+def _restore_json_number_types(value: Any, path: tuple[str | int, ...] = ()) -> Any:
+    """Keep authored dimension tokens exact while retaining ordinary JSON types elsewhere."""
+
+    if isinstance(value, Decimal):
+        if _is_active_dimension_value_path(path):
+            return value
+        try:
+            return float(value)
+        except (OverflowError, ValueError) as exc:
+            raise ProfileGenerationError("JSON number cannot be represented as a host float") from exc
+    if isinstance(value, list):
+        return [_restore_json_number_types(item, path + (index,)) for index, item in enumerate(value)]
+    if isinstance(value, dict):
+        return {
+            key: _restore_json_number_types(item, path + (key,))
+            for key, item in value.items()
+        }
+    return value
+
+
 def load_json_with_bytes(path: Path, label: str) -> tuple[Any, bytes]:
     try:
         raw = path.read_bytes()
@@ -138,12 +169,14 @@ def load_json_with_bytes(path: Path, label: str) -> tuple[Any, bytes]:
     if len(raw) > MAX_JSON_BYTES:
         raise ProfileGenerationError(f"{label} exceeds the bounded JSON size")
     try:
-        value = json.loads(
+        parsed = json.loads(
             raw.decode("utf-8"),
             object_pairs_hook=_strict_object,
+            parse_float=Decimal,
             parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)),
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
+        value = _restore_json_number_types(parsed)
+    except (InvalidOperation, OverflowError, UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
         raise ProfileGenerationError(f"{label} is not finite UTF-8 JSON") from exc
     _finite(value, label)
     return value, raw
@@ -191,6 +224,10 @@ def _finite(value: Any, where: str, *, depth: int = 0, state: list[int] | None =
         if not math.isfinite(value):
             raise ProfileGenerationError(f"{where} contains a non-finite number")
         return
+    if isinstance(value, Decimal):
+        if not value.is_finite():
+            raise ProfileGenerationError(f"{where} contains a non-finite number")
+        return
     if isinstance(value, int) and not isinstance(value, bool):
         if abs(value) > MAX_SAFE_INTEGER:
             raise ProfileGenerationError(f"{where} contains an unsafe integer")
@@ -235,6 +272,50 @@ def _integer(value: Any, where: str, *, minimum: int = 0, maximum: int = MAX_SAF
     if value < minimum or value > maximum:
         raise ProfileGenerationError(f"{where} is outside the safe integer range")
     return value
+
+
+def _positive_finite_metre(value: Any, where: str) -> Decimal:
+    """Validate a JSON number as a positive canonical metre value."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        raise ProfileGenerationError(f"{where} must be a positive finite metre number")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ProfileGenerationError(f"{where} must be a positive finite metre number")
+    try:
+        decimal = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ProfileGenerationError(f"{where} must be a positive finite metre number") from exc
+    if not decimal.is_finite() or decimal <= 0 or decimal > Decimal(MAX_SAFE_INTEGER):
+        raise ProfileGenerationError(f"{where} must be a positive finite metre number")
+    return decimal
+
+
+def _decimal_json_number(value: Decimal, where: str) -> int | float:
+    """Convert exact decimal arithmetic to a finite JSON number without silent rounding."""
+
+    if not value.is_finite() or value <= 0 or value > Decimal(MAX_SAFE_INTEGER):
+        raise ProfileGenerationError(f"{where} is outside the safe canonical metre range")
+    if value == value.to_integral_value():
+        return int(value)
+    number = float(value)
+    if not math.isfinite(number) or Decimal(str(number)) != value:
+        raise ProfileGenerationError(f"{where} cannot be emitted without decimal rounding")
+    return number
+
+
+def _quantize_profile_metres(value: Decimal, scale: int) -> Decimal:
+    """Apply an integer-permille profile factor and quantize to nearest millimetre."""
+
+    # The input is bounded by the JSON size limit, but a valid decimal token can
+    # still contain more digits than Decimal's default context precision.  Use
+    # enough local precision for the source token and the integer scale so the
+    # only rounding performed here is the requested millimetre quantization.
+    precision = len(value.as_tuple().digits) + len(str(abs(scale))) + 2
+    with localcontext() as context:
+        context.prec = max(context.prec, precision)
+        scaled_millimetres = value * Decimal(scale)
+        quantized_millimetres = scaled_millimetres.to_integral_value(rounding=ROUND_HALF_EVEN)
+        return quantized_millimetres / Decimal(1000)
 
 
 def _vector(value: Any, where: str, length: int = 3) -> list[int]:
@@ -431,10 +512,19 @@ def _check_attachment_equations(source: dict[str, Any], where: str) -> None:
             raise ProfileGenerationError(f"{where} Attachment equation failed: host_world + offset != mating_world")
 
 
-def _validate_source_shape(source: dict[str, Any], candidate: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, Any]]]:
+def _validate_source_shape(
+    source: dict[str, Any],
+    candidate: dict[str, Any],
+    *,
+    mode: str = DEFAULT_GENERATION_MODE,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, Any]]]:
     _require_keys(source, ("basis", "body", "contract", "extensions", "profiles", "source"), "source")
     source_metadata = _object(source["source"], "source.source")
     _require_keys(source_metadata, ("dependencies", "document", "namespace"), "source.source")
+    if mode == DEFAULT_GENERATION_MODE:
+        basis = _object(source["basis"], "source.basis")
+        if basis.get("length_unit") != "metre":
+            raise ProfileGenerationError("active authored source basis must use metre dimensions")
     base_source = _object(candidate["base_source"], "candidate.base_source")
     if source_metadata["document"] != base_source["document"] or source_metadata["namespace"] != base_source["namespace"]:
         raise ProfileGenerationError("source identity does not match candidate.base_source")
@@ -487,7 +577,10 @@ def _validate_source_shape(source: dict[str, Any], candidate: dict[str, Any]) ->
         owner = _address(dimension["owner"], f"source.body.dimensions[{index}].owner", kind="part")
         dimension["owner"] = owner
         dimension["role"] = _text(dimension["role"], f"source.body.dimensions[{index}].role")
-        _integer(dimension["value"], f"source.body.dimensions[{index}].value", minimum=1, maximum=MAX_SAFE_INTEGER)
+        if mode == DEFAULT_GENERATION_MODE:
+            _positive_finite_metre(dimension["value"], f"source.body.dimensions[{index}].value")
+        else:
+            _integer(dimension["value"], f"source.body.dimensions[{index}].value", minimum=1, maximum=MAX_SAFE_INTEGER)
         matches: list[str] = []
         for name, selector in normalized_groups.items():
             if _matches_dimension(dimension, selector):
@@ -518,7 +611,7 @@ def _validate_candidate(
     if len(base_source["sha256"]) != 64 or any(character not in "0123456789abcdef" for character in base_source["sha256"]):
         raise ProfileGenerationError("candidate.base_source.sha256 is invalid")
     _object(candidate["canonicalization"], "candidate.canonicalization")
-    parts, dimensions, groups = _validate_source_shape(source, candidate)
+    parts, dimensions, groups = _validate_source_shape(source, candidate, mode=mode)
     transform = _object(candidate["transform"], "candidate.transform")
     _require_keys(transform, ("dimension_groups", "placement_targets", "preserved_controls", "reference_edges", "rotation_policy"), "candidate.transform")
     targets = [_text(item, f"candidate.transform.placement_targets[{index}]") for index, item in enumerate(_list(transform["placement_targets"], "candidate.transform.placement_targets"))]
@@ -689,7 +782,13 @@ def _check_shared_pose_alignment(source: dict[str, Any], where: str) -> None:
         raise ProfileGenerationError(f"{where} moves an axial core Part off the shared centerline")
 
 
-def _apply_profile(source: dict[str, Any], profile: dict[str, Any], groups: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def _apply_profile(
+    source: dict[str, Any],
+    profile: dict[str, Any],
+    groups: dict[str, dict[str, Any]],
+    *,
+    mode: str = DEFAULT_GENERATION_MODE,
+) -> dict[str, Any]:
     output = copy.deepcopy(source)
     profile_id = profile["id"]
     output["source"]["document"] = f"{source['source']['document']}__{SOURCE_DOCUMENT_SUFFIX}__{profile_id}"
@@ -712,11 +811,20 @@ def _apply_profile(source: dict[str, Any], profile: dict[str, Any], groups: dict
         scale = profile["dimension_scales"].get(matches[0])
         if scale is None:
             raise ProfileGenerationError(f"profile {profile_id} is missing transform target group {matches[0]}")
-        value = _integer(dimension["value"], f"source.body.dimensions[{index}].value", minimum=1)
-        scaled = _round_permille(value, _integer(scale, f"profile {profile_id}.dimension_scales.{matches[0]}", minimum=1, maximum=10_000))
-        if scaled < 1 or scaled > MAX_SAFE_INTEGER:
-            raise ProfileGenerationError(f"profile {profile_id} generated an unsafe permille value")
-        dimension["value"] = scaled
+        integer_scale = _integer(scale, f"profile {profile_id}.dimension_scales.{matches[0]}", minimum=1, maximum=10_000)
+        if mode == HISTORICAL_GENERATION_MODE:
+            value = _integer(dimension["value"], f"source.body.dimensions[{index}].value", minimum=1)
+            scaled = _round_permille(value, integer_scale)
+            if scaled < 1 or scaled > MAX_SAFE_INTEGER:
+                raise ProfileGenerationError(f"profile {profile_id} generated an unsafe permille value")
+            dimension["value"] = scaled
+        else:
+            value = _positive_finite_metre(dimension["value"], f"source.body.dimensions[{index}].value")
+            scaled = _quantize_profile_metres(value, integer_scale)
+            dimension["value"] = _decimal_json_number(
+                scaled,
+                f"profile {profile_id} generated dimension {index}",
+            )
     return output
 
 
@@ -744,7 +852,7 @@ def _generate_sources(
     outputs: list[dict[str, Any]] = []
     tail_signatures: set[tuple[int, int, int, int, int]] = set()
     for profile in candidate["profiles"]:
-        output = _apply_profile(source, profile, groups)
+        output = _apply_profile(source, profile, groups, mode=mode)
         _assert_preserved(source, output, source_snapshot)
         _reference_edge_check(source, output, _object(candidate["transform"], "candidate.transform"))
         _check_attachment_equations(output, f"profile {profile['id']}")
