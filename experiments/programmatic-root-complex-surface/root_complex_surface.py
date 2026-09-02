@@ -24,6 +24,16 @@ RANGES = {"n": (2.0, 3.2), "lambda": (0.0, 0.5), "shoulder": (0.70, 1.00),
           "axilla": (0.35, 0.75), "eta": (0.0, 0.5), "gamma": (0.04, 0.12), "saddle": (0.30, 0.60)}
 EXPECTED_VALENCES = ((3, 22), (4, 40), (5, 10))
 _FORBIDDEN_KEYS = frozenset("vertex vertices face faces edge edges ring rings connectivity perimeter perimetersample perimetersamples orderedperimetersample orderedperimetersamples pointcloud pointclouds field fields mask masks silhouette silhouettes correctiveoffset correctiveoffsets serialized serializedoutput serializedoutputs serializedoldoutput serializedoldoutputs profiles profileids".split())
+_PREPARED_FIELDS = frozenset("source basis frames landmarks stations scalars".split())
+_SOURCE_FIELDS = frozenset("document namespace sha256 provenance".split())
+_BASIS_FIELDS = frozenset("length_unit handedness up forward".split())
+_FRAME_NAMES = frozenset(("body",))
+_LANDMARK_NAMES = frozenset(f"{kind}_{side}" for side in ("left", "right") for kind in ("shoulder_peak", "axilla", "thigh_start", "thigh_mid"))
+_STATION_NAMES = frozenset("neck_collar upper_ribcage_shoulder lower_ribcage waist_abdomen lower_abdomen upper_pelvis lower_pelvis".split())
+_SCALAR_NAMES = frozenset((*CONSTANTS, "arm_root_depth", "arm_root_outward", "thigh_lateral_radius", "thigh_depth")); _REQUIRED_SCALARS = _SCALAR_NAMES - CONSTANTS.keys()
+_RECORD_FIELDS = {kind: frozenset(fields.split()) for kind, fields in (
+    ("frame", "lateral_axis up_axis forward_axis provenance"), ("landmark", "point provenance"),
+    ("station", "center lateral_radius front_extent back_extent provenance"), ("scalar", "value provenance"))}
 
 
 @dataclass(frozen=True)
@@ -183,9 +193,15 @@ def _record(mapping, key, kind):
         value = mapping[key]
     except (KeyError, TypeError) as exc:
         raise ValueError(f"missing {kind} {key}") from exc
-    if not isinstance(value, Mapping) or not isinstance(value.get("provenance"), str):
-        raise ValueError(f"{kind} {key} requires provenance")
+    if (not isinstance(value, Mapping) or set(value) != _RECORD_FIELDS[kind] or not
+            (isinstance(value.get("provenance"), str) and value["provenance"].strip())):
+        raise ValueError(f"{kind} {key} has unknown or missing fields or requires provenance")
     return value
+
+
+def _exact_keys(value, expected, path, required=None):
+    keys = set(value) if isinstance(value, Mapping) else None
+    if keys is None or not keys <= expected or not (expected if required is None else required) <= keys: raise ValueError(f"{path} has unknown or missing fields")
 
 
 def _prepared(prepared):
@@ -202,6 +218,9 @@ def _prepared(prepared):
             pending.extend(item.values())
         elif isinstance(item, (tuple, list)):
             pending.extend(item)
+    _exact_keys(prepared, _PREPARED_FIELDS, "prepared input"); _exact_keys(prepared["source"], _SOURCE_FIELDS, "prepared.source"); _exact_keys(prepared["basis"], _BASIS_FIELDS, "prepared.basis")
+    for name, expected, required in (("frames", _FRAME_NAMES, None), ("landmarks", _LANDMARK_NAMES, None), ("stations", _STATION_NAMES, None), ("scalars", _SCALAR_NAMES, _REQUIRED_SCALARS)):
+        _exact_keys(prepared[name], expected, f"prepared.{name}", required)
     stations, landmarks = prepared.get("stations"), prepared.get("landmarks"); frames, scalars = prepared.get("frames"), prepared.get("scalars")
     if not all(isinstance(x, Mapping) for x in (stations, landmarks, frames, scalars)):
         raise ValueError("stations, landmarks, frames, and scalars mappings are required")

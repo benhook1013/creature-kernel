@@ -51,6 +51,8 @@ def synthetic_prepared():
         landmarks[f"thigh_mid_{side}"] = landmark(
             (sign * 0.82, -1.85, 0.03), f"thigh_mid_{side}")
     return {
+        "source": {"document": "synthetic_root_complex", "namespace": "synthetic", "sha256": "synthetic-source", "provenance": "synthetic.source"},
+        "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
         "stations": stations,
         "landmarks": landmarks,
         "frames": {"body": {
@@ -65,7 +67,6 @@ def synthetic_prepared():
             "thigh_lateral_radius": scalar(0.70, "thigh_lateral_radius"),
             "thigh_depth": scalar(0.42, "thigh_depth"),
         },
-        "provenance": "synthetic.prepared.root",
     }
 
 
@@ -156,6 +157,13 @@ class FormulaAndInputTests(unittest.TestCase):
         })
         with self.assertRaises(FrozenInstanceError):
             cage.vertices = ()
+
+    def test_unknown_names_fields_and_provenance_are_rejected(self):
+        mutations = (("empty station provenance", lambda p: p["stations"]["neck_collar"].update(provenance="")), ("blank landmark provenance", lambda p: p["landmarks"]["axilla_left"].update(provenance=" \t\n")), ("empty frame provenance", lambda p: p["frames"]["body"].update(provenance="")), ("blank scalar provenance", lambda p: p["scalars"]["thigh_depth"].update(provenance=" \t\n")), ("top-level collection", lambda p: p.update(extra={})), ("frame name", lambda p: p["frames"].update(extra={})), ("landmark name", lambda p: p["landmarks"].update(extra={})), ("station name", lambda p: p["stations"].update(extra={})), ("scalar name", lambda p: p["scalars"].update(extra={})), ("source field", lambda p: p["source"].update(extra="rejected")), ("basis field", lambda p: p["basis"].update(extra="rejected")), ("frame field", lambda p: p["frames"]["body"].update(extra="rejected")), ("landmark field", lambda p: p["landmarks"]["axilla_left"].update(extra="rejected")), ("station field", lambda p: p["stations"]["neck_collar"].update(extra="rejected")), ("scalar field", lambda p: p["scalars"]["thigh_depth"].update(extra="rejected")))
+        for kind, mutate in mutations:
+            with self.subTest(kind=kind):
+                prepared = synthetic_prepared(); mutate(prepared)
+                with self.assertRaisesRegex(ValueError, "unknown or missing|requires provenance"): surface.build_cage(prepared)
 
     def test_named_boundaries_and_shoulder_offsets_use_canonical_sides(self):
         prepared = synthetic_prepared(); cage = surface.build_cage(prepared)
@@ -534,21 +542,11 @@ class FormulaAndInputTests(unittest.TestCase):
                 surface.build_cage(prepared)
 
     def test_invalid_inputs_fail_closed(self):
-        cases = []
-        missing = synthetic_prepared(); del missing["stations"]["neck_collar"]; cases.append(missing)
-        nonfinite = synthetic_prepared(); nonfinite["stations"]["waist_abdomen"]["center"] = (0, np.nan, 0); cases.append(nonfinite)
-        left_handed = synthetic_prepared(); left_handed["frames"]["body"]["forward_axis"] = (0, 0, -1); cases.append(left_handed)
-        no_route = synthetic_prepared(); no_route["landmarks"]["thigh_mid_left"]["point"] = no_route["landmarks"]["thigh_start_left"]["point"]; cases.append(no_route)
-        no_gap = synthetic_prepared(); no_gap["landmarks"]["thigh_start_left"]["point"] = (0.2, -0.7, 0); cases.append(no_gap)
-        bad_transition = synthetic_prepared()
-        for side in ("left", "right"):
-            bad_transition["landmarks"][f"axilla_{side}"]["point"] = (0, 1.55, 0)
-        cases.append(bad_transition)
-        bad_neck = synthetic_prepared(); bad_neck["stations"]["neck_collar"]["center"] = (0, 2.40, 0); cases.append(bad_neck)
-        for prepared in cases:
-            with self.subTest(case=cases.index(prepared)):
-                with self.assertRaises(ValueError):
-                    surface.build_cage(prepared)
+        mutations = (lambda p: p["stations"].pop("neck_collar"), lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)))
+        for index, mutate in enumerate(mutations):
+            with self.subTest(case=index):
+                prepared = synthetic_prepared(); mutate(prepared)
+                with self.assertRaises(ValueError): surface.build_cage(prepared)
 
 
 class SubdivisionTests(unittest.TestCase):

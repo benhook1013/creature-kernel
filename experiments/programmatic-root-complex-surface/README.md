@@ -42,10 +42,12 @@ is not Stage 1 and is not production.
 The bounded scope is the ribcage, waist, pelvis, neck port, bilateral
 shoulder/axilla roots, and bilateral hip/thigh roots. The initial
 `standard_neutral_reference` has exactly five open anatomy ports: neck, two
-arms, and two thighs. A standard-profile tail-present/tail-absent subcase and
-the exact-five profile set may be added later within the same PR, only after
-neutral viability; the tail subcase keeps the core outside its local port
-unchanged and adds no absent-tail identities.
+arms, and two thighs. The following pre-terminal continuation plan is retained
+for historical reference only and is superseded by the terminal outcome above:
+a standard-profile tail-present/tail-absent subcase and the exact-five profile
+set could have been added within the same PR after neutral viability; the tail
+subcase would keep the core outside its local port unchanged and add no
+absent-tail identities.
 
 The governing research context is [the investigation plan](../../docs/research/programmatic-root-complex-surface-investigation.md),
 and human visual appraisal follows the [visual-quality evaluation
@@ -58,7 +60,9 @@ measurements, rigid frames, individually named landmarks, section stations
 with scalar width/depth/offset/taper/squareness, module state, and provenance.
 The prepared input is capped at 8 frames, 24 landmarks, 10 stations, and 6
 scalars per station. Every numeric value carries source provenance or a
-deterministic derivation.
+deterministic derivation. The four scalar records emitted by the frozen
+projection and the seven declared shared formula-constant override names are
+the complete accepted scalar-name set.
 
 The following are forbidden inputs: cage or mesh vertices, faces, edges, rings,
 or connectivity; ordered perimeter samples; point clouds, fields, masks, or
@@ -97,12 +101,13 @@ The induced directed boundary loops are `neck=(0,1,2,3,4,5,6,7)`,
 `left_arm=(56,59,58,57)`, `right_arm=(60,63,62,61)`,
 `left_thigh=(64,67,66,65)`, and `right_thigh=(68,69,70,71)`.
 
-The initial caps are 72 cage controls and 96 base quads. Extraordinary
-controls must have only the declared valences 3 through 6. The symbolic
-topology preflight must prove connected manifold and boundary facts and
-Euler's relation before any anatomy coordinates are admitted. If the proposed
-count or pelvic macro cannot meet the proof, stop and revise this candidate
-record before rendering.
+The frozen complexity cap permits at most 72 cage controls and 96 base quads;
+this candidate uses 72 cage controls and 63 base quads as stated above.
+Extraordinary controls must have only the declared valences 3 through 6. The
+symbolic topology preflight must prove connected manifold and boundary facts
+and Euler's relation before any anatomy coordinates are admitted. If the
+proposed count or pelvic macro cannot meet the proof, stop and revise this
+candidate record before rendering.
 
 ## Shared coordinate formulas
 
@@ -332,7 +337,10 @@ edit rendered vertices. Such a change starts a newly recorded candidate; it
 must not be silently counted as tuning. Stop after three rounds without a
 credible neutral root complex.
 
-## Build order
+## Historical build order (superseded by terminal outcome)
+
+The following pre-terminal build order is retained for reproduction and audit
+context only; it is not current continuation after the terminal outcome above.
 
 1. Freeze this contract.
 2. Prepare the neutral projection.
