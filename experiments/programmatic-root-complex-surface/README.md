@@ -1,7 +1,8 @@
 # Programmatic root-complex surface
 
-Status: frozen candidate-local trial contract; unregistered exploratory
-pre-Readiness-4 work. Lifecycle `planned`; evidence closure `open`; technology
+Status: finished candidate-local trial; unregistered exploratory pre-Readiness-4
+work. Lifecycle `finished`; evidence closure `incomplete` because neutral vision
+stopped the trial before exact-five evidence and later probes; technology
 outcome `none`.
 
 This record is an experiment, not product, specification, architecture, or
@@ -22,7 +23,12 @@ Candidate-evolution ledger (experiment-local; not accepted architecture):
    landmarks and adds the bounded geometry-correctness gate. Correction round
    2 adds the shared axial min-envelope described below; it improves taper and
    thigh seating but does not establish neutral credibility or exact-five
-   readiness.
+   readiness. Correction round 3 is the terminal shared superior axial saddle
+   described below. Main-thread vision found that its final neutral render does
+   not show unmistakable neck emergence, downward shoulder departure, and arm
+   ports below it. Exact-five is therefore blocked for this seven-ring candidate,
+   the scoped trial stops here, and there is no fourth correction round. This is
+   not a formal Stage-1 or global representation rejection.
 
 ## Purpose and scope
 
@@ -111,6 +117,7 @@ and frozen exploratory ranges are:
 | axilla outward factor | 0.55 | [0.35, 0.75] |
 | thigh-seat route fraction `eta` | 0.25 | [0.0, 0.5] |
 | medial-gap factor `gamma` | 0.08 | [0.04, 0.12] |
+| superior axial saddle `saddle` | 0.45 | [0.30, 0.60] |
 
 The section coordinates use source-derived asymmetric superellipses with the
 visible shared power `n`. The iliac overlap uses the shared `lambda` blend.
@@ -198,6 +205,33 @@ and radius/depth/`eta` scalar where the seat boundary contributes, and the body
 frame with actual provenance. There is no post-generation override, profile
 branch, render displacement, new prepared field, topology change, optimizer,
 field, repair, or relaxed validation.
+
+Correction round 3 is the terminal shared superior axial saddle. It applies
+only to the four non-socket upper-ribcage controls `10, 13, 14, 15`; the direct
+shoulder socket controls, collars, neck ring, centres, axial envelope, topology,
+and every other control remain unchanged. For each affected control, first
+compute the ordinary section point `P_base`, then use the upper station centre
+`C_upper`, its lateral radius `a_upper`, the neck centre `C_neck`, and the body
+axes:
+
+```text
+r = clamp(abs(dot(P_base - C_upper, L)) / a_upper, 0, 1)
+w = 1 - r
+P_output = P_base + saddle * w * dot(C_neck - C_upper, U) * U
+```
+
+The input is rejected when the neck-above-upper separation
+`dot(C_neck - C_upper, U)` is non-finite or non-positive; it is never repaired
+or clamped. Saddle controls use formula ID
+`shoulder.superior_axial_saddle` and exactly the upper station fields, neck
+centre, body frame, `n`, and `saddle` in their dependencies and provenance.
+The falsifiable visual criterion was that fixed front, side, and three-quarter
+renders show unmistakable neck emergence, a downward shoulder departure, and
+arm ports visibly below that departure. Main-thread vision did not see those
+three cues unmistakably in the final round-3 neutral render. The seven-ring
+candidate therefore fails this scoped continuation criterion: exact-five is
+blocked, this trial stops, and there is no fourth correction. This result does
+not establish a formal Stage-1 or global representation rejection.
 
 The trial scale `S` is the distance from the neck-port centroid to the midpoint
 of the two thigh-port centroids and must be finite and greater than zero. The

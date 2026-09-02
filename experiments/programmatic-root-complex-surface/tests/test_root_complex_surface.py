@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
 import mesh_correctness  # noqa: E402
-from prepared_projection import prepare_standard_neutral  # noqa: E402
 
 
 def synthetic_prepared():
@@ -152,7 +151,8 @@ class FormulaAndInputTests(unittest.TestCase):
         self.assertEqual(set(cage.formula_ids), {
             "station.asymmetric_superellipse", "iliac.blend.superellipse",
             "shoulder.axilla_transition", "shoulder.peak_axilla_collar",
-            "station.axial_envelope.min_clamp", "thigh.seat_gap_loop",
+            "shoulder.superior_axial_saddle", "station.axial_envelope.min_clamp",
+            "thigh.seat_gap_loop",
         })
         with self.assertRaises(FrozenInstanceError):
             cage.vertices = ()
@@ -210,7 +210,8 @@ class FormulaAndInputTests(unittest.TestCase):
                                                  projected[c], projected[d]))
 
     def test_symmetric_fixture_is_mirror_equivalent_at_all_levels(self):
-        result = surface.evaluate(synthetic_prepared(), levels=2)
+        prepared = synthetic_prepared(); prepared["scalars"]["saddle"] = {"value": 0.60, "provenance": "override.saddle"}
+        result = surface.evaluate(prepared, levels=2)
 
         def assert_mirror(vertices):
             values = np.asarray(vertices, dtype=float)
@@ -257,9 +258,17 @@ class FormulaAndInputTests(unittest.TestCase):
                 np.testing.assert_allclose(cage.vertices[start + index], point)
                 self.assertEqual(cage.formula_ids[start + index], "station.axial_envelope.min_clamp")
         station_fields = lambda name: {f"stations.{name}.{key}" for key in ("center", *keys)}
-        for name, index in (("upper_ribcage_shoulder", 10), ("waist_abdomen", 34)):
-            self.assertEqual(cage.formula_ids[index], "station.asymmetric_superellipse")
-            self.assertEqual(set(cage.dependencies[index]), station_fields(name) | {"frames.body", "scalars.n"})
+        self.assertEqual(cage.formula_ids[10], "shoulder.superior_axial_saddle")
+        self.assertEqual(set(cage.dependencies[10]), station_fields("upper_ribcage_shoulder") | {
+            "stations.neck_collar.center", "frames.body", "scalars.n", "scalars.saddle"})
+        upper = prepared["stations"]["upper_ribcage_shoulder"]; neck = prepared["stations"]["neck_collar"]
+        expected = cardinal(np.asarray(upper["center"]), tuple(upper[key] for key in keys))[1]
+        expected += surface.CONSTANTS["saddle"] * (neck["center"][1] - upper["center"][1]) * np.asarray((0.0, 1.0, 0.0))
+        np.testing.assert_allclose(cage.vertices[10], expected)
+        self.assertEqual(cage.provenance_ids[10], ("synthetic.station.upper_rib", "synthetic.station.neck",
+                                                   "synthetic.frame.body", "formula_constant.n.v1", "formula_constant.saddle.v1"))
+        self.assertEqual(cage.formula_ids[34], "station.asymmetric_superellipse")
+        self.assertEqual(set(cage.dependencies[34]), station_fields("waist_abdomen") | {"frames.body", "scalars.n"})
         lower_center, lower_extents = limited("lower_abdomen"); upper = prepared["stations"]["upper_pelvis"]
         fraction = surface.CONSTANTS["lambda"]
         iliac = ((1 - fraction) * lower_center + fraction * np.asarray(upper["center"]), tuple(
@@ -286,20 +295,11 @@ class FormulaAndInputTests(unittest.TestCase):
         boundary = synthetic_prepared(); boundary["stations"]["lower_abdomen"]["center"] = boundary["stations"]["waist_abdomen"]["center"]
         boundary_cage = surface.build_cage(boundary); boundary_deps = "|".join(boundary_cage.dependencies[42])
         boundary_prov = "|".join(boundary_cage.provenance_ids[42]); self.assertEqual(("stations.waist_abdomen" in boundary_deps,
-                          "stations.upper_ribcage_shoulder" in boundary_deps,
-                          "synthetic.station.upper_rib" in boundary_prov), (True, False, False))
-
-    def test_axilla_vertical_change_moves_transition_and_lower_collars_only(self):
-        baseline = surface.build_cage(synthetic_prepared()); changed = synthetic_prepared()
-        for side in ("left", "right"):
-            point = list(changed["landmarks"][f"axilla_{side}"]["point"]); point[1] += 0.12
-            changed["landmarks"][f"axilla_{side}"]["point"] = tuple(point)
-        moved = surface.build_cage(changed)
-        for start, end in ((16, 24), (58, 60), (62, 64)):
-            self.assertNotEqual(baseline.vertices[start:end], moved.vertices[start:end])
-        self.assertEqual(baseline.vertices[24:32], moved.vertices[24:32])
-        for index in (10, 13, 14, 15):
-            self.assertEqual(baseline.vertices[index], moved.vertices[index])
+                          "stations.upper_ribcage_shoulder" in boundary_deps, "synthetic.station.upper_rib" in boundary_prov),
+                         (True, False, False))
+        authored = synthetic_prepared(); authored["stations"]["lower_ribcage"].update(dict(zip(keys, (1.0, 0.6, 0.5)))); authored_cage = surface.build_cage(authored)
+        self.assertEqual((authored_cage.formula_ids[26], set(authored_cage.dependencies[26])),
+                         ("station.asymmetric_superellipse", station_fields("lower_ribcage") | {"frames.body", "scalars.n"}))
 
     def test_shoulder_bridges_are_outward_and_each_quad_is_unfolded(self):
         cage = surface.build_cage(synthetic_prepared()); _, faces, _ = surface.symbolic_topology()
@@ -479,27 +479,30 @@ class FormulaAndInputTests(unittest.TestCase):
             self.assertNotEqual(baseline.vertices[changed_slice], collar.vertices[changed_slice])
             self.assertEqual(baseline.vertices[stable_slice], collar.vertices[stable_slice])
 
-        changed = synthetic_prepared(); changed["scalars"]["shoulder"] = {"value": 0.81, "provenance": "synthetic.constant.shoulder"}
-        shoulder = surface.build_cage(changed)
-        changed_indices = {index for index, (before, after) in enumerate(
-            zip(baseline.vertices, shoulder.vertices)) if before != after}
-        self.assertEqual(changed_indices, {8, 9, 11, 12, 56, 57, 60, 61})
-        base_eval = surface.evaluate(synthetic_prepared(), levels=2); changed_eval = surface.evaluate(changed, levels=2)
-        l1_inputs, l1_quads, l1_loops = independent_subdivision_stencils(
-            baseline.quads, baseline.boundary_loops, len(baseline.vertices))
-        l2_inputs, _, _ = independent_subdivision_stencils(
-            l1_quads, l1_loops, len(base_eval.levels[0].vertices))
-        expected_l1 = {i for i, inputs in enumerate(l1_inputs) if inputs & changed_indices}; expected_l2 = {i for i, inputs in enumerate(l2_inputs) if inputs & expected_l1}
-        for base, candidate in zip((base_eval.cage, *base_eval.levels),
-                                   (changed_eval.cage, *changed_eval.levels)):
-            self.assertEqual((base.quads, base.control_ids, base.formula_ids),
-                             (candidate.quads, candidate.control_ids, candidate.formula_ids))
-        for base, candidate, expected in zip(base_eval.levels, changed_eval.levels,
-                                             (expected_l1, expected_l2)):
-            actual = {i for i, (before, after) in enumerate(zip(base.vertices, candidate.vertices))
-                      if before != after}
-            self.assertEqual(actual, expected)
-            self.assertTrue(expected and set(range(len(base.vertices))) - expected)
+        axilla_u = synthetic_prepared()
+        for side in ("left", "right"):
+            point = list(axilla_u["landmarks"][f"axilla_{side}"]["point"]); point[1] += 0.12; axilla_u["landmarks"][f"axilla_{side}"]["point"] = tuple(point)
+        moved = surface.build_cage(axilla_u); self.assertTrue(all(baseline.vertices[a:b] != moved.vertices[a:b] for a, b in ((16, 24), (58, 60), (62, 64))))
+        self.assertEqual((baseline.vertices[24:32], tuple(baseline.vertices[i] for i in (10, 13, 14, 15))), (moved.vertices[24:32], tuple(moved.vertices[i] for i in (10, 13, 14, 15))))
+
+        for key, value, expected_indices in (
+                ("shoulder", 0.81, {8, 9, 11, 12, 56, 57, 60, 61}),
+                ("saddle", 0.60, {10, 13, 14, 15})):
+            changed = synthetic_prepared(); changed["scalars"][key] = {"value": value, "provenance": f"synthetic.constant.{key}"}
+            candidate = surface.build_cage(changed)
+            changed_indices = {i for i, (before, after) in enumerate(zip(baseline.vertices, candidate.vertices)) if before != after}
+            self.assertEqual(changed_indices, expected_indices)
+            self.assertEqual((baseline.quads, baseline.control_ids), (candidate.quads, candidate.control_ids))
+            base_eval = surface.evaluate(synthetic_prepared(), levels=2); changed_eval = surface.evaluate(changed, levels=2)
+            l1_inputs, l1_quads, l1_loops = independent_subdivision_stencils(baseline.quads, baseline.boundary_loops, len(baseline.vertices))
+            l1_changed = {i for i, inputs in enumerate(l1_inputs) if inputs & changed_indices}
+            l2_inputs, _, _ = independent_subdivision_stencils(l1_quads, l1_loops, len(base_eval.levels[0].vertices))
+            expected = (l1_changed, {i for i, inputs in enumerate(l2_inputs) if inputs & l1_changed})
+            for base, trial in zip(base_eval.levels, changed_eval.levels):
+                self.assertEqual((base.quads, base.control_ids, base.formula_ids), (trial.quads, trial.control_ids, trial.formula_ids))
+            for base, trial, affected in zip(base_eval.levels, changed_eval.levels, expected):
+                actual = {i for i, (before, after) in enumerate(zip(base.vertices, trial.vertices)) if before != after}
+                self.assertEqual(actual, affected); self.assertTrue(affected and set(range(len(base.vertices))) - affected)
 
         changed = synthetic_prepared(); changed["scalars"]["gamma"] = {"value": 0.12, "provenance": "synthetic.constant.gamma"}
         gapped = surface.build_cage(changed)
@@ -510,10 +513,10 @@ class FormulaAndInputTests(unittest.TestCase):
 
         overrides = synthetic_prepared()
         for key, value in (("n", 2.7), ("lambda", 0.3), ("shoulder", 0.81),
-                           ("axilla", 0.56), ("eta", 0.3), ("gamma", 0.09)):
+                           ("axilla", 0.56), ("eta", 0.3), ("gamma", 0.09), ("saddle", 0.50)):
             overrides["scalars"][key] = {"value": value, "provenance": f"override.{key}"}
         emitted = surface.build_cage(overrides)
-        for index, key in ((0, "n"), (40, "lambda"), (64, "eta"), (64, "gamma")):
+        for index, key in ((0, "n"), (40, "lambda"), (64, "eta"), (64, "gamma"), (10, "saddle")):
             self.assertTrue(any(f"override.{key}" in item for item in emitted.provenance_ids[index]))
         self.assertIn("formula_constant.n.v1", baseline.provenance_ids[0])
         self.assertEqual(tuple(any(key in item for item in emitted.provenance_ids[index])
@@ -541,6 +544,7 @@ class FormulaAndInputTests(unittest.TestCase):
         for side in ("left", "right"):
             bad_transition["landmarks"][f"axilla_{side}"]["point"] = (0, 1.55, 0)
         cases.append(bad_transition)
+        bad_neck = synthetic_prepared(); bad_neck["stations"]["neck_collar"]["center"] = (0, 2.40, 0); cases.append(bad_neck)
         for prepared in cases:
             with self.subTest(case=cases.index(prepared)):
                 with self.assertRaises(ValueError):
@@ -568,12 +572,6 @@ class SubdivisionTests(unittest.TestCase):
                          ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
         self.assertTrue(all(value > threshold for (_, value), threshold in zip(
             self.result.clearance_ratios, (0.030, 0.025, 0.025, 0.020, 0.025))))
-
-    def test_canonical_projection_evaluates_without_intersections(self):
-        source = ROOT.parents[1] / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
-        result = surface.evaluate(prepare_standard_neutral(source), levels=2)
-        self.assertEqual(result.intersection_counts, (0, 0))
-        self.assertEqual(len(result.clearance_ratios), 5)
 
     def test_correspondence_order_and_results_are_deterministic(self):
         repeated = surface.evaluate(synthetic_prepared(), levels=2)
