@@ -339,6 +339,60 @@ one-shared-correction stop rule. Stage 2 and Stage 3 remain inactive. No
 autonomous next candidate or tuning is authorized; Ben must authorize a new
 Stage 1 direction.
 
+### Final regional-candidate disposition (PR #123)
+
+[PR #123](https://github.com/benhook1013/creature-kernel/pull/123) is
+**CLOSED, not merged**. Its pushed head was
+`36ab72610d99a56a962cffbf8eda6b63d3a4034f`; latest pushed CI was green, but
+the latest substantive hosted review had eight actionable findings. The
+overlay archival commit is
+`17ba5eaf39157f875931c287b3712367349e9299`, with tree
+`4f1d5c81b8d77b28944676acc7679cabb0cdc06e` and parent exactly the pushed
+head. It is unreviewed and unaccepted. The annotated remote tag is
+`archive/regional-surface-candidate-2026-09-03` (tag object
+`abc6b39eba32d73859b9396debc8858d7140db94`, peeled commit
+`17ba5ea`).
+
+The latest reviewed local gallery
+`regional-surface-wip-wrist-36ab72610d99` remains in the artifact cache.
+Its `review.json` SHA-256 is
+`902ec0b0a5323094a3857cfec515a99aac60107c9182b60deeeaf2d12081e2d0`.
+The five PNG hashes, in profile order, are: standard
+`845017852e5b5299773b1b140eaf2a2b37edc5fc75fb8f0302af1655693a7e6c`, compact
+`8c44e61cb8f675147cd8ea23c5fe5eb174332e4c7192bd2e415738156b6e96dd`, tall
+`39570b2ee24af8df03a3585b8cfdb5aeca5c6d9fe37789538d968a0378e1f060`, slender
+`bf222b0528786871a1cb66efd09aa2fbd23d3ade1b997a97a5c83b38b2ed3533`, and
+stocky `8c98c1314c7b8220826fef7d02f96ee7ff89ad24f7794a4795a6b4dd37f98797`.
+
+The scoped visual failure was blocky or bell-shaped torso/pelvis massing,
+external/diagonal thigh bulbs rather than thighs seated as roots inside the
+pelvis, and unconvincing neck/shoulder and other transitions. This is scoped
+to this candidate and does not generalize to all implicit methods. The visual
+service has been returned to main; the old worktree and local/remote branch
+were removed only after tag verification. This closes the regional candidate;
+the new programmatic investigation is separately bounded research, not a
+reopening of PR #123.
+
+Reproduction requires checking out the archive tag and using the archived
+experiment launcher; the active branch does not retain the regional publisher:
+
+```bash
+surface_preview_launcher=experiments/current-form-surface-preview/surface_preview_launcher.sh
+source_parent="$(mktemp -d /tmp/ck-regional-archive-source-XXXXXX)"
+"$surface_preview_launcher" experiments/current-form-surface-preview/generate_structural_profile_sources.py \
+  --output-dir "$source_parent/sources"
+"$surface_preview_launcher" dev-tools/visual-review/publish_regional_surface_gallery.py \
+  --root "${XDG_CACHE_HOME:-$HOME/.cache}/creature-kernel/visual-reviews" \
+  --source-manifest "$source_parent/sources/manifest.json" \
+  --creature-kernel target/debug/creature-kernel \
+  --id replace-with-a-fresh-regional-archive-id \
+  --mesh-samples 56 --mesh-padding 0.2
+```
+
+The archived checkout, pinned experiment environment, and built
+`target/debug/creature-kernel` are prerequisites. Use a fresh publication ID;
+the immutable publisher will not replace the retained reviewed session.
+
 ### Next hypothesis (superseded)
 
 The approved regional pivot recorded in the 2026-09-01 active runway was a
