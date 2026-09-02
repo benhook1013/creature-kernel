@@ -21,6 +21,10 @@ hypotheses, references, and research context.
 - [First surface experiment design](first-surface-experiment-design.md) — a
   Proposed, neutral evidence design; EXP-0001 is not registered and no
   evidence exists yet.
+- [Programmatic root-complex surface investigation](programmatic-root-complex-surface-investigation.md) — a
+  Ben-authorized, experiment-local, pre-Readiness-4 candidate plan; it is
+  non-normative and does not activate DR-0009/0010 or replace DR-0013 Stage 1
+  proof.
 - [Numeric and frame profile experiment design](numeric-frame-profile-experiment.md) —
   planned and unregistered evidence for numeric admission, exact dyadic/ULP
   boundaries, deterministic normalization and offline half-chord derivation,

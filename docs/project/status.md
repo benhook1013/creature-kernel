@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-09-01 (NZST; repository activity is recorded in NZST while
+Status date: 2026-09-03 (NZST; repository activity is recorded in NZST while
 GitHub timestamps are UTC)
 
 ## Phase
@@ -18,14 +18,54 @@ This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may
 preserve evidence but do not redefine current continuation.
 
+### Current investigation
+
+The current runway is a Ben-authorized, experiment-local, pre-Readiness-4
+investigation of a programmatic surface-domain/subdivision-cage representation.
+Its bounded question is whether that representation can produce a credible
+ribcage-waist-pelvis assembly with readable neck, axilla, and hip/thigh-root
+boundaries, sufficient to justify extending the representation. The settled
+candidate plan is the [programmatic root-complex surface
+investigation](../research/programmatic-root-complex-surface-investigation.md).
+
+The investigation consumes explicitly identified authored/prepared input only.
+It introduces no production `GeometryRequest`/`GeometryResult` contract, no
+production-core dependency, no claimed resolved graph, and no durable
+domain/chart/cage identity. It cannot satisfy or replace the DR-0013 Stage 1
+proof. DR-0009 and DR-0010 remain parked; any promotion stops for the
+appropriate decision record/canonical architecture work and Ben's approval.
+
+The scope is the ribcage, waist, pelvis, neck port, bilateral shoulder/axilla
+roots, and bilateral hip/thigh roots. Use the standard neutral first, then
+expand unchanged rules to the exact five profiles only after credible
+main-thread visual inspection. Keep a separate standard-profile
+tail-present/tail-absent subcase with the same unaffected core outside the
+local port and no absent tail identities. Compare front, side, and
+three-quarter final-skin renders with the frozen failed baseline at the same
+framing and scale. Passing this investigation is not Stage 1/topology
+acceptance or distal-anatomy authorization.
+
+Continuation follows the plan's frozen contract and complexity cap: minimal
+neutral program and direct skin render, main-thread visual check, unchanged
+exact-five expansion, only needed validators, rejection-only static probes
+after static viability, and a thin gallery adapter last. The plan is a
+candidate research record, not accepted product, specification, or architecture
+state.
+
+## Historical failed-candidate runway (2026-09-01)
+
+Everything under this heading is historical evidence about the closed
+candidate. It does not define current continuation, authorize tuning, or
+override the Active runway above.
+
 The `artifact-cache/...` prefix below is a logical local-cache identifier, not
 a repository path or a literal universal filesystem path.
 
-### Current destination
+### Historical candidate destination
 
-The active runway is closed at the failed-candidate stop gate. Its bounded
-destination was convincing simplified/stylized anatomy across exactly five
-ordered source profiles, with a standard neutral reference first:
+The failed candidate's bounded destination was convincing simplified/stylized
+anatomy across exactly five ordered source profiles, with a standard neutral
+reference first:
 
 - `standard_neutral_reference`
 - `compact_broad_short_limb_large_head`
@@ -271,8 +311,9 @@ trigger or retained-human direction. The bounded morphology research input is
 retained as context, while a general body-dossier framework or schema remains
 inactive.
 
-This section remains the sole continuation source; later status sections are
-reference history or task-specific state only.
+This historical section is retained for evidence. The Active runway above
+alone governs current continuation; later status sections are reference
+history or task-specific state only.
 
 ## Historical runway record
 
