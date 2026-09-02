@@ -3,7 +3,7 @@
 from collections import Counter, defaultdict, deque
 from collections.abc import Mapping
 from dataclasses import dataclass
-from math import cos, isfinite, pi, sin
+from math import cos, hypot, isfinite, pi, sin
 
 import numpy as np
 
@@ -222,7 +222,9 @@ def _prepared(prepared):
         raise ValueError("prepared input exceeds admission caps")
     frame = _record(frames, "body", "frame")
     axes = tuple(_vector(frame[name], f"frames.body.{name}") for name in ("lateral_axis", "up_axis", "forward_axis"))
-    L, U, F = (axis / np.linalg.norm(axis) for axis in axes)
+    lengths = tuple(hypot(*axis) for axis in axes)
+    if any(not isfinite(length) or length <= 0 for length in lengths): raise ValueError("body frame axes must have finite positive norms")
+    L, U, F = (axis / length for axis, length in zip(axes, lengths))
     if any(abs(np.dot((L, U, F)[i], (L, U, F)[j])) > 1e-8 for i in range(3) for j in range(i)) or np.dot(np.cross(L, U), F) <= 1 - 1e-8:
         raise ValueError("body frame must be orthonormal and right-handed")
     constants, constant_provenance = dict(CONSTANTS), {key: f"formula_constant.{key}.v1" for key in CONSTANTS}
@@ -421,8 +423,7 @@ def build_cage(prepared):
 
 def _scale(mesh):
     loop_map = dict(mesh.boundary_loops)
-    centroids = [np.mean([mesh.vertices[i] for i in loop_map[name]], axis=0)
-                 for name in ("neck", "left_thigh", "right_thigh")]
+    centroids = [np.mean([mesh.vertices[i] for i in loop_map[name]], axis=0) for name in ("neck", "left_thigh", "right_thigh")]
     value = np.linalg.norm(centroids[0] - (centroids[1] + centroids[2]) / 2)
     if not isfinite(value) or value <= 0:
         raise ValueError("trial scale must be positive")
@@ -558,5 +559,4 @@ def evaluate(prepared, levels=2):
             clearance_ratios = tuple((name, float(values[name])) for name in (
                 "neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
         outputs.append(current)
-    return SurfaceEvaluation(cage, tuple(outputs), tuple(intersection_counts),
-                             clearance_ratios)
+    return SurfaceEvaluation(cage, tuple(outputs), tuple(intersection_counts), clearance_ratios)

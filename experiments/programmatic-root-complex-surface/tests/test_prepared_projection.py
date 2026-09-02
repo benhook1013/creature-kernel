@@ -64,11 +64,11 @@ class PreparedProjectionTests(unittest.TestCase):
         forbidden = ("vertices", "faces", "connectivity", "perimeter", "silhouette", "mask", "resolved", "graph", "profile_id")
         self.assertFalse(any(re.search(rf"(?<![a-z]){token}(?![a-z])", encoded.decode().lower()) for token in forbidden))
 
-    def assert_rejected(self, mutate):
+    def assert_rejected(self, pattern, mutate):
         source = copy.deepcopy(self.source); mutate(source)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "source.json"; path.write_text(json.dumps(source), encoding="utf-8")
-            with self.assertRaises(PreparedProjectionError): prepare_standard_neutral(path)
+            with self.assertRaisesRegex(PreparedProjectionError, pattern): prepare_standard_neutral(path)
 
     @staticmethod
     def record_index(source, collection, owner, role):
@@ -96,9 +96,9 @@ class PreparedProjectionTests(unittest.TestCase):
                 self.assertTrue(all(f"body.dimensions[{index}].value" in provenance for index in indexes) and "validated_bilateral_scalar_v1" in provenance)
 
     def test_bilateral_scalar_asymmetry_is_rejected_for_each_shared_scalar(self):
-        for _, role, dimension_role in BILATERAL_SCALARS:
+        for name, role, dimension_role in BILATERAL_SCALARS:
             with self.subTest(owner=role, dimension=dimension_role):
-                self.assert_rejected(lambda source, role=role, dimension_role=dimension_role: self.bump_right_dimension(source, role, dimension_role))
+                self.assert_rejected(rf"scalars\.{name}: left and right dimensions must match", lambda source, role=role, dimension_role=dimension_role: self.bump_right_dimension(source, role, dimension_role))
 
     def test_load_rejects_duplicate_keys_and_nonfinite_constants(self):
         for raw in ('{"duplicate": 1, "duplicate": 2}', '{"value": NaN}', '{"value": Infinity}', '{"value": -Infinity}'):
@@ -109,13 +109,13 @@ class PreparedProjectionTests(unittest.TestCase):
                         _load(path)
 
     def test_required_source_shape_and_routes_fail_closed(self):
-        self.assert_rejected(lambda source: source["basis"].__setitem__("forward", "-z"))
-        self.assert_rejected(lambda source: source["source"].__setitem__("document", "other"))
+        self.assert_rejected(r"source\.basis: wrong basis", lambda source: source["basis"].__setitem__("forward", "-z"))
+        self.assert_rejected(r"source\.source: wrong source identity", lambda source: source["source"].__setitem__("document", "other"))
         pelvis = self.owner("pelvis")
         thigh_left = self.owner("thigh", ("left",))
-        self.assert_rejected(lambda source: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, "form_torso_profile_lower_pelvis_lateral_radius")].__setitem__("value", 0))
-        self.assert_rejected(lambda source: source["body"]["landmarks"][self.record_index(source, "landmarks", thigh_left, "form_leg_profile_thigh_midpoint")].__setitem__("position", [0, 0, 0]))
-        self.assert_rejected(lambda source: self.duplicate_record(source, "landmarks", (pelvis, "form_torso_profile_lower_pelvis"), (pelvis, "form_torso_profile_upper_pelvis")))
-        self.assert_rejected(lambda source: self.blank_record(source, "landmarks", (self.owner("upper_arm", ("left",)), "form_shoulder_peak")))
-        self.assert_rejected(lambda source: source["body"].__setitem__("unknown", []))
-        self.assert_rejected(lambda source: self.duplicate_record(source, "frames", (self.owner("torso"), "form_torso_profile_control"), (pelvis, "form_torso_profile_control")))
+        self.assert_rejected(r"body\.dimensions\[\d+\]\.value: expected positive number", lambda source: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, "form_torso_profile_lower_pelvis_lateral_radius")].__setitem__("value", 0))
+        self.assert_rejected(r"left controls: degenerate required route", lambda source: source["body"]["landmarks"][self.record_index(source, "landmarks", thigh_left, "form_leg_profile_thigh_midpoint")].__setitem__("position", [0, 0, 0]))
+        self.assert_rejected(r"body\.landmarks\.form_torso_profile_lower_pelvis: missing or duplicate required record", lambda source: self.duplicate_record(source, "landmarks", (pelvis, "form_torso_profile_lower_pelvis"), (pelvis, "form_torso_profile_upper_pelvis")))
+        self.assert_rejected(r"body\.landmarks\[\d+\]: missing record selector", lambda source: self.blank_record(source, "landmarks", (self.owner("upper_arm", ("left",)), "form_shoulder_peak")))
+        self.assert_rejected(r"source\.body: unknown or missing collection", lambda source: source["body"].__setitem__("unknown", []))
+        self.assert_rejected(r"body\.frames\.form_torso_profile_control: missing or duplicate required record", lambda source: self.duplicate_record(source, "frames", (self.owner("torso"), "form_torso_profile_control"), (pelvis, "form_torso_profile_control")))

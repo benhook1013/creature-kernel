@@ -38,12 +38,12 @@ def build(source: str | Path, output_dir: str | Path) -> Path:
         prepared = prepare_standard_neutral(source); evaluated = surface.evaluate(prepared, levels=2); intersection_counts = tuple(evaluated.intersection_counts)
         if any(intersection_counts): raise ValueError("refusing publication with nonzero evaluated intersections")
         final, cage = evaluated.levels[-1], evaluated.cage
+        scale = surface.validate_geometry(final, evaluated=True)
         (stage / "prepared.json").write_bytes(canonical_json_bytes(prepared))
         render_export.write_skin_ply(stage / "skin.ply", final.vertices, final.quads)
         render_export.render_skin_png(stage / "skin.png", final.vertices, final.quads)
         render_export.render_cage_png(stage / "cage.png", cage.vertices, cage.quads)
         files = {name: _sha256(stage / name) for name in ("prepared.json", "skin.ply", "skin.png", "cage.png")}
-        scale = surface.validate_geometry(final, evaluated=True)
         metrics = {"schema": "programmatic-root-complex.metrics.v1", "level": 2,
                    "scale": scale, "cage_vertices": len(cage.vertices),
                    "cage_quads": len(cage.quads), "skin_vertices": len(final.vertices),

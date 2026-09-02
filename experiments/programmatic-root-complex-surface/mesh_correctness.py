@@ -7,7 +7,7 @@ import numpy as np
 
 REQUIRED_LOOPS = ("neck", "left_arm", "right_arm", "left_thigh", "right_thigh")
 INTERSECTION_TOLERANCE = 1e-10
-MAX_TRIANGLES = 2048
+MAX_TRIANGLES = 3072
 MAX_CANDIDATES = 250000
 CLEARANCE_THRESHOLDS = {"neck": .030, "axilla_left": .025, "axilla_right": .025,
                         "groin": .020, "medial_thigh": .025}

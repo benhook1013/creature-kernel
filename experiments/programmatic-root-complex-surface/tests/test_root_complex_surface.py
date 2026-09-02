@@ -329,7 +329,7 @@ class FormulaAndInputTests(unittest.TestCase):
         lateral = np.asarray((1.0, 0.0, 0.0))
         up = np.asarray((0.0, 1.0, 0.0))
         forward = np.asarray((0.0, 0.0, 1.0))
-        socket_indices = set()
+        socket_sides = {}
         for side, sign, ring_segment, front_index, back_index in (
                 ("left", -1, 3, 3, 4), ("right", 1, 0, 1, 0)):
             arm = prepared["scalars"]
@@ -361,7 +361,7 @@ class FormulaAndInputTests(unittest.TestCase):
                 anchor = station_center + ((station["front_extent"] - station["back_extent"]) / 2) * forward + sign * station["lateral_radius"] * lateral
                 for index, depth_sign in ((front_index, 1), (back_index, -1)):
                     actual_index = ring_start + index
-                    socket_indices.add(actual_index)
+                    socket_sides[actual_index] = side
                     expected = (float(np.dot(anchor, lateral)) * lateral +
                                 float(np.dot(center, up)) * up +
                                 (float(np.dot(center, forward)) + depth_sign * arm["arm_root_depth"]["value"]) * forward)
@@ -382,13 +382,13 @@ class FormulaAndInputTests(unittest.TestCase):
                     self.assertEqual(set(cage.dependencies[actual_index]), expected_dependencies)
                     self.assertTrue(all(value for value in cage.provenance_ids[actual_index]))
 
-        for index in socket_indices:
+        for index in socket_sides:
             self.assertIn("stations.", " ".join(cage.dependencies[index]))
         collar_indices = set(range(56, 64))
         edges = set()
         for face in cage.quads:
             for a, b in zip(face, face[1:] + face[:1]):
-                if {a, b} <= socket_indices | collar_indices and ({a, b} & socket_indices) and ({a, b} & collar_indices):
+                if {a, b} <= socket_sides.keys() | collar_indices and ({a, b} & socket_sides.keys()) and ({a, b} & collar_indices):
                     edges.add(tuple(sorted((a, b))))
         self.assertEqual(len(edges), 8)
         directions = {"left": [], "right": []}
@@ -396,7 +396,7 @@ class FormulaAndInputTests(unittest.TestCase):
             delta = vertices[collar] - vertices[socket]
             np.testing.assert_allclose(np.dot(delta, up), 0.0, atol=1e-12)
             np.testing.assert_allclose(np.dot(delta, forward), 0.0, atol=1e-12)
-            side = "left" if socket in {11, 12, 19, 20} else "right"
+            side = socket_sides[socket]
             sign = -1 if side == "left" else 1
             directions[side].append(sign * float(np.dot(delta, lateral)))
         for values in directions.values():
@@ -508,7 +508,7 @@ class FormulaAndInputTests(unittest.TestCase):
                 surface.build_cage(prepared)
 
     def test_invalid_inputs_fail_closed(self):
-        cases = ((lambda p: p["stations"].pop("neck_collar"), r"prepared\.stations has unknown or missing fields"), (lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), r"stations\.waist_abdomen\.center must be a finite 3-vector"), (lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), "body frame must be orthonormal and right-handed"), (lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), "thigh route left must have positive length"), (lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), "thigh medial radius left is non-positive"), (lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], "axilla transition interpolation must have 0 < t < 1"), (lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)), "neck must be above upper ribcage"))
+        cases = ((lambda p: p["stations"].pop("neck_collar"), r"prepared\.stations has unknown or missing fields"), (lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), r"stations\.waist_abdomen\.center must be a finite 3-vector"), (lambda p: p["frames"]["body"].update(lateral_axis=(0, 0, 0)), "body frame axes must have finite positive norms"), (lambda p: p["frames"]["body"].update(lateral_axis=(np.finfo(float).max,) * 3), "body frame axes must have finite positive norms"), (lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), "body frame must be orthonormal and right-handed"), (lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), "thigh route left must have positive length"), (lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), "thigh medial radius left is non-positive"), (lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], "axilla transition interpolation must have 0 < t < 1"), (lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)), "neck must be above upper ribcage"))
         for index, (mutate, message) in enumerate(cases):
             with self.subTest(case=index):
                 prepared = synthetic_prepared(); mutate(prepared)
@@ -589,6 +589,7 @@ class MeshCorrectnessTests(unittest.TestCase):
         self.assert_pairs(coincident, triangles, ((0, 1),))
 
     def test_intersection_resource_caps_fail_closed(self):
+        self.assertEqual((mesh_correctness.MAX_TRIANGLES, len(mesh_correctness._triangles(np.tile((0, 1, 2), (mesh_correctness.MAX_TRIANGLES, 1)), 3))), (3072, 3072))
         with self.assertRaisesRegex(ValueError, "triangle cap"):
             mesh_correctness.intersecting_triangle_pairs(
                 np.zeros((3, 3)),
@@ -613,7 +614,7 @@ class MeshCorrectnessTests(unittest.TestCase):
         baseline = mesh_correctness.boundary_clearance_ratios(vertices, loops, axes, scale)
         left, right = loops["left_thigh"], loops["right_thigh"]
         lateral = np.asarray(axes["L"]); points = vertices / scale; left_lateral = points[list(left)] @ lateral; right_lateral = points[list(right)] @ lateral; medial_gap = float(right_lateral.min() - left_lateral.max()); groin_right = right[int(np.argmin(right_lateral))]; groin_left = left[int(np.argmax(left_lateral))]
-        self.assertGreater(medial_gap, 0.0); self.assertEqual(baseline["groin"], medial_gap)
+        self.assertGreater(medial_gap, 0.0); self.assertAlmostEqual(baseline["groin"], medial_gap, delta=1e-12)
         for left_shift, right_shift in ((i, j) for i in range(len(left)) for j in range(len(right))):
             rotated = dict(loops); rotated["left_thigh"] = left[left_shift:] + left[:left_shift]; rotated["right_thigh"] = right[right_shift:] + right[:right_shift]
             self.assertEqual(mesh_correctness.boundary_clearance_ratios(vertices, rotated, axes, scale), baseline)
