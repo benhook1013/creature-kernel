@@ -18,42 +18,48 @@ This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may
 preserve evidence but do not redefine current continuation.
 
-### Terminal investigation outcome
+### Owned root assembly successor
 
-The Ben-authorized, experiment-local, pre-Readiness-4 investigation of a
-programmatic surface-domain/subdivision-cage representation is terminal for
-its seven-ring candidate. Its bounded question was whether that
-representation could produce a credible ribcage-waist-pelvis assembly with
-readable neck, axilla, and hip/thigh-root boundaries, sufficient to justify
-extending the representation. The recorded plan and outcome are in the
-[programmatic root-complex surface investigation](../research/programmatic-root-complex-surface-investigation.md).
+The Ben-authorized, experiment-local successor is the bounded [owned root
+assembly investigation](../research/owned-root-assembly-investigation.md).
+It tests one welded standard-neutral root surface using exactly eight named,
+nonempty domain interiors under the hard `<=8` cap, five open ports, at most
+128 controls and 120 base quads, two subdivision levels, and at most two shared
+correction rounds. Construction ownership, semantic causality, and
+evaluated-surface contributor/chart lineage remain separate; every output must
+be owned or have a declared junction or contributor record.
 
-The investigation consumes explicitly identified authored/prepared input only.
-It introduces no production `GeometryRequest`/`GeometryResult` contract, no
-production-core dependency, no claimed resolved graph, and no durable
-domain/chart/cage identity. It cannot satisfy or replace the DR-0013 Stage 1
-proof. DR-0009 and DR-0010 remain parked; any promotion stops for the
-appropriate decision record/canonical architecture work and Ben's approval.
+The successor must use the authored `neck_upper` and `upper_abdomen` controls
+and freeze its oriented interfaces, patch layout, port orientation,
+extraordinary placement/valence, continuity, normal/fold bounds, subdivision
+support, causality matrix, and locality perturbations before rendering. It
+replaces the old port-span anatomy gates with candidate-specific checks for
+neck exposure, shoulder descent, axillary concavity, pelvic wrap, and
+downward thigh-root orientation. Direct skin and ownership diagnostics must
+be renders of the same evaluated surface, and categorical colour cannot stand
+in for causality.
 
-The scoped standard-neutral evidence exhausted exactly three frozen shared
-correction rounds: round 1 fixed measured shoulder intersections, round 2
-improved axial taper and thigh seating, and round 3 applied a superior axial
-saddle. Main-thread direct vision of the fixed front, side, and three-quarter
-round-3 evidence found neck emergence and downward shoulder departure still
-too weak; the arm ports continued to read in a broad superior shelf. Neutral
-credibility failed, so exact-five, tail, and gallery expansion are blocked and
-no fourth correction is allowed.
+The plan remains non-executable until the required
+`experiments/owned-root-assembly-successor/design-contract.md` freeze artifact
+exists, has a recorded SHA-256 identity, and supplies all pre-build finite
+complexity caps and candidate details required by the investigation. The
+future builder must reject a missing or mismatched design-contract identity.
 
-Structural evidence nevertheless passed: 72 cage vertices and 63 quads,
-1,053 level-2 vertices and 1,008 level-2 quads, level-1/level-2 intersection
-counts `0/0`, and all five clearance ratios passing. This is a scoped rejection
-of the seven-ring candidate, not formal Stage 1, not a global rejection of
-programmatic or hybrid surfaces, and not authority to reactivate DR-0009,
-DR-0010, or another parked workstream.
+Advance only through the documented bounded implementation and internal gates.
+Do not add profile branches, hidden skin, render corrections, solvers, distal
+body, tail, runtime/deformation, gallery, or exact-five work before credible
+standard-neutral evidence. If the required cues remain unclear after the
+initial implementation and two shared corrections, reject this candidate;
+another representation requires a newly recorded runway rather than an
+automatic fallback.
 
-The next retained-human action is Ben's disposition or a newly authorized
-direction. There is no autonomous substitute checkpoint, exact-five
-continuation, or parked-work reactivation under this runway.
+The named human checkpoint is Ben's appraisal of the exact-five owned-root
+assembly, but only after standard neutral passes the unchanged internal gates
+and the exact-five evidence is generated. The checkpoint uses fixed front,
+side, and three-quarter final-surface renders. Internal metrics and model
+reviews do not substitute for Ben's visual judgment. The [terminal seven-ring
+outcome](../research/programmatic-root-complex-surface-investigation.md#terminal-outcome-2026-09-03)
+remains historical evidence and is not reactivated.
 
 ## Historical failed-candidate runway (2026-09-01)
 

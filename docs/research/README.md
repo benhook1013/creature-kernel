@@ -25,6 +25,10 @@ hypotheses, references, and research context.
   Ben-authorized, experiment-local, pre-Readiness-4 terminal candidate outcome;
   it is non-normative, blocks exact-five continuation, and does not activate
   DR-0009/0010 or replace DR-0013 Stage 1 proof.
+- [Owned root assembly investigation](owned-root-assembly-investigation.md) — a
+  planned, Ben-authorized, experiment-local successor direction using explicit
+  domain/junction ownership; it is non-normative and remains bounded by the
+  Active runway and the later exact-five human checkpoint.
 - [Numeric and frame profile experiment design](numeric-frame-profile-experiment.md) —
   planned and unregistered evidence for numeric admission, exact dyadic/ULP
   boundaries, deterministic normalization and offline half-chord derivation,

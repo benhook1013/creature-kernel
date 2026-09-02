@@ -9,10 +9,10 @@ with live verification and navigation.
 The following values are expected last-known context and are explicitly
 untrusted until verified live:
 
-- Checkout: `/home/ben/src/creature-kernel-worktrees/programmatic-root-complex-surface`
-- Worktree: `/home/ben/src/creature-kernel-worktrees/programmatic-root-complex-surface`
-- Branch: `codex/programmatic-root-complex-surface`
-- Pull request: draft implementation PR #125
+- Checkout: `/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor`
+- Worktree: `/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor`
+- Branch: `codex/owned-root-assembly-successor`
+- Pull request: none yet; successor-plan worktree is not a PR
 
 ## Live verification checklist
 
