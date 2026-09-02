@@ -54,8 +54,9 @@ the recorded SHA-256 identities are:
 | `metrics.json` | `f7470ef2472e16dd8decea6849d1854d2c524419edc950a357430069841c0221` |
 | `manifest.json` | `0e233864d232d7101debd932664a3348c28e1f072c725d3f2ed26e1ce5d7c2a6` |
 
-The terminal evidence used the launcher's pinned environment: Python
-`3.10.12`, NumPy `2.2.6`, Pillow `11.1.0`, and scikit-image `0.25.2`.
+The terminal evidence observed Python `3.10.12`; the launcher validated its
+pinned package environment: NumPy `2.2.6`, Pillow `11.1.0`, and scikit-image
+`0.25.2`.
 
 The evidence can be regenerated with the README's standard-neutral launcher
 command; its output target must be a new temporary path. The next retained

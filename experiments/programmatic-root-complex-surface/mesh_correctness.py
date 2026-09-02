@@ -57,14 +57,19 @@ def _axes(a, b):
         raise ValueError("triangle normal must be nonzero")
     ea = (a[1] - a[0], a[2] - a[1], a[0] - a[2])
     eb = (b[1] - b[0], b[2] - b[1], b[0] - b[2])
-    result = [na, nb]
-    result.extend(np.cross(x, y) for x in ea for y in eb)
-    result.extend(np.cross(na, edge) for edge in ea)
-    result.extend(np.cross(nb, edge) for edge in eb)
-    return result
+    return [na, nb, *(np.cross(x, y) for x in ea for y in eb), *(np.cross(na, edge) for edge in ea), *(np.cross(nb, edge) for edge in eb)]
 
 
-def _disjoint(a, b, tolerance):
+def _unique_shared_contact(a, b, axis, shared_vertex):
+    centered = a - shared_vertex, b - shared_vertex
+    left, right = (triangle @ axis for triangle in centered)
+    roundoff = 8.0 * abs(np.spacing(max(np.abs(centered[0] * axis).sum(axis=1).max(), np.abs(centered[1] * axis).sum(axis=1).max())))
+    left_support, right_support = left >= left.max() - roundoff, right <= right.min() + roundoff
+    return (abs(left.max() - right.min()) <= roundoff and min(np.count_nonzero(left_support), np.count_nonzero(right_support)) == 1
+            and np.equal(a[left_support], shared_vertex).all(axis=1).any() and np.equal(b[right_support], shared_vertex).all(axis=1).any())
+
+
+def _disjoint(a, b, tolerance, shared_vertex=None):
     for index, axis in enumerate(_axes(a, b)):
         length = np.linalg.norm(axis)
         if not np.isfinite(axis).all() or not np.isfinite(length):
@@ -78,6 +83,8 @@ def _disjoint(a, b, tolerance):
         if not np.isfinite(left).all() or not np.isfinite(right).all():
             raise ValueError("SAT projections must be finite")
         if left.max() < right.min() - tolerance or right.max() < left.min() - tolerance:
+            return True
+        if shared_vertex is not None and (_unique_shared_contact(a, b, axis, shared_vertex) or _unique_shared_contact(b, a, axis, shared_vertex)):
             return True
     return False
 
@@ -96,21 +103,16 @@ def intersecting_triangle_pairs(vertices, triangles, scale):
         low_x = bounds[current, 0]
         active = [i for i in active if bounds[i, 3] >= low_x - INTERSECTION_TOLERANCE]
         for other in active:
-            if bounds[other, 4] < bounds[current, 1] - INTERSECTION_TOLERANCE:
+            if (bounds[other, 4:] < bounds[current, 1:3] - INTERSECTION_TOLERANCE).any() or (bounds[current, 4:] < bounds[other, 1:3] - INTERSECTION_TOLERANCE).any():
                 continue
-            if bounds[current, 4] < bounds[other, 1] - INTERSECTION_TOLERANCE:
+            shared = set(faces[other]) & set(faces[current])
+            if len(shared) > 1:
                 continue
-            if bounds[other, 5] < bounds[current, 2] - INTERSECTION_TOLERANCE:
-                continue
-            if bounds[current, 5] < bounds[other, 2] - INTERSECTION_TOLERANCE:
-                continue
-            if set(faces[other]) & set(faces[current]):
-                continue
-            candidates.append(tuple(sorted((other, current))))
+            candidates.append((*sorted((other, current)), next(iter(shared), None)))
             if len(candidates) > MAX_CANDIDATES:
                 raise ValueError(f"AABB candidate cap exceeded: >{MAX_CANDIDATES}")
         active.append(current)
-    hits = [(i, j) for i, j in candidates if not _disjoint(corners[i], corners[j], INTERSECTION_TOLERANCE)]
+    hits = [(i, j) for i, j, shared in candidates if not _disjoint(corners[i], corners[j], INTERSECTION_TOLERANCE, None if shared is None else points[shared])]
     return tuple(sorted(hits))
 
 

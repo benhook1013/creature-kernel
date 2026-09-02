@@ -561,32 +561,32 @@ class MeshCorrectnessTests(unittest.TestCase):
         self.assertEqual(mesh_correctness.intersecting_triangle_pairs(vertices, triangles, 1.0), expected)
 
     def test_real_intersection_cases_and_adjacency_policy(self):
-        crossing = np.asarray((
-            (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0),
-            (0.25, -0.25, -1.0), (0.25, 0.75, 1.0), (0.25, 0.75, -1.0)),
-            dtype=float)
-        triangles = np.asarray(((0, 1, 2), (3, 4, 5)), dtype=np.int64)
-        self.assert_pairs(crossing, triangles, ((0, 1),))
+        base = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+        fan = ((0.0, 0.0, 0.0), (1.0, 1.0, 0.0), (1.0, -1.0, 0.0))
+        delta = mesh_correctness.INTERSECTION_TOLERANCE / 2
+        separate = ((0, 1, 2), (3, 4, 5))
+        shared = ((0, 1, 2), (0, 3, 4))
+        cases = (
+            ("crossing", base, ((0.25, -0.25, -1.0), (0.25, 0.75, 1.0), (0.25, 0.75, -1.0)), separate, ((0, 1),)),
+            ("coplanar overlap", base, ((0.25, 0.25, 0.0), (0.9, 0.1, 0.0), (0.1, 0.9, 0.0)), separate, ((0, 1),)),
+            ("coplanar disjoint", base, ((2.0, 0.0, 0.0), (3.0, 0.0, 0.0), (2.0, 1.0, 0.0)), separate, ()),
+            ("parallel separated", base, ((0.25, 0.25, 2.0), (0.9, 0.1, 2.0), (0.1, 0.9, 2.0)), separate, ()),
+            ("near contact", base, ((0.25, 0.25, delta), (0.9, 0.1, delta), (0.1, 0.9, delta)), separate, ((0, 1),)),
+            ("coincident", base, base, separate, ((0, 1),)),
+            ("coplanar point fan", base, ((0.0, -1.0, 0.0), (-1.0, 0.0, 0.0)), shared, ()),
+            ("shared edge", base, ((0.0, -1.0, 0.0),), ((0, 1, 2), (1, 0, 3)), ()),
+            ("noncoplanar point fan", fan, ((-1.0, 0.0, 1.0), (-1.0, 0.0, -1.0)), shared, ()),
+            ("sub-tolerance coplanar overlap", fan, ((delta, 0.0, 0.0), (-1.0, 0.25, 0.0)), shared, ((0, 1),)),
+            ("sub-tolerance noncoplanar overlap", fan, ((delta, 0.0, -1.0), (-delta / 2, 0.0, 1.0)), shared, ((0, 1),)),
+            ("near-degenerate axis", fan, ((-1.0, -1.0 + 1e-12, 1e-12), (-1.0, 1.0, 1e-12)), shared, ()),
+        )
+        for name, first, extra, faces, expected in cases:
+            for translation in (0.0, 1e5):
+                with self.subTest(case=name, translation=translation):
+                    self.assert_pairs(np.asarray(first + extra, dtype=float) + translation, np.asarray(faces, dtype=np.int64), expected)
+        crossing = np.asarray(base + cases[0][2], dtype=float)
         with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"):
-            mesh_correctness.validate_triangle_intersections(crossing, triangles, 1.0)
-
-        coplanar_overlap = np.vstack((
-            crossing[:3], ((0.25, 0.25, 0.0), (0.9, 0.1, 0.0), (0.1, 0.9, 0.0))))
-        self.assert_pairs(coplanar_overlap, triangles, ((0, 1),))
-        coplanar_disjoint = np.vstack((
-            crossing[:3], ((2.0, 0.0, 0.0), (3.0, 0.0, 0.0), (2.0, 1.0, 0.0))))
-        self.assert_pairs(coplanar_disjoint, triangles, ())
-        separated = coplanar_overlap.copy(); separated[3:, 2] = 2.0
-        self.assert_pairs(separated, triangles, ())
-        near = coplanar_overlap.copy(); near[3:, 2] = mesh_correctness.INTERSECTION_TOLERANCE / 2
-        self.assert_pairs(near, triangles, ((0, 1),))
-
-        shared = np.asarray(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
-                             (0.0, 1.0, 0.0), (0.0, -1.0, 0.0),
-                             (-1.0, 0.0, 0.0)), dtype=float)
-        self.assert_pairs(shared, np.asarray(((0, 1, 2), (0, 3, 4)), dtype=np.int64), ())
-        coincident = np.vstack((crossing[:3], crossing[:3]))
-        self.assert_pairs(coincident, triangles, ((0, 1),))
+            mesh_correctness.validate_triangle_intersections(crossing, np.asarray(separate, dtype=np.int64), 1.0)
 
     def test_intersection_resource_caps_fail_closed(self):
         self.assertEqual((mesh_correctness.MAX_TRIANGLES, len(mesh_correctness._triangles(np.tile((0, 1, 2), (mesh_correctness.MAX_TRIANGLES, 1)), 3))), (3072, 3072))
