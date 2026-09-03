@@ -15,7 +15,7 @@ SOURCE = REPOSITORY / "examples/body-documents/stylized-digitigrade-biped-author
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
 from prepared_projection import (  # noqa: E402
-    PreparedProjectionError, _load, canonical_json_bytes, canonical_json_sha256,
+    PreparedProjectionError, _add, _load, canonical_json_bytes, canonical_json_sha256,
     prepare_standard_neutral,
 )
 
@@ -142,6 +142,10 @@ class PreparedProjectionTests(unittest.TestCase):
                 prepare_standard_neutral(path)
         self.assertEqual(str(context.exception), "source contains non-finite JSON numbers")
         self.assertIsInstance(context.exception.__cause__, ValueError)
+
+    def test_add_rejects_non_finite_result_from_finite_operands(self):
+        with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):
+            _add((sys.float_info.max, 0, 0), (sys.float_info.max, 0, 0))
 
     def test_required_source_shape_and_routes_fail_closed(self):
         self.assert_rejected(r"source\.basis: wrong basis", lambda source: source["basis"].__setitem__("forward", "-z"))

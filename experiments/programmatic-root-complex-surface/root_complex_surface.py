@@ -9,7 +9,6 @@ import numpy as np
 
 import mesh_correctness
 
-
 RING_NAMES = (
     "neck_collar",
     "upper_ribcage_shoulder",
@@ -35,7 +34,6 @@ _RECORD_FIELDS = {kind: frozenset(fields.split()) for kind, fields in (
     ("frame", "lateral_axis up_axis forward_axis provenance"), ("landmark", "point provenance"),
     ("station", "center lateral_radius front_extent back_extent provenance"), ("scalar", "value provenance"))}
 
-
 @dataclass(frozen=True)
 class Mesh:
     vertices: tuple[tuple[float, float, float], ...]
@@ -47,14 +45,12 @@ class Mesh:
     boundary_loops: tuple[tuple[str, tuple[int, ...]], ...]
     triangles: tuple[tuple[int, int, int], ...] = ()
 
-
 @dataclass(frozen=True)
 class SurfaceEvaluation:
     cage: Mesh
     levels: tuple[Mesh, ...]
     intersection_counts: tuple[int, ...] = ()
     clearance_ratios: tuple[tuple[str, float], ...] = ()
-
 
 @dataclass(frozen=True)
 class TopologyReport:
@@ -66,7 +62,6 @@ class TopologyReport:
     boundary_lengths: tuple[int, ...]
     valence_inventory: tuple[tuple[int, int], ...]
 
-
 def _edges(faces):
     uses = defaultdict(list)
     for fi, face in enumerate(faces):
@@ -74,7 +69,6 @@ def _edges(faces):
             b = face[(i + 1) % 4]
             uses[tuple(sorted((a, b)))].append((fi, a, b))
     return uses
-
 
 def _orient(faces):
     uses = _edges(faces)
@@ -98,7 +92,6 @@ def _orient(faces):
     if len(flips) != len(faces):
         raise ValueError("symbolic topology is disconnected")
     return tuple(tuple(reversed(face)) if flips[i] else tuple(face) for i, face in enumerate(faces))
-
 
 def symbolic_topology():
     """Return fixed control IDs, oriented quads, and named cuff loops."""
@@ -131,7 +124,6 @@ def symbolic_topology():
              ("left_thigh", (64, 67, 66, 65)),
              ("right_thigh", (68, 69, 70, 71)))
     return tuple(ids), _orient(faces), loops
-
 
 def validate_topology(vertex_count, faces, loops, expected_valences=None):
     if any(len(face) != 4 or len(set(face)) != 4 for face in faces):
@@ -166,7 +158,6 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
         raise ValueError("Euler characteristic does not match boundary count")
     return report
 
-
 def _vector(value, path):
     try:
         result = np.asarray(value, dtype=float)
@@ -176,7 +167,6 @@ def _vector(value, path):
         raise ValueError(f"{path} must be a finite 3-vector")
     return result
 
-
 def _number(value, path, positive=False):
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
         raise ValueError(f"{path} must be finite")
@@ -185,7 +175,6 @@ def _number(value, path, positive=False):
         raise ValueError(f"{path} must be positive")
     return value
 
-
 def _record(mapping, key, kind):
     value = mapping.get(key)
     if (not isinstance(value, Mapping) or set(value) != _RECORD_FIELDS[kind] or not
@@ -193,26 +182,24 @@ def _record(mapping, key, kind):
         raise ValueError(f"{kind} {key} has unknown or missing fields or requires provenance")
     return value
 
-
 def _exact_keys(value, expected, path, required=None):
     keys = set(value) if isinstance(value, Mapping) else None
     if keys is None or not keys <= expected or not (expected if required is None else required) <= keys: raise ValueError(f"{path} has unknown or missing fields")
 
-
 def _prepared(prepared):
     if not isinstance(prepared, Mapping):
         raise ValueError("prepared input must be a mapping")
-    pending = [prepared]
+    seen = set(); pending = [prepared]
     for item in pending:
-        if isinstance(item, Mapping):
-            keys = {"".join(char for char in str(key).lower() if char.isalnum()) for key in item}
+        if isinstance(item, Mapping) and id(item) not in seen:
+            seen.add(id(item)); keys = {"".join(char for char in str(key).lower() if char.isalnum()) for key in item}
             if keys & {"profile", "profileid"}:
                 raise ValueError("profile identity is forbidden geometry input")
             if keys & _FORBIDDEN_KEYS:
                 raise ValueError("forbidden prepared geometry input")
             pending.extend(item.values())
-        elif isinstance(item, (tuple, list)):
-            pending.extend(item)
+        elif isinstance(item, (tuple, list)) and id(item) not in seen:
+            seen.add(id(item)); pending.extend(item)
     _exact_keys(prepared, _PREPARED_FIELDS, "prepared input"); _exact_keys(prepared["source"], _SOURCE_FIELDS, "prepared.source"); _exact_keys(prepared["basis"], _BASIS_FIELDS, "prepared.basis")
     for name, expected, required in (("frames", _FRAME_NAMES, None), ("landmarks", _LANDMARK_NAMES, None), ("stations", _STATION_NAMES, None), ("scalars", _SCALAR_NAMES, _REQUIRED_SCALARS)): _exact_keys(prepared[name], expected, f"prepared.{name}", required)
     stations, landmarks = prepared.get("stations"), prepared.get("landmarks"); frames, scalars = prepared.get("frames"), prepared.get("scalars")
@@ -237,7 +224,6 @@ def _prepared(prepared):
         if not low <= constants[key] <= high:
             raise ValueError(f"scalar {key} outside frozen range")
     return stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame["provenance"]
-
 
 def build_cage(prepared): return _build_cage(_prepared(prepared))
 def _build_cage(prepared_values):
@@ -420,7 +406,6 @@ def _build_cage(prepared_values):
                                constant_provenance["eta"], constant_provenance["gamma"]))
     vertices = tuple(tuple(float(v) for v in point) for point in points)
     mesh = Mesh(vertices, faces, ids, tuple(formulas), tuple(dependencies), tuple(provenance), loops); validate_geometry(mesh); return mesh
-
 
 def _scale(mesh):
     loop_map = dict(mesh.boundary_loops)

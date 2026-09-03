@@ -8,25 +8,19 @@ import math
 from pathlib import Path
 
 
-class PreparedProjectionError(ValueError):
-    pass
+class PreparedProjectionError(ValueError): pass
 
 
-class _DuplicateJSONKeyError(ValueError):
-    pass
+class _DuplicateJSONKeyError(ValueError): pass
 
 
-class _NonFiniteJSONConstantError(ValueError):
-    pass
+class _NonFiniteJSONConstantError(ValueError): pass
 
 
-class _NonFiniteJSONNumberError(ValueError):
-    pass
+class _NonFiniteJSONNumberError(ValueError): pass
 
 
-class _JSONRootTypeError(TypeError):
-    pass
-
+class _JSONRootTypeError(TypeError): pass
 
 _TOP = {"basis", "body", "contract", "extensions", "profiles", "source"}
 _BODY = {"attachments", "capabilities", "dimensions", "fields", "frames", "joints", "landmarks", "modules", "parts", "regions", "sockets"}
@@ -35,7 +29,6 @@ _I = (0, 0, 0, 1)
 _D = "derivation=source_dimension_integer_as_thousandths_of_canonical_metre_v1"
 _P = "derivation=parent_local_part_translation_plus_landmark_position_v1"
 _BILATERAL_SCALARS = {"arm_root_depth": ("upper_arm", "form_arm_profile_upper_arm_start_forward_radius"), "arm_root_outward": ("upper_arm", "form_arm_profile_upper_arm_start_lateral_radius"), "thigh_lateral_radius": ("thigh", "form_leg_profile_thigh_start_lateral_radius"), "thigh_depth": ("thigh", "form_leg_profile_thigh_start_forward_radius")}
-
 
 def _bad(where, message): raise PreparedProjectionError(f"{where}: {message}")
 def _ok(condition, where, message):
@@ -59,6 +52,12 @@ def _parse_float(value):
 def _require_object(value):
     if not isinstance(value, dict): raise _JSONRootTypeError
     return value
+def _reject_excessive_json_nesting(text):
+    depth = 0; in_string = escaped = False
+    for char in text:
+        if in_string: escaped, in_string = (False, True) if escaped else (char == "\\", char != '"')
+        else: in_string = char == '"'; depth += char in "[{"; depth -= char in "]}"
+        if depth > 1000: raise RecursionError("JSON nesting exceeds the supported limit")
 def _load(path):
     try:
         raw = Path(path).read_bytes()
@@ -69,6 +68,7 @@ def _load(path):
     except UnicodeDecodeError as exc:
         raise PreparedProjectionError("source is not valid UTF-8") from exc
     try:
+        _reject_excessive_json_nesting(text)
         data = _require_object(json.loads(text, object_pairs_hook=_pairs, parse_constant=_reject_constant, parse_float=_parse_float))
     except _DuplicateJSONKeyError as exc:
         raise PreparedProjectionError("source contains duplicate JSON keys") from exc
@@ -102,7 +102,7 @@ def _part(rows, owner, parent):
     _ok(set(place) == {"translation", "rotation_xyzw"}, where, "unknown placement field"); translation = _vec(place["translation"], f"{where}.placement.translation"); _ok(_vec(place["rotation_xyzw"], f"{where}.placement.rotation_xyzw", 4) == _I, where, "non-identity part rotation"); containment = _dict(row["containment"], where)
     _ok(containment == {"root": True} if parent is None else set(containment) == {"parent"} and _addr(containment["parent"], where) == parent, where, "invalid containment")
     return translation, where
-def _add(a, b): return tuple(x + y for x, y in zip(a, b))
+def _add(a, b): result = tuple(x + y for x, y in zip(a, b)); _ok(all(math.isfinite(value) for value in result), "derived point", "expected finite number"); return result
 def _dimension(rows, owner, role):
     row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); value = _num(row["value"], f"{where}.value", True) / 1000.0
     return value, f"{where}.value; {_D}"

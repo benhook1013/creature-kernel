@@ -416,7 +416,7 @@ class FormulaAndInputTests(unittest.TestCase):
             target[path[-1]] = value
             with self.assertRaisesRegex(ValueError, "profile identity"):
                 surface.build_cage(prepared)
-        self.assertFalse(any("profile" in name for name in surface.build_cage.__code__.co_varnames))
+        self.assertRaisesRegex(ValueError, "profile identity", surface.evaluate, {**synthetic_prepared(), "profile_id": "forbidden"})
 
     def test_shared_formula_constants_have_local_expected_effects(self):
         baseline = surface.build_cage(synthetic_prepared())
@@ -510,6 +510,13 @@ class FormulaAndInputTests(unittest.TestCase):
             prepared = synthetic_prepared(); prepared["stations"]["waist_abdomen"][key] = None
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "forbidden prepared geometry"):
                 surface.build_cage(prepared)
+        prepared = synthetic_prepared(); shared = []; shared.append(shared)
+        prepared["source"]["document"] = shared; prepared["source"]["namespace"] = shared
+        self.assertEqual(len(surface.build_cage(prepared).vertices), 72)
+        prepared = synthetic_prepared(); shared = [{"vertices": None}]; shared.append(shared)
+        prepared["source"]["document"] = shared; prepared["source"]["namespace"] = shared
+        with self.assertRaisesRegex(ValueError, "forbidden prepared geometry"):
+            surface.build_cage(prepared)
 
     def test_invalid_inputs_fail_closed(self):
         cases = ((lambda p: p["stations"].pop("neck_collar"), r"prepared\.stations has unknown or missing fields"), (lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), r"stations\.waist_abdomen\.center must be a finite 3-vector"), (lambda p: p["frames"]["body"].update(lateral_axis=(0, 0, 0)), "body frame axes must have finite positive norms"), (lambda p: p["frames"]["body"].update(lateral_axis=(np.finfo(float).max,) * 3), "body frame axes must have finite positive norms"), (lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), "body frame must be orthonormal and right-handed"), (lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), "thigh route left must have positive length"), (lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), "thigh medial radius left is non-positive"), (lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], "axilla transition interpolation must have 0 < t < 1"), (lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)), "neck must be above upper ribcage"))
