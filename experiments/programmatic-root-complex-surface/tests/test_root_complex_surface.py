@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
+import json
+import math
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 import numpy as np
@@ -13,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
 import mesh_correctness  # noqa: E402
+import build_root_complex  # noqa: E402
 
 
 def synthetic_prepared():
@@ -556,10 +560,70 @@ class SubdivisionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "one or two"):
                 operation()
 
+    def test_normal_angle_fold_diagnostics_are_deterministic_and_explicit(self):
+        diagnostics = build_root_complex.normal_angle_fold_diagnostics(self.result.levels)
+        self.assertEqual(diagnostics, build_root_complex.normal_angle_fold_diagnostics(self.result.levels))
+        self.assertEqual(diagnostics["schema"], "programmatic-root-complex.normal-angle-fold.v1")
+        self.assertEqual(tuple(report["level"] for report in diagnostics["levels"]), (1, 2))
+        for report in diagnostics["levels"]:
+            self.assertGreater(report["interior_edge_count"], 0)
+            self.assertLessEqual(report["interior_edge_count"], build_root_complex.MAX_NORMAL_ANGLE_DIAGNOSTIC_INTERIOR_EDGES)
+            self.assertGreaterEqual(report["normal_angle_min_radians"], 0.0)
+            self.assertLessEqual(report["normal_angle_max_radians"], math.pi)
+            self.assertLessEqual(report["normal_angle_min_radians"], report["normal_angle_mean_radians"])
+            self.assertLessEqual(report["normal_angle_mean_radians"], report["normal_angle_max_radians"])
+            self.assertGreaterEqual(report["folded_edge_count"], 0)
+            self.assertGreaterEqual(report["folded_edge_fraction"], 0.0)
+            self.assertLessEqual(report["folded_edge_fraction"], 1.0)
+
+    def test_normal_angle_fold_diagnostic_defines_fold_count(self):
+        mesh = type("DiagnosticMesh", (), {
+            "vertices": ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0),
+                         (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (0.0, 1.0, 1.0)),
+            "quads": ((0, 1, 2, 3), (2, 1, 4, 5)),
+        })()
+        report = build_root_complex.normal_angle_fold_diagnostics((mesh,))["levels"][0]
+        self.assertEqual(report["interior_edge_count"], 1)
+        self.assertAlmostEqual(report["normal_angle_min_radians"], 3.0 * math.pi / 4.0)
+        self.assertEqual(report["folded_edge_count"], 1)
+        self.assertEqual(report["folded_edge_fraction"], 1.0)
+
+    def test_normal_angle_fold_diagnostics_are_invariant_to_cyclic_quad_rotation(self):
+        vertices = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0),
+                    (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (0.0, 1.0, 1.0))
+        faces = ((0, 1, 2, 3), (2, 1, 4, 5))
+        def mesh(quads):
+            return type("DiagnosticMesh", (), {"vertices": vertices, "quads": quads})()
+        reference = build_root_complex.normal_angle_fold_diagnostics(
+            (mesh(faces),))
+        for face_index in range(2):
+            for rotation in range(4):
+                rotated = list(faces)
+                face = rotated[face_index]
+                rotated[face_index] = face[rotation:] + face[:rotation]
+                candidate = mesh(tuple(rotated))
+                self.assertEqual(
+                    reference,
+                    build_root_complex.normal_angle_fold_diagnostics((candidate,)),
+                )
+
+
+class BuildMetricsTests(unittest.TestCase):
+    def test_published_metrics_include_evaluated_normal_angle_fold_diagnostics(self):
+        source = ROOT.parents[1] / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "published"
+            build_root_complex.build(source, output)
+            metrics = json.loads((output / "metrics.json").read_text(encoding="utf-8"))
+        diagnostics = metrics["normal_angle_fold_diagnostics"]
+        self.assertEqual(diagnostics["schema"], "programmatic-root-complex.normal-angle-fold.v1")
+        self.assertEqual([report["level"] for report in diagnostics["levels"]], [1, 2])
+        self.assertTrue(all("folded_edge_count" in report for report in diagnostics["levels"]))
+
 
 class MeshCorrectnessTests(unittest.TestCase):
-    def assert_pairs(self, vertices, triangles, expected):
-        self.assertEqual(mesh_correctness.intersecting_triangle_pairs(vertices, triangles, 1.0), expected)
+    def assert_pairs(self, vertices, triangles, expected, scale=1.0):
+        self.assertEqual(mesh_correctness.intersecting_triangle_pairs(vertices, triangles, scale), expected)
 
     def test_real_intersection_cases_and_adjacency_policy(self):
         base = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
@@ -582,9 +646,15 @@ class MeshCorrectnessTests(unittest.TestCase):
             ("near-degenerate axis", fan, ((-1.0, -1.0 + 1e-12, 1e-12), (-1.0, 1.0, 1e-12)), shared, ()),
         )
         for name, first, extra, faces, expected in cases:
-            for translation in (0.0, 1e5):
-                with self.subTest(case=name, translation=translation):
-                    self.assert_pairs(np.asarray(first + extra, dtype=float) + translation, np.asarray(faces, dtype=np.int64), expected)
+            for scale, translation in ((1.0, (0.0, 0.0, 0.0)),
+                                       (0.25, (17.25, -3.5, 41.0)),
+                                       (2.5, (-12.5, 0.125, 8.75)),
+                                       (1e-200, (1e5, -2e5, 3e5)),
+                                       (1e200, (1e5, -2e5, 3e5))):
+                with self.subTest(case=name, scale=scale, translation=translation):
+                    points = np.asarray(first + extra, dtype=float) * scale
+                    points += np.asarray(translation, dtype=float) * scale
+                    self.assert_pairs(points, np.asarray(faces, dtype=np.int64), expected, scale)
         crossing = np.asarray(base + cases[0][2], dtype=float)
         with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"):
             mesh_correctness.validate_triangle_intersections(crossing, np.asarray(separate, dtype=np.int64), 1.0)
@@ -629,6 +699,29 @@ class MeshCorrectnessTests(unittest.TestCase):
                 collapsed[groin_right, 0] = collapsed[groin_left, 0] + 0.022 * scale
             with self.subTest(gate=name), self.assertRaisesRegex(ValueError, name):
                 mesh_correctness.validate_boundary_clearances(collapsed, loops, axes, scale)
+
+
+class ComplexityBoundaryTests(unittest.TestCase):
+    def test_exact_python_inventory_and_physical_line_caps(self):
+        production_names = ("build_root_complex.py", "mesh_correctness.py", "prepared_projection.py",
+                            "render_export.py", "root_complex_surface.py")
+        test_names = ("test_prepared_projection.py", "test_render_export.py", "test_root_complex_surface.py")
+        expected_paths = tuple(sorted(production_names + tuple(f"tests/{name}" for name in test_names)))
+        actual_paths = tuple(sorted(path.relative_to(ROOT).as_posix() for path in ROOT.rglob("*.py") if path.is_file()))
+        self.assertEqual(actual_paths, expected_paths, "unexpected, missing, or additional Python files")
+        self.assertEqual(len(actual_paths), 8)
+        def physical_lines(paths):
+            total = 0
+            for path in paths:
+                with path.open(encoding="utf-8") as handle:
+                    total += sum(1 for _ in handle)
+            return total
+
+        production = tuple(ROOT / name for name in production_names)
+        tests = tuple(ROOT / "tests" / name for name in test_names)
+        self.assertLessEqual(physical_lines(production), 1250)
+        self.assertLessEqual(physical_lines(tests), 1050)
+        self.assertLessEqual(physical_lines((ROOT / "mesh_correctness.py",)), 220)
 
 
 if __name__ == "__main__":

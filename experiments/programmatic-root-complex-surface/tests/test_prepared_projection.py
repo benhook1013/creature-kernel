@@ -100,13 +100,48 @@ class PreparedProjectionTests(unittest.TestCase):
             with self.subTest(owner=role, dimension=dimension_role):
                 self.assert_rejected(rf"scalars\.{name}: left and right dimensions must match", lambda source, role=role, dimension_role=dimension_role: self.bump_right_dimension(source, role, dimension_role))
 
-    def test_load_rejects_duplicate_keys_and_nonfinite_constants(self):
-        for raw in ('{"duplicate": 1, "duplicate": 2}', '{"value": NaN}', '{"value": Infinity}', '{"value": -Infinity}'):
-            with self.subTest(raw=raw):
-                with tempfile.TemporaryDirectory() as directory:
-                    path = Path(directory) / "raw.json"; path.write_text(raw, encoding="utf-8")
-                    with self.assertRaises(PreparedProjectionError):
-                        _load(path)
+    def assert_load_error(self, raw, message, cause_type):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "raw.json"; path.write_bytes(raw)
+            with self.assertRaises(PreparedProjectionError) as context:
+                _load(path)
+        self.assertEqual(str(context.exception), message)
+        self.assertIsInstance(context.exception.__cause__, cause_type)
+
+    def test_load_reports_stable_cause_specific_errors(self):
+        cases = (
+            (b'{"duplicate": 1, "duplicate": 2}', "source contains duplicate JSON keys", ValueError),
+            (b'{"value": NaN}', "source contains non-finite JSON constants", ValueError),
+            (b'{"value": Infinity}', "source contains non-finite JSON constants", ValueError),
+            (b'{"value": -Infinity}', "source contains non-finite JSON constants", ValueError),
+            (b'{"value": 1e9999}', "source contains non-finite JSON numbers", ValueError),
+            (b"{", "source has invalid JSON syntax", json.JSONDecodeError),
+            (b"[]", "source JSON root must be an object", TypeError),
+            (b"[" * 2000 + b"0" + b"]" * 2000, "source JSON is too deeply nested", RecursionError),
+            (b"1" * 5000, "source contains an invalid JSON value", ValueError),
+            (b"\xff", "source is not valid UTF-8", UnicodeDecodeError),
+        )
+        for raw, message, cause_type in cases:
+            with self.subTest(message=message):
+                self.assert_load_error(raw, message, cause_type)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing.json"
+            with self.assertRaises(PreparedProjectionError) as context:
+                _load(path)
+        self.assertEqual(str(context.exception), "source file could not be read")
+        self.assertIsInstance(context.exception.__cause__, OSError)
+
+    def test_full_source_rejects_overflowed_number_in_unconsumed_record(self):
+        raw = SOURCE.read_bytes().replace(
+            b'"fields": []', b'"fields": [{"overflow": 1e9999}]', 1
+        )
+        self.assertIn(b'1e9999', raw)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "source.json"; path.write_bytes(raw)
+            with self.assertRaises(PreparedProjectionError) as context:
+                prepare_standard_neutral(path)
+        self.assertEqual(str(context.exception), "source contains non-finite JSON numbers")
+        self.assertIsInstance(context.exception.__cause__, ValueError)
 
     def test_required_source_shape_and_routes_fail_closed(self):
         self.assert_rejected(r"source\.basis: wrong basis", lambda source: source["basis"].__setitem__("forward", "-z"))

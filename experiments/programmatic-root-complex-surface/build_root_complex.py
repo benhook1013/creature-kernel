@@ -1,4 +1,4 @@
-import ctypes, errno, hashlib, os, shutil, sys, tempfile
+import ctypes, errno, hashlib, math, os, shutil, sys, tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -7,7 +7,74 @@ import render_export
 import root_complex_surface as surface
 
 
+MAX_NORMAL_ANGLE_DIAGNOSTIC_FACES = 2048
+MAX_NORMAL_ANGLE_DIAGNOSTIC_INTERIOR_EDGES = 4096
+FOLD_ANGLE_THRESHOLD_RADIANS = math.pi / 2.0
+
+
 def _sha256(path: Path) -> str: return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _face_normal(mesh, face):
+    points = tuple(tuple(float(component) for component in mesh.vertices[index]) for index in face)
+    if len(points) != 4 or any(len(point) != 3 or any(not math.isfinite(component) for component in point) for point in points):
+        raise ValueError("normal-angle diagnostic encountered a nonfinite or non-quad face")
+    points = min(points[offset:] + points[:offset] for offset in range(4))
+    try:
+        normal = tuple(math.fsum((current[(axis + 1) % 3] - following[(axis + 1) % 3]) *
+                                (current[(axis + 2) % 3] + following[(axis + 2) % 3])
+                                for current, following in zip(points, points[1:] + points[:1]))
+                       for axis in range(3))
+    except OverflowError as exc:
+        raise ValueError("normal-angle diagnostic encountered a nonfinite face normal") from exc
+    length = math.hypot(*normal)
+    if not math.isfinite(length) or length == 0.0:
+        raise ValueError("normal-angle diagnostic encountered a degenerate face")
+    return tuple(component / length for component in normal)
+
+
+def normal_angle_fold_diagnostics(levels):
+    """Report bounded adjacent-face normal angles without a continuity claim."""
+    if not levels or len(levels) > 2:
+        raise ValueError("normal-angle diagnostic requires one or two evaluated levels")
+    reports = []
+    for level_number, mesh in enumerate(levels, start=1):
+        if len(mesh.quads) > MAX_NORMAL_ANGLE_DIAGNOSTIC_FACES:
+            raise ValueError("normal-angle diagnostic face cap exceeded")
+        normals = tuple(_face_normal(mesh, face) for face in mesh.quads)
+        edge_faces = {}
+        for face_index, face in enumerate(mesh.quads):
+            for a, b in zip(face, face[1:] + face[:1]):
+                edge = tuple(sorted((int(a), int(b))))
+                edge_faces.setdefault(edge, []).append(face_index)
+        interior_edges = tuple(sorted((edge, tuple(face_indices))
+                                      for edge, face_indices in edge_faces.items()
+                                      if len(face_indices) == 2))
+        if len(interior_edges) > MAX_NORMAL_ANGLE_DIAGNOSTIC_INTERIOR_EDGES:
+            raise ValueError("normal-angle diagnostic interior-edge cap exceeded")
+        angles = []
+        for _, (first, second) in interior_edges:
+            cosine = sum(normals[first][axis] * normals[second][axis] for axis in range(3))
+            cosine = max(-1.0, min(1.0, cosine))
+            angles.append(math.acos(cosine))
+        if angles:
+            minimum, maximum = min(angles), max(angles)
+            mean = math.fsum(angles) / len(angles)
+        else:
+            minimum = maximum = mean = 0.0
+        folded = sum(angle > FOLD_ANGLE_THRESHOLD_RADIANS for angle in angles)
+        reports.append({"level": level_number, "interior_edge_count": len(angles),
+                        "normal_angle_min_radians": minimum,
+                        "normal_angle_mean_radians": mean,
+                        "normal_angle_max_radians": maximum,
+                        "fold_threshold_radians": FOLD_ANGLE_THRESHOLD_RADIANS,
+                        "folded_edge_count": folded,
+                        "folded_edge_fraction": folded / len(angles) if angles else 0.0})
+    return {"schema": "programmatic-root-complex.normal-angle-fold.v1",
+            "normal_definition": "unit Newell normal of each full outward-wound quad",
+            "angle_definition": "acos(clamp(dot(adjacent normals), -1, 1)) in radians",
+            "fold_definition": "adjacent normal angle strictly greater than pi/2",
+            "levels": tuple(reports)}
 
 
 def _publish_no_replace(stage: Path, target: Path) -> None:
@@ -49,7 +116,9 @@ def build(source: str | Path, output_dir: str | Path) -> Path:
                    "cage_quads": len(cage.quads), "skin_vertices": len(final.vertices),
                    "skin_quads": len(final.quads), "intersection_status": "zero" if not any(intersection_counts) else "nonzero",
                    "intersection_count": sum(intersection_counts), "intersection_counts_by_level": intersection_counts,
-                   "clearance_ratios": dict(evaluated.clearance_ratios), "files": files.copy()}
+                   "clearance_ratios": dict(evaluated.clearance_ratios),
+                   "normal_angle_fold_diagnostics": normal_angle_fold_diagnostics(evaluated.levels),
+                   "files": files.copy()}
         (stage / "metrics.json").write_bytes(canonical_json_bytes(metrics))
         files["metrics.json"] = _sha256(stage / "metrics.json")
         manifest = {"schema": "programmatic-root-complex.manifest.v1", "source_sha256": prepared["source"]["sha256"], "files": files}

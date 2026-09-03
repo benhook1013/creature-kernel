@@ -32,6 +32,11 @@ correction round is allowed.
 Structural evidence still passed: the cage has 72 vertices and 63 quads; the
 level-2 surface has 1,053 vertices and 1,008 quads; level-1 and level-2
 intersection counts are both zero; and all five final clearance ratios pass.
+The now-published normal-angle/fold diagnostic, which makes no C1/G1 claim,
+observed at level 1: 480 interior edges, 16 angles > pi/2, and max
+2.950328334548629 rad; level 2: 1,968 edges, 12 > pi/2, and max
+2.8042631317384212 rad. These are diagnostic observations, not an added
+acceptance gate.
 This is a scoped rejection of this seven-ring candidate, not formal Stage 1,
 not a global rejection of programmatic or hybrid surfaces, and not authority
 to reactivate DR-0009, DR-0010, or another parked workstream.
@@ -51,8 +56,8 @@ the recorded SHA-256 identities are:
 | `skin.ply` | `bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf` |
 | `skin.png` | `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce` |
 | `cage.png` | `06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046` |
-| `metrics.json` | `f7470ef2472e16dd8decea6849d1854d2c524419edc950a357430069841c0221` |
-| `manifest.json` | `0e233864d232d7101debd932664a3348c28e1f072c725d3f2ed26e1ce5d7c2a6` |
+| `metrics.json` | `54fbf1ad90da86fbc58cadc79b093900557363e5096cac6c2501c1a271b8c1d4` |
+| `manifest.json` | `8e7e48542acc3cb2e4c289a7bb48ce5c4aee91e0418717aa78adef8dc30f9daf` |
 
 The terminal evidence observed Python `3.10.12`; the launcher validated its
 pinned package environment: NumPy `2.2.6`, Pillow `11.1.0`, and scikit-image

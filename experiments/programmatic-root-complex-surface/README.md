@@ -103,7 +103,7 @@ The induced directed boundary loops are `neck=(0,1,2,3,4,5,6,7)`,
 
 The frozen complexity cap permits at most 72 cage controls and 96 base quads;
 this candidate uses 72 cage controls and 63 base quads as stated above.
-Extraordinary controls must have only the declared valences 3 through 6. The
+Extraordinary controls must have only the declared valences 3 through 5. The
 symbolic topology preflight must prove connected manifold and boundary facts
 and Euler's relation before any anatomy coordinates are admitted. If the
 proposed count or pelvic macro cannot meet the proof, stop and revise this
@@ -319,9 +319,12 @@ numeric score substitutes for that human judgment.
 
 Before any gallery work, use only the existing pinned NumPy/Pillow/scikit-image
 environment (`render_export.py` imports `skimage.draw`); add no dependency. The
-narrow apparatus amendment for this correction is at
-most 975 non-test Python LOC, 775 test LOC, 8 Python files, and 170 non-test
-LOC in `mesh_correctness.py`. All geometry, topology, tunable, subdivision,
+narrow apparatus amendment for this correction is at most 1,250 non-test
+physical Python lines, 1,050 test physical Python lines, exactly 8 Python
+files, and 220 non-test physical lines in `mesh_correctness.py`. The
+physical-line counts include blank and comment lines; the test suite enforces
+the exact file-name allowlist and all four caps. All geometry, topology,
+tunable, subdivision,
 and correction-round gates remain: 72 controls, 96 base quads, two subdivision
 levels, 12 coordinate-formula functions, and 32 shared scalar tunables. The construction
 has one axial template, one bilateral branch-root construction pattern, and

@@ -96,16 +96,23 @@ def intersecting_triangle_pairs(vertices, triangles, scale):
     if not len(faces):
         return ()
     corners = points[faces]
-    bounds = np.concatenate((corners.min(axis=1), corners.max(axis=1)), axis=1)
-    order = sorted(range(len(faces)), key=lambda i: (bounds[i, 0], i))
+    bounds = tuple(tuple(float(value) for value in (*minimum, *maximum))
+                   for minimum, maximum in zip(corners.min(axis=1), corners.max(axis=1)))
+    face_sets = tuple(frozenset(int(index) for index in face) for face in faces)
+    order = sorted(range(len(faces)), key=lambda i: (bounds[i][0], i))
     active, candidates = [], []
     for current in order:
-        low_x = bounds[current, 0]
-        active = [i for i in active if bounds[i, 3] >= low_x - INTERSECTION_TOLERANCE]
+        current_bounds = bounds[current]
+        low_x = current_bounds[0]
+        active = [i for i in active if bounds[i][3] >= low_x - INTERSECTION_TOLERANCE]
         for other in active:
-            if (bounds[other, 4:] < bounds[current, 1:3] - INTERSECTION_TOLERANCE).any() or (bounds[current, 4:] < bounds[other, 1:3] - INTERSECTION_TOLERANCE).any():
+            other_bounds = bounds[other]
+            if (other_bounds[4] < current_bounds[1] - INTERSECTION_TOLERANCE or
+                    other_bounds[5] < current_bounds[2] - INTERSECTION_TOLERANCE or
+                    current_bounds[4] < other_bounds[1] - INTERSECTION_TOLERANCE or
+                    current_bounds[5] < other_bounds[2] - INTERSECTION_TOLERANCE):
                 continue
-            shared = set(faces[other]) & set(faces[current])
+            shared = face_sets[other] & face_sets[current]
             if len(shared) > 1:
                 continue
             candidates.append((*sorted((other, current)), next(iter(shared), None)))

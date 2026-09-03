@@ -12,6 +12,22 @@ class PreparedProjectionError(ValueError):
     pass
 
 
+class _DuplicateJSONKeyError(ValueError):
+    pass
+
+
+class _NonFiniteJSONConstantError(ValueError):
+    pass
+
+
+class _NonFiniteJSONNumberError(ValueError):
+    pass
+
+
+class _JSONRootTypeError(TypeError):
+    pass
+
+
 _TOP = {"basis", "body", "contract", "extensions", "profiles", "source"}
 _BODY = {"attachments", "capabilities", "dimensions", "fields", "frames", "joints", "landmarks", "modules", "parts", "regions", "sockets"}
 _COUNT = {"parts": 18, "frames": 16, "landmarks": 43, "dimensions": 153}
@@ -32,15 +48,45 @@ def _vec(value, where, size=3):
 def _pairs(items):
     result = {}
     for key, value in items:
-        if key in result: raise ValueError(f"duplicate JSON key {key!r}")
+        if key in result: raise _DuplicateJSONKeyError(f"duplicate JSON key {key!r}")
         result[key] = value
     return result
+def _reject_constant(value): raise _NonFiniteJSONConstantError(value)
+def _parse_float(value):
+    number = float(value)
+    if not math.isfinite(number): raise _NonFiniteJSONNumberError(value)
+    return number
+def _require_object(value):
+    if not isinstance(value, dict): raise _JSONRootTypeError
+    return value
 def _load(path):
     try:
-        raw = Path(path).read_bytes(); data = json.loads(raw.decode("utf-8"), object_pairs_hook=_pairs, parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
-    except (OSError, TypeError, UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as exc:
-        raise PreparedProjectionError("source is not strict UTF-8 JSON") from exc
-    return _dict(data, "source"), hashlib.sha256(raw).hexdigest()
+        raw = Path(path).read_bytes()
+    except OSError as exc:
+        raise PreparedProjectionError("source file could not be read") from exc
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise PreparedProjectionError("source is not valid UTF-8") from exc
+    try:
+        data = _require_object(json.loads(text, object_pairs_hook=_pairs, parse_constant=_reject_constant, parse_float=_parse_float))
+    except _DuplicateJSONKeyError as exc:
+        raise PreparedProjectionError("source contains duplicate JSON keys") from exc
+    except _NonFiniteJSONConstantError as exc:
+        raise PreparedProjectionError("source contains non-finite JSON constants") from exc
+    except _NonFiniteJSONNumberError as exc:
+        raise PreparedProjectionError("source contains non-finite JSON numbers") from exc
+    except json.JSONDecodeError as exc:
+        raise PreparedProjectionError("source has invalid JSON syntax") from exc
+    except _JSONRootTypeError as exc:
+        raise PreparedProjectionError("source JSON root must be an object") from exc
+    except RecursionError as exc:
+        raise PreparedProjectionError("source JSON is too deeply nested") from exc
+    except TypeError as exc:
+        raise PreparedProjectionError("source has an invalid JSON type") from exc
+    except ValueError as exc:
+        raise PreparedProjectionError("source contains an invalid JSON value") from exc
+    return data, hashlib.sha256(raw).hexdigest()
 def _addr(value, where):
     value = _dict(value, where); _ok(set(value) == {"namespace", "anchors", "kind", "role"}, where, "invalid address")
     anchors = value["anchors"]; _ok(isinstance(anchors, list) and all(isinstance(x, str) and x for x in anchors) and len(set(anchors)) == len(anchors), where, "invalid anchors"); _ok(value["kind"] == "part" and isinstance(value["namespace"], str) and isinstance(value["role"], str), where, "invalid part address"); return value["namespace"], tuple(anchors), "part", value["role"]
