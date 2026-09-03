@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -548,6 +549,18 @@ class SubdivisionTests(unittest.TestCase):
 
     def test_final_level_clearance_gate_runs_at_requested_level(self):
         self.assertEqual(tuple(name for name, _ in surface.evaluate(self.prepared, levels=1).clearance_ratios), ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
+
+    def test_evaluate_validates_each_produced_level_once(self):
+        original = surface.validate_geometry; evaluated_meshes = []
+
+        def counted(mesh, evaluated=False):
+            if evaluated:
+                evaluated_meshes.append(mesh)
+            return original(mesh, evaluated=evaluated)
+
+        with patch.object(surface, "validate_geometry", counted):
+            result = surface.evaluate(self.prepared, levels=2)
+        self.assertEqual(evaluated_meshes, list(result.levels))
 
     def test_correspondence_order_and_results_are_deterministic(self):
         repeated = surface.evaluate(synthetic_prepared(), levels=2)

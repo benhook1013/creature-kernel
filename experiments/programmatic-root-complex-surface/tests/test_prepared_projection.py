@@ -14,10 +14,7 @@ REPOSITORY = ROOT.parents[1]
 SOURCE = REPOSITORY / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
-from prepared_projection import (  # noqa: E402
-    PreparedProjectionError, _add, _load, _reject_excessive_json_nesting,
-    canonical_json_bytes, canonical_json_sha256, prepare_standard_neutral,
-)
+from prepared_projection import (PreparedProjectionError, _add, _load, _reject_excessive_json_nesting, canonical_json_bytes, canonical_json_sha256, prepare_standard_neutral)  # noqa: E402
 
 BILATERAL_SCALARS = (
     ("arm_root_depth", "upper_arm", "form_arm_profile_upper_arm_start_forward_radius"),
@@ -25,7 +22,6 @@ BILATERAL_SCALARS = (
     ("thigh_lateral_radius", "thigh", "form_leg_profile_thigh_start_lateral_radius"),
     ("thigh_depth", "thigh", "form_leg_profile_thigh_start_forward_radius"),
 )
-
 
 class PreparedProjectionTests(unittest.TestCase):
     @classmethod
@@ -41,7 +37,6 @@ class PreparedProjectionTests(unittest.TestCase):
         result = surface.evaluate(self.prepared, levels=2)
         self.assertEqual(len(result.levels), 2)
         self.assertTrue(all(isinstance(value, (int, float)) for value in self.prepared["stations"]["lower_pelvis"]["center"]))
-
     def test_source_identity_provenance_and_expected_controls(self):
         self.assertEqual(self.prepared["basis"], {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"})
         paths = re.compile(r"(?:body\.(?:parts|landmarks|dimensions)\[\d+\]|source\.basis)")
@@ -55,7 +50,6 @@ class PreparedProjectionTests(unittest.TestCase):
         self.assertLess(self.prepared["landmarks"]["shoulder_peak_left"]["point"][0], 0)
         self.assertGreater(self.prepared["landmarks"]["shoulder_peak_right"]["point"][0], 0)
         self.assertEqual(self.prepared["scalars"]["arm_root_depth"]["value"], self.prepared["scalars"]["thigh_lateral_radius"]["value"])
-
     def test_canonical_bytes_and_forbidden_payloads(self):
         again = prepare_standard_neutral(SOURCE)
         encoded = canonical_json_bytes(self.prepared)
@@ -63,7 +57,6 @@ class PreparedProjectionTests(unittest.TestCase):
         self.assertEqual(canonical_json_sha256(self.prepared), hashlib.sha256(encoded).hexdigest())
         forbidden = ("vertices", "faces", "connectivity", "perimeter", "silhouette", "mask", "resolved", "graph", "profile_id")
         self.assertFalse(any(re.search(rf"(?<![a-z]){token}(?![a-z])", encoded.decode().lower()) for token in forbidden))
-
     def assert_rejected(self, pattern, mutate):
         source = copy.deepcopy(self.source); mutate(source)
         with tempfile.TemporaryDirectory() as directory:
@@ -86,7 +79,6 @@ class PreparedProjectionTests(unittest.TestCase):
 
     def bump_right_dimension(self, source, role, dimension_role):
         source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner(role, ("right",)), dimension_role)]["value"] += 1
-
     def test_bilateral_scalars_read_and_retain_both_source_routes(self):
         source = self.source
         for name, role, dimension_role in BILATERAL_SCALARS:
@@ -142,6 +134,9 @@ class PreparedProjectionTests(unittest.TestCase):
                 prepare_standard_neutral(path)
         self.assertEqual(str(context.exception), "source contains non-finite JSON numbers")
         self.assertIsInstance(context.exception.__cause__, ValueError)
+
+    def test_non_empty_fields_are_rejected_before_projection(self):
+        self.assert_rejected(r"body\.fields: forbidden geometry-input collection", lambda source: source["body"]["fields"].append({"geometry": "must-not-reach-prepared-output"}))
 
     def test_add_rejects_non_finite_result_from_finite_operands(self):
         with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):

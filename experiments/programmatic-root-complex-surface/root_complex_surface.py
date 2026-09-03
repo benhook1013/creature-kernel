@@ -448,7 +448,7 @@ def subdivide(mesh, level=1):
         raise ValueError("subdivision level must be one or two")
     result = mesh
     for iteration in range(level):
-        result = _subdivide_once(result, iteration + 1)
+        result, _ = _subdivide_once(result, iteration + 1)
     return result
 
 
@@ -523,7 +523,8 @@ def _subdivide_once(mesh, level):
     output_vertices = tuple(tuple(float(x) for x in point) for point in new_vertices)
     triangles = tuple(triangle for q in quads for triangle in ((q[0], q[1], q[2]), (q[0], q[2], q[3])))
     output = Mesh(output_vertices, tuple(quads), tuple(ids), tuple(formulas), tuple(deps),
-                  tuple(prov), tuple(loops), triangles); validate_geometry(output, evaluated=True); return output
+                  tuple(prov), tuple(loops), triangles)
+    return output, validate_geometry(output, evaluated=True)
 
 
 def evaluate(prepared, levels=2):
@@ -534,8 +535,7 @@ def evaluate(prepared, levels=2):
     cage = _build_cage(prepared_values)
     outputs, intersection_counts, clearance_ratios, current = [], [], (), cage
     for level in range(1, levels + 1):
-        current = _subdivide_once(current, level)
-        scale = validate_geometry(current, evaluated=True)
+        current, scale = _subdivide_once(current, level)
         pairs = mesh_correctness.validate_triangle_intersections(
             current.vertices, current.triangles, scale)
         intersection_counts.append(len(pairs))

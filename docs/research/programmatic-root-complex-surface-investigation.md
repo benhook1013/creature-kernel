@@ -31,7 +31,13 @@ correction round is allowed.
 
 Structural evidence still passed: the cage has 72 vertices and 63 quads; the
 level-2 surface has 1,053 vertices and 1,008 quads; level-1 and level-2
-intersection counts are both zero; and all five final clearance ratios pass.
+intersection counts are both zero; and all five reported clearance labels
+pass. Those labels represent only four distinct clearance measurements:
+`groin = min(right) - max(left)` and pairwise `medial_thigh = min(right -
+left)` are algebraically the same scalar, tested at `0.020 S` and `0.025 S`,
+respectively. This is a known terminal-candidate measurement limitation; it
+does not overturn the pass at the stricter `0.025 S` threshold and is not
+reused by the owned-root successor.
 The now-published normal-angle/fold diagnostic, which makes no C1/G1 claim,
 observed at level 1: 480 interior edges, 16 angles > pi/2, and max
 2.950328334548629 rad; level 2: 1,968 edges, 12 > pi/2, and max

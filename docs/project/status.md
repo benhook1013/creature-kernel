@@ -46,10 +46,15 @@ no fourth correction is allowed.
 
 Structural evidence nevertheless passed: 72 cage vertices and 63 quads,
 1,053 level-2 vertices and 1,008 level-2 quads, level-1/level-2 intersection
-counts `0/0`, and all five clearance ratios passing. This is a scoped rejection
-of the seven-ring candidate, not formal Stage 1, not a global rejection of
-programmatic or hybrid surfaces, and not authority to reactivate DR-0009,
-DR-0010, or another parked workstream.
+counts `0/0`, and all five reported clearance labels passed. Those labels
+represent only four distinct clearance measurements: `groin = min(right) -
+max(left)` and pairwise `medial_thigh = min(right - left)` are algebraically
+the same scalar, tested at `0.020 S` and `0.025 S`, respectively. This is a
+known terminal-candidate measurement limitation; it does not overturn the
+pass at the stricter `0.025 S` threshold and is not reused by the owned-root
+successor. This is a scoped rejection of the seven-ring candidate, not formal
+Stage 1, not a global rejection of programmatic or hybrid surfaces, and not
+authority to reactivate DR-0009, DR-0010, or another parked workstream.
 
 The next retained-human action is Ben's disposition or a newly authorized
 direction. There is no autonomous substitute checkpoint, exact-five

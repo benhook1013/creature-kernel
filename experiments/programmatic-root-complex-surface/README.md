@@ -292,10 +292,16 @@ the listed scale-relative thresholds:
 - each axilla: `min(span_U(arm), span_F(arm)) >= 0.025 S`;
 - groin: signed `L` separation of the right thigh loop's minimum and the left
   thigh loop's maximum `L` projections (`min(right) - max(left)`) `>= 0.020 S`; and
-- medial thigh: minimum signed `L` separation across right-versus-left thigh
-  loop samples `>= 0.025 S`.
+- medial thigh: pairwise minimum signed `L` separation across right-versus-left
+  thigh loop samples (`min(right - left)`), algebraically the same scalar as
+  groin's `min(right) - max(left)`, `>= 0.025 S`.
 
-Store and report the five ratios independently; there is no aggregate score.
+Store and report the five named labels separately; they represent only four
+distinct clearance measurements because groin and medial thigh are the same
+scalar tested at `0.020 S` and `0.025 S`, respectively. This is a known
+terminal-candidate measurement limitation; it does not overturn the pass at
+the stricter `0.025 S` threshold and is not reused by the owned-root successor.
+There is no aggregate score.
 Human vision remains authoritative for whether those spaces read anatomically.
 
 ## Human evidence
@@ -375,7 +381,8 @@ publishes exactly six deterministic artifacts: `prepared.json`, `skin.ply`,
 dependency, and provenance IDs are in-memory construction records, not
 published artifacts. Large artifacts remain uncommitted. Metrics report the
 per-level intersection counts, a clear zero-intersection status, and the five
-final clearance ratios individually.
+final clearance labels separately; those labels represent four distinct
+clearance measurements because groin and medial thigh share one scalar.
 
 From the repository root, copy-paste this standard-neutral build command:
 
