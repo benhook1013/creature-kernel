@@ -34,8 +34,11 @@ def _bad(where, message): raise PreparedProjectionError(f"{where}: {message}")
 def _ok(condition, where, message):
     if not condition: _bad(where, message)
 def _dict(value, where): _ok(isinstance(value, dict), where, "expected object"); return value
+def _finite(value):
+    try: return math.isfinite(value)
+    except OverflowError: return False
 def _num(value, where, positive=False):
-    _ok(not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value), where, "expected finite number"); _ok(not positive or value > 0, where, "expected positive number"); return 0 if value == 0 else value
+    _ok(not isinstance(value, bool) and isinstance(value, (int, float)) and _finite(value), where, "expected finite number"); _ok(not positive or value > 0, where, "expected positive number"); return 0 if value == 0 else value
 def _vec(value, where, size=3):
     _ok(isinstance(value, list) and len(value) == size, where, f"expected {size}-vector"); return tuple(_num(x, f"{where}[{i}]") for i, x in enumerate(value))
 def _pairs(items):
@@ -102,7 +105,7 @@ def _part(rows, owner, parent):
     _ok(set(place) == {"translation", "rotation_xyzw"}, where, "unknown placement field"); translation = _vec(place["translation"], f"{where}.placement.translation"); _ok(_vec(place["rotation_xyzw"], f"{where}.placement.rotation_xyzw", 4) == _I, where, "non-identity part rotation"); containment = _dict(row["containment"], where)
     _ok(containment == {"root": True} if parent is None else set(containment) == {"parent"} and _addr(containment["parent"], where) == parent, where, "invalid containment")
     return translation, where
-def _add(a, b): result = tuple(x + y for x, y in zip(a, b)); _ok(all(math.isfinite(value) for value in result), "derived point", "expected finite number"); return result
+def _add(a, b): result = tuple(x + y for x, y in zip(a, b)); _ok(all(_finite(value) for value in result), "derived point", "expected finite number"); return result
 def _dimension(rows, owner, role):
     row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); value = _num(row["value"], f"{where}.value", True) / 1000.0
     return value, f"{where}.value; {_D}"

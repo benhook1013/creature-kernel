@@ -15,8 +15,8 @@ SOURCE = REPOSITORY / "examples/body-documents/stylized-digitigrade-biped-author
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
 from prepared_projection import (  # noqa: E402
-    PreparedProjectionError, _add, _load, canonical_json_bytes, canonical_json_sha256,
-    prepare_standard_neutral,
+    PreparedProjectionError, _add, _load, _reject_excessive_json_nesting,
+    canonical_json_bytes, canonical_json_sha256, prepare_standard_neutral,
 )
 
 BILATERAL_SCALARS = (
@@ -146,6 +146,24 @@ class PreparedProjectionTests(unittest.TestCase):
     def test_add_rejects_non_finite_result_from_finite_operands(self):
         with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):
             _add((sys.float_info.max, 0, 0), (sys.float_info.max, 0, 0))
+
+    def test_consumed_source_rejects_arbitrary_precision_integer(self):
+        pelvis = self.owner("pelvis")
+        role = "form_torso_profile_lower_pelvis_lateral_radius"
+        huge = 10**400
+        self.assert_rejected(r"body\.dimensions\[\d+\]\.value: expected finite number", lambda source: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, role)].__setitem__("value", huge))
+
+    def test_add_rejects_arbitrary_precision_integer(self):
+        with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):
+            _add((10**400, 0, 0), (0, 0, 0))
+
+    def test_json_nesting_scanner_ignores_brackets_in_escaped_string(self):
+        payload = ("[{" * 600) + 'quoted "and \\ path' + ("}]" * 600)
+        _reject_excessive_json_nesting(json.dumps({"value": payload}))
+
+    def test_json_nesting_scanner_rejects_actual_deep_nesting(self):
+        with self.assertRaisesRegex(RecursionError, r"JSON nesting exceeds the supported limit"):
+            _reject_excessive_json_nesting("[" * 1001 + "0" + "]" * 1001)
 
     def test_required_source_shape_and_routes_fail_closed(self):
         self.assert_rejected(r"source\.basis: wrong basis", lambda source: source["basis"].__setitem__("forward", "-z"))
