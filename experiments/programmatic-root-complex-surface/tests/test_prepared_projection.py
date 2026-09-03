@@ -142,11 +142,12 @@ class PreparedProjectionTests(unittest.TestCase):
         with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):
             _add((sys.float_info.max, 0, 0), (sys.float_info.max, 0, 0))
 
-    def test_consumed_source_rejects_arbitrary_precision_integer(self):
+    def test_consumed_source_rejects_invalid_dimension_values(self):
         pelvis = self.owner("pelvis")
         role = "form_torso_profile_lower_pelvis_lateral_radius"
-        huge = 10**400
-        self.assert_rejected(r"body\.dimensions\[\d+\]\.value: expected finite number", lambda source: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, role)].__setitem__("value", huge))
+        cases = ((10**400, "expected finite number"), (1500.5, "expected integer dimension"), (True, "expected integer dimension"))
+        for value, message in cases:
+            with self.subTest(value=value): self.assert_rejected(rf"body\.dimensions\[\d+\]\.value: {message}", lambda source, value=value: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, role)].__setitem__("value", value))
 
     def test_add_rejects_arbitrary_precision_integer(self):
         with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):

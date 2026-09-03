@@ -107,7 +107,7 @@ def _part(rows, owner, parent):
     return translation, where
 def _add(a, b): result = tuple(x + y for x, y in zip(a, b)); _ok(all(_finite(value) for value in result), "derived point", "expected finite number"); return result
 def _dimension(rows, owner, role):
-    row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); value = _num(row["value"], f"{where}.value", True) / 1000.0
+    row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); _ok(not isinstance(row["value"], bool) and isinstance(row["value"], int), f"{where}.value", "expected integer dimension"); value = _num(row["value"], f"{where}.value", True) / 1000.0
     return value, f"{where}.value; {_D}"
 def _landmark(rows, owner, role, frame):
     row, where = _pick(rows, owner, role, {"owner", "role", "frame", "position"}, "landmarks"); ref = _dict(row["frame"], f"{where}.frame"); _ok(set(ref) == {"owner", "role"} and (_addr(ref["owner"], where), ref["role"]) == frame, where, "invalid landmark frame"); return _vec(row["position"], f"{where}.position"), where
