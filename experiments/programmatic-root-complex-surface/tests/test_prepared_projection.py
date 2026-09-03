@@ -47,9 +47,16 @@ class PreparedProjectionTests(unittest.TestCase):
             self.assertEqual(value, expected)
         self.assertLess(self.prepared["landmarks"]["shoulder_peak_left"]["point"][0], 0)
         self.assertGreater(self.prepared["landmarks"]["shoulder_peak_right"]["point"][0], 0)
-        self.assertEqual(self.prepared["scalars"]["arm_root_depth"]["value"], self.prepared["scalars"]["thigh_lateral_radius"]["value"]); part_paths = (("shoulder_peak_left", (0, 1, 4), 0), ("neck_collar", (0, 1, 2), 31), ("thigh_mid_right", (0, 13), 20))
-        for name, placements, landmark in part_paths:
-            provenance = self.prepared["landmarks"].get(name, self.prepared["stations"].get(name))["provenance"]; expected = tuple(f"body.parts[{index}].placement.translation" for index in placements) + (f"body.landmarks[{landmark}].position",); self.assertEqual(tuple(provenance.split("; "))[:len(expected)], expected); self.assertNotIn("body.parts[7].placement.translation", provenance)
+        self.assertEqual(self.prepared["scalars"]["arm_root_depth"]["value"], self.prepared["scalars"]["thigh_lateral_radius"]["value"])
+        point_derivation = "derivation=parent_local_part_translation_plus_landmark_position_v1"; dimension_derivation = "derivation=source_dimension_integer_as_thousandths_of_canonical_metre_v1"
+        expected_provenance = (
+            ("shoulder_peak_left", ("body.parts[0].placement.translation", "body.parts[1].placement.translation", "body.parts[4].placement.translation", "body.landmarks[0].position", point_derivation)),
+            ("shoulder_peak_right", ("body.parts[0].placement.translation", "body.parts[1].placement.translation", "body.parts[7].placement.translation", "body.landmarks[2].position", point_derivation)),
+            ("neck_collar", ("body.parts[0].placement.translation", "body.parts[1].placement.translation", "body.parts[2].placement.translation", "body.landmarks[31].position", point_derivation, "body.dimensions[27].value", dimension_derivation, "body.dimensions[29].value", dimension_derivation, "body.dimensions[29].value", dimension_derivation, "derivation=symmetric_neck_depth_from_forward_radius_v1")),
+            ("thigh_mid_right", ("body.parts[0].placement.translation", "body.parts[13].placement.translation", "body.landmarks[20].position", point_derivation)),
+        )
+        for name, expected in expected_provenance:
+            provenance = self.prepared["landmarks"].get(name, self.prepared["stations"].get(name))["provenance"]; tokens = tuple(provenance.split("; ")); self.assertEqual(tokens, expected)
     def test_canonical_bytes_and_forbidden_payloads(self):
         again = prepare_standard_neutral(SOURCE)
         encoded = canonical_json_bytes(self.prepared)
@@ -62,21 +69,16 @@ class PreparedProjectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "source.json"; path.write_text(json.dumps(source), encoding="utf-8")
             with self.assertRaisesRegex(PreparedProjectionError, pattern): prepare_standard_neutral(path)
-
     @staticmethod
     def record_index(source, collection, owner, role):
         return next(index for index, record in enumerate(source["body"][collection]) if record.get("owner") == owner and record.get("role") == role)
-
     @staticmethod
     def owner(role, anchors=()):
         return {"namespace": "main", "anchors": list(anchors), "kind": "part", "role": role}
-
     def duplicate_record(self, source, collection, target, replacement):
         records = source["body"][collection]; records[self.record_index(source, collection, *target)] = copy.deepcopy(records[self.record_index(source, collection, *replacement)])
-
     def blank_record(self, source, collection, selector):
         source["body"][collection][self.record_index(source, collection, *selector)] = {}
-
     def bump_right_dimension(self, source, role, dimension_role):
         source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner(role, ("right",)), dimension_role)]["value"] += 1
     def test_bilateral_scalars_read_and_retain_both_source_routes(self):
@@ -86,12 +88,10 @@ class PreparedProjectionTests(unittest.TestCase):
                 indexes = [self.record_index(source, "dimensions", self.owner(role, (side,)), dimension_role) for side in ("left", "right")]
                 provenance = self.prepared["scalars"][name]["provenance"]
                 self.assertTrue(all(f"body.dimensions[{index}].value" in provenance for index in indexes) and "validated_bilateral_scalar_v1" in provenance)
-
     def test_bilateral_scalar_asymmetry_is_rejected_for_each_shared_scalar(self):
         for name, role, dimension_role in BILATERAL_SCALARS:
             with self.subTest(owner=role, dimension=dimension_role):
                 self.assert_rejected(rf"scalars\.{name}: left and right dimensions must match", lambda source, role=role, dimension_role=dimension_role: self.bump_right_dimension(source, role, dimension_role))
-
     def assert_load_error(self, raw, message, cause_type):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "raw.json"; path.write_bytes(raw)
