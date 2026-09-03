@@ -111,8 +111,12 @@ def _dimension(rows, owner, role):
     return value, f"{where}.value; {_D}"
 def _landmark(rows, owner, role, frame):
     row, where = _pick(rows, owner, role, {"owner", "role", "frame", "position"}, "landmarks"); ref = _dict(row["frame"], f"{where}.frame"); _ok(set(ref) == {"owner", "role"} and (_addr(ref["owner"], where), ref["role"]) == frame, where, "invalid landmark frame"); return _vec(row["position"], f"{where}.position"), where
+def _world_part(part_data, world, owner, parent):
+    local, where = part_data[owner]; placement = f"{where}.placement.translation"
+    if parent is None: return local, (placement,)
+    parent_world, provenance = world[parent]; return _add(parent_world, local), provenance + (placement,)
 def _point(pair, owner, part_data, world):
-    local, where = pair; point = _add(world[owner], local); return point, f"{where}.position; {part_data[owner][1]}.placement.translation; {_P}"
+    local, where = pair; point, placement_provenance = world[owner]; return _add(point, local), "; ".join((*placement_provenance, f"{where}.position", _P))
 def _frame(rows, owner, role):
     row, where = _pick(rows, owner, role, {"owner", "role", "transform"}, "frames"); transform = _dict(row["transform"], where); _ok(set(transform) == {"translation", "rotation_xyzw"} and _vec(transform["translation"], where) == (0, 0, 0) and _vec(transform["rotation_xyzw"], where, 4) == _I, where, "non-identity named frame")
 def _bilateral_scalar(rows, owners, role, name):
@@ -135,10 +139,11 @@ def prepare_standard_neutral(path):
     p = {part("pelvis"): _part(body["parts"], part("pelvis"), None), part("torso"): _part(body["parts"], part("torso"), part("pelvis")), part("neck"): _part(body["parts"], part("neck"), part("torso"))}
     for side in ("left", "right"):
         p[part("upper_arm", side)] = _part(body["parts"], part("upper_arm", side), part("torso")); p[part("thigh", side)] = _part(body["parts"], part("thigh", side), part("pelvis"))
-    world = {part("pelvis"): p[part("pelvis")][0], part("torso"): _add(p[part("pelvis")][0], p[part("torso")][0])}
-    world[part("neck")] = _add(world[part("torso")], p[part("neck")][0])
+    world = {part("pelvis"): _world_part(p, {}, part("pelvis"), None)}
+    world[part("torso")] = _world_part(p, world, part("torso"), part("pelvis"))
+    world[part("neck")] = _world_part(p, world, part("neck"), part("torso"))
     for side in ("left", "right"):
-        world[part("upper_arm", side)] = _add(world[part("torso")], p[part("upper_arm", side)][0]); world[part("thigh", side)] = _add(world[part("pelvis")], p[part("thigh", side)][0])
+        world[part("upper_arm", side)] = _world_part(p, world, part("upper_arm", side), part("torso")); world[part("thigh", side)] = _world_part(p, world, part("thigh", side), part("pelvis"))
     for owner, role in ((part("pelvis"), "form_torso_profile_control"), (part("torso"), "form_torso_profile_control"), (part("neck"), "form_head_neck_profile_control")):
         _frame(body["frames"], owner, role)
     for side in ("left", "right"):

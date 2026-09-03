@@ -22,12 +22,10 @@ BILATERAL_SCALARS = (
     ("thigh_lateral_radius", "thigh", "form_leg_profile_thigh_start_lateral_radius"),
     ("thigh_depth", "thigh", "form_leg_profile_thigh_start_forward_radius"),
 )
-
 class PreparedProjectionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.source = json.loads(SOURCE.read_text(encoding="utf-8")); cls.prepared = prepare_standard_neutral(SOURCE)
-
     def test_exact_surface_mapping_and_evaluation_compatibility(self):
         self.assertEqual(set(self.prepared), {"source", "basis", "frames", "landmarks", "stations", "scalars"})
         for name, expected in (("frames", {"body"}), ("landmarks", {f"{kind}_{side}" for side in ("left", "right") for kind in ("shoulder_peak", "axilla", "thigh_start", "thigh_mid")}), ("scalars", {"arm_root_depth", "arm_root_outward", "thigh_lateral_radius", "thigh_depth"})):
@@ -49,7 +47,9 @@ class PreparedProjectionTests(unittest.TestCase):
             self.assertEqual(value, expected)
         self.assertLess(self.prepared["landmarks"]["shoulder_peak_left"]["point"][0], 0)
         self.assertGreater(self.prepared["landmarks"]["shoulder_peak_right"]["point"][0], 0)
-        self.assertEqual(self.prepared["scalars"]["arm_root_depth"]["value"], self.prepared["scalars"]["thigh_lateral_radius"]["value"])
+        self.assertEqual(self.prepared["scalars"]["arm_root_depth"]["value"], self.prepared["scalars"]["thigh_lateral_radius"]["value"]); part_paths = (("shoulder_peak_left", (0, 1, 4), 0), ("neck_collar", (0, 1, 2), 31), ("thigh_mid_right", (0, 13), 20))
+        for name, placements, landmark in part_paths:
+            provenance = self.prepared["landmarks"].get(name, self.prepared["stations"].get(name))["provenance"]; expected = tuple(f"body.parts[{index}].placement.translation" for index in placements) + (f"body.landmarks[{landmark}].position",); self.assertEqual(tuple(provenance.split("; "))[:len(expected)], expected); self.assertNotIn("body.parts[7].placement.translation", provenance)
     def test_canonical_bytes_and_forbidden_payloads(self):
         again = prepare_standard_neutral(SOURCE)
         encoded = canonical_json_bytes(self.prepared)
