@@ -428,13 +428,13 @@ class FormulaAndInputTests(unittest.TestCase):
 
         changed = synthetic_prepared(); changed["scalars"]["lambda"] = {"value": 0.5, "provenance": "synthetic.constant.lambda"}
         blended = surface.build_cage(changed)
-        self.assertNotEqual(baseline.vertices[40:48], blended.vertices[40:48])
+        self.assertTrue(all(baseline.vertices[index] != blended.vertices[index] for index in range(40, 48)))
         self.assertEqual((baseline.vertices[:40], baseline.vertices[48:]), (blended.vertices[:40], blended.vertices[48:]))
 
         changed = synthetic_prepared(); changed["scalars"]["eta"] = {"value": 0.5, "provenance": "synthetic.constant.eta"}
         seated = surface.build_cage(changed)
         self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]), (seated.vertices[:48], seated.vertices[56:64]))
-        for region in (slice(48, 56), slice(64, 68), slice(68, 72)): self.assertNotEqual(baseline.vertices[region], seated.vertices[region])
+        for region in (slice(48, 56), slice(64, 68), slice(68, 72)): self.assertTrue(all(baseline.vertices[index] != seated.vertices[index] for index in range(region.start, region.stop)))
         for side, offset in (("left", 64), ("right", 68)):
             start = np.asarray(changed["landmarks"][f"thigh_start_{side}"]["point"], dtype=float)
             mid = np.asarray(changed["landmarks"][f"thigh_mid_{side}"]["point"], dtype=float)
@@ -447,7 +447,7 @@ class FormulaAndInputTests(unittest.TestCase):
 
         changed = synthetic_prepared(); changed["stations"]["upper_pelvis"]["front_extent"] = 0.5; sourced = surface.build_cage(changed)
         self.assertEqual((baseline.vertices[:8], baseline.vertices[56:]), (sourced.vertices[:8], sourced.vertices[56:]))
-        self.assertNotEqual((baseline.vertices[42], baseline.vertices[50]), (sourced.vertices[42], sourced.vertices[50]))
+        self.assertTrue(all(baseline.vertices[index] != sourced.vertices[index] for index in (42, 50)))
 
         for key, changed_slice, stable_slice in (
                 ("shoulder", slice(56, 58), slice(58, 60)),
@@ -456,13 +456,13 @@ class FormulaAndInputTests(unittest.TestCase):
             changed["scalars"][key] = {"value": surface.RANGES[key][1],
                                        "provenance": f"synthetic.constant.{key}"}
             collar = surface.build_cage(changed)
-            self.assertNotEqual(baseline.vertices[changed_slice], collar.vertices[changed_slice])
+            self.assertTrue(all(baseline.vertices[index] != collar.vertices[index] for index in range(changed_slice.start, changed_slice.stop)))
             self.assertEqual(baseline.vertices[stable_slice], collar.vertices[stable_slice])
 
         axilla_u = synthetic_prepared()
         for side in ("left", "right"):
             point = list(axilla_u["landmarks"][f"axilla_{side}"]["point"]); point[1] += 0.12; axilla_u["landmarks"][f"axilla_{side}"]["point"] = tuple(point)
-        moved = surface.build_cage(axilla_u); self.assertTrue(all(baseline.vertices[a:b] != moved.vertices[a:b] for a, b in ((16, 24), (58, 60), (62, 64))))
+        moved = surface.build_cage(axilla_u); self.assertTrue(all(baseline.vertices[index] != moved.vertices[index] for a, b in ((16, 24), (58, 60), (62, 64)) for index in range(a, b)))
         self.assertEqual((baseline.vertices[24:32], tuple(baseline.vertices[i] for i in (10, 13, 14, 15))), (moved.vertices[24:32], tuple(moved.vertices[i] for i in (10, 13, 14, 15))))
 
         for key, value, expected_indices in (
@@ -486,8 +486,7 @@ class FormulaAndInputTests(unittest.TestCase):
 
         changed = synthetic_prepared(); changed["scalars"]["gamma"] = {"value": 0.12, "provenance": "synthetic.constant.gamma"}
         gapped = surface.build_cage(changed)
-        self.assertNotEqual((baseline.vertices[64], baseline.vertices[68]),
-                            (gapped.vertices[64], gapped.vertices[68]))
+        self.assertTrue(all(baseline.vertices[index] != gapped.vertices[index] for index in (64, 68)))
         self.assertEqual((baseline.vertices[65:68], baseline.vertices[69:72]), (gapped.vertices[65:68], gapped.vertices[69:72]))
 
         overrides = synthetic_prepared()

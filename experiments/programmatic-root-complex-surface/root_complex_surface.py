@@ -239,8 +239,9 @@ def _prepared(prepared):
     return stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame["provenance"]
 
 
-def build_cage(prepared):
-    stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame_prov = _prepared(prepared)
+def build_cage(prepared): return _build_cage(_prepared(prepared))
+def _build_cage(prepared_values):
+    stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame_prov = prepared_values
     ids, faces, loops = symbolic_topology(); validate_topology(72, faces, loops, EXPECTED_VALENCES)
     points, formulas, dependencies, provenance = [], [], [], []
 
@@ -543,8 +544,9 @@ def _subdivide_once(mesh, level):
 def evaluate(prepared, levels=2):
     if levels not in (1, 2):
         raise ValueError("levels must be one or two")
-    _, _, _, (lateral, up, forward), _, _, _ = _prepared(prepared)
-    cage = build_cage(prepared)
+    prepared_values = _prepared(prepared)
+    _, _, _, (lateral, up, forward), _, _, _ = prepared_values
+    cage = _build_cage(prepared_values)
     outputs, intersection_counts, clearance_ratios, current = [], [], (), cage
     for level in range(1, levels + 1):
         current = _subdivide_once(current, level)
