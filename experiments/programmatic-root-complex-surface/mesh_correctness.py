@@ -17,13 +17,13 @@ def _vertices(raw, scale):
         raise ValueError("scale must be finite and positive")
     try:
         scale = float(scale)
-    except (TypeError, ValueError) as exc:
+    except (OverflowError, TypeError, ValueError) as exc:
         raise ValueError("scale must be finite and positive") from exc
     if not np.isfinite(scale) or scale <= 0:
         raise ValueError("scale must be finite and positive")
     try:
         value = np.asarray(raw, dtype=float)
-    except (TypeError, ValueError) as exc:
+    except (OverflowError, TypeError, ValueError) as exc:
         raise ValueError("vertices must be a finite N x 3 array") from exc
     if value.ndim != 2 or value.shape[1:] != (3,) or not np.isfinite(value).all():
         raise ValueError("vertices must be a finite N x 3 array")
@@ -45,7 +45,6 @@ def _triangles(raw, count):
     if any(len(set(map(int, row))) != 3 for row in value):
         raise ValueError("triangle has repeated vertex index")
     return value.astype(np.int64, copy=False)
-
 
 def _unit(vector):
     length = np.linalg.norm(vector)
@@ -73,7 +72,6 @@ def _unique_shared_contact(a, b, axis, shared_vertex):
     left_support, right_support = left >= left.max() - roundoff, right <= right.min() + roundoff
     return (abs(left.max() - right.min()) <= roundoff and min(np.count_nonzero(left_support), np.count_nonzero(right_support)) == 1
             and np.equal(a[left_support], shared_vertex).all(axis=1).any() and np.equal(b[right_support], shared_vertex).all(axis=1).any())
-
 
 def _disjoint(a, b, tolerance, shared_vertex=None):
     for index, axis in enumerate(_axes(a, b)):
@@ -105,7 +103,10 @@ def intersecting_triangle_pairs(vertices, triangles, scale):
     with np.errstate(over="ignore", invalid="ignore", under="ignore"):
         normals = np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0])
         normal_lengths = np.linalg.norm(normals, axis=1)
-    if not np.isfinite(normal_lengths).all() or np.any(normal_lengths <= 0): raise ValueError("triangle normal must be nonzero")
+    invalid = np.flatnonzero(~np.isfinite(normal_lengths))
+    if invalid.size: raise ValueError(f"triangle {int(invalid[0])} normal length must be finite")
+    invalid = np.flatnonzero(normal_lengths <= 0)
+    if invalid.size: raise ValueError(f"triangle {int(invalid[0])} normal must be nonzero")
     bounds = tuple(tuple(float(value) for value in (*minimum, *maximum)) for minimum, maximum in zip(corners.min(axis=1), corners.max(axis=1)))
     face_sets = tuple(frozenset(int(index) for index in face) for face in faces)
     order = sorted(range(len(faces)), key=lambda i: (bounds[i][0], i))
@@ -131,7 +132,6 @@ def intersecting_triangle_pairs(vertices, triangles, scale):
     hits = [(i, j) for i, j, shared in candidates if not _disjoint(corners[i], corners[j], INTERSECTION_TOLERANCE, None if shared is None else points[shared])]
     return tuple(sorted(hits))
 
-
 def validate_triangle_intersections(vertices, triangles, scale):
     """Raise a concise error for non-adjacent contacts or intersections."""
     pairs = intersecting_triangle_pairs(vertices, triangles, scale)
@@ -143,7 +143,7 @@ def validate_triangle_intersections(vertices, triangles, scale):
 def _frame(raw):
     try:
         axes = [np.asarray(raw[name], dtype=float) for name in ("L", "U", "F")]
-    except (KeyError, TypeError, ValueError) as exc:
+    except (KeyError, OverflowError, TypeError, ValueError) as exc:
         raise ValueError("body axes L, U, and F are required") from exc
     if any(axis.shape != (3,) or not np.isfinite(axis).all() for axis in axes):
         raise ValueError("body axes must be finite 3-vectors")

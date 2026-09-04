@@ -122,10 +122,18 @@ class FormulaAndInputTests(unittest.TestCase):
         })
         with self.assertRaises(FrozenInstanceError):
             cage.vertices = ()
-    def test_number_admission_handles_huge_integer_with_stable_error(self):
+    def test_numeric_conversion_failures_have_stable_errors(self):
         prepared = synthetic_prepared(); prepared["scalars"]["n"] = {"value": 10 ** 309, "provenance": "huge.integer"}
         with self.assertRaises(ValueError) as raised: surface.build_cage(prepared)
         self.assertEqual(str(raised.exception), "scalars.n.value must be finite"); self.assertIsInstance(raised.exception.__cause__, OverflowError); self.assertEqual(surface._number(2, "ordinary"), 2.0)
+        prepared = synthetic_prepared(); prepared["stations"]["neck_collar"]["center"] = (10 ** 309, 3.1, 0.0)
+        with self.assertRaises(ValueError) as raised: surface.build_cage(prepared)
+        self.assertEqual(str(raised.exception), "stations.neck_collar.center must be a finite 3-vector"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
+        for base, failure in ((int, TypeError), (float, TypeError), (float, ValueError)):
+            class Broken(base):
+                def __float__(self): raise failure("broken conversion")
+            with self.subTest(base=base), self.assertRaises(ValueError) as raised: surface._number(Broken(1), "scalar")
+            self.assertEqual(str(raised.exception), "scalar must be finite"); self.assertIsInstance(raised.exception.__cause__, failure)
         baseline = surface.build_cage(synthetic_prepared()); ordinary = synthetic_prepared(); ordinary["scalars"]["n"] = {"value": 2.6, "provenance": "ordinary.float"}
         self.assertEqual(baseline.vertices, surface.build_cage(ordinary).vertices)
     def test_unknown_names_fields_and_provenance_are_rejected(self):
@@ -169,23 +177,19 @@ class FormulaAndInputTests(unittest.TestCase):
         def orientation(a, b, c):
             return ((b[0] - a[0]) * (c[1] - a[1])
                     - (b[1] - a[1]) * (c[0] - a[0]))
-
         def proper_crossing(a, b, c, d):
             ab = orientation(a, b, c) * orientation(a, b, d)
             cd = orientation(c, d, a) * orientation(c, d, b)
             return ab < 0 and cd < 0
-
         for index, (a, b) in enumerate(routes):
             for c, d in routes[index + 1:]:
                 if {a, b} & {c, d}:
                     continue
                 self.assertFalse(proper_crossing(projected[a], projected[b],
                                                  projected[c], projected[d]))
-
     def test_symmetric_fixture_is_mirror_equivalent_at_all_levels(self):
         prepared = synthetic_prepared(); prepared["scalars"]["saddle"] = {"value": 0.60, "provenance": "override.saddle"}
         result = surface.evaluate(prepared, levels=2)
-
         def assert_mirror(vertices):
             values = np.asarray(vertices, dtype=float)
             reflected = values.copy(); reflected[:, 0] *= -1
@@ -195,10 +199,8 @@ class FormulaAndInputTests(unittest.TestCase):
                 index = int(np.argmin(distances))
                 self.assertLessEqual(distances[index], 1e-8)
                 remaining.pop(index)
-
         for mesh in (result.cage, *result.levels):
             assert_mirror(mesh.vertices)
-
     def test_axial_envelope_and_axilla_transition_use_exact_interpolation(self):
         prepared = synthetic_prepared(); prepared["scalars"]["thigh_lateral_radius"]["value"] = 0.73; prepared["scalars"]["thigh_depth"]["value"] = 0.47; cage = surface.build_cage(prepared)
         keys = ("lateral_radius", "front_extent", "back_extent")
@@ -213,14 +215,12 @@ class FormulaAndInputTests(unittest.TestCase):
         anchors.append((np.mean([seat[1] for seat in seats]),
                         (max(abs(seat[0]) for seat in seats) + prepared["scalars"]["thigh_lateral_radius"]["value"],
                          prepared["scalars"]["thigh_depth"]["value"], prepared["scalars"]["thigh_depth"]["value"])))
-
         def limited(name):
             station = prepared["stations"][name]; position = station["center"][1]
             high, low = next(pair for pair in zip(anchors, anchors[1:]) if pair[1][0] <= position <= pair[0][0])
             fraction = (position - low[0]) / (high[0] - low[0])
             bound = tuple(lo + fraction * (hi - lo) for hi, lo in zip(high[1], low[1]))
             return np.asarray(station["center"]), tuple(min(station[key], value) for key, value in zip(keys, bound))
-
         def cardinal(center, extents):
             radius, front, back = extents; middle = center + (0, 0, (front - back) / 2)
             return (middle + (radius, 0, 0), center + (0, 0, front),
@@ -532,16 +532,13 @@ class SubdivisionTests(unittest.TestCase):
         self.assertEqual(tuple(name for name, _ in surface.evaluate(self.prepared, levels=1).clearance_ratios), ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
     def test_evaluate_validates_each_produced_level_once(self):
         original = surface.validate_geometry; evaluated_meshes = []
-
         def counted(mesh, evaluated=False):
             if evaluated:
                 evaluated_meshes.append(mesh)
             return original(mesh, evaluated=evaluated)
-
         with patch.object(surface, "validate_geometry", counted):
             result = surface.evaluate(self.prepared, levels=2)
         self.assertEqual(evaluated_meshes, list(result.levels))
-
     def test_correspondence_order_and_results_are_deterministic(self):
         repeated = surface.evaluate(synthetic_prepared(), levels=2)
         self.assertEqual(self.result, repeated)
@@ -552,13 +549,11 @@ class SubdivisionTests(unittest.TestCase):
         self.assertIn("catmull_clark.open_boundary_vertex", first.formula_ids)
         self.assertIn("catmull_clark.open_boundary_edge", first.formula_ids)
         self.assertTrue(all(dependency for dependency in first.dependencies))
-
     def test_invalid_level_is_rejected(self):
         for operation in (lambda: surface.subdivide(self.result.cage, 0),
                           lambda: surface.evaluate(self.prepared, levels=3)):
             with self.assertRaisesRegex(ValueError, "one or two"):
                 operation()
-
     def test_normal_angle_fold_diagnostics_are_deterministic_and_explicit(self):
         diagnostics = build_root_complex.normal_angle_fold_diagnostics(self.result.levels)
         self.assertEqual(diagnostics, build_root_complex.normal_angle_fold_diagnostics(self.result.levels))
@@ -574,7 +569,6 @@ class SubdivisionTests(unittest.TestCase):
             self.assertGreaterEqual(report["folded_edge_count"], 0)
             self.assertGreaterEqual(report["folded_edge_fraction"], 0.0)
             self.assertLessEqual(report["folded_edge_fraction"], 1.0)
-
     def test_normal_angle_fold_diagnostic_defines_fold_count(self):
         mesh = type("DiagnosticMesh", (), {
             "vertices": ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0),
@@ -650,23 +644,25 @@ class MeshCorrectnessTests(unittest.TestCase):
                     points += np.asarray(translation, dtype=float) * scale
                     self.assert_pairs(points, np.asarray(faces, dtype=np.int64), expected, scale)
         crossing = np.asarray(base + cases[0][2], dtype=float)
-        with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"):
-            mesh_correctness.validate_triangle_intersections(crossing, np.asarray(separate, dtype=np.int64), 1.0)
+        with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"): mesh_correctness.validate_triangle_intersections(crossing, np.asarray(separate, dtype=np.int64), 1.0)
+        with self.assertRaises(ValueError) as raised: mesh_correctness.intersecting_triangle_pairs(np.asarray(base), np.asarray(((0, 1, 2),), dtype=np.int64), 10 ** 309)
+        self.assertEqual(str(raised.exception), "scale must be finite and positive"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
+        with self.assertRaises(ValueError) as raised: mesh_correctness.intersecting_triangle_pairs((*base[:2], (0.0, 10 ** 309, 0.0)), ((0, 1, 2),), 1.0)
+        self.assertEqual(str(raised.exception), "vertices must be a finite N x 3 array"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
         collinear = np.asarray(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)))
-        with self.assertRaisesRegex(ValueError, "triangle normal must be nonzero"):
+        with self.assertRaisesRegex(ValueError, "^triangle 0 normal must be nonzero$"):
             mesh_correctness.intersecting_triangle_pairs(collinear, np.asarray(((0, 1, 2),), dtype=np.int64), 1.0)
         tiny_normal = np.asarray(((0.0, 0.0, 0.0), (5e-324, 0.0, 0.0), (0.0, 1.0, 0.0)))
-        with self.assertRaisesRegex(ValueError, "triangle normal must be nonzero"):
+        with self.assertRaisesRegex(ValueError, "^triangle 0 normal must be nonzero$"):
             mesh_correctness.intersecting_triangle_pairs(tiny_normal, np.asarray(((0, 1, 2),), dtype=np.int64), 1.0)
         separated = np.asarray((*collinear, (10.0, 0.0, 0.0), (10.0, 1.0, 0.0), (10.0, 0.0, 1.0)))
-        with self.assertRaisesRegex(ValueError, "triangle normal must be nonzero"):
-            mesh_correctness.validate_triangle_intersections(separated, np.asarray(((0, 1, 2), (3, 4, 5)), dtype=np.int64), 1.0)
-        tiny = 2e-6 * np.asarray(
-            base + ((1.5, 1.5, 0.0), (2.5, 1.5, 0.0), (1.5, 2.5, 0.0)))
+        with self.assertRaisesRegex(ValueError, "^triangle 1 normal must be nonzero$"):
+            mesh_correctness.validate_triangle_intersections(separated, np.asarray(((3, 4, 5), (0, 1, 2)), dtype=np.int64), 1.0)
+        overflowing = np.asarray(base + ((0.0, 0.0, 0.0), (1e308, 0.0, 0.0), (0.0, 1e308, 0.0)))
+        with self.assertRaisesRegex(ValueError, "^triangle 1 normal length must be finite$"): mesh_correctness.intersecting_triangle_pairs(overflowing, np.asarray(separate, dtype=np.int64), 1.0)
+        tiny = 2e-6 * np.asarray(base + ((1.5, 1.5, 0.0), (2.5, 1.5, 0.0), (1.5, 2.5, 0.0)))
         self.assert_pairs(tiny, np.asarray(separate, dtype=np.int64), ())
-        noncoplanar = 2e-6 * np.asarray(
-            ((1.0, 1.0, 1.0), (2.0, -2.0, -2.0), (-2.0, -2.0, -2.0),
-             (-1.0, 0.0, 0.0), (1.0, 2.0, 2.0), (2.0, 2.0, 2.0)))
+        noncoplanar = 2e-6 * np.asarray(((1.0, 1.0, 1.0), (2.0, -2.0, -2.0), (-2.0, -2.0, -2.0), (-1.0, 0.0, 0.0), (1.0, 2.0, 2.0), (2.0, 2.0, 2.0)))
         self.assert_pairs(noncoplanar, np.asarray(separate, dtype=np.int64), ())
     def test_intersection_resource_caps_fail_closed(self):
         self.assertEqual((mesh_correctness.MAX_TRIANGLES, len(mesh_correctness._triangles(np.tile((0, 1, 2), (mesh_correctness.MAX_TRIANGLES, 1)), 3))), (3072, 3072))
@@ -691,6 +687,10 @@ class MeshCorrectnessTests(unittest.TestCase):
         vertices = np.asarray(mesh.vertices, dtype=float); loops = dict(mesh.boundary_loops)
         axes = {"L": (1.0, 0.0, 0.0), "U": (0.0, 1.0, 0.0), "F": (0.0, 0.0, 1.0)}; scale = surface.validate_geometry(mesh, evaluated=True)
         baseline = mesh_correctness.boundary_clearance_ratios(vertices, loops, axes, scale)
+        for name in ("L", "U", "F"):
+            invalid_axes = dict(axes); invalid_axes[name] = (10 ** 309, 0.0, 0.0)
+            with self.subTest(axis=name), self.assertRaises(ValueError) as raised: mesh_correctness.boundary_clearance_ratios(vertices, loops, invalid_axes, scale)
+            self.assertEqual(str(raised.exception), "body axes L, U, and F are required"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
         left, right = loops["left_thigh"], loops["right_thigh"]
         lateral = np.asarray(axes["L"]); points = vertices / scale; left_lateral = points[list(left)] @ lateral; right_lateral = points[list(right)] @ lateral; medial_gap = float(right_lateral.min() - left_lateral.max()); groin_right = right[int(np.argmin(right_lateral))]; groin_left = left[int(np.argmax(left_lateral))]
         self.assertGreater(medial_gap, 0.0); self.assertAlmostEqual(baseline["groin"], medial_gap, delta=1e-12)
