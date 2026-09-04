@@ -18,15 +18,15 @@ This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may
 preserve evidence but do not redefine current continuation.
 
-### Current investigation
+### Terminal investigation outcome
 
-The current runway is a Ben-authorized, experiment-local, pre-Readiness-4
-investigation of a programmatic surface-domain/subdivision-cage representation.
-Its bounded question is whether that representation can produce a credible
-ribcage-waist-pelvis assembly with readable neck, axilla, and hip/thigh-root
-boundaries, sufficient to justify extending the representation. The settled
-candidate plan is the [programmatic root-complex surface
-investigation](../research/programmatic-root-complex-surface-investigation.md).
+The Ben-authorized, experiment-local, pre-Readiness-4 investigation of a
+programmatic surface-domain/subdivision-cage representation is terminal for
+its seven-ring candidate. Its bounded question was whether that
+representation could produce a credible ribcage-waist-pelvis assembly with
+readable neck, axilla, and hip/thigh-root boundaries, sufficient to justify
+extending the representation. The recorded plan and outcome are in the
+[programmatic root-complex surface investigation](../research/programmatic-root-complex-surface-investigation.md).
 
 The investigation consumes explicitly identified authored/prepared input only.
 It introduces no production `GeometryRequest`/`GeometryResult` contract, no
@@ -35,22 +35,30 @@ domain/chart/cage identity. It cannot satisfy or replace the DR-0013 Stage 1
 proof. DR-0009 and DR-0010 remain parked; any promotion stops for the
 appropriate decision record/canonical architecture work and Ben's approval.
 
-The scope is the ribcage, waist, pelvis, neck port, bilateral shoulder/axilla
-roots, and bilateral hip/thigh roots. Use the standard neutral first, then
-expand unchanged rules to the exact five profiles only after credible
-main-thread visual inspection. Keep a separate standard-profile
-tail-present/tail-absent subcase with the same unaffected core outside the
-local port and no absent tail identities. Compare front, side, and
-three-quarter final-skin renders with the frozen failed baseline at the same
-framing and scale. Passing this investigation is not Stage 1/topology
-acceptance or distal-anatomy authorization.
+The scoped standard-neutral evidence exhausted exactly three frozen shared
+correction rounds: round 1 fixed measured shoulder intersections, round 2
+improved axial taper and thigh seating, and round 3 applied a superior axial
+saddle. Main-thread direct vision of the fixed front, side, and three-quarter
+round-3 evidence found neck emergence and downward shoulder departure still
+too weak; the arm ports continued to read in a broad superior shelf. Neutral
+credibility failed, so exact-five, tail, and gallery expansion are blocked and
+no fourth correction is allowed.
 
-Continuation follows the plan's frozen contract and complexity cap: minimal
-neutral program and direct skin render, main-thread visual check, unchanged
-exact-five expansion, only needed validators, rejection-only static probes
-after static viability, and a thin gallery adapter last. The plan is a
-candidate research record, not accepted product, specification, or architecture
-state.
+Structural evidence nevertheless passed: 72 cage vertices and 63 quads,
+1,053 level-2 vertices and 1,008 level-2 quads, level-1/level-2 intersection
+counts `0/0`, and all five reported clearance labels passed. Those labels
+represent only four distinct clearance measurements: `groin = min(right) -
+max(left)` and pairwise `medial_thigh = min(right - left)` are algebraically
+the same scalar, tested at `0.020 S` and `0.025 S`, respectively. This is a
+known terminal-candidate measurement limitation; it does not overturn the
+pass at the stricter `0.025 S` threshold and is not reused by the owned-root
+successor. This is a scoped rejection of the seven-ring candidate, not formal
+Stage 1, not a global rejection of programmatic or hybrid surfaces, and not
+authority to reactivate DR-0009, DR-0010, or another parked workstream.
+
+The next retained-human action is Ben's disposition or a newly authorized
+direction. There is no autonomous substitute checkpoint, exact-five
+continuation, or parked-work reactivation under this runway.
 
 ## Historical failed-candidate runway (2026-09-01)
 
@@ -125,14 +133,13 @@ roadmap, architecture, or executable truth.
 
 ### Closed candidate and stop state
 
-The active branch is `codex/post-godot-runway`; draft PR #122 remains open and
-unmerged. Its exact remote head, checks, and review state are live GitHub state
-and must be verified there rather than duplicated here: a commit that updates
-this paragraph would immediately make its own recorded hash stale. Before
-merge, the main thread must verify CI and the required hosted-plus-CLI review
-cycle on the pushed head and record the resulting dispositions in the PR. PR
-#122 still requires Ben's explicit authorization before merge; this branch/PR
-state does not reopen the runway or authorize another candidate.
+At that historical point, the then-active branch was
+`codex/post-godot-runway`; draft PR #122 was recorded as open and unmerged.
+This paragraph is historical context, not the current branch or PR state. Its
+remote head, checks, and review state must not be inferred from this record;
+any future reference must verify GitHub directly. PR #122 required Ben's
+explicit authorization before merge; that historical branch/PR state did not
+reopen the runway or authorize another candidate.
 
 The exact-five blocky smooth-union candidate and the regional candidate are
 closed and retained only as failed visual evidence. The regional candidate's

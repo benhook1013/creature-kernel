@@ -1,8 +1,9 @@
 # Programmatic root-complex surface investigation
 
-Status: Candidate plan; Ben-authorized bounded investigation; non-normative
+Status: Terminal candidate outcome recorded; Ben-authorized bounded
+investigation; non-normative
 
-This is the settled plan for the next small investigation. It is an
+This records the settled plan and terminal result of the bounded,
 experiment-local, pre-Readiness-4 activity using explicitly identified
 authored/prepared input. It introduces no production `GeometryRequest` or
 `GeometryResult` contract, production-core dependency, claimed resolved graph,
@@ -10,6 +11,69 @@ or durable domain, chart, or cage identity. It cannot satisfy or replace the
 DR-0013 Stage 1 proof. DR-0009 and DR-0010 remain parked. Any promotion stops
 for the appropriate decision record, canonical architecture work, and Ben's
 approval.
+
+The execution procedure below is retained as the investigation's historical
+plan. The terminal outcome recorded here supersedes its continuation steps for
+this seven-ring candidate.
+
+## Terminal outcome (2026-09-03 NZST)
+
+The seven-ring candidate exhausted exactly three frozen shared correction
+rounds. Round 1 fixed the measured shoulder intersections; round 2 improved
+axial taper and thigh seating; and round 3 applied the superior axial saddle.
+
+Main-thread direct vision of the fixed front, side, and three-quarter
+standard-neutral round-3 evidence found the terminal visual criterion unmet:
+neck emergence and downward shoulder departure remained too weak, while the
+arm ports still read in a broad superior shelf. Neutral credibility therefore
+failed. Exact-five, tail, and gallery expansion is blocked, and no fourth
+correction round is allowed.
+
+Structural evidence still passed: the cage has 72 vertices and 63 quads; the
+level-2 surface has 1,053 vertices and 1,008 quads; level-1 and level-2
+intersection counts are both zero; and all five reported clearance labels
+pass. Those labels represent only four distinct clearance measurements:
+`groin = min(right) - max(left)` and pairwise `medial_thigh = min(right -
+left)` are algebraically the same scalar, tested at `0.020 S` and `0.025 S`,
+respectively. This is a known terminal-candidate measurement limitation; it
+does not overturn the pass at the stricter `0.025 S` threshold and is not
+reused by the owned-root successor.
+The now-published normal-angle/fold diagnostic, which makes no C1/G1 claim,
+observed at level 1: 480 interior edges, 16 angles > pi/2, and max
+2.950328334548629 rad; level 2: 1,968 edges, 12 > pi/2, and max
+2.8042631317384212 rad. These are diagnostic observations, not an added
+acceptance gate.
+This is a scoped rejection of this seven-ring candidate, not formal Stage 1,
+not a global rejection of programmatic or hybrid surfaces, and not authority
+to reactivate DR-0009, DR-0010, or another parked workstream.
+
+The contract owner and reproduction procedure remain
+[the experiment README](../../experiments/programmatic-root-complex-surface/README.md)
+and its [launcher](../../experiments/programmatic-root-complex-surface/root_complex_launcher.sh).
+The local generated evidence remains uncommitted under the artifact policy. No
+approved durable binary artifact store exists, so generated binaries remain
+uncommitted; reproducibility is provided by the authoritative authored source,
+launcher, and recorded identities. For the terminal standard-neutral evidence,
+the recorded SHA-256 identities are:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `prepared.json` | `7d9c6e50d0d6c85bc9e9e2793f74c5a292b3962764bb913c055b593275b74c80` |
+| `skin.ply` | `bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf` |
+| `skin.png` | `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce` |
+| `cage.png` | `06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046` |
+| `metrics.json` | `54fbf1ad90da86fbc58cadc79b093900557363e5096cac6c2501c1a271b8c1d4` |
+| `manifest.json` | `8e7e48542acc3cb2e4c289a7bb48ce5c4aee91e0418717aa78adef8dc30f9daf` |
+
+The terminal evidence observed Python `3.10.12`; the launcher validated its
+pinned package environment: NumPy `2.2.6`, Pillow `11.1.0`, and scikit-image
+`0.25.2`.
+
+The evidence can be regenerated with the README's standard-neutral launcher
+command; its output target must be a new temporary path. The next retained
+human action is Ben's disposition or a newly authorized direction. No
+autonomous substitute checkpoint or parked-work reactivation follows from
+this terminal result.
 
 ## Named question and scope
 

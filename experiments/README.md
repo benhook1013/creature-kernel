@@ -104,6 +104,13 @@ experiment, and cannot activate Readiness 3/4, Stage 1, DR-0009/0010, a
 production geometry backend or seam, or any rigging, animation, collision,
 deformation, or runtime claim.
 
+The [programmatic root-complex surface trial](programmatic-root-complex-surface/README.md)
+is an unregistered exploratory pre-Readiness-4 trial from the Active runway.
+It is not `EXP-0001` and does not calculate formal support or reject. Its
+candidate-local frozen contract, neutral-first visual checkpoint, and
+experiment-local launcher are not product, Stage 1, production, or formal
+surface-comparison authority.
+
 ## Artifact policy
 
 Large meshes, caches, videos, captures, and datasets must not be committed until
