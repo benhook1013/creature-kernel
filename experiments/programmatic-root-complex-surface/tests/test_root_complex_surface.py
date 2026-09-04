@@ -12,13 +12,11 @@ from unittest.mock import patch
 
 import numpy as np
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
 import mesh_correctness  # noqa: E402
 import build_root_complex  # noqa: E402
-
 
 def synthetic_prepared():
     def station(center, radius, front, back, name):
@@ -57,7 +55,6 @@ def synthetic_prepared():
             "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
             "stations": stations, "landmarks": landmarks, "frames": {"body": frame}, "scalars": scalars}
 
-
 def independent_subdivision_stencils(quads, loops, vertex_count):
     uses = {}
     for face_index, face in enumerate(quads):
@@ -77,7 +74,6 @@ def independent_subdivision_stencils(quads, loops, vertex_count):
     next_quads = tuple((vertex, edge_index[tuple(sorted((vertex, face[(i + 1) % 4])))], face_index[fi], edge_index[tuple(sorted((face[i - 1], vertex)))]) for fi, face in enumerate(quads) for i, vertex in enumerate(face))
     next_loops = tuple((name, tuple(value for i, vertex in enumerate(loop) for value in (vertex, edge_index[tuple(sorted((vertex, loop[(i + 1) % len(loop)]))) ]))) for name, loop in loops)
     return tuple(sources), next_quads, next_loops
-
 
 def station_fields(name):
     return {f"stations.{name}.{key}" for key in ("center", "lateral_radius", "front_extent", "back_extent")}
@@ -718,6 +714,10 @@ class MeshCorrectnessTests(unittest.TestCase):
                 collapsed[groin_right, 0] = collapsed[groin_left, 0] + 0.022 * scale
             with self.subTest(gate=name), self.assertRaisesRegex(ValueError, name):
                 mesh_correctness.validate_boundary_clearances(collapsed, loops, axes, scale)
+        with patch.object(mesh_correctness, "MAX_BOUNDARY_CLEARANCE_PAIRS", 9):
+            minimal = dict(loops); minimal["left_thigh"] = left[:3]; minimal["right_thigh"] = right[:3]; exact = mesh_correctness.boundary_clearance_ratios(vertices, minimal, axes, scale)
+            expected = min(float((points[r] - points[l]) @ lateral) for l in minimal["left_thigh"] for r in minimal["right_thigh"]); self.assertEqual(exact["medial_thigh"], expected); over = dict(minimal); over["right_thigh"] = right[:4]
+            with self.assertRaisesRegex(ValueError, r"boundary clearance pair cap exceeded: 12 > 9"): mesh_correctness.boundary_clearance_ratios(vertices, over, axes, scale)
 
 
 class ComplexityBoundaryTests(unittest.TestCase):

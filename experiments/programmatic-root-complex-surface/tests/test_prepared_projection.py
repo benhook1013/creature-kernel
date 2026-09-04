@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = ROOT.parents[1]
@@ -99,7 +100,6 @@ class PreparedProjectionTests(unittest.TestCase):
                 _load(path)
         self.assertEqual(str(context.exception), message)
         self.assertIsInstance(context.exception.__cause__, cause_type)
-
     def test_load_reports_stable_cause_specific_errors(self):
         cases = (
             (b'{"duplicate": 1, "duplicate": 2}', "source contains duplicate JSON keys", ValueError),
@@ -110,12 +110,12 @@ class PreparedProjectionTests(unittest.TestCase):
             (b"{", "source has invalid JSON syntax", json.JSONDecodeError),
             (b"[]", "source JSON root must be an object", TypeError),
             (b"[" * 2000 + b"0" + b"]" * 2000, "source JSON is too deeply nested", RecursionError),
-            (b"1" * 5000, "source contains an invalid JSON value", ValueError),
             (b"\xff", "source is not valid UTF-8", UnicodeDecodeError),
         )
         for raw, message, cause_type in cases:
             with self.subTest(message=message):
                 self.assert_load_error(raw, message, cause_type)
+        with patch("prepared_projection.json.loads", side_effect=ValueError("forced generic JSON value failure")): self.assert_load_error(b"{}", "source contains an invalid JSON value", ValueError)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "missing.json"
             with self.assertRaises(PreparedProjectionError) as context:

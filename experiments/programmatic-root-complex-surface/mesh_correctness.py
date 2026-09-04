@@ -9,6 +9,7 @@ REQUIRED_LOOPS = ("neck", "left_arm", "right_arm", "left_thigh", "right_thigh")
 INTERSECTION_TOLERANCE = 1e-10
 MAX_TRIANGLES = 3072
 MAX_CANDIDATES = 250000
+MAX_BOUNDARY_CLEARANCE_PAIRS = 250000
 CLEARANCE_THRESHOLDS = {"neck": .030, "axilla_left": .025, "axilla_right": .025,
                         "groin": .020, "medial_thigh": .025}
 
@@ -183,6 +184,10 @@ def boundary_clearance_ratios(vertices, boundary_loops, axes, scale):
         "axilla_left": min(span("left_arm", U), span("left_arm", F)),
         "axilla_right": min(span("right_arm", U), span("right_arm", F)),
     }
+    left_count, right_count = len(loops["left_thigh"]), len(loops["right_thigh"])
+    pair_count = left_count * right_count
+    if pair_count > MAX_BOUNDARY_CLEARANCE_PAIRS:
+        raise ValueError(f"boundary clearance pair cap exceeded: {pair_count} > {MAX_BOUNDARY_CLEARANCE_PAIRS}")
     left_samples = points[list(loops["left_thigh"])]
     right_samples = points[list(loops["right_thigh"])]
     left_lateral = left_samples @ L
