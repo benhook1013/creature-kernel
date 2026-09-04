@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 import sys
 import unittest
-
+from importlib import import_module
+from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
-import mesh_correctness as mesh  # noqa: E402
+mesh = import_module("mesh_correctness")
 
 
 P0 = float.fromhex("0x0.0p+0")
@@ -39,6 +39,26 @@ def _transform(point, scale, translation):
 
 def _negative_zero(point):
     return tuple(math.copysign(0.0, -1.0) if value == 0.0 else value for value in point)
+
+
+def _count_fixture(quad_count, control_count=128):
+    points = tuple((float(index), 0.0, 0.0) for index in range(control_count))
+    faces = []
+    for first in range(1, control_count):
+        for second in range(first + 1, control_count):
+            for third in range(second + 1, control_count):
+                faces.append((0, first, second, third))
+                if len(faces) == quad_count:
+                    return points, tuple(faces)
+    raise AssertionError("fixture does not have enough unique quads")
+
+
+def _assert_reaches_boundary_gate(test_case, level, points, faces):
+    with test_case.assertRaisesRegex(ValueError, "exactly 5 boundary loops"):
+        mesh.validate_geometry(
+            points, faces, level, {"only": (0, 1, 2)}, {}, faces, {},
+            ("owner",) * len(faces),
+        )
 
 
 class _CoercibleFloat:
@@ -193,13 +213,13 @@ class PrimitiveTests(unittest.TestCase):
 
     def test_coordinate_and_scalar_admission_is_exact_python_float(self):
         for value in (1, "1", True, _CoercibleFloat()):
-            with self.subTest(value=type(value).__name__):
-                with self.assertRaisesRegex(ValueError, "finite binary64"):
-                    mesh.interval_disjoint(value, 0.0, 2.0, 3.0)
+            with self.subTest(value=type(value).__name__), self.assertRaisesRegex(
+                    ValueError, "finite binary64"):
+                mesh.interval_disjoint(value, 0.0, 2.0, 3.0)
         for value in (1, "1", True, _CoercibleFloat()):
-            with self.subTest(vector_value=type(value).__name__):
-                with self.assertRaisesRegex(ValueError, "finite binary64"):
-                    mesh.norm((value, 0.0, 0.0))
+            with self.subTest(vector_value=type(value).__name__), self.assertRaisesRegex(
+                    ValueError, "finite binary64"):
+                mesh.norm((value, 0.0, 0.0))
 
     def test_rows_require_exact_bounded_sequences_before_traversal(self):
         points = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
@@ -210,14 +230,14 @@ class PrimitiveTests(unittest.TestCase):
 
         for rows in ({0: (0, 1, 2)}, {(0, 1, 2)}, range(1),
                      _ListSubclass([(0, 1, 2)]), exploding_generator()):
-            with self.subTest(rows=type(rows).__name__):
-                with self.assertRaisesRegex(ValueError, "exact list or tuple"):
-                    mesh.intersection_diagnostics(points, rows)
+            with self.subTest(rows=type(rows).__name__), self.assertRaisesRegex(
+                    ValueError, "exact list or tuple"):
+                mesh.intersection_diagnostics(points, rows)
         for row in ({0: 0, 1: 1, 2: 2}, {0, 1, 2}, range(3),
                     exploding_generator()):
-            with self.subTest(row=type(row).__name__):
-                with self.assertRaisesRegex(ValueError, "exact list or tuple"):
-                    mesh.intersection_diagnostics(points, (row,))
+            with self.subTest(row=type(row).__name__), self.assertRaisesRegex(
+                    ValueError, "exact list or tuple"):
+                mesh.intersection_diagnostics(points, (row,))
         with self.assertRaisesRegex(ValueError, "triangle cap"):
             mesh.intersection_diagnostics(points, [object()] * 4097)
         with self.assertRaisesRegex(ValueError, "quad cap"):
@@ -253,9 +273,9 @@ class TopologyGeometryTests(unittest.TestCase):
         duplicates = (self.faces[0], tuple(reversed(self.faces[0])),
                       self.faces[0][1:] + self.faces[0][:1])
         for duplicate in duplicates:
-            with self.subTest(duplicate=duplicate):
-                with self.assertRaisesRegex(ValueError, "duplicate quad"):
-                    mesh.validate_topology(8, self.faces + (duplicate,))
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(
+                    ValueError, "duplicate quad"):
+                mesh.validate_topology(8, self.faces + (duplicate,))
 
     def test_clearance_semantics_are_owned_by_anatomy(self):
         self.assertFalse(hasattr(mesh, "boundary_clearance_ratios"))
@@ -317,6 +337,32 @@ class TopologyGeometryTests(unittest.TestCase):
             mesh.validate_geometry(self.points, self.faces)
         with self.assertRaisesRegex(ValueError, "required"):
             mesh.validate_geometry(self.points, self.faces, 0, None, None, None, None, None)
+
+
+class GeometryCountTests(unittest.TestCase):
+    def test_level_zero_count_boundaries_reach_the_next_gate(self):
+        points, faces = _count_fixture(120, 128)
+        _assert_reaches_boundary_gate(self, 0, points, faces)
+
+    def test_level_zero_count_overruns_fail_closed(self):
+        points, faces = _count_fixture(1, 129)
+        with self.assertRaisesRegex(ValueError, "base control cap"):
+            mesh.validate_geometry(
+                points, faces, 0, {"only": (0, 1, 2)}, {}, faces, {},
+                ("owner",),
+            )
+        points, faces = _count_fixture(121, 128)
+        with self.assertRaisesRegex(ValueError, "base quad cap"):
+            mesh.validate_geometry(
+                points, faces, 0, {"only": (0, 1, 2)}, {}, faces, {},
+                ("owner",) * len(faces),
+            )
+
+    def test_subdivision_quad_counts_are_not_subject_to_base_cap(self):
+        for level, quad_count in ((1, 416), (2, 1664)):
+            with self.subTest(level=level):
+                points, faces = _count_fixture(quad_count)
+                _assert_reaches_boundary_gate(self, level, points, faces)
 
 
 class IntegratedGeometryTests(unittest.TestCase):
@@ -400,7 +446,8 @@ class IntegratedGeometryTests(unittest.TestCase):
 class ProductionIntersectionFixtureTests(unittest.TestCase):
     def _assert_pair(self, name, points_a, points_b, expected, stage):
         points, triangles = _pair(points_a, points_b)
-        report = mesh.intersection_diagnostics(points, triangles)
+        report = mesh.intersection_diagnostics(
+            points, triangles, include_classifications=True)
         self.assertTrue(report["pair_policy_complete"], name)
         self.assertEqual(report["classifications"], (((0, 1), stage),), name)
         actual = "hit" if report["intersection_hit_count"] else "point-only"
@@ -449,7 +496,8 @@ class ProductionIntersectionFixtureTests(unittest.TestCase):
                     a[1], a[2] = a[2], a[1]
                 if suffix[3] == "1":
                     b[1], b[2] = b[2], b[1]
-                report = mesh.intersection_diagnostics(base_points, (tuple(a), tuple(b)))
+                report = mesh.intersection_diagnostics(
+                    base_points, (tuple(a), tuple(b)), include_classifications=True)
                 self.assertTrue(report["pair_policy_complete"], f"{name}.{suffix}")
                 self.assertEqual(report["classifications"], (((0, 1), expected),), f"{name}.{suffix}")
                 actual = "hit" if report["intersection_hit_count"] else "point-only"
@@ -494,7 +542,13 @@ class ProductionIntersectionFixtureTests(unittest.TestCase):
         executions += 2
 
         valid_shared2 = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, -1.0, 0.0))
-        self.assertEqual(mesh.intersection_diagnostics(valid_shared2, ((0, 1, 2), (1, 0, 3)))["classifications"], (( (0, 1), "excluded-adjacent"),))
+        self.assertEqual(
+            mesh.intersection_diagnostics(
+                valid_shared2, ((0, 1, 2), (1, 0, 3)),
+                include_classifications=True,
+            )["classifications"],
+            (((0, 1), "excluded-adjacent"),),
+        )
         executions += 1
         with self.assertRaisesRegex(ValueError, "shared-two"):
             mesh.intersection_diagnostics(valid_shared2, ((0, 1, 2), (0, 1, 3)))
@@ -513,11 +567,34 @@ class ProductionIntersectionFixtureTests(unittest.TestCase):
         cap_report = mesh.intersection_diagnostics(tuple(cap_points), tuple(cap_triangles))
         self.assertEqual((cap_report["triangle_count"], cap_report["broad_phase_candidate_count"]), (4096, 0))
         pair_count = 4096 * 4095 // 2
-        self.assertEqual(len(cap_report["classifications"]), pair_count)
-        self.assertEqual(cap_report["classifications"][0], ((0, 1), "aabb-disjoint"))
-        self.assertEqual(cap_report["classifications"][-1], ((4094, 4095), "aabb-disjoint"))
-        self.assertTrue(all(stage == "aabb-disjoint" for _, stage in cap_report["classifications"]))
+        evidence = cap_report["pair_policy_evidence"]
+        self.assertEqual(cap_report["pair_count"], pair_count)
+        self.assertEqual(
+            (evidence["expected_pair_count"], evidence["processed_pair_count"]),
+            (pair_count, pair_count),
+        )
+        self.assertEqual(
+            (evidence["first_pair"], evidence["last_pair"]),
+            ((0, 1), (4094, 4095)),
+        )
+        self.assertEqual(
+            evidence["class_counts"],
+            (("aabb-disjoint", pair_count), ("sat-disjoint", 0),
+             ("hit", 0), ("point-only", 0), ("excluded-adjacent", 0)),
+        )
+        self.assertEqual(evidence["nontrivial_pair_count"], 0)
+        self.assertEqual(evidence["nontrivial_classifications"], ())
+        self.assertFalse(evidence["nontrivial_evidence_truncated"])
+        self.assertEqual(cap_report["candidate_pairs"], ())
+        self.assertEqual(cap_report["hit_pairs"], ())
+        self.assertFalse(cap_report["candidate_pairs_truncated"])
+        self.assertFalse(cap_report["hit_pairs_truncated"])
+        self.assertIsNone(cap_report["first_hit_pair"])
+        self.assertNotIn("classifications", cap_report)
         self.assertTrue(cap_report["pair_policy_complete"])
+        with self.assertRaisesRegex(ValueError, "classification detail cap"):
+            mesh.intersection_diagnostics(
+                tuple(cap_points), tuple(cap_triangles), include_classifications=True)
         executions += 1
         with self.assertRaisesRegex(ValueError, "triangle cap"):
             mesh.intersection_diagnostics(tuple(cap_points) + ((0.0, 0.0, 0.0),
@@ -529,9 +606,14 @@ class ProductionIntersectionFixtureTests(unittest.TestCase):
                                                                         (1.0, 0.0, 0.0),
                                                                         (0.0, 1.0, 0.0)))
         candidate_triangles = tuple((3 * row, 3 * row + 1, 3 * row + 2) for row in range(3))
-        boundary_report = mesh.intersection_diagnostics(candidate_points, candidate_triangles)
+        boundary_report = mesh.intersection_diagnostics(
+            candidate_points, candidate_triangles, include_classifications=True)
         self.assertEqual(boundary_report["candidate_pairs"], ((0, 1), (0, 2), (1, 2)))
         self.assertEqual(boundary_report["intersection_hit_count"], 3)
+        self.assertEqual(boundary_report["hit_pairs"], ((0, 1), (0, 2), (1, 2)))
+        self.assertEqual(boundary_report["first_hit_pair"], (0, 1))
+        self.assertFalse(boundary_report["candidate_pairs_truncated"])
+        self.assertFalse(boundary_report["hit_pairs_truncated"])
         self.assertEqual(
             boundary_report["classifications"],
             (((0, 1), "hit"), ((0, 2), "hit"), ((1, 2), "hit")),
@@ -545,6 +627,25 @@ class ProductionIntersectionFixtureTests(unittest.TestCase):
                 candidate_triangles + ((9, 10, 11),), 3)
         executions += 1
         self.assertEqual(executions, 105)
+
+    def test_all_hit_diagnostics_keep_exact_counts_and_bounded_pair_evidence(self):
+        triangle = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+        points = tuple(point for _ in range(100) for point in triangle)
+        triangles = tuple((3 * row, 3 * row + 1, 3 * row + 2) for row in range(100))
+        report = mesh.intersection_diagnostics(points, triangles)
+        pair_count = 100 * 99 // 2
+
+        self.assertEqual(report["pair_count"], pair_count)
+        self.assertEqual(report["broad_phase_candidate_count"], pair_count)
+        self.assertEqual(report["intersection_hit_count"], pair_count)
+        self.assertEqual(report["first_hit_pair"], (0, 1))
+        self.assertEqual(len(report["candidate_pairs"]), 64)
+        self.assertEqual(len(report["hit_pairs"]), 64)
+        self.assertTrue(report["candidate_pairs_truncated"])
+        self.assertTrue(report["hit_pairs_truncated"])
+        self.assertEqual(report["candidate_pairs"], report["hit_pairs"])
+        self.assertTrue(report["pair_policy_complete"])
+        self.assertNotIn("classifications", report)
 
     def test_candidate_cap_fixture_helper_is_local_and_deterministic(self):
         points = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0),

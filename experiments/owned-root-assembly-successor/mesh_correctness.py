@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import itertools
+import math
 from collections import defaultdict
 from dataclasses import dataclass
 from fractions import Fraction
-import itertools
-import math
+from typing import NoReturn
 
 _FIXED_I0 = float.fromhex("0x1.b7cdfd9d7bdbbp-34")
 _FIXED_D = float.fromhex("0x1.0000000000000p-46")
@@ -16,8 +17,11 @@ _FIXED_PI = float.fromhex("0x1.921fb54442d18p+1")
 _FIXED_FOLD_LIMITS = (90.0, 60.0, 30.0)
 _MAX_TRIANGLES = 4096
 _MAX_QUADS = _MAX_TRIANGLES // 2
+_MAX_BASE_CONTROLS, _MAX_BASE_QUADS = 128, 120
 _MAX_CANDIDATES = 1_000_000
+_MAX_CLASSIFICATION_DETAILS, _MAX_DIAGNOSTIC_EVIDENCE = 4096, 64
 _PORT_ORIENTATION, _PORT_AREA_RATIO, _PORT_CO_NORMAL = 0.99, 0.0001, 0.80
+_FINAL_CLASSIFICATION_STAGES = ("aabb-disjoint", "sat-disjoint", "hit", "point-only", "excluded-adjacent")
 
 I0 = INTERSECTION_TOLERANCE = _FIXED_I0
 D = DEGENERACY_FLOOR = _FIXED_D
@@ -39,12 +43,15 @@ _THRESHOLD_RECORDS = tuple(
 class MeshCorrectnessError(ValueError):
     """A deterministic, fail-closed mesh correctness failure."""
 
-def _fail(message: str) -> None: raise MeshCorrectnessError(message)
+def _fail(message: str) -> NoReturn:
+    raise MeshCorrectnessError(message)
 def _finite_float(value, label: str) -> float:
-    if type(value) is not float or not math.isfinite(value): _fail(f"{label} must be a finite binary64 value")
+    if type(value) is not float or not math.isfinite(value):
+        _fail(f"{label} must be a finite binary64 value")
     return value
 def _integer(value, label: str) -> int:
-    if type(value) is not int: _fail(f"{label} must be an integer")
+    if type(value) is not int:
+        _fail(f"{label} must be an integer")
     return value
 def _sequence(raw, label: str, cap=None):
     if type(raw) not in (list, tuple):
@@ -73,7 +80,8 @@ def _points(raw):
 def _simple_indices(raw, vertex_count, label):
     values = tuple(_integer(value, label) for value in _sequence(raw, label))
     if (len(values) < 3 or len(set(values)) != len(values)
-            or any(index < 0 or index >= vertex_count for index in values)): _fail(f"{label} must be simple and in range")
+            or any(index < 0 or index >= vertex_count for index in values)):
+        _fail(f"{label} must be simple and in range")
     return values
 def _indexed_rows(raw, width, vertex_count, label, cap=None):
     rows = _sequence(raw, label, cap)
@@ -89,43 +97,35 @@ def _indexed_rows(raw, width, vertex_count, label, cap=None):
             _fail(f"{label[:-1]} has repeated vertex index at {face_index}")
         result.append(face)
     return tuple(result)
-
 def _canonical_cycle(face):
     return min(sequence[i:] + sequence[:i]
                for sequence in (tuple(face), tuple(reversed(face)))
                for i in range(len(face)))
-
 def _quads(raw, vertex_count):
     faces = _indexed_rows(raw, 4, vertex_count, "quads", _MAX_QUADS)
     keys = tuple(_canonical_cycle(face) for face in faces)
     if len(set(keys)) != len(keys):
         _fail("duplicate quad, including reversed/cyclic duplicate")
     return faces
-
 def _add_vec(a, b): return tuple(a[i] + b[i] for i in range(3))
 def _sub_vec(a, b): return tuple(a[i] - b[i] for i in range(3))
 def _dot_vec(a, b): return (a[0] * b[0] + a[1] * b[1]) + a[2] * b[2]
-
 def _cross_vec(a, b):
     return (a[1] * b[2] - a[2] * b[1],
             a[2] * b[0] - a[0] * b[2],
             a[0] * b[1] - a[1] * b[0])
-
 def _norm_vec(value): return math.sqrt(_dot_vec(value, value))
-
 def _normalize_vec(value, label):
     length = _norm_vec(value)
     if not math.isfinite(length) or length <= 0.0:
         _fail(f"{label} must be finite and nonzero")
     return tuple(component / length for component in value)
-
 def add(a, b): return _add_vec(_vec(a, "left vector"), _vec(b, "right vector"))
 def sub(a, b): return _sub_vec(_vec(a, "left vector"), _vec(b, "right vector"))
 def dot(a, b): return _dot_vec(_vec(a, "left vector"), _vec(b, "right vector"))
 def cross(a, b): return _cross_vec(_vec(a, "left vector"), _vec(b, "right vector"))
 def norm(value): return _norm_vec(_vec(value, "vector"))
 def normalize(value): return _normalize_vec(_vec(value, "vector"), "vector normal")
-
 def _normalize_points(points):
     lower = tuple(min(point[i] for point in points) for i in range(3))
     extent = tuple(max(point[i] for point in points) - lower[i] for i in range(3))
@@ -137,17 +137,14 @@ def _normalize_points(points):
     if any(not math.isfinite(value) for point in normalized for value in point):
         _fail("normalized coordinates must be finite")
     return normalized, scale
-
 def interval_disjoint(lower_a, upper_a, lower_b, upper_b):
     values = tuple(_finite_float(value, label) for value, label in zip(
         (lower_a, upper_a, lower_b, upper_b),
         ("lower_A", "upper_A", "lower_B", "upper_B")))
     return _interval_disjoint(*values)
-
 def _interval_disjoint(lower_a, upper_a, lower_b, upper_b):
     return (upper_a < lower_b - _FIXED_I0
             or upper_b < lower_a - _FIXED_I0)
-
 def _edge_incidence(faces):
     result = defaultdict(list)
     for face_index, face in enumerate(faces):
@@ -155,7 +152,6 @@ def _edge_incidence(faces):
             end = face[(slot + 1) % len(face)]
             result[(min(start, end), max(start, end))].append((face_index, start, end))
     return result
-
 def _validate_loops(raw, vertex_count):
     if raw is None:
         return {}
@@ -168,11 +164,9 @@ def _validate_loops(raw, vertex_count):
         used.update(loop)
         result[name] = loop
     return result
-
 def _cyclic_equal(actual, expected, reverse=False):
     target = tuple(reversed(expected)) if reverse else tuple(expected)
     return len(actual) == len(target) and any(actual == target[i:] + target[:i] for i in range(len(target)))
-
 def _boundary_cycles(edges):
     outgoing = defaultdict(list)
     for _, start, end in edges:
@@ -210,7 +204,6 @@ class TopologyReport:
     @property
     def euler_characteristic(self):
         return self.euler
-
 def _connected_components(adjacency, vertex_count):
     unseen, components = set(range(vertex_count)), 0
     while unseen:
@@ -221,18 +214,20 @@ def _connected_components(adjacency, vertex_count):
             unseen.difference_update(neighbours)
             todo.extend(neighbours)
     return components
-
 def _topology_report(vertex_count, quads, loops, expected_faces):
     if expected_faces is not None:
         expected = _indexed_rows(
             expected_faces, 4, vertex_count, "expected_faces", _MAX_QUADS)
-        if quads != expected: _fail("face winding/catalog does not match exactly")
+        if quads != expected:
+            _fail("face winding/catalog does not match exactly")
     incidence = _edge_incidence(quads)
     non_manifold = sum(len(items) > 2 for items in incidence.values())
-    if non_manifold: _fail(f"non-manifold edge count {non_manifold}")
+    if non_manifold:
+        _fail(f"non-manifold edge count {non_manifold}")
     conflicts = sum(len(items) == 2 and items[0][1:] == items[1][1:]
                     for items in incidence.values())
-    if conflicts: _fail(f"orientation conflict count {conflicts}")
+    if conflicts:
+        _fail(f"orientation conflict count {conflicts}")
     boundary = [items[0] for items in incidence.values() if len(items) == 1]
     cycles = _boundary_cycles(boundary) if boundary else ()
     if loops:
@@ -251,7 +246,8 @@ def _topology_report(vertex_count, quads, loops, expected_faces):
     if len(used) != vertex_count:
         _fail("unused vertex IDs are not permitted")
     components = _connected_components(adjacency, vertex_count)
-    if components != 1: _fail("surface is not connected")
+    if components != 1:
+        _fail("surface is not connected")
     return TopologyReport(
         vertex_count, len(incidence), len(quads), len(boundary), len(cycles), components,
         vertex_count - len(incidence) + len(quads), non_manifold, conflicts,
@@ -264,7 +260,6 @@ def validate_topology(vertex_count, faces, boundary_loops=None, expected_faces=N
     quads = _quads(faces, vertex_count)
     return _topology_report(vertex_count, quads, _validate_loops(boundary_loops, vertex_count),
                             expected_faces)
-
 def _triangle_normal(triangle, points):
     return _cross_vec(_sub_vec(points[triangle[1]], points[triangle[0]]), _sub_vec(points[triangle[2]], points[triangle[0]]))
 def _quad_data(quad, points):
@@ -283,7 +278,6 @@ def _loop_geometry(selected):
         area = _add_vec(area, _cross_vec(_sub_vec(point, centroid),
                                          _sub_vec(selected[(index + 1) % len(selected)], centroid)))
     return centroid, tuple(0.5 * value for value in area)
-
 def port_loop_metrics(points, loop, outward_direction, adjacent_normals):
     points = _points(points)
     loop = _simple_indices(loop, len(points), "port loop")
@@ -340,7 +334,6 @@ def _tagged_trace(raw, label):
     if not result:
         _fail(f"{label} must not be empty")
     return tuple(result)
-
 def junction_continuity_metrics(trace_a, trace_b):
     first, second = _tagged_trace(trace_a, "trace A"), _tagged_trace(trace_b, "trace B")
     first_tags, second_tags = tuple(tag for tag, _ in first), tuple(tag for tag, _ in second)
@@ -359,7 +352,6 @@ def junction_continuity_metrics(trace_a, trace_b):
         _fail("junction coordinate residual exceeds tolerance")
     return {"tag_identity": True, "opposite_trace_direction": True,
             "coordinate_residual": residual}
-
 def fold_angle_degrees(normal_a, normal_b):
     first = _normalize_vec(_vec(normal_a, "fold normal A"), "fold normal A")
     second = _normalize_vec(_vec(normal_b, "fold normal B"), "fold normal B")
@@ -367,7 +359,6 @@ def fold_angle_degrees(normal_a, normal_b):
     angle = math.acos(cosine)
     first_step = angle * 180.0
     return first_step / _FIXED_PI
-
 def validate_fold(normal_a, normal_b, level):
     level = _integer(level, "fold level")
     if level not in range(3):
@@ -376,7 +367,6 @@ def validate_fold(normal_a, normal_b, level):
     if not angle < _FIXED_FOLD_LIMITS[level]:
         _fail(f"fold angle {angle!r} is not below {_FIXED_FOLD_LIMITS[level]!r}")
     return angle
-
 def _validate_junction_traces(raw):
     raw = _named_mapping(raw, "junction traces", 7)
     result = {}
@@ -387,13 +377,11 @@ def _validate_junction_traces(raw):
         result[name] = tuple(_tagged_trace(value, f"{name}.{side}")
                              for side, value in zip(("A", "B"), pair))
     return result
-
 def _face_owners(raw, face_count):
     owners = _sequence(raw, "face_owners", _MAX_QUADS)
     if len(owners) != face_count or any(type(owner) is not str or not owner for owner in owners):
         _fail("face_owners must contain one non-empty string per face")
     return owners
-
 def _boundary_normals(loops, incidence, quad_normals):
     result = {}
     for name, loop in loops.items():
@@ -406,7 +394,6 @@ def _boundary_normals(loops, incidence, quad_normals):
             normals.append(quad_normals[uses[0][0]])
         result[name] = tuple(normals)
     return result
-
 def _run_fold_gates(incidence, owners, quad_normals, level):
     count = 0
     for uses in incidence.values():
@@ -414,7 +401,6 @@ def _run_fold_gates(incidence, owners, quad_normals, level):
             validate_fold(quad_normals[uses[0][0]], quad_normals[uses[1][0]], level)
             count += 1
     return count
-
 def _aabb(points, triangle):
     corners = tuple(points[index] for index in triangle)
     return (tuple(min(point[i] for point in corners) for i in range(3))
@@ -426,7 +412,6 @@ def _shared_edge_direction(triangle, shared):
         if {start, end} == shared:
             return start, end
     _fail("shared edge is absent")
-
 def _axis_list(first, second):
     edges_a = tuple(_sub_vec(first[(i + 1) % 3], first[i]) for i in range(3))
     edges_b = tuple(_sub_vec(second[(i + 1) % 3], second[i]) for i in range(3))
@@ -436,7 +421,6 @@ def _axis_list(first, second):
             + tuple(_cross_vec(a, b) for a in edges_a for b in edges_b)
             + tuple(_cross_vec(normal_a, edge) for edge in edges_a)
             + tuple(_cross_vec(normal_b, edge) for edge in edges_b))
-
 def _sat_disjoint(first, second):
     for axis in _axis_list(first, second):
         length = _norm_vec(axis)
@@ -452,10 +436,8 @@ def _sat_disjoint(first, second):
                               min(projections[3:]), max(projections[3:])):
             return True
     return False
-
 def _rational(value): return Fraction(0, 1) if value == 0.0 else Fraction(*value.as_integer_ratio())
 def _ray_difference(first, second): return tuple(_rational(first[i]) - _rational(second[i]) for i in range(3))
-
 def _active_solution(rays, subset):
     matrix = [[rays[index][row] for index in subset] + [Fraction(0, 1)]
               for row in range(3)]
@@ -482,7 +464,6 @@ def _active_solution(rays, subset):
             or solution[2] + solution[3] <= 0):
         return None
     return tuple(solution)
-
 def shared_one_intersects(shared, a0, a1, b0, b1):
     values = tuple(_vec(value, label) for value, label in (
         (shared, "shared point"), (a0, "A0"), (a1, "A1"), (b0, "B0"), (b1, "B1")))
@@ -494,16 +475,13 @@ def shared_one_intersects(shared, a0, a1, b0, b1):
     return any(_active_solution(rays, subset) is not None
                for size in (2, 3, 4)
                for subset in itertools.combinations(range(4), size))
-
 def classify_shared_one(shared, a0, a1, b0, b1): return "hit" if shared_one_intersects(shared, a0, a1, b0, b1) else "point-only"
-
 def _classify_shared_one_triangles(first, second, points):
     shared = next(index for index in first if index in second)
     a = [index for index in first if index != shared]
     b = [index for index in second if index != shared]
     return shared_one_intersects(points[shared], points[a[0]], points[a[1]],
                                  points[b[0]], points[b[1]])
-
 def _intersection_inputs(vertices, triangles):
     points = _points(vertices)
     faces = _indexed_rows(triangles, 3, len(points), "triangles", _MAX_TRIANGLES)
@@ -514,7 +492,6 @@ def _intersection_inputs(vertices, triangles):
             _fail(f"normalized triangle normal degeneracy at {index}")
     bounds = tuple(_aabb(normalized, face) for face in faces)
     return faces, normalized, scale, bounds, tuple(frozenset(face) for face in faces)
-
 def _aabb_disjoint(first, second): return any(_interval_disjoint(first[i], first[i + 3], second[i], second[i + 3]) for i in range(3))
 def _pair_status(first_index, second_index, faces, normalized, bounds, face_sets):
     pair = (first_index, second_index)
@@ -533,12 +510,21 @@ def _pair_status(first_index, second_index, faces, normalized, bounds, face_sets
         hit = _classify_shared_one_triangles(faces[first_index], faces[second_index], normalized)
         return "hit" if hit else "point-only"
     return "aabb-disjoint" if _aabb_disjoint(bounds[first_index], bounds[second_index]) else "candidate"
-
+def _record_pair_policy(triangle_count, first, second, ordinal, stage, class_counts):
+    expected_ordinal = (first * (2 * triangle_count - first - 1) // 2
+                        + second - first - 1)
+    if ordinal != expected_ordinal:
+        _fail("intersection pair coverage is not exhaustive reference order")
+    if stage not in _FINAL_CLASSIFICATION_STAGES:
+        _fail("intersection pair has an invalid classification")
+    class_counts[stage] += 1
 def _append_candidate(result, pair, cap):
     if len(result) >= cap:
         _fail(f"AABB candidate cap exceeded: >{cap}")
     result.append(pair)
-
+def _append_bounded(result, value):
+    if len(result) < _MAX_DIAGNOSTIC_EVIDENCE:
+        result.append(value)
 def _collect_candidate_pairs(faces, bounds, face_sets, cap):
     cap = _integer(cap, "candidate cap")
     if cap <= 0:
@@ -549,7 +535,6 @@ def _collect_candidate_pairs(faces, bounds, face_sets, cap):
             if _pair_status(first, second, faces, None, bounds, face_sets) == "candidate":
                 _append_candidate(result, (first, second), cap)
     return tuple(result)
-
 def _enumerate_fixture_candidates(vertices, triangles, cap):
     """Fixture-only cap injection. Production always uses the fixed cap."""
     faces, _, _, bounds, face_sets = _intersection_inputs(vertices, triangles)
@@ -557,28 +542,72 @@ def _enumerate_fixture_candidates(vertices, triangles, cap):
 def enumerate_broad_phase_candidates(points, triangles):
     faces, _, _, bounds, face_sets = _intersection_inputs(points, triangles)
     return _collect_candidate_pairs(faces, bounds, face_sets, _MAX_CANDIDATES)
-
-def intersection_diagnostics(vertices, triangles):
+def intersection_diagnostics(vertices, triangles, *, include_classifications=False):
+    if type(include_classifications) is not bool:
+        _fail("include_classifications must be a boolean")
     faces, normalized, scale, bounds, face_sets = _intersection_inputs(vertices, triangles)
-    candidates, hits, classifications = [], [], []
+    expected_pairs = len(faces) * (len(faces) - 1) // 2
+    if include_classifications and expected_pairs > _MAX_CLASSIFICATION_DETAILS:
+        _fail(f"classification detail cap exceeded: {expected_pairs} > {_MAX_CLASSIFICATION_DETAILS}")
+    candidates, hits, nontrivial_evidence = [], [], []
+    candidate_count = hit_count = 0
+    first_pair = last_pair = first_hit_pair = None
+    classifications = [] if include_classifications else None
+    class_counts = {stage: 0 for stage in _FINAL_CLASSIFICATION_STAGES}
+    processed_pairs = 0
     for first, second in itertools.combinations(range(len(faces)), 2):
         pair = (first, second)
         stage = _pair_status(first, second, faces, normalized, bounds, face_sets)
         if stage == "candidate":
-            _append_candidate(candidates, pair, _MAX_CANDIDATES)
+            candidate_count += 1
+            if candidate_count > _MAX_CANDIDATES:
+                _fail(f"AABB candidate cap exceeded: >{_MAX_CANDIDATES}")
+            _append_bounded(candidates, pair)
             first_points = tuple(normalized[index] for index in faces[first])
             second_points = tuple(normalized[index] for index in faces[second])
             stage = "hit" if not _sat_disjoint(first_points, second_points) else "sat-disjoint"
+        _record_pair_policy(
+            len(faces), first, second, processed_pairs, stage, class_counts)
         if stage == "hit":
-            hits.append(pair)
-        classifications.append((pair, stage))
-    return {
-        "triangle_count": len(faces), "normalization_scale": scale,
-        "broad_phase_candidate_count": len(candidates), "intersection_hit_count": len(hits),
-        "pair_policy_complete": len(classifications) == len(faces) * (len(faces) - 1) // 2,
-        "candidate_pairs": tuple(candidates), "hit_pairs": tuple(hits),
-        "classifications": tuple(classifications),
+            hit_count += 1
+            if first_hit_pair is None:
+                first_hit_pair = pair
+            _append_bounded(hits, pair)
+        if stage != "aabb-disjoint":
+            _append_bounded(nontrivial_evidence, (pair, stage))
+        if classifications is not None:
+            classifications.append((pair, stage))
+        if first_pair is None:
+            first_pair = pair
+        last_pair = pair
+        processed_pairs += 1
+    pair_policy_complete = (
+        processed_pairs == expected_pairs
+        and first_pair == ((0, 1) if expected_pairs else None)
+        and last_pair == ((len(faces) - 2, len(faces) - 1) if expected_pairs else None)
+        and sum(class_counts.values()) == expected_pairs)
+    pair_policy_evidence = {
+        "expected_pair_count": expected_pairs, "processed_pair_count": processed_pairs,
+        "first_pair": first_pair, "last_pair": last_pair,
+        "class_counts": tuple((stage, class_counts[stage]) for stage in _FINAL_CLASSIFICATION_STAGES),
+        "nontrivial_pair_count": expected_pairs - class_counts["aabb-disjoint"],
+        "nontrivial_classifications": tuple(nontrivial_evidence),
+        "nontrivial_evidence_truncated": expected_pairs - class_counts["aabb-disjoint"] > len(nontrivial_evidence),
     }
+    report = {
+        "triangle_count": len(faces), "normalization_scale": scale,
+        "pair_count": expected_pairs,
+        "broad_phase_candidate_count": candidate_count, "intersection_hit_count": hit_count,
+        "pair_policy_complete": pair_policy_complete,
+        "pair_policy_evidence": pair_policy_evidence,
+        "candidate_pairs": tuple(candidates), "hit_pairs": tuple(hits),
+        "candidate_pairs_truncated": candidate_count > len(candidates),
+        "hit_pairs_truncated": hit_count > len(hits),
+        "first_hit_pair": first_hit_pair,
+    }
+    if classifications is not None:
+        report["classifications"] = tuple(classifications)
+    return report
 
 def validate_geometry(vertices, quads, level, boundary_loops, port_directions,
                       expected_faces, junction_traces, face_owners):
@@ -590,6 +619,10 @@ def validate_geometry(vertices, quads, level, boundary_loops, port_directions,
         _fail("all production geometry selectors and gate data are required")
     points = _points(vertices)
     faces = _quads(quads, len(points))
+    if level == 0 and len(points) > _MAX_BASE_CONTROLS:
+        _fail(f"level 0 base control cap exceeded: {len(points)} > {_MAX_BASE_CONTROLS}")
+    if level == 0 and len(faces) > _MAX_BASE_QUADS:
+        _fail(f"level 0 base quad cap exceeded: {len(faces)} > {_MAX_BASE_QUADS}")
     loops = _validate_loops(boundary_loops, len(points))
     if len(loops) != 5:
         _fail("exactly 5 boundary loops are required")
@@ -610,9 +643,11 @@ def validate_geometry(vertices, quads, level, boundary_loops, port_directions,
             or min(triangle_areas) < floor["triangle_area"]
             or min(quad_areas) < floor["quad_area"]):
         _fail("structural floor failed")
-    hits = intersection_diagnostics(points, triangles)["hit_pairs"]
-    if hits:
-        _fail(f"{len(hits)} triangle intersections, first pair {hits[0]}")
+    intersection = intersection_diagnostics(points, triangles)
+    hit_count = intersection["intersection_hit_count"]
+    if hit_count:
+        _fail(f"{hit_count} triangle intersections, "
+              f"first pair {intersection['first_hit_pair']}")
     port_directions = _named_mapping(port_directions, "port directions", 5)
     if set(port_directions) != set(loops):
         _fail("port directions must match boundary loops")
@@ -638,12 +673,12 @@ def validate_geometry(vertices, quads, level, boundary_loops, port_directions,
 
 def intersection_candidate_threshold_records(): return tuple(dict(record) for record in _THRESHOLD_RECORDS)
 __all__ = [
-    "D", "DEGENERACY_FLOOR", "FOLD_LIMITS_DEGREES", "I0", "INTERSECTION_TOLERANCE",
-    "MAX_CANDIDATES", "MAX_TRIANGLES", "MeshCorrectnessError", "PI", "S",
-    "STRUCTURAL_FLOORS", "T", "TopologyReport", "add", "classify_shared_one",
-    "cross", "dot", "enumerate_broad_phase_candidates", "fold_angle_degrees",
-    "intersection_candidate_threshold_records", "intersection_diagnostics", "interval_disjoint",
-    "junction_continuity_metrics",
+    "DEGENERACY_FLOOR", "FOLD_LIMITS_DEGREES", "I0", "INTERSECTION_TOLERANCE",
+    "MAX_CANDIDATES", "MAX_TRIANGLES", "PI", "STRUCTURAL_FLOORS", "D",
+    "MeshCorrectnessError", "S", "T", "TopologyReport", "add",
+    "classify_shared_one", "cross", "dot", "enumerate_broad_phase_candidates",
+    "fold_angle_degrees", "intersection_candidate_threshold_records",
+    "intersection_diagnostics", "interval_disjoint", "junction_continuity_metrics",
     "norm", "normalize", "port_loop_metrics", "shared_one_intersects", "sub",
     "validate_fold", "validate_geometry", "validate_port_loop", "validate_topology",
 ]
