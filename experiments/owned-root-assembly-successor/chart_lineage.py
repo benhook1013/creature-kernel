@@ -120,6 +120,7 @@ def _domain_cycle(boundary, shared):
     if len(following) != len(shared): _fail("a junction is not a domain boundary cycle")
     cycle = [min(following)]
     while following.get(cycle[-1]) != cycle[0] and len(cycle) <= len(shared):
+        if cycle[-1] not in following: _fail("a junction is not one closed trace")
         cycle.append(following[cycle[-1]])
     if len(cycle) != len(shared) or following.get(cycle[-1]) != cycle[0]: _fail("a junction is not one closed trace")
     return tuple(cycle)

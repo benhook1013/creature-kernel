@@ -5,7 +5,8 @@ set -euo pipefail
 repo_root=$(cd -- "$(dirname -- "$0")/../.." && pwd)
 search_script=$repo_root/dev-tools/repo_search.sh
 
-bash -n "$search_script" "$0"
+bash -n "$search_script"
+bash -n "$0"
 
 tmp_dir=$(mktemp -d -t repo-search-test.XXXXXX)
 trap 'rm -rf -- "$tmp_dir"' EXIT

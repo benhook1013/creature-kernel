@@ -243,6 +243,40 @@ class PreparedProjectionTests(unittest.TestCase):
         for name, candidate in cases:
             with self.subTest(name=name), self.assertRaises(PreparedProjectionError):
                 validate_prepared(candidate)
+    def test_validator_reuses_expected_projection_bytes_for_same_digest_triple(self):
+        with patch.object(projection, "_build_prepared",
+                          wraps=projection._build_prepared) as build_prepared:
+            validate = projection._prepared_apis(projection._COMMITMENTS)[0]
+            self.assertIs(validate(self.prepared), self.prepared)
+            self.assertIs(validate(self.prepared), self.prepared)
+        self.assertEqual(build_prepared.call_count, 1)
+    def test_validator_rebuilds_for_changed_digest_and_rejects_fixed_input_drift(self):
+        fixed_inputs = projection._fixed_inputs(SOURCE, CONTRACT, PROFILE_TABLE)
+        changed_digest = "f" * 64
+        changed_inputs = (*fixed_inputs[:4], changed_digest)
+        changed = copy.deepcopy(self.prepared)
+        changed["profile_selection"]["profile_table_sha256"] = changed_digest
+        changed["provenance"]["source_files"][1]["sha256"] = changed_digest
+        with patch.object(projection, "_fixed_inputs",
+                          side_effect=[fixed_inputs, changed_inputs]):
+            with patch.object(projection, "_build_prepared",
+                              wraps=projection._build_prepared) as build_prepared:
+                validate = projection._prepared_apis(projection._COMMITMENTS)[0]
+                self.assertIs(validate(self.prepared), self.prepared)
+                self.assertIs(validate(changed), changed)
+            self.assertEqual(build_prepared.call_count, 2)
+        drifted = SOURCE.read_bytes().replace(b'"forward": "+z"', b'"forward": "-z"', 1)
+        calls = [0]
+        def inputs_with_drift(*args):
+            if calls[0] == 0:
+                calls[0] += 1
+                return fixed_inputs
+            projection._admit_source_bytes(drifted)
+        with patch.object(projection, "_fixed_inputs", side_effect=inputs_with_drift):
+            validate = projection._prepared_apis(projection._COMMITMENTS)[0]
+        self.assertIs(validate(self.prepared), self.prepared)
+        with self.assertRaisesRegex(PreparedProjectionError, "source identity mismatch"):
+            validate(self.prepared)
     def test_canonical_prepared_bytes_round_trip_and_rejections(self):
         encoded = canonical_json_bytes(self.prepared)
         admitted = admit_prepared_bytes(encoded)

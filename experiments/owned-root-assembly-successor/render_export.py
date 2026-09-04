@@ -92,10 +92,12 @@ def render_config_record() -> dict[str, Any]:
         "quad_split": [[0, 1, 2], [0, 2, 3]], "shading": False, "lighting": False, "labels": False, "outlines": False,
         "anti_aliasing": False, "alpha": False, "culling": False, "pillow_version": "11.1.0", "png_compress_level": 9, "png_optimize": False, "png_metadata": {},
     }
-def _exact(value: object, expected: object) -> bool:
-    return type(value) is type(expected) and ((all(type(key) is str for key in value) and set(value) == set(expected) and all(_exact(value[key], item) for key, item in expected.items())) if type(expected) is dict else (len(value) == len(expected) and all(_exact(item, wanted) for item, wanted in zip(value, expected))) if type(expected) is list else value == expected)
+def _exact(value: object, expected: object, *, canonical_wire: bool = False) -> bool:
+    if canonical_wire and type(expected) is float and expected == 0.0:
+        return (type(value) is float and value == expected) or (type(value) is int and value == 0)
+    return type(value) is type(expected) and ((all(type(key) is str for key in value) and set(value) == set(expected) and all(_exact(value[key], item, canonical_wire=canonical_wire) for key, item in expected.items())) if type(expected) is dict else (len(value) == len(expected) and all(_exact(item, wanted, canonical_wire=canonical_wire) for item, wanted in zip(value, expected))) if type(expected) is list else value == expected)
 def validate_render_config(value: object) -> None:
-    _reject(not _exact(value, render_config_record()), "render_config is not the exact closed record")
+    _reject(not _exact(value, render_config_record(), canonical_wire=True), "render_config is not the exact closed record")
 @dataclass(frozen=True)
 class VisibilityBuffer:
     owners: tuple[int | None, ...]

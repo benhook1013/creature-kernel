@@ -13,6 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parents[1]
 REPO = HERE.parents[1]
 sys.path.insert(0, str(HERE))
+import artifact_serialization as artifacts
 import owned_root_surface as surface
 import prepared_projection
 import render_export as render
@@ -124,6 +125,27 @@ class ConfigTests(unittest.TestCase):
             target[path[-1]] = replacement
             with self.subTest(label=label), self.assertRaises(render.RenderExportError):
                 render.validate_render_config(candidate)
+
+    def test_canonical_wire_config_admits_only_zero_float_normalization(self):
+        config = artifacts.decode_canonical_json(
+            artifacts.canonical_json_bytes(render.render_config_record())
+        )
+        self.assertIs(type(config["cameras"][0]["right"][1]), int)
+        render.validate_render_config(config)
+        for label, path, replacement in (
+                ("type", ("cameras", 0, "right", 0), 1),
+                ("value", ("padding",), 25)):
+            candidate, target = deepcopy(config), None
+            target = candidate
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = replacement
+            with self.subTest(label=label), self.assertRaises(render.RenderExportError):
+                render.validate_render_config(candidate)
+        candidate = deepcopy(config)
+        candidate["extra"] = False
+        with self.assertRaises(render.RenderExportError):
+            render.validate_render_config(candidate)
 
     def test_config_factory_returns_independent_closed_values(self):
         first = render.render_config_record()

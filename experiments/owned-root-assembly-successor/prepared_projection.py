@@ -25,15 +25,9 @@ EXPECTED_BINDINGS_SHA256 = "57ce3638fd31cca47294d8c9ddf142d783b527b18be431a5501f
 EXPECTED_SOURCE_BYTES, EXPECTED_PROFILE_BYTES = 56984, 29970
 # Definition-time immutable admission commitments. Public constants remain
 # inspectable, but their ordinary reassignment cannot redirect admission.
-_ADMISSION = ((CONTRACT_ROLE, SOURCE_ROLE, PROFILE_ROLE),
-    (CONTRACT_PATH, SIDECAR_PATH, SOURCE_PATH, PROFILE_TABLE_PATH),
-    (EXPECTED_CONTRACT_SHA256, EXPECTED_SOURCE_SHA256, EXPECTED_PROFILE_TABLE_SHA256),
-    (173184, 127, EXPECTED_SOURCE_BYTES, EXPECTED_PROFILE_BYTES),
-    (EXPECTED_BINDING_COMPONENTS_SHA256, EXPECTED_BINDINGS_SHA256))
+_ADMISSION = ((CONTRACT_ROLE, SOURCE_ROLE, PROFILE_ROLE), (CONTRACT_PATH, SIDECAR_PATH, SOURCE_PATH, PROFILE_TABLE_PATH), (EXPECTED_CONTRACT_SHA256, EXPECTED_SOURCE_SHA256, EXPECTED_PROFILE_TABLE_SHA256), (173184, 127, EXPECTED_SOURCE_BYTES, EXPECTED_PROFILE_BYTES), (EXPECTED_BINDING_COMPONENTS_SHA256, EXPECTED_BINDINGS_SHA256))
 _ROLES, _PATHS, _HASHES, _SIZES, _BINDING_HASHES = _ADMISSION
-(_JSON_BYTES, _DECODE_JSON, _COERCE_BINARY64, _READ_FILE, _SHA256_BYTES) = (
-    artifacts.canonical_json_bytes, artifacts.decode_canonical_json,
-    artifacts.coerce_binary64, artifacts.read_regular_file, artifacts.sha256_bytes)
+(_JSON_BYTES, _DECODE_JSON, _COERCE_BINARY64, _READ_FILE, _SHA256_BYTES) = (artifacts.canonical_json_bytes, artifacts.decode_canonical_json, artifacts.coerce_binary64, artifacts.read_regular_file, artifacts.sha256_bytes)
 _SIDECAR_CONTENT = artifacts.contract_sidecar_bytes(_HASHES[0])
 _PREPARED_SCHEMA = "owned-root-assembly-successor-prepared.v1"
 _NEUTRAL_PROFILE = "standard_neutral_reference"
@@ -44,18 +38,12 @@ _SOURCE_DOCUMENT = "stylized_digitigrade_biped_authored_form"
 _SOURCE_CONTRACT = (("family", "creature-kernel.body"), ("revision", 1))
 _SOURCE_IDENTITY = (("document", _SOURCE_DOCUMENT), ("namespace", "main"))
 PARTS = (("pelvis", None), ("torso", None), ("neck", None), ("upper_arm", "left"), ("upper_arm", "right"), ("thigh", "left"), ("thigh", "right"))
-STATIONS = (("lower_pelvis", "pelvis", "form_torso_profile_lower_pelvis"), ("upper_pelvis", "pelvis", "form_torso_profile_upper_pelvis"),
-    ("lower_abdomen", "torso", "form_torso_profile_lower_abdomen"), ("waist_abdomen", "torso", "form_torso_profile_waist_abdomen"),
-    ("upper_abdomen", "torso", "form_torso_profile_upper_abdomen"), ("lower_ribcage", "torso", "form_torso_profile_lower_ribcage"),
-    ("upper_ribcage_shoulder", "torso", "form_torso_profile_upper_ribcage_shoulder"), ("neck_collar", "neck", "form_head_neck_profile_neck_collar"),
-    ("neck_upper", "neck", "form_head_neck_profile_neck_upper"))
-SHOULDER_DIMS = (("start_lateral", "form_arm_profile_upper_arm_start_lateral_radius"), ("start_up", "form_arm_profile_upper_arm_start_up_radius"),
-    ("start_forward", "form_arm_profile_upper_arm_start_forward_radius"), ("shoulder_depth", "form_shoulder_depth_radius"))
+STATIONS = (("lower_pelvis", "pelvis", "form_torso_profile_lower_pelvis"), ("upper_pelvis", "pelvis", "form_torso_profile_upper_pelvis"), ("lower_abdomen", "torso", "form_torso_profile_lower_abdomen"), ("waist_abdomen", "torso", "form_torso_profile_waist_abdomen"), ("upper_abdomen", "torso", "form_torso_profile_upper_abdomen"), ("lower_ribcage", "torso", "form_torso_profile_lower_ribcage"), ("upper_ribcage_shoulder", "torso", "form_torso_profile_upper_ribcage_shoulder"), ("neck_collar", "neck", "form_head_neck_profile_neck_collar"), ("neck_upper", "neck", "form_head_neck_profile_neck_upper"))
+SHOULDER_DIMS = (("start_lateral", "form_arm_profile_upper_arm_start_lateral_radius"), ("start_up", "form_arm_profile_upper_arm_start_up_radius"), ("start_forward", "form_arm_profile_upper_arm_start_forward_radius"), ("shoulder_depth", "form_shoulder_depth_radius"))
 HIP_DIMS = (("r_x", "form_leg_profile_thigh_start_lateral_radius"), ("r_y", "form_leg_profile_thigh_start_up_radius"), ("r_z", "form_leg_profile_thigh_start_forward_radius"))
 SHOULDER_SUMS = (("axilla", "form_axilla"), ("peak", "form_shoulder_peak"), ("arm_origin", None))
 HIP_SUMS = (("P_s", "form_leg_profile_thigh_start"),)
-SIDE_CONFIGS = (("shoulders", "upper_arm", (("axilla", "form_axilla", "form_shoulder_control"), ("peak", "form_shoulder_peak", "form_shoulder_control")), SHOULDER_DIMS),
-    ("hips", "thigh", (("P_s", "form_leg_profile_thigh_start", "form_leg_profile_control"),), HIP_DIMS))
+SIDE_CONFIGS = (("shoulders", "upper_arm", (("axilla", "form_axilla", "form_shoulder_control"), ("peak", "form_shoulder_peak", "form_shoulder_control")), SHOULDER_DIMS), ("hips", "thigh", (("P_s", "form_leg_profile_thigh_start", "form_leg_profile_control"),), HIP_DIMS))
 BODY_COUNTS = {"attachments": 1, "capabilities": 3, "dimensions": 153, "fields": 0, "frames": 16, "joints": 17, "landmarks": 43, "modules": 1, "parts": 18, "regions": 4, "sockets": 2}
 SOURCE_ROW_FIELDS = {"dimensions": {"owner", "role", "value"}, "frames": {"owner", "role", "transform"}, "landmarks": {"frame", "owner", "position", "role"}}
 PROFILE_IDS = ("standard_neutral_reference", "compact_broad_short_limb_large_head", "tall_narrow_long_legged", "slender_long_limb", "stocky_broad_chested")
@@ -251,14 +239,16 @@ def _verify_contract(path=_PATHS[0], _c=_COMMITMENTS):
     contract = _fixed_path(path, paths[0], "contract path")
     sidecar = _fixed_path(paths[1], paths[1], "contract sidecar path")
     contract_raw, sidecar_raw = _read(contract, "contract"), _read(sidecar, "contract sidecar")
-    _need(len(contract_raw) == sizes[0] and operations["sha256_bytes"](contract_raw) == hashes[0], "contract", "identity mismatch")
+    contract_digest = operations["sha256_bytes"](contract_raw)
+    _need(len(contract_raw) == sizes[0] and contract_digest == hashes[0], "contract", "identity mismatch")
     _need(len(sidecar_raw) == sizes[1] and sidecar_raw == _admission["sidecar"], "contract sidecar", "identity mismatch")
+    return contract_digest
 def _fixed_inputs(source_path, contract_path, profile_path, _admission=_COMMITMENTS["admission"]):
     paths = _admission["paths"]
-    _verify_contract(contract_path)
+    contract_digest = _verify_contract(contract_path)
     source = _fixed_path(source_path, paths[2], "source path"); profile = _fixed_path(profile_path, paths[3], "profile table path")
     admission = _admit_source_bytes(_read(source, "source")); selected, raw, digest = _admit_profile_bytes(_read(profile, "profile table"))
-    return admission, selected, raw, digest
+    return contract_digest, admission, selected, raw, digest
 def _select(rows, owner, role, name):
     match = rows.get((owner, role))
     _need(match is not None, f"body.{name}.{role}", "missing required record")
@@ -343,11 +333,20 @@ def _build_prepared(admission, profile, profile_raw, profile_digest, _c=_COMMITM
 def _prepared_apis(_c):
     fixed, operations = _c["admission"], _c["operations"]
     shape, structure, build, inputs, need, attempt = _validate_prepared_shape, _validate_prepared_structure, _build_prepared, _fixed_inputs, _need, _attempt
+    expected_bytes_cache = {}
     @_public_admission
     def validate_prepared(prepared):
         """Admit only the projection freshly derived from the fixed files."""
-        value = shape(prepared); expected = build(*inputs(fixed["paths"][2], fixed["paths"][0], fixed["paths"][3]))
-        need(operations["json_bytes"](value) == operations["json_bytes"](expected), "prepared", "values do not match fixed projection")
+        value = shape(prepared)
+        contract_digest, admission, profile, profile_raw, profile_digest = inputs(
+            fixed["paths"][2], fixed["paths"][0], fixed["paths"][3])
+        digest_triple = (contract_digest, admission["sha256"], profile_digest)
+        expected_bytes = expected_bytes_cache.get(digest_triple)
+        if expected_bytes is None:
+            expected_bytes = operations["json_bytes"](
+                build(admission, profile, profile_raw, profile_digest))
+            expected_bytes_cache[digest_triple] = expected_bytes
+        need(operations["json_bytes"](value) == expected_bytes, "prepared", "values do not match fixed projection")
         return value
     @_public_admission
     def admit_prepared_bytes(raw):
@@ -359,7 +358,8 @@ def _prepared_apis(_c):
     @_public_admission
     def prepare_standard_neutral(source_path=fixed["paths"][2], *, contract_path=fixed["paths"][0], profile_table_path=fixed["paths"][3]):
         """Admit fixed inputs and return the exact standard-neutral object."""
-        return build(*inputs(source_path, contract_path, profile_table_path))
+        _, admission, profile, profile_raw, profile_digest = inputs(source_path, contract_path, profile_table_path)
+        return build(admission, profile, profile_raw, profile_digest)
     return validate_prepared, admit_prepared_bytes, prepare_standard_neutral
 validate_prepared, admit_prepared_bytes, prepare_standard_neutral = _prepared_apis(_COMMITMENTS)
 def _pointer(kind, index, axis=None):
@@ -421,7 +421,7 @@ def _binding_api(_c):
     inputs, chains_for_parts, address, suffixes, append, validate = _fixed_inputs, _chains, _a, _station_suffixes, _append_group, _validate_binding_records
     @_public_admission
     def source_binding_records(source_path=fixed["paths"][2], *, contract_path=fixed["paths"][0], profile_table_path=fixed["paths"][3]):
-        admission, _, _, _ = inputs(source_path, contract_path, profile_table_path)
+        _, admission, _, _, _ = inputs(source_path, contract_path, profile_table_path)
         parts, bindings, chains = admission["parts"], [], chains_for_parts()
         for name, role, prefix in semantic["stations"]:
             owner = address(role)

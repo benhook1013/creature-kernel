@@ -104,7 +104,7 @@ def _domain_tags(meshes, owners, domains, domain_index, axes, level, surface):
 def _junction_inputs(surface, evaluation, level, chart_summary=None):
     meshes = (evaluation.cage, *evaluation.levels); _need(level in range(3), "junction level is outside the frozen three-level universe"); owners = tuple(_chart_owners(mesh, chart_summary) for mesh in meshes); result = {}
     for junction in surface.JUNCTIONS:
-        domains, (_drop, axes) = surface.JUNCTION_INFO[junction]; maps = tuple(_domain_tags(meshes, owners, domains, index, axes, level, surface) for index in range(2)); reference = tuple(_domain_tags(meshes, owners, domains, index, axes, level, surface) for index in range(2)); result[junction] = {"incident_domains": domains, "domain_vertex_tags": maps, "expected_domain_vertex_tags": reference}
+        domains, (_drop, axes) = surface.JUNCTION_INFO[junction]; maps = tuple(_domain_tags(meshes, owners, domains, index, axes, level, surface) for index in range(2)); reference_map = surface.propagate_junction_tags(evaluation, junction)[level]; reference = tuple(dict(reference_map) for _ in domains); result[junction] = {"incident_domains": domains, "domain_vertex_tags": maps, "expected_domain_vertex_tags": reference}
     return result
 def _metric_values(mesh):
     edges = {tuple(sorted((left, face[(slot + 1) % 4]))) for face in mesh.quads for slot, left in enumerate(face)}
@@ -351,7 +351,7 @@ def validate_seed_bundle(*, root, seed, identity):
     _need(gate["schema"] == MANIFEST_SCHEMAS["gate-manifest.json"] and gate["contract_sha256"] == EXPECTED_CONTRACT_SHA256, "gate manifest identity differs"); _manifest_reference(gate["coordinate_manifest"], "gate coordinate reference", "coordinate-manifest.json", record_map["coordinate-manifest.json"]); _validate_gate_manifest(gate)
     causality = _keys(manifests["causality-manifest.json"], ("schema", "contract_sha256", "input_manifest", "formula_records", "source_bindings", "charts", "perturbations"), "causality manifest")
     _need(causality["schema"] == MANIFEST_SCHEMAS["causality-manifest.json"] and causality["contract_sha256"] == EXPECTED_CONTRACT_SHA256, "causality manifest identity differs"); _manifest_reference(causality["input_manifest"], "causality input reference", "input-manifest.json", record_map["input-manifest.json"])
-    formulas = list(surface.formula_candidate_records(prepared)); _same_json(causality["formula_records"], formulas, "causality formula records"); _same_json(causality["source_bindings"], bindings, "causality source bindings")
+    formulas = tuple(surface.formula_candidate_records(prepared)); _same_json(causality["formula_records"], formulas, "causality formula records"); _same_json(causality["source_bindings"], bindings, "causality source bindings")
     evaluation = surface.evaluate(prepared)
     try: chart.validate_chart_summary(causality["charts"], evaluation, formulas)
     except Exception as exc: raise BuildError("causality chart summary validation failed") from exc

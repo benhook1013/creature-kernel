@@ -171,9 +171,9 @@ class SupportAndGateTests(unittest.TestCase):
             self.assertEqual(mesh.quads, expected[level])
             inputs = builder._junction_inputs(surface, evaluation, level, chart_summary)
             self.assertEqual(set(inputs), set(surface.JUNCTIONS))
-            for row in inputs.values():
-                self.assertIsNot(row["domain_vertex_tags"][0], row["domain_vertex_tags"][1])
-                self.assertIsNot(row["domain_vertex_tags"], row["expected_domain_vertex_tags"])
+            for junction, row in inputs.items():
+                reference = surface.propagate_junction_tags(evaluation, junction)[level]
+                self.assertEqual(row["expected_domain_vertex_tags"], (reference, reference))
             ownership = builder._ownership_counts(surface, evaluation, chart_api, mesh_api,
                                                   prepared, formulas, chart_summary, level)
             self.assertEqual((ownership["unowned_elements"],
@@ -190,6 +190,57 @@ class SupportAndGateTests(unittest.TestCase):
         continuity, thresholds = builder._continuity(
             surface, mesh_api, evaluation, reports, chart_summary)
         self.assertEqual((len(continuity), len(thresholds)), (144, 144))
+
+    def test_junction_metrics_reject_builder_observation_mismatch(self):
+        import mesh_correctness as mesh_api
+        import owned_root_surface as surface
+        import prepared_projection as prepared_api
+        import chart_lineage as chart_api
+        prepared = prepared_api.prepare_standard_neutral()
+        evaluation = surface.evaluate(prepared)
+        formulas = tuple(surface.formula_candidate_records(prepared))
+        chart_summary = chart_api.build_chart_summary(evaluation, formulas)
+        level, junction = 1, surface.JUNCTIONS[0]
+        domains = surface.JUNCTION_INFO[junction][0]
+        reference = surface.propagate_junction_tags(evaluation, junction)[level]
+        original_domain_tags = builder._domain_tags
+        forged_vertex = None
+        forged_tag = None
+
+        def forge_domain_tags(*args):
+            nonlocal forged_tag, forged_vertex
+            meshes, owners, candidate_domains, domain_index, axes, candidate_level, candidate_surface = args
+            original = original_domain_tags(
+                meshes, owners, candidate_domains, domain_index, axes,
+                candidate_level, candidate_surface)
+            forged = dict(original)
+            if candidate_domains == domains:
+                if forged_vertex is None:
+                    forged_vertex = min(original)
+                    base = original[forged_vertex]
+                    delta = 1
+                    while True:
+                        candidate = ((base[0][0] + delta, base[0][1]), base[1])
+                        if candidate not in reference.values() and candidate not in original.values():
+                            forged_tag = candidate
+                            break
+                        delta += 1
+                self.assertIn(forged_vertex, original)
+                self.assertNotIn(forged_tag, original.values())
+                forged[forged_vertex] = forged_tag
+            return forged
+
+        with mock.patch.object(builder, "_domain_tags", side_effect=forge_domain_tags):
+            inputs = builder._junction_inputs(surface, evaluation, level, chart_summary)
+        observed_maps = inputs[junction]["domain_vertex_tags"]
+        self.assertEqual(set(observed_maps[0]), set(observed_maps[1]))
+        self.assertEqual(observed_maps[0][forged_vertex], observed_maps[1][forged_vertex])
+        self.assertNotIn(forged_tag, reference.values())
+        mesh = evaluation.levels[level - 1]
+        with self.assertRaisesRegex(mesh_api.MeshCorrectnessError, "independent reference"):
+            mesh_api.junction_continuity_metrics(
+                mesh.vertices, mesh.quads, mesh.face_owners, **inputs[junction]
+            )
 
 
 class StaticAdmissionTests(unittest.TestCase):
@@ -237,7 +288,7 @@ class StaticAdmissionTests(unittest.TestCase):
         self.assertNotIn("else mesh.quads", geometry)
         self.assertIn("derive_expected_face_catalogs(expected)", geometry)
         self.assertNotIn("reversed", junctions)
-        self.assertNotIn("propagate_junction_tags", junctions)
+        self.assertIn("propagate_junction_tags", junctions)
 
 
 class ManagedDispatchTests(unittest.TestCase):
@@ -439,6 +490,21 @@ class PublicValidatorTests(unittest.TestCase):
                 builder.validate_seed_bundle(root=root, seed=17,
                                              identity=identity_fixture())
             self.assertEqual(tuple(root.iterdir()), before)
+
+    def test_seed_validator_admits_complete_serialized_bundle(self):
+        requested_seed = os.environ.get("PYTHONHASHSEED")
+        self.assertIn(requested_seed, ("0", "17", "29"),
+                      "test requires literal PYTHONHASHSEED=0, 17, or 29")
+        if requested_seed == "0":
+            return
+        seed = int(requested_seed)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / f"seed-{seed}"
+            identity = builder._static_admission()
+            builder.build_seed(root)
+            self.assertIsInstance(
+                builder.validate_seed_bundle(root=root, seed=seed, identity=identity), dict
+            )
 
 
 if __name__ == "__main__":

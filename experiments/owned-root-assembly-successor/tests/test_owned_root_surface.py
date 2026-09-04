@@ -15,7 +15,6 @@ import chart_lineage as chart
 import owned_root_surface as surface
 import prepared_projection
 
-
 def prepared():
     return prepared_projection.prepare_standard_neutral(
         REPO / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
@@ -215,8 +214,6 @@ class SurfaceTests(unittest.TestCase):
         with patch.object(surface, "_subdivide_once", side_effect=bad_subdivision), self.assertRaisesRegex(ValueError, "parent-derived vertices"): surface.subdivide(self.evaluation.cage, 1)
         def bad_record(level, vertex_id, contributors, formulas, producer=surface._record): return producer(level, vertex_id, contributors, formulas) | {"contributor_domains": ()}
         with patch.object(surface, "_record", side_effect=bad_record), self.assertRaisesRegex(ValueError, "parent-derived vertex_records"): surface.subdivide(self.evaluation.cage, 1)
-
-
 class ChartLineageTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -244,6 +241,9 @@ class ChartLineageTests(unittest.TestCase):
         lines = (HERE / "chart_lineage.py").read_text(encoding="utf-8").count("\n")
         self.assertIn(lines, range(190, 269))
         self.assertLessEqual(Path(__file__).read_text(encoding="utf-8").count("\n"), 400)
+
+    def test_domain_cycle_rejects_disconnected_open_shared_boundary(self):
+        self.assertRaisesRegex(chart.ChartLineageError, "a junction is not one closed trace", chart._domain_cycle, {(0, 1): (0, 1), (2, 3): (2, 3)}, {(0, 1), (2, 3)})
 
     def test_summary_rejects_closed_schema_duplicate_and_lineage_forgeries(self):
         def extra(value):
@@ -394,7 +394,5 @@ class ProductionAxillaryFixtureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "step 3"):
             anatomy.evaluate_axillary_predicate("left", (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0))
         self.assertEqual((anatomy.evaluate_axillary_scalars(float.fromhex("0x1.9999999999999p-5"), 1.0).passed, anatomy.evaluate_axillary_scalars(float.fromhex("0x1.999999999999ap-5"), 1.0).passed, anatomy.evaluate_axillary_scalars(1.0, float.fromhex("0x1.4000000000001p+1")).passed), (False, True, False))
-
-
 if __name__ == "__main__":
     unittest.main()

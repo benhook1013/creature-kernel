@@ -386,16 +386,18 @@ def _intersection_inputs(vertices, triangles):
     return faces, normalized, scale, bounds, tuple(frozenset(face) for face in faces)
 def _aabb_disjoint(first, second): return any(_interval_disjoint(first[i], first[i + 3], second[i], second[i + 3]) for i in range(3))
 def _pair_status(first_index, second_index, faces, normalized, bounds, face_sets):
-    pair = (first_index, second_index); common = face_sets[first_index].intersection(face_sets[second_index])
+    pair = (first_index, second_index)
+    if _aabb_disjoint(bounds[first_index], bounds[second_index]): return "aabb-disjoint"
+    first_face = faces[first_index]; second_face = faces[second_index]; common = face_sets[first_index].intersection(face_sets[second_index])
     if len(common) == 3: _fail(f"duplicate triangle pair {pair}")
     if len(common) == 2:
-        first_edge = _shared_edge_direction(faces[first_index], common); second_edge = _shared_edge_direction(faces[second_index], common)
+        first_edge = _shared_edge_direction(first_face, common); second_edge = _shared_edge_direction(second_face, common)
         if first_edge != (second_edge[1], second_edge[0]): _fail(f"shared-two edge direction conflict at pair {pair}")
         return "excluded-adjacent"
     if len(common) == 1:
         if normalized is None: return "shared-one"
-        return "hit" if _classify_shared_one_triangles(faces[first_index], faces[second_index], normalized) else "point-only"
-    return "aabb-disjoint" if _aabb_disjoint(bounds[first_index], bounds[second_index]) else "candidate"
+        return "hit" if _classify_shared_one_triangles(first_face, second_face, normalized) else "point-only"
+    return "candidate"
 def _record_pair_policy(triangle_count, first, second, ordinal, stage, class_counts):
     expected_ordinal = first * (2 * triangle_count - first - 1) // 2 + second - first - 1
     if ordinal != expected_ordinal: _fail("intersection pair coverage is not exhaustive reference order")
