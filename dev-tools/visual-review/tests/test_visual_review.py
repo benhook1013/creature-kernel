@@ -974,6 +974,15 @@ class SubjectContextHTTPTests(ReviewFixture):
 
 
 class StaticAssetTests(unittest.TestCase):
+    def test_published_timestamp_uses_explicit_nz_locale_and_invalid_fallback(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        display_start = js.index("var publishedText =")
+        display = js[display_start:js.index(";", display_start) + 1]
+
+        self.assertIn('published.toLocaleString("en-NZ")', display)
+        self.assertNotIn("published.toLocaleString()", display)
+        self.assertIn("Number.isNaN(published.getTime()) ? session.published_at :", display)
+
     def test_image_accessible_labels_include_description_without_html_interpolation(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
         script = r'''

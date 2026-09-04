@@ -79,7 +79,7 @@
       card.appendChild(node("code", session.id, "stable-id"));
       if (session.published_at) {
         var published = new Date(session.published_at);
-        var publishedText = Number.isNaN(published.getTime()) ? session.published_at : published.toLocaleString();
+        var publishedText = Number.isNaN(published.getTime()) ? session.published_at : published.toLocaleString("en-NZ");
         var publishedNode = node("time", "Published " + publishedText, "session-published");
         publishedNode.dateTime = session.published_at;
         card.appendChild(publishedNode);
