@@ -308,6 +308,105 @@ class PreparedProjectionTests(unittest.TestCase):
             for message, kwargs in cases:
                 with self.subTest(message=message), self.assertRaisesRegex(PreparedProjectionError, message):
                     prepare_standard_neutral(**kwargs)
+    def test_publication_binds_prevalidated_inventory_across_rename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, raced = Path(directory), False
+            stage, target = root / "stage", root / "published"
+            stage.mkdir()
+            payload = stage / "payload.bin"
+            payload.write_bytes(b"good")
+            expected = artifacts.closed_inventory(stage, ("payload.bin",), max_file_bytes=64)
+            rename = artifacts._rename_no_replace
+
+            def replace_then_rename(parent_fd, source, destination):
+                nonlocal raced
+                if source == stage.name and destination == target.name:
+                    payload.write_bytes(b"evil")
+                    raced = True
+                return rename(parent_fd, source, destination)
+
+            with patch.object(artifacts, "_rename_no_replace", side_effect=replace_then_rename), \
+                    self.assertRaisesRegex(artifacts.ArtifactSerializationError, "inventory"):
+                artifacts.publish_no_replace(
+                    stage, target, expected_inventory=expected, max_file_bytes=64)
+            self.assertTrue(raced)
+            self.assertFalse(target.exists() or target.is_symlink())
+            self.assertEqual(payload.read_bytes(), b"evil")
+    def test_publication_quarantines_post_rename_replacement_for_file_and_directory(self):
+        for kind in ("file", "directory"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                root, raced = Path(directory), False
+                stage, target, held = root / "stage", root / "published", root / "held-expected"
+                if kind == "file":
+                    stage.write_bytes(b"good")
+                    expected = (artifacts.regular_file_record(stage, "payload.bin", max_bytes=64),)
+                else:
+                    stage.mkdir()
+                    (stage / "payload.bin").write_bytes(b"good")
+                    expected = artifacts.closed_inventory(stage, ("payload.bin",), max_file_bytes=64)
+                rename = artifacts._rename_no_replace
+
+                def replace_after_rename(parent_fd, source, destination, *, rename=rename,
+                                         stage=stage, target=target, held=held, kind=kind):
+                    nonlocal raced
+                    rename(parent_fd, source, destination)
+                    if source == stage.name and destination == target.name:
+                        target.rename(held)
+                        target.write_bytes(b"evil") if kind == "file" else target.mkdir()
+                        raced = True
+
+                with patch.object(artifacts, "_rename_no_replace", side_effect=replace_after_rename), \
+                        patch.object(artifacts.secrets, "token_hex", return_value="ab" * 8), \
+                        self.assertRaisesRegex(artifacts.ArtifactSerializationError, "quarantined"):
+                    artifacts.publish_no_replace(
+                        stage, target, expected_inventory=expected, max_file_bytes=64)
+                quarantined = list(root.glob(".rollback-*"))
+                self.assertTrue(raced)
+                self.assertFalse(target.exists() or target.is_symlink())
+                self.assertTrue(held.exists())
+                self.assertEqual(len(quarantined), 1)
+                self.assertEqual(quarantined[0].is_dir(), kind == "directory")
+                recovered = root / "recovered"
+                self.assertEqual(artifacts.publish_no_replace(
+                    held, recovered, expected_inventory=expected, max_file_bytes=64), recovered)
+                occupied = root / "occupied"
+                if kind == "file": occupied.write_bytes(b"unrelated")
+                else:
+                    occupied.mkdir()
+                    (occupied / "unrelated").write_bytes(b"unrelated")
+                with self.assertRaises(FileExistsError):
+                    artifacts.publish_no_replace(
+                        recovered, occupied, expected_inventory=expected, max_file_bytes=64)
+                self.assertEqual((occupied if kind == "file" else occupied / "unrelated").read_bytes(), b"unrelated")
+    def test_publication_fails_closed_when_parent_is_replaced_after_relative_rename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            parent, displaced = root / "parent", root / "displaced"
+            stage, target = parent / "stage", parent / "published"
+            parent.mkdir()
+            stage.mkdir()
+            (stage / "payload.bin").write_bytes(b"good")
+            expected = artifacts.closed_inventory(stage, ("payload.bin",), max_file_bytes=64)
+            rename, raced = artifacts._rename_no_replace, False
+
+            def rename_then_replace_parent(parent_fd, source, destination):
+                nonlocal raced
+                result = rename(parent_fd, source, destination)
+                if not raced and source == stage.name and destination == target.name:
+                    parent.rename(displaced)
+                    parent.mkdir()
+                    target.write_bytes(b"wrong")
+                    raced = True
+                return result
+
+            with patch.object(artifacts, "_rename_no_replace", side_effect=rename_then_replace_parent), \
+                    self.assertRaisesRegex(artifacts.ArtifactSerializationError, "parent|pathname"):
+                artifacts.publish_no_replace(
+                    stage, target, expected_inventory=expected, max_file_bytes=64)
+            self.assertTrue(raced)
+            self.assertEqual(target.read_bytes(), b"wrong")
+            self.assertEqual((displaced / "stage" / "payload.bin").read_bytes(), b"good")
+            self.assertFalse((displaced / "published").exists())
     def test_public_constant_reassignment_cannot_redirect_fixed_admission(self):
         encoded, expected_bindings = canonical_json_bytes(self.prepared), _expected_bindings()
         with tempfile.TemporaryDirectory() as directory:
@@ -335,6 +434,47 @@ class PreparedProjectionTests(unittest.TestCase):
                     projection.prepare_standard_neutral(
                         projection.SOURCE_PATH, contract_path=projection.CONTRACT_PATH,
                         profile_table_path=projection.PROFILE_TABLE_PATH)
+    def test_station_and_neutral_profile_commitments_resist_coordinated_forgery(self):
+        stations = list(projection.STATIONS)
+        stations[0] = ("lower_pelvis", "pelvis", "form_torso_profile_upper_pelvis")
+        forged_station = copy.deepcopy(self.prepared)
+        forged_station["stations"]["lower_pelvis"] = copy.deepcopy(
+            self.prepared["stations"]["upper_pelvis"])
+        forged_profile = _mutated(
+            self.prepared, ("profile_selection", "profile_id"), "forged_neutral")
+        forged_both = copy.deepcopy(forged_station)
+        forged_both["profile_selection"]["profile_id"] = "forged_neutral"
+        with patch.multiple(projection, STATIONS=tuple(stations),
+                            _NEUTRAL_PROFILE="forged_neutral"):
+            self.assertEqual(projection.prepare_standard_neutral(), self.prepared)
+            self.assertEqual(projection.source_binding_records(), _expected_bindings())
+            for candidate in (forged_station, forged_profile, forged_both):
+                with self.subTest(candidate=candidate["profile_selection"]["profile_id"]), \
+                        self.assertRaises(PreparedProjectionError):
+                    projection.validate_prepared(candidate)
+    def test_adjacent_semantic_authorities_are_immutable_definition_time_commitments(self):
+        encoded, expected_bindings = canonical_json_bytes(self.prepared), _expected_bindings()
+        with self.assertRaises(TypeError):
+            projection._COMMITMENTS["semantic"]["neutral_profile"] = "forged"
+        poison = _Explosive()
+        names = (
+            "_ADMISSION _ROLES _PATHS _HASHES _SIZES _BINDING_HASHES _SIDECAR_CONTENT "
+            "_PREPARED_SCHEMA _NEUTRAL_PROFILE _ROTATION _AXES _BASIS_ITEMS _SOURCE_DOCUMENT "
+            "_SOURCE_CONTRACT _SOURCE_IDENTITY PARTS STATIONS SHOULDER_DIMS HIP_DIMS "
+            "SHOULDER_SUMS HIP_SUMS SIDE_CONFIGS BODY_COUNTS SOURCE_ROW_FIELDS PROFILE_IDS "
+            "PROFILE_DIMENSION_KEYS _ADDRESS _B64 _PB64 _IDENTITY_SPEC _PART_SPEC _STATION_SPEC "
+            "_SHOULDER_SPEC _HIP_SPEC _PREPARED_SPEC _JSON_BYTES _DECODE_JSON _COERCE_BINARY64 "
+            "_READ_FILE _SHA256_BYTES _COMMITMENTS artifacts json math Path PreparedProjectionError "
+            "canonical_json_bytes canonical_json_sha256 normalize_source_address"
+        ).split()
+        forged = _mutated(self.prepared, ("profile_selection", "profile_id"), "forged")
+        with patch.multiple(projection, **dict.fromkeys(names, poison)):
+            self.assertEqual(projection.prepare_standard_neutral(), self.prepared)
+            self.assertIs(projection.validate_prepared(self.prepared), self.prepared)
+            self.assertEqual(projection.admit_prepared_bytes(encoded), self.prepared)
+            self.assertEqual(projection.source_binding_records(), expected_bindings)
+            with self.assertRaises(PreparedProjectionError):
+                projection.validate_prepared(forged)
     def test_fixed_hashes_sidecar_and_sizes_are_independent_literals(self):
         for path, size, digest in (
             (CONTRACT, 173184, CONTRACT_HASH), (SIDECAR, 127, hashlib.sha256(SIDECAR_BYTES).hexdigest()),
@@ -355,14 +495,8 @@ class PreparedProjectionTests(unittest.TestCase):
             _admit_source_bytes(json.dumps(source).encode())
         profile = _mutated(self.profile_document, ("profiles", 0, "dimension_scales", "arm_radius"), 1001)
         mutated_profile = json.dumps(profile).encode()
-        real_read = projection._READ_FILE
-
-        def read_with_mutated_profile(path):
-            return mutated_profile if Path(path) == PROFILE_TABLE else real_read(path)
-
-        with patch.object(projection, "_READ_FILE", side_effect=read_with_mutated_profile), \
-                self.assertRaisesRegex(PreparedProjectionError, "profile identity mismatch"):
-            prepare_standard_neutral(SOURCE)
+        with patch.object(projection, "_READ_FILE", side_effect=RuntimeError("redirected")):
+            self.assertEqual(prepare_standard_neutral(SOURCE), self.prepared)
         with self.assertRaisesRegex(PreparedProjectionError, "profile identity mismatch"):
             _admit_profile_bytes(mutated_profile)
     def test_source_profile_schema_and_selector_boundaries(self):
@@ -419,13 +553,8 @@ class PreparedProjectionTests(unittest.TestCase):
         ):
             with self.subTest(name=name), self.assertRaises(PreparedProjectionError):
                 validate_prepared(_mutated(self.prepared, path, _Explosive()))
-        with patch.object(projection, "_DECODE_JSON", side_effect=RecursionError), \
-                self.assertRaises(PreparedProjectionError):
+        with self.assertRaises(PreparedProjectionError):
             admit_prepared_bytes(b"{}")
-        with patch.object(projection, "_JSON_BYTES",
-                          side_effect=artifacts.ArtifactSerializationError("forged")), \
-                self.assertRaises(PreparedProjectionError):
-            validate_prepared(self.prepared)
         for function in (prepare_standard_neutral, source_binding_records):
             with self.subTest(function=function.__name__), self.assertRaises(PreparedProjectionError):
                 function(_Explosive())

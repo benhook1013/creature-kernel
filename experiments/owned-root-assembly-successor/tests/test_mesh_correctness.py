@@ -5,6 +5,7 @@ import sys
 import unittest
 from importlib import import_module
 from pathlib import Path
+from unittest.mock import patch
 
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
@@ -12,33 +13,17 @@ mesh = import_module("mesh_correctness")
 
 
 P0 = float.fromhex("0x0.0p+0")
-N0 = -P0
 ONE = float.fromhex("0x1.0000000000000p+0")
-HALF = float.fromhex("0x1.0000000000000p-1")
 D50 = float.fromhex("0x1.0000000000000p-50")
 MIN_SUBNORMAL = float.fromhex("0x0.0000000000001p-1022")
 D = float.fromhex("0x1.0000000000000p-46")
 I0 = float.fromhex("0x1.b7cdfd9d7bdbbp-34")
-
-
-def _pair(a_points, b_points):
-    points = tuple(a_points) + tuple(b_points)
-    return points, ((0, 1, 2), (3, 4, 5))
-
 
 def _shared_base(b0=(ONE, P0, P0), b1=(P0, ONE, P0)):
     shared = (P0, P0, P0)
     a0 = (ONE, P0, P0)
     a1 = (P0, ONE, P0)
     return [shared, a0, a1], [shared, b0, b1]
-
-
-def _transform(point, scale, translation):
-    return tuple(float(float(scale * value) + offset) for value, offset in zip(point, translation))
-
-
-def _negative_zero(point):
-    return tuple(math.copysign(0.0, -1.0) if value == 0.0 else value for value in point)
 
 
 def _count_fixture(quad_count, control_count=128):
@@ -79,14 +64,36 @@ def _fixture_shared_one():
         ("shared1.coplanar-disjoint-fans", (-ONE, P0, P0), (P0, -ONE, P0), "point-only"),
         ("shared1.ray-cone-hit", (ONE, ONE, P0), (P0, P0, ONE), "hit"),
         ("shared1.near-coplanar-full-rank-hit", (ONE, P0, D50), (P0, ONE, -D50), "hit"),
-        ("shared1.transformed-point-only", (ONE, P0, D50), (P0, ONE, D50), "point-only"),
-        ("shared1.transformed-hit", (ONE, P0, D50), (P0, ONE, -D50), "hit"),
-        ("shared1.negative-zero-hit", (ONE, P0, P0), (P0, ONE, P0), "hit"),
-        ("shared1.level2-ply-point-only",
-         (float.fromhex("0x1.37918e2798bb6p-8"), float.fromhex("0x1.61bcdab8dcc06p-4"), float.fromhex("0x1.43c9e5ce2aeb6p-4")),
-         (float.fromhex("0x1.7bc42ac7f04b0p-7"), float.fromhex("0x1.6cae8c4686bb2p-4"), float.fromhex("0x1.0be935f6a339ep-4")),
-         "point-only"),
     )
+
+
+class _SubtractionRecorder:
+    def __init__(self, calls):
+        self.calls = calls
+
+    def __rsub__(self, value):
+        self.calls.append(value)
+        return 0.0
+
+
+class OwnershipRecordTests(unittest.TestCase):
+    def test_exact_universes_classify_omission_and_duplicate_records(self):
+        for total in (456, 1742, 6810):
+            with self.subTest(total=total):
+                keys = tuple(("element", index) for index in range(total))
+                obligations = {key: ("ownership",) for key in keys}
+                records = tuple((key, "ownership", True) for key in keys)
+                self.assertEqual(len(keys), total)
+                self.assertEqual(mesh.classify_ownership_records(
+                    keys, obligations, records)["unowned_elements"], 0)
+                omitted = mesh.classify_ownership_records(
+                    keys, obligations, records[:-1])
+                self.assertEqual((omitted["unowned_elements"],
+                                  omitted["overowned_elements"]), (1, 0))
+                duplicated = mesh.classify_ownership_records(
+                    keys, obligations, records + ((keys[-1], "ownership", False),))
+                self.assertEqual((duplicated["unowned_elements"],
+                                  duplicated["overowned_elements"]), (0, 1))
 
 
 _CUBE_DIRECTIONS = (
@@ -164,14 +171,14 @@ def _integrated_fixture():
         for name in sorted(arms)
     }
     owners = ["surface"] * len(faces)
-    owners[metadata.index(((1, 1, 0), (0, 0, -1)))] = "flat-seam"
-    trace = (
-        ("sample.0", (0.0, 0.0, 0.0)),
-        ("sample.1", (1.0, 0.0, 0.0)),
-        ("sample.2", (1.0, 1.0, 0.0)),
-    )
-    traces = {
-        f"junction.{index}": (trace, tuple(reversed(trace)))
+    seam_index = metadata.index(((1, 1, 0), (0, 0, -1)))
+    owners[seam_index] = "flat-seam"
+    tags = {vertex: f"sample.{slot}" for slot, vertex in enumerate(faces[seam_index])}
+    junctions = {
+        f"junction.{index}": {
+            "incident_domains": ("flat-seam", "surface"),
+            "domain_vertex_tags": (dict(tags), dict(tags)),
+        }
         for index in range(7)
     }
     inputs = {
@@ -180,19 +187,48 @@ def _integrated_fixture():
         "level": 0,
         "boundary_loops": loops,
         "port_directions": directions,
-        "expected_faces": tuple(faces),
-        "junction_traces": traces,
+        "expected_base_faces": tuple(faces),
+        "junction_inputs": junctions,
         "face_owners": tuple(owners),
     }
     return inputs, tuple(metadata), vertex_ids
 
 
 class PrimitiveTests(unittest.TestCase):
+    def test_full_quad_normal_uses_both_split_triangles(self):
+        vertices = ((0.0, 0.0, 0.0), (2.0, 0.0, 0.0),
+                    (2.0, 1.0, 0.0), (0.0, 0.0, 2.0))
+        actual = mesh.quad_normal(vertices, (0, 1, 2, 3))
+        scale = math.sqrt(24.0)
+        expected = (2.0 / scale, -4.0 / scale, 2.0 / scale)
+        for component, value in zip(actual, expected):
+            self.assertAlmostEqual(component, value)
+        self.assertNotEqual(actual, (0.0, 0.0, 1.0))
+
+    def test_port_metrics_publish_raw_samples_and_true_extrema(self):
+        points = ((0.0, 0.0, 0.0), (2.0, 0.0, 0.0),
+                  (2.0, 1.0, 1.0), (1.0, 2.0, 3.0), (0.0, 0.0, 2.0))
+        metrics = mesh.port_loop_metrics(
+            points, (0, 1, 2, 3, 4), (0.0, 0.0, 1.0),
+            ((0.0, 1.0, 0.0),) * 5)
+        self.assertEqual(metrics["planarity"], max(metrics["planarity_samples"]))
+        self.assertEqual(metrics["co_normal"], min(metrics["co_normal_samples"]))
+        self.assertEqual((len(metrics["planarity_samples"]),
+                          len(metrics["co_normal_samples"])), (5, 5))
+        self.assertNotEqual(min(metrics["planarity_samples"]),
+                            max(metrics["planarity_samples"]))
+
     def test_interval_disjoint_uses_both_subtractions_and_one_tolerance(self):
         just_abutting = math.nextafter(I0, math.inf)
         self.assertFalse(mesh.interval_disjoint(P0, P0, I0, I0))
         self.assertTrue(mesh.interval_disjoint(P0, P0, just_abutting, just_abutting))
         self.assertFalse(mesh.interval_disjoint(P0, P0, I0, math.nextafter(I0, math.inf)))
+
+    def test_interval_disjoint_materializes_cut_b_then_cut_a_before_disjunction(self):
+        calls = []
+        with patch.object(mesh, "_FIXED_I0", _SubtractionRecorder(calls)):
+            self.assertTrue(mesh.interval_disjoint(2.0, -1.0, 1.0, 0.0))
+        self.assertEqual(calls, [1.0, 2.0])
 
     def test_shared_one_classifier_is_exact_and_swap_invariant(self):
         for name, b0, b1, expected in _fixture_shared_one()[:7]:
@@ -258,7 +294,7 @@ class TopologyGeometryTests(unittest.TestCase):
     def test_closed_box_has_valid_topology_and_geometry(self):
         report = mesh.validate_topology(len(self.points), self.faces)
         self.assertEqual((report.edge_count, report.boundary_edge_count, report.euler), (12, 0, 2))
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "malformed public input"):
             mesh.validate_geometry(self.points, self.faces)
 
     def test_topology_rejects_same_direction_edge_and_unused_control(self):
@@ -291,9 +327,17 @@ class TopologyGeometryTests(unittest.TestCase):
                                           (0.0, 1.0, 0.0), adjacent)
         self.assertEqual(metrics["orientation"], 1.0)
         self.assertEqual(metrics["co_normal"], 1.0)
-        traces = ((0, (0.0, 0.0, 0.0)), (1, (1.0, 0.0, 0.0)), (2, (2.0, 0.0, 0.0)))
-        reverse = tuple(reversed(traces))
-        self.assertTrue(mesh.junction_continuity_metrics(traces, reverse)["opposite_trace_direction"])
+        owners = ("domain.a",) + ("domain.b",) * (len(self.faces) - 1)
+        tags = {vertex: f"tag.{slot}" for slot, vertex in enumerate(self.faces[0])}
+        continuity = mesh.junction_continuity_metrics(
+            self.points, self.faces, owners, ("domain.a", "domain.b"),
+            (dict(tags), dict(tags)),
+        )
+        self.assertTrue(continuity["tag_identity"])
+        self.assertTrue(continuity["vertex_id_identity"])
+        self.assertTrue(continuity["opposite_trace_direction"])
+        self.assertTrue(all(len(record) == 3 for trace in continuity["traces"]
+                            for record in trace))
         self.assertLess(mesh.validate_fold((1.0, 0.0, 0.0), (1.0, 1.0, 0.0), 0), 90.0)
         with self.assertRaisesRegex(ValueError, "co-normal"):
             mesh.validate_port_loop(loop_points, (0, 1, 2, 3),
@@ -307,16 +351,31 @@ class TopologyGeometryTests(unittest.TestCase):
                                    (0, 3, 2, 1), (0.0, 1.0, 0.0),
                                    ((1.0, 0.0, 0.0), (0.0, 0.0, -1.0),
                                     (-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)))
-        with self.assertRaisesRegex(ValueError, "directions"):
+        old_trace = ((0, (0.0, 0.0, 0.0)), (1, (1.0, 0.0, 0.0)),
+                     (2, (2.0, 0.0, 0.0)))
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "malformed public input"):
+            mesh.junction_continuity_metrics(old_trace, tuple(reversed(old_trace)))
+
+        owners = ("domain.a",) + ("domain.b",) * (len(self.faces) - 1)
+        tags = {vertex: f"tag.{slot}" for slot, vertex in enumerate(self.faces[0])}
+        forged = dict(tags)
+        tag = forged.pop(self.faces[0][0])
+        forged[4] = tag
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "vertex IDs"):
             mesh.junction_continuity_metrics(
-                ((0, (0.0, 0.0, 0.0)), (1, (1.0, 0.0, 0.0)), (2, (2.0, 0.0, 0.0))),
-                ((0, (0.0, 0.0, 0.0)), (1, (1.0, 0.0, 0.0)), (2, (2.0, 0.0, 0.0))),
+                self.points, self.faces, owners, ("domain.a", "domain.b"),
+                (dict(tags), forged),
+            )
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "independent reference"):
+            mesh.junction_continuity_metrics(
+                self.points, self.faces, owners, ("domain.a", "domain.b"),
+                (dict(forged), dict(forged)), (dict(tags), dict(tags)),
             )
 
     def test_contract_threshold_and_normalization_knobs_are_not_public(self):
         loop_points = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
                        (1.0, 0.0, 1.0), (0.0, 0.0, 1.0))
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "malformed public input"):
             mesh.validate_port_loop(loop_points, (0, 1, 2, 3),
                                     (0.0, 1.0, 0.0))
         with self.assertRaisesRegex(ValueError, "exact list or tuple"):
@@ -325,18 +384,54 @@ class TopologyGeometryTests(unittest.TestCase):
         self.assertFalse(hasattr(mesh, "validate_junction_continuity"))
         triangles = ((0, 1, 2),)
         points = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "malformed public input"):
             mesh.intersection_diagnostics(points, triangles, scale=1.0)
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "malformed public input"):
             mesh.enumerate_broad_phase_candidates(points, triangles, cap=3)
         with self.assertRaisesRegex(ValueError, "below"):
             mesh.validate_fold((1.0, 0.0, 0.0), (1.0, 1.0, 0.0), 2)
 
     def test_production_geometry_requires_all_selectors_and_gate_data(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(mesh.MeshCorrectnessError, "malformed public input"):
             mesh.validate_geometry(self.points, self.faces)
         with self.assertRaisesRegex(ValueError, "required"):
             mesh.validate_geometry(self.points, self.faces, 0, None, None, None, None, None)
+
+    def test_frozen_child_face_catalogs_reject_mutated_level_faces(self):
+        expected_l1 = (
+            (0, 4, 8, 5), (1, 6, 8, 4), (2, 7, 8, 6), (3, 5, 8, 7),
+        )
+        expected_l2 = (
+            (0, 9, 21, 10), (4, 17, 21, 9), (8, 18, 21, 17), (5, 10, 21, 18),
+            (1, 12, 22, 11), (6, 19, 22, 12), (8, 17, 22, 19), (4, 11, 22, 17),
+            (2, 14, 23, 13), (7, 20, 23, 14), (8, 19, 23, 20), (6, 13, 23, 19),
+            (3, 15, 24, 16), (5, 18, 24, 15), (8, 20, 24, 18), (7, 16, 24, 20),
+        )
+        self.assertEqual(
+            mesh.derive_expected_face_catalogs(((0, 1, 2, 3),)),
+            (((0, 1, 2, 3),), expected_l1, expected_l2),
+        )
+        catalogs = mesh.derive_expected_face_catalogs(self.faces)
+        for level in (1, 2):
+            with self.subTest(level=level):
+                actual = list(catalogs[level])
+                actual[0] = tuple(reversed(actual[0]))
+                vertex_count = max(index for face in catalogs[level] for index in face) + 1
+                points = tuple((float(index), 0.0, 0.0) for index in range(vertex_count))
+                loops = {f"port.{slot}": tuple(range(3 * slot, 3 * slot + 3))
+                         for slot in range(5)}
+                with self.assertRaisesRegex(mesh.MeshCorrectnessError,
+                                            "face winding/catalog"):
+                    mesh.validate_geometry(
+                        points, tuple(actual), level, loops, {}, self.faces, {},
+                        ("owner",) * len(actual),
+                    )
+                with self.assertRaisesRegex(mesh.MeshCorrectnessError,
+                                            "expected_faces index out of range"):
+                    mesh.validate_geometry(
+                        points, catalogs[level], level, loops, {}, catalogs[level], {},
+                        ("owner",) * len(catalogs[level]),
+                    )
 
 
 class GeometryCountTests(unittest.TestCase):
@@ -392,8 +487,8 @@ class IntegratedGeometryTests(unittest.TestCase):
     def test_topology_and_exact_five_port_gates_fail_in_production(self):
         faces = list(self.inputs["quads"])
         faces[0] = tuple(reversed(faces[0]))
-        with self.assertRaisesRegex(ValueError, "orientation conflict"):
-            self._validate(quads=tuple(faces), expected_faces=tuple(faces))
+        with self.assertRaisesRegex(ValueError, "face winding/catalog"):
+            self._validate(quads=tuple(faces))
 
         loops = dict(self.inputs["boundary_loops"])
         loops.pop("port.4")
@@ -430,31 +525,69 @@ class IntegratedGeometryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "fold angle"):
             self._validate(face_owners=tuple(owners))
 
-    def test_each_of_seven_junction_residuals_fails_in_production(self):
-        for name in sorted(self.inputs["junction_traces"]):
+    def test_each_of_seven_junctions_rejects_forged_vertex_ids(self):
+        for name in sorted(self.inputs["junction_inputs"]):
             with self.subTest(name=name):
-                traces = dict(self.inputs["junction_traces"])
-                first, second = traces[name]
-                bad_second = list(second)
-                tag, _ = bad_second[0]
-                bad_second[0] = (tag, (2.0, 2.0, 2.0))
-                traces[name] = (first, tuple(bad_second))
-                with self.assertRaisesRegex(ValueError, "coordinate residual"):
-                    self._validate(junction_traces=traces)
+                junctions = {key: dict(value)
+                             for key, value in self.inputs["junction_inputs"].items()}
+                first, second = junctions[name]["domain_vertex_tags"]
+                forged = dict(second)
+                vertex, tag = next(iter(forged.items()))
+                del forged[vertex]
+                forged[next(candidate for candidate in range(len(self.inputs["vertices"]))
+                            if candidate not in second)] = tag
+                junctions[name]["domain_vertex_tags"] = (dict(first), forged)
+                with self.assertRaisesRegex(ValueError, "vertex IDs"):
+                    self._validate(junction_inputs=junctions)
 
 
 class ProductionIntersectionFixtureTests(unittest.TestCase):
-    def _assert_pair(self, name, points_a, points_b, expected, stage):
-        points, triangles = _pair(points_a, points_b)
-        report = mesh.intersection_diagnostics(
-            points, triangles, include_classifications=True)
-        self.assertTrue(report["pair_policy_complete"], name)
-        self.assertEqual(report["classifications"], (((0, 1), stage),), name)
-        actual = "hit" if report["intersection_hit_count"] else "point-only"
-        self.assertEqual(actual, expected, name)
-
     def test_contract_fixture_matrix(self):
-        executions = 0
+        shared_names = (
+            "shared1.offset-d50-point-only", "shared1.coplanar-duplicate-hit",
+            "shared1.offset-positive-minsub-point-only", "shared1.offset-negative-minsub-point-only",
+            "shared1.coplanar-disjoint-fans", "shared1.ray-cone-hit",
+            "shared1.near-coplanar-full-rank-hit", "shared1.transformed-point-only",
+            "shared1.transformed-hit", "shared1.negative-zero-hit", "shared1.level2-ply-point-only",
+        )
+        suffixes = ("p000", "p001", "p010", "p011", "p100", "p101", "p110", "p111")
+        general = (
+            "shared0.clear-hit-origin", "shared0.clear-hit-translated",
+            "shared0.sub-I0-contact-origin", "shared0.sub-I0-contact-translated",
+            "shared0.aabb-disjoint", "shared0.sat-disjoint", "shared0.extreme-small-hit",
+            "shared0.extreme-large-hit", "normal.boundary-D-reject", "normal.successor-D-accept",
+            "shared2.opposite-edge-valid", "shared2.same-direction-reject",
+            "shared3.duplicate-triangle-reject", "triangle-cap.boundary-4096",
+            "triangle-cap.successor-4097", "candidate-cap.boundary-injected-3",
+            "candidate-cap.successor-injected-3",
+        )
+        expected_ids = tuple(f"{name}.{suffix}" for name in shared_names
+                             for suffix in suffixes) + general
+        shared_outcomes = tuple(
+            outcome
+            for outcome in (
+                "point-only", "hit", "point-only", "point-only", "point-only",
+                "hit", "hit", "point-only", "hit", "hit", "point-only",
+            )
+            for _ in suffixes
+        )
+        general_outcomes = (
+            "hit", "hit", "hit", "hit", "aabb-disjoint", "sat-disjoint",
+            "hit", "hit", "hard-failure", "pass", "excluded-adjacent",
+            "hard-failure", "hard-failure", "pass", "hard-failure", "hit",
+            "hard-failure",
+        )
+        artifact_failure = AssertionError("fixture runner emitted an artifact")
+        with (
+            patch("builtins.open", side_effect=artifact_failure),
+            patch.object(Path, "open", side_effect=artifact_failure),
+            patch.object(Path, "mkdir", side_effect=artifact_failure),
+            patch.object(Path, "touch", side_effect=artifact_failure),
+            patch.object(Path, "write_bytes", side_effect=artifact_failure),
+            patch.object(Path, "write_text", side_effect=artifact_failure),
+        ):
+            records = mesh.run_production_intersection_fixtures()
+
         self.assertEqual(mesh.MAX_CANDIDATES, 1_000_000)
         self.assertEqual(
             mesh.intersection_candidate_threshold_records(),
@@ -469,164 +602,13 @@ class ProductionIntersectionFixtureTests(unittest.TestCase):
                 for level in range(3)
             ),
         )
-        for name, b0, b1, expected in _fixture_shared_one():
-            if name == "shared1.level2-ply-point-only":
-                shared = (float.fromhex("0x1.8b59f7e4bf4dfp-7"), float.fromhex("0x1.0a35e0636f7c1p-4"), float.fromhex("0x1.264d28c7c3da4p-4"))
-                first = [shared, b0, b1]
-                second = [shared,
-                          (float.fromhex("0x1.7888e87a16156p-6"), float.fromhex("0x1.7eec0987f75cdp-4"), float.fromhex("0x1.d5d88ce274e30p-5")),
-                          (float.fromhex("0x1.8b59f7e4bf4dfp-6"), float.fromhex("0x1.18982604f83a1p-4"), float.fromhex("0x1.07df2315527a3p-4"))]
-            else:
-                first, second = _shared_base(b0, b1)
-            if name == "shared1.transformed-point-only" or name == "shared1.transformed-hit":
-                translation = (4.0, -2.0, 1.0)
-                first = [_transform(point, 8.0, translation) for point in first]
-                second = [_transform(point, 8.0, translation) for point in second]
-            if name == "shared1.negative-zero-hit":
-                first = [_negative_zero(point) for point in first]
-                second = [_negative_zero(point) for point in second]
-            base_points = tuple(first) + tuple(second[1:])
-            base_triangles = ((0, 1, 2), (0, 3, 4))
-            for suffix in ("p000", "p001", "p010", "p011", "p100", "p101", "p110", "p111"):
-                a = list(base_triangles[0])
-                b = list(base_triangles[1])
-                if suffix[1] == "1":
-                    a, b = b, a
-                if suffix[2] == "1":
-                    a[1], a[2] = a[2], a[1]
-                if suffix[3] == "1":
-                    b[1], b[2] = b[2], b[1]
-                report = mesh.intersection_diagnostics(
-                    base_points, (tuple(a), tuple(b)), include_classifications=True)
-                self.assertTrue(report["pair_policy_complete"], f"{name}.{suffix}")
-                self.assertEqual(report["classifications"], (((0, 1), expected),), f"{name}.{suffix}")
-                actual = "hit" if report["intersection_hit_count"] else "point-only"
-                self.assertEqual(actual, expected, f"{name}.{suffix}")
-                executions += 1
-
-        general = (
-            ("shared0.clear-hit-origin", ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
-             ((0.0, -1.0, 0.0), (HALF, HALF, 0.0), (-HALF, HALF, 0.0)), "hit"),
-            ("shared0.clear-hit-translated", ((4.0, -2.0, 1.0), (5.0, -2.0, 1.0), (4.0, -1.0, 1.0)),
-             ((4.0, -3.0, 1.0), (4.5, -1.5, 1.0), (3.5, -1.5, 1.0)), "hit"),
-            ("shared0.sub-I0-contact-origin", ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
-             ((0.0, 0.0, float.fromhex("0x1.0000000000000p-34")), (1.0, 0.0, float.fromhex("0x1.0000000000000p-34")), (0.0, 1.0, float.fromhex("0x1.0000000000000p-34"))), "hit"),
-            ("shared0.sub-I0-contact-translated", ((4.0, -2.0, 1.0), (5.0, -2.0, 1.0), (4.0, -1.0, 1.0)),
-             ((4.0, -2.0, 1.0 + float.fromhex("0x1.0000000000000p-34")), (5.0, -2.0, 1.0 + float.fromhex("0x1.0000000000000p-34")), (4.0, -1.0, 1.0 + float.fromhex("0x1.0000000000000p-34"))), "hit"),
-            ("shared0.aabb-disjoint", ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)), ((0.0, 0.0, 1.0), (1.0, 0.0, 1.0), (0.0, 1.0, 1.0)), "point-only"),
-            ("shared0.sat-disjoint", ((0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (0.0, 2.0, 0.0)), ((2.0, 2.0, 0.0), (2.0, 1.5, 0.0), (1.5, 2.0, 0.0)), "point-only"),
-            ("shared0.extreme-small-hit", tuple(tuple(float(2.0 ** -500 * x) for x in point) for point in ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))),
-             tuple(tuple(float(2.0 ** -500 * x) for x in point) for point in ((0.0, -1.0, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0))), "hit"),
-            ("shared0.extreme-large-hit", tuple(tuple(float(2.0 ** 500 * x) for x in point) for point in ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))),
-             tuple(tuple(float(2.0 ** 500 * x) for x in point) for point in ((0.0, -1.0, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0))), "hit"),
-        )
-        stages = {
-            "shared0.clear-hit-origin": "hit",
-            "shared0.clear-hit-translated": "hit",
-            "shared0.sub-I0-contact-origin": "hit",
-            "shared0.sub-I0-contact-translated": "hit",
-            "shared0.aabb-disjoint": "aabb-disjoint",
-            "shared0.sat-disjoint": "sat-disjoint",
-            "shared0.extreme-small-hit": "hit",
-            "shared0.extreme-large-hit": "hit",
-        }
-        for name, first, second, expected in general:
-            self._assert_pair(name, first, second, expected, stages[name])
-            executions += 1
-
-        with self.assertRaisesRegex(ValueError, "normalized triangle normal"):
-            mesh.intersection_diagnostics(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, D, 0.0)), ((0, 1, 2),))
-        self.assertEqual(mesh.intersection_diagnostics(
-            ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, float.fromhex("0x1.0000000000000p-45"), 0.0)), ((0, 1, 2),)
-        )["intersection_hit_count"], 0)
-        executions += 2
-
-        valid_shared2 = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, -1.0, 0.0))
-        self.assertEqual(
-            mesh.intersection_diagnostics(
-                valid_shared2, ((0, 1, 2), (1, 0, 3)),
-                include_classifications=True,
-            )["classifications"],
-            (((0, 1), "excluded-adjacent"),),
-        )
-        executions += 1
-        with self.assertRaisesRegex(ValueError, "shared-two"):
-            mesh.intersection_diagnostics(valid_shared2, ((0, 1, 2), (0, 1, 3)))
-        executions += 1
-        with self.assertRaisesRegex(ValueError, "duplicate triangle"):
-            mesh.intersection_diagnostics(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)), ((0, 1, 2), (0, 1, 2)))
-        executions += 1
-
-        cap_points = []
-        cap_triangles = []
-        for row in range(4096):
-            offset = 3 * row
-            x = float(4 * row)
-            cap_points.extend(((x, 0.0, 0.0), (float(x + 1.0), 0.0, 0.0), (x, 1.0, 0.0)))
-            cap_triangles.append((offset, offset + 1, offset + 2))
-        cap_report = mesh.intersection_diagnostics(tuple(cap_points), tuple(cap_triangles))
-        self.assertEqual((cap_report["triangle_count"], cap_report["broad_phase_candidate_count"]), (4096, 0))
-        pair_count = 4096 * 4095 // 2
-        evidence = cap_report["pair_policy_evidence"]
-        self.assertEqual(cap_report["pair_count"], pair_count)
-        self.assertEqual(
-            (evidence["expected_pair_count"], evidence["processed_pair_count"]),
-            (pair_count, pair_count),
-        )
-        self.assertEqual(
-            (evidence["first_pair"], evidence["last_pair"]),
-            ((0, 1), (4094, 4095)),
-        )
-        self.assertEqual(
-            evidence["class_counts"],
-            (("aabb-disjoint", pair_count), ("sat-disjoint", 0),
-             ("hit", 0), ("point-only", 0), ("excluded-adjacent", 0)),
-        )
-        self.assertEqual(evidence["nontrivial_pair_count"], 0)
-        self.assertEqual(evidence["nontrivial_classifications"], ())
-        self.assertFalse(evidence["nontrivial_evidence_truncated"])
-        self.assertEqual(cap_report["candidate_pairs"], ())
-        self.assertEqual(cap_report["hit_pairs"], ())
-        self.assertFalse(cap_report["candidate_pairs_truncated"])
-        self.assertFalse(cap_report["hit_pairs_truncated"])
-        self.assertIsNone(cap_report["first_hit_pair"])
-        self.assertNotIn("classifications", cap_report)
-        self.assertTrue(cap_report["pair_policy_complete"])
-        with self.assertRaisesRegex(ValueError, "classification detail cap"):
-            mesh.intersection_diagnostics(
-                tuple(cap_points), tuple(cap_triangles), include_classifications=True)
-        executions += 1
-        with self.assertRaisesRegex(ValueError, "triangle cap"):
-            mesh.intersection_diagnostics(tuple(cap_points) + ((0.0, 0.0, 0.0),
-                                          (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
-                                          tuple(cap_triangles) + ((12288, 12289, 12290),))
-        executions += 1
-
-        candidate_points = tuple(point for _ in range(3) for point in ((0.0, 0.0, 0.0),
-                                                                        (1.0, 0.0, 0.0),
-                                                                        (0.0, 1.0, 0.0)))
-        candidate_triangles = tuple((3 * row, 3 * row + 1, 3 * row + 2) for row in range(3))
-        boundary_report = mesh.intersection_diagnostics(
-            candidate_points, candidate_triangles, include_classifications=True)
-        self.assertEqual(boundary_report["candidate_pairs"], ((0, 1), (0, 2), (1, 2)))
-        self.assertEqual(boundary_report["intersection_hit_count"], 3)
-        self.assertEqual(boundary_report["hit_pairs"], ((0, 1), (0, 2), (1, 2)))
-        self.assertEqual(boundary_report["first_hit_pair"], (0, 1))
-        self.assertFalse(boundary_report["candidate_pairs_truncated"])
-        self.assertFalse(boundary_report["hit_pairs_truncated"])
-        self.assertEqual(
-            boundary_report["classifications"],
-            (((0, 1), "hit"), ((0, 2), "hit"), ((1, 2), "hit")),
-        )
-        self.assertEqual(mesh._enumerate_fixture_candidates(candidate_points, candidate_triangles, 3),
-                         ((0, 1), (0, 2), (1, 2)))
-        executions += 1
-        with self.assertRaisesRegex(ValueError, "candidate cap"):
-            mesh._enumerate_fixture_candidates(
-                candidate_points + ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
-                candidate_triangles + ((9, 10, 11),), 3)
-        executions += 1
-        self.assertEqual(executions, 105)
+        self.assertEqual(len(records), 105)
+        self.assertEqual(mesh.INTERSECTION_FIXTURE_IDS, expected_ids)
+        self.assertEqual(tuple(record["fixture_id"] for record in records), expected_ids)
+        self.assertTrue(all(tuple(record) == ("fixture_id", "outcome")
+                            for record in records))
+        self.assertEqual(tuple(record["outcome"] for record in records),
+                         shared_outcomes + general_outcomes)
 
     def test_all_hit_diagnostics_keep_exact_counts_and_bounded_pair_evidence(self):
         triangle = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
@@ -645,7 +627,24 @@ class ProductionIntersectionFixtureTests(unittest.TestCase):
         self.assertTrue(report["hit_pairs_truncated"])
         self.assertEqual(report["candidate_pairs"], report["hit_pairs"])
         self.assertTrue(report["pair_policy_complete"])
+        evidence = report["pair_policy_evidence"]
+        self.assertEqual(
+            (evidence["expected_pair_count"], evidence["processed_pair_count"],
+             evidence["first_pair"], evidence["last_pair"]),
+            (pair_count, pair_count, (0, 1), (98, 99)),
+        )
+        self.assertEqual(evidence["class_counts"], (
+            ("aabb-disjoint", 0), ("sat-disjoint", 0), ("hit", pair_count),
+            ("point-only", 0), ("excluded-adjacent", 0),
+        ))
+        self.assertEqual(evidence["nontrivial_pair_count"], pair_count)
+        self.assertEqual(len(evidence["nontrivial_classifications"]), 64)
+        self.assertEqual(evidence["nontrivial_classifications"][0], ((0, 1), "hit"))
+        self.assertTrue(evidence["nontrivial_evidence_truncated"])
         self.assertNotIn("classifications", report)
+        with self.assertRaisesRegex(ValueError, "classification detail cap"):
+            mesh.intersection_diagnostics(
+                points, triangles, include_classifications=True)
 
     def test_candidate_cap_fixture_helper_is_local_and_deterministic(self):
         points = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0),
