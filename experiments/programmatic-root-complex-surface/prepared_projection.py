@@ -133,7 +133,8 @@ def prepare_standard_neutral(path):
     _ok(source["profiles"] == {"semantic_numeric": "ck.numeric-frame.r1"} and source["extensions"] == [], "source", "unsupported profile or extension")
     body = _dict(source["body"], "source.body"); _ok(set(body) == _BODY, "source.body", "unknown or missing collection")
     _ok(body["fields"] == [], "body.fields", "forbidden geometry-input collection")
-    for name, count in _COUNT.items(): _ok(isinstance(body[name], list) and len(body[name]) == count, f"body.{name}", f"expected {count} records"); _validate_dimensions(body["dimensions"]) if name == "dimensions" else None
+    for name, count in _COUNT.items(): _ok(isinstance(body[name], list) and len(body[name]) == count, f"body.{name}", f"expected {count} records")
+    _validate_dimensions(body["dimensions"])
     ns = source["source"]["namespace"]
     def part(role, side=None): return ns, () if side is None else (side,), "part", role
     p = {part("pelvis"): _part(body["parts"], part("pelvis"), None), part("torso"): _part(body["parts"], part("torso"), part("pelvis")), part("neck"): _part(body["parts"], part("neck"), part("torso"))}

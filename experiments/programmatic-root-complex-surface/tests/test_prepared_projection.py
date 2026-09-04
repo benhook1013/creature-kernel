@@ -143,8 +143,8 @@ class PreparedProjectionTests(unittest.TestCase):
         cases = ((10**400, "expected finite number"), (True, "expected finite number"), (False, "expected finite number"), (0, "expected positive number"), (-0.01, "expected positive number"))
         for value, message in cases:
             with self.subTest(value=value): self.assert_rejected(rf"body\.dimensions\[\d+\]\.value: {message}", lambda source, value=value: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, role)].__setitem__("value", value))
-
-        for index in range(153): self.assert_rejected(rf"body\.dimensions\[{index}\]\.value: expected positive number", lambda source, index=index: source["body"]["dimensions"][index].__setitem__("value", 0))
+        for index in range(153):
+            with self.subTest(index=index): self.assert_rejected(rf"body\.dimensions\[{index}\]\.value: expected positive number", lambda source, index=index: source["body"]["dimensions"][index].__setitem__("value", 0))
     def test_canonical_metre_dimensions_and_non_dimension_routes(self):
         with tempfile.TemporaryDirectory() as directory: source = copy.deepcopy(self.source); source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner("pelvis"), "form_torso_profile_lower_pelvis_lateral_radius")]["value"] = 1.2345; source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner("pelvis"), "form_torso_profile_lower_pelvis_anterior_radius")]["value"] = 2; path = Path(directory) / "source.json"; path.write_text(json.dumps(source), encoding="utf-8"); prepared = prepare_standard_neutral(path)
         self.assertEqual(prepared["stations"]["lower_pelvis"]["lateral_radius"], 1.2345); self.assertEqual(prepared["stations"]["lower_pelvis"]["front_extent"], 2)
