@@ -1,6 +1,7 @@
 # Owned root assembly successor
 
-Status: bounded experiment-local successor plan; non-normative
+Status: bounded experiment-local successor implementation phase; frozen,
+SHA-256-bound, non-normative
 
 Experiment lifecycle: planned
 
@@ -20,11 +21,20 @@ experiment does not change their lifecycle.
 
 Related DRs: DR-0013 context only; DR-0009 and DR-0010 remain parked
 
+Freeze state: double-FREEZE; two independent Sol reviews returned `FREEZE`
+with zero blockers
+
+Design contract SHA-256: `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`
+
+`correction_round=0`: initial implementation phase; at most two shared
+correction rounds remain available after the initial build
+
 ## Status and authority
 
-This is the settled candidate plan for one new, bounded, standard-neutral
-experiment. It is the successor direction authorized after the seven-ring
-candidate in PR #125 reached its three-round stop rule. It does not accept a
+This is the frozen candidate contract and bounded implementation phase for one
+new, standard-neutral experiment. It is the successor direction authorized
+after the seven-ring candidate in PR #125 reached its three-round stop rule.
+It remains an unaccepted experiment-local candidate: it does not accept a
 production schema, architecture, topology, supported morphology promise, or
 technology outcome. It does not reactivate a parked workstream or satisfy the
 DR-0013 Stage 1 proof.
@@ -106,9 +116,10 @@ and emits canonical metres. Before execution, the launcher records both active
 source hashes and stops on source drift rather than silently using a new input.
 
 This is a metadata/hash rebaseline only. Standard-neutral geometry is expected
-to remain unchanged, and the historical source/evidence is not rewritten. This
-README does not claim that the successor contract is implemented or that
-successor execution has begun.
+to remain unchanged, and the historical source/evidence is not rewritten. The
+design contract is now frozen and SHA-256-bound; this README activates the
+bounded implementation phase but does not claim that implementation evidence
+or successor execution results exist.
 
 The prepared input may contain only source-derived frames, named landmarks,
 section measurements, derived scalar parameters, module state, and provenance.
@@ -176,25 +187,24 @@ The hard experiment caps are fixed before the design pass:
 - exactly 2 declared subdivision levels;
 - at most 2 shared correction rounds after the initial build.
 
-These are caps, not a chosen topology. The experiment must not claim an exact
-control count, boundary cardinality, patch degree, extraordinary-vertex
-placement, or coordinate layout until the bounded design pass below freezes
-those details. All eight named domain interiors must be nonempty. If the
-design cannot satisfy the caps and ownership rules, it stops before
-coordinates are authored.
+These are caps, not a product contract. The frozen design contract records the
+exact topology, boundary cardinality, patch degree, extraordinary-vertex
+placement, and coordinate rules for this candidate. All eight named domain
+interiors must be nonempty. If the implementation cannot satisfy the caps and
+ownership rules, it stops before producing evidence.
 
-## Freeze-before-build obligations
+## Frozen design contract and implementation phase
 
-One bounded design pass must create
-`experiments/owned-root-assembly-successor/design-contract.md`. That required
-freeze artifact does not exist yet and must not be created as part of this
-plan-review correction. Its exact raw bytes must receive a recorded SHA-256
-identity. The future builder must require the expected identity, hash the file
-before admitting source inputs, and reject a missing file or mismatch without
-producing an artifact. This plan is non-executable until the file and recorded
-identity exist.
+The bounded design pass created
+`experiments/owned-root-assembly-successor/design-contract.md` as the sole
+freeze artifact for the candidate design. Its exact raw bytes are recorded in
+`experiments/owned-root-assembly-successor/design-contract.sha256` with
+SHA-256 `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`.
+The builder must require that identity, hash the file before admitting source
+inputs, and reject a missing file or mismatch without producing an artifact.
+The bounded implementation phase is active under this frozen contract.
 
-The design contract must freeze all details needed to make the candidate
+The frozen design contract fixes all details needed to make the candidate
 reproducible without inventing them during coding:
 
 - all eight named, nonempty domain interiors and their required anatomical
@@ -215,14 +225,14 @@ reproducible without inventing them during coding:
 - the exact preflight, build, artifact, and comparison commands.
 
 It must reject any domain interior that crosses a required anatomical boundary
-instead of meeting another domain through a declared junction. It must also
-set finite caps for total junction count and interface cardinality; chart,
-formula, and dependency counts; candidate special cases; and non-test
-implementation and test LOC. Numeric values are deliberately not selected in
-this README; the design contract must freeze them before build.
+instead of meeting another domain through a declared junction. It also sets
+finite caps for total junction count and interface cardinality; chart, formula,
+and dependency counts; candidate special cases; and non-test implementation
+and test LOC. The frozen design contract is authoritative for those numeric
+values before build.
 
-This pass freezes obligations and measurable tolerances before geometry
-coordinates or visual tuning. It must not smuggle in arbitrary anatomy
+The frozen contract fixes obligations and measurable tolerances before
+geometry coordinates or visual tuning. It must not smuggle in arbitrary anatomy
 thresholds, profile-shaped coordinates, or a production contract. The failed
 candidate's old port-span anatomy gates are not reused as a substitute for the
 new candidate-specific measures. Numeric tolerances are recorded with their
@@ -284,13 +294,13 @@ causal binding is not accepted as an explanation.
 
 ## Preflight and build order
 
-The eventual implementation must follow this order and stop at the first
+The implementation must follow this order and stop at the first
 failed gate:
 
 1. Verify worktree, source paths, source hashes, pinned launcher, and the
    standard-neutral-only scope.
-2. Create and SHA-256-bind the required design contract; no later build may
-   choose an omitted topology, ownership, cap, tolerance, or evidence rule.
+2. Verify the SHA-256-bound design contract; no build may choose an omitted
+   topology, ownership, cap, tolerance, or evidence rule.
 3. Admit and validate the prepared intent, including provenance and the
    required `neck_upper` and `upper_abdomen` source controls.
 4. Build the domain, junction, port, and chart ownership plan; prove complete
@@ -334,10 +344,10 @@ construction, not to a synthetic diagnostic object:
 - all must-affect/locality, forbidden-input, profile-neutrality, and
   deterministic-artifact checks pass.
 
-Clearance and continuity thresholds are not invented in this plan. The design
-pass must freeze them before coordinates and record each independently; one
-aggregate score is forbidden. Human vision decides whether positive geometry
-actually reads as anatomy.
+Clearance and continuity thresholds are not invented in this plan. The frozen
+design contract records them before coordinates and each is evaluated
+independently; one aggregate score is forbidden. Human vision decides whether
+positive geometry actually reads as anatomy.
 
 ## Visual evidence and checkpoint
 
@@ -374,9 +384,9 @@ Paths, timestamps, host-specific display data, and temporary-directory names
 must not affect identity. A failed or partial publication must not be mistaken
 for evidence.
 
-The eventual README revision that activates execution must provide the exact
-copy-paste reproduction command and list all raw outputs. This plan remains
-non-executable until that command and the freeze-before-build record exist.
+This implementation-phase README provides the exact copy-paste reproduction
+command and lists all raw outputs. Execution remains bounded by that command
+and the frozen design-contract identity.
 
 ## Correction stop
 
@@ -445,8 +455,9 @@ does not authorize promotion into production code or canonical architecture.
 
 ## Results, limitations, and conclusion
 
-No result exists yet. Until execution, lifecycle remains `planned`, evidence
-closure remains `open`, and technology outcome remains `none`.
+No result exists yet. Execution is activated at `correction_round=0`; until a
+run closes evidence, lifecycle remains `planned`, evidence closure remains
+`open`, and technology outcome remains `none`.
 
 The trial is limited to one standard-neutral root assembly. It does not test
 the exact-five profiles, optional modules, tails, hands, feet, faces, distal
@@ -456,9 +467,9 @@ recorded investigation and human checkpoint.
 
 ## Recommended follow-up
 
-Complete the one bounded design pass and record its frozen interface curves,
-patch/junction layout, port orientations, subdivision support, continuity and
-fold measures, candidate-specific geometric measures, causal perturbations,
-and exact reproduction command. Then implement only the standard-neutral
-candidate within this contract. Do not edit canonical specifications or
-production architecture as part of this experiment.
+Implement only the standard-neutral candidate within the frozen contract,
+using its recorded interface curves, patch/junction layout, port orientations,
+subdivision support, continuity and fold measures, candidate-specific
+geometric measures, causal perturbations, and exact reproduction command. Do
+not edit canonical specifications or production architecture as part of this
+experiment.

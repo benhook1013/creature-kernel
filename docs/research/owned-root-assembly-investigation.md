@@ -1,7 +1,7 @@
 # Owned root assembly investigation
 
-Status: Settled candidate plan; Ben-authorized bounded investigation;
-experiment-local and non-normative
+Status: Frozen candidate implementation phase; Ben-authorized bounded
+investigation; experiment-local and non-normative
 
 This is the settled successor plan after the terminal seven-ring candidate in
 the [programmatic root-complex investigation](programmatic-root-complex-surface-investigation.md).
@@ -29,7 +29,7 @@ with SHA-256
 `a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640`. This is
 a source/hash metadata rebaseline only: standard-neutral geometry is expected
 to remain unchanged. Historical source and evidence remain untouched; this
-record does not claim that the successor contract is implemented.
+record does not claim that the successor implementation is complete.
 
 ## Research-question mapping
 
@@ -90,8 +90,8 @@ and 120 base quads, two subdivision levels, oriented port boundaries, and
 declared interface cardinality before rendering. Use existing authored
 `neck_upper` and `upper_abdomen` controls. The exact topology, chart degrees,
 port orientations, extraordinary placement and valence, continuity tolerances,
-normal/fold bounds, and subdivision support are candidate inputs to freeze
-before coordinates or images are judged.
+normal/fold bounds, and subdivision support are frozen in the required design
+contract before coordinates or images are judged.
 
 Each domain owns its interior faces and controls. Each shared boundary is
 represented once by a named junction owned by its incident domains; there are
@@ -125,20 +125,19 @@ render-only correction.
 
 ## Required design contract
 
-Before any executable build exists, create
-`experiments/owned-root-assembly-successor/design-contract.md` as the sole
-freeze artifact for the candidate design. It is intentionally not created by
-this plan-writing change. Once created, its exact raw bytes receive a recorded
-SHA-256 identity, and the future builder must require that identity and reject
-a missing file or any mismatch before admitting inputs or producing output.
-This investigation remains explicitly non-executable until that record and its
-identity exist.
+The required sole freeze artifact for the candidate design is
+`experiments/owned-root-assembly-successor/design-contract.md`. Its exact raw
+bytes are frozen and SHA-256-bound at
+`3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`, recorded
+by `experiments/owned-root-assembly-successor/design-contract.sha256`. The
+builder must require that identity and reject a missing file or any mismatch
+before admitting inputs or producing output. The bounded implementation is
+next under this frozen contract; no implementation result is implied.
 
-The design contract must freeze every item in the preflight below. It must also
-set finite caps for total junction count and interface cardinality; chart,
-formula, and dependency counts; candidate special cases; and non-test
-implementation and test LOC. This plan intentionally does not invent those
-numeric values.
+The frozen design contract covers every item in the preflight below and sets
+finite caps for total junction count and interface cardinality; chart, formula,
+and dependency counts; candidate special cases; and non-test implementation
+and test LOC. This plan intentionally does not invent those numeric values.
 
 ## Frozen preflight and evidence gates
 
@@ -182,9 +181,9 @@ The next implementation work proceeds in this order:
 
 1. audit the terminal candidate's utilities for representation-independent
    reuse;
-2. create and SHA-256-bind the required design contract, freezing the
-   successor's neutral topology, interfaces, dependencies, finite complexity
-   caps, tolerances, and evidence views;
+2. verify the frozen, SHA-256-bound design contract and its successor-neutral
+   topology, interfaces, dependencies, finite complexity caps, tolerances, and
+   evidence views;
 3. implement the bounded owned-domain/junction cage and the three-layer
    records;
 4. run ownership, causality, locality, topology, geometry, determinism, and

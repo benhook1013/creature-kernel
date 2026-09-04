@@ -29,21 +29,24 @@ correction rounds. Construction ownership, semantic causality, and
 evaluated-surface contributor/chart lineage remain separate; every output must
 be owned or have a declared junction or contributor record.
 
-The successor must use the authored `neck_upper` and `upper_abdomen` controls
-and freeze its oriented interfaces, patch layout, port orientation,
-extraordinary placement/valence, continuity, normal/fold bounds, subdivision
-support, causality matrix, and locality perturbations before rendering. It
+The successor uses the authored `neck_upper` and `upper_abdomen` controls; its
+oriented interfaces, patch layout, port orientation, extraordinary
+placement/valence, continuity, normal/fold bounds, subdivision support,
+causality matrix, and locality perturbations are frozen before rendering. It
 replaces the old port-span anatomy gates with candidate-specific checks for
 neck exposure, shoulder descent, axillary concavity, pelvic wrap, and
 downward thigh-root orientation. Direct skin and ownership diagnostics must
 be renders of the same evaluated surface, and categorical colour cannot stand
 in for causality.
 
-The plan remains non-executable until the required
+The required
 `experiments/owned-root-assembly-successor/design-contract.md` freeze artifact
-exists, has a recorded SHA-256 identity, and supplies all pre-build finite
-complexity caps and candidate details required by the investigation. The
-future builder must reject a missing or mismatched design-contract identity.
+is now frozen and SHA-256-bound at
+`3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`, recorded
+by its sidecar. Two independent Sol reviews returned `FREEZE` with zero
+blockers. The bounded implementation phase is active at
+`correction_round=0`; the builder must reject a missing or mismatched
+design-contract identity.
 
 Advance only through the documented bounded implementation and internal gates.
 Do not add profile branches, hidden skin, render corrections, solvers, distal
