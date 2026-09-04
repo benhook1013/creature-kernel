@@ -357,7 +357,18 @@ explicitly dispositions it, runs the required local and CI checks, and pushes
 the next head only when the result is ready for a new cycle. Hosted taper is
 reached when a fresh hosted pass produces no new material findings, or only
 repeats, non-actionable findings, disproportionate suggestions, or
-out-of-scope items. Remaining items have recorded dispositions.
+out-of-scope items; remaining items have recorded dispositions. After
+implementation is complete, three consecutive hosted passes with at most two
+new actionable findings each create a presumption that taper has been
+reached. Continuing beyond that presumption requires a main-thread-validated
+material correctness, contract, evidence-integrity, security, or safety issue.
+Formatting/readability, minor test cleanup, speculative hardening,
+already-dispositioned repeats, and disproportionate suggestions do not reset
+the streak or justify another cycle. The main thread does not fix nonmaterial
+suggestions merely to manufacture another review head. After fixing a material
+issue, it performs one final exact-head hosted-plus-CLI cycle and repeats only
+if that cycle finds another validated material issue. Zero findings is never
+the target.
 
 When warranted, the committed-diff command is
 `coderabbit review --agent --committed --base <remote>/<base-ref>` against a
