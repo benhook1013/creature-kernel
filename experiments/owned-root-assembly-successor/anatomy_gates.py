@@ -72,16 +72,16 @@ def _chart_levels(charts, levels):
         result.append(tuple(checked))
     if len(result) != 3 or len(seen) != sum(len(row) for row in result): _fail("chart ancestry is not a three-level sequence")
     return tuple(result)
-def validate_evaluated_surface(value, chart_summary=None, *, prepared=None):
-    try: levels = surface.validate_evaluation(value, prepared)
+def validate_evaluated_surface(value, geometry, chart_summary=None):
+    try: levels = surface.validate_evaluation(value, geometry)
     except (ValueError, IndexError, TypeError) as exc: _fail("evaluated surface admission is invalid", str(exc))
     for level, mesh in enumerate(levels):
         if (len(mesh.vertices), len(mesh.quads), len(surface.topology_incidence(mesh))) != LEVEL_COUNTS[level]: _fail("evaluated surface count mismatch", f"L{level}")
     if chart_summary is not None: _chart_levels(chart_summary, levels)
     return levels
-def _context(value, prepared, chart_summary):
+def _context(value, geometry, chart_summary):
     if chart_summary is None: _fail("chart ancestry is required for anatomy selectors")
-    levels = validate_evaluated_surface(value, prepared=prepared); return levels, _chart_levels(chart_summary, levels)
+    levels = validate_evaluated_surface(value, geometry); return levels, _chart_levels(chart_summary, levels)
 def _actual_feature_edges(mesh, charts, feature, expected=None):
     edges = _edges(mesh)
     if feature in PORTS:
@@ -128,8 +128,8 @@ def _trace(levels, charts, feature, level):
     tags = _feature_tags(levels, charts, feature, level); result = {tag: tuple(levels[level].vertices[index]) for index, tag in tags.items()}
     if len(result) != len(tags): _fail("ambiguous anatomy selector", feature)
     return dict(sorted(result.items()))
-def select_trace(value, feature, level=2, chart_summary=None, *, prepared=None):
-    levels, charts = _context(value, prepared, chart_summary); return _trace(levels, charts, feature, level)
+def select_trace(value, geometry, feature, level=2, chart_summary=None):
+    levels, charts = _context(value, geometry, chart_summary); return _trace(levels, charts, feature, level)
 def _vec(value, name):
     if not isinstance(value, (tuple, list)) or len(value) != 3 or any(type(x) is not float or not isfinite(x) for x in value): raise ValueError(f"{name} must be a finite binary64 vector3")
     return tuple(value)
@@ -197,7 +197,7 @@ def _span(points, axis): return max(p[axis] for p in points) - min(p[axis] for p
 def _pair(a, b, name):
     if not a or set(a) != set(b): _fail("anatomy traces are missing or unequal", name)
     return [(tag, a[tag], b[tag]) for tag in sorted(a)]
-def _side(out, levels, charts, level, side, neck_y, prepared):
+def _side(out, levels, charts, level, side, neck_y, geometry):
     shoulder = _trace(levels, charts, f"junction.thorax__{side}_shoulder", level); arm = _trace(levels, charts, f"port.{side}_arm", level); prefix = "anatomy."
     _put(out, prefix + f"arm_port_descent.{side}.L{level}", [neck_y - p[1] for p in arm.values()])
     owners = tuple(c["construction_owner"] for c in charts[level]); points = {i for fi, face in enumerate(levels[level].quads) if owners[fi] == f"domain.{side}_shoulder" for i in face}
@@ -213,17 +213,17 @@ def _side(out, levels, charts, level, side, neck_y, prepared):
     _put(out, prefix + f"axillary_inboard_recess.{side}.L{level}", [sign * (o[0] - j[0]) for _, j, o in paired]); _put(out, prefix + f"axillary_downward_recess.{side}.L{level}", [o[1] - j[1] for _, j, o in paired])
     hip = _trace(levels, charts, f"junction.pelvis__{side}_hip", level); thigh = _trace(levels, charts, f"port.{side}_thigh", level); paired = _pair(hip, thigh, "pelvic wrap");
     _put(out, prefix + f"pelvic_vertical_wrap.{side}.L{level}", [j[1] - p[1] for _, j, p in paired])
-    ps_x = prepared["hips"][side]["P_s"][0]; ratios = [abs(j[0] - ps_x) / abs(p[0] - ps_x) for _, j, p in paired if p[0] - ps_x != 0.0]; omitted = len(paired) - len(ratios)
+    ps_x = surface.geometry_component(geometry, f"hips.{side}.P_s.x"); ratios = [abs(j[0] - ps_x) / abs(p[0] - ps_x) for _, j, p in paired if p[0] - ps_x != 0.0]; omitted = len(paired) - len(ratios)
     if not ratios: _fail("pelvic lateral ratio has no nonzero denominators", side)
     _put(out, prefix + f"pelvic_lateral_ratio.{side}.L{level}", ratios, "ge", "dimensionless", omitted)
     _put(out, prefix + f"front_depth_wrap.{side}.L{level}", [j[2] - p[2] for tag, j, p in paired if tag[1] > 1], "ge", "m"); _put(out, prefix + f"back_depth_wrap.{side}.L{level}", [p[2] - j[2] for tag, j, p in paired if tag[1] < 1], "ge", "m")
     _put(out, prefix + f"clearance.{side}_axilla.L{level}", [min(_span(tuple(arm.values()), 1), _span(tuple(arm.values()), 2))])
-def measure_anatomy(value, prepared, chart_summary=None):
-    levels, charts = _context(value, prepared, chart_summary); out = {}
+def measure_anatomy(value, geometry, chart_summary=None):
+    levels, charts = _context(value, geometry, chart_summary); out = {}
     for level in range(3):
         neck = _trace(levels, charts, "port.neck", level); neck_junction = _trace(levels, charts, "junction.thorax__neck", level); paired = _pair(neck, neck_junction, "neck exposure")
         _put(out, f"anatomy.neck_exposure.L{level}", [port[1] - junction[1] for _, port, junction in paired]); neck_y = min(p[1] for p in neck.values())
-        for side in ("left", "right"): _side(out, levels, charts, level, side, neck_y, prepared)
+        for side in ("left", "right"): _side(out, levels, charts, level, side, neck_y, geometry)
         left_hip, right_hip = _trace(levels, charts, "junction.pelvis__left_hip", level), _trace(levels, charts, "junction.pelvis__right_hip", level); left_thigh, right_thigh = _trace(levels, charts, "port.left_thigh", level), _trace(levels, charts, "port.right_thigh", level)
         _put(out, f"anatomy.clearance.neck.L{level}", [min(_span(tuple(neck.values()), 0), _span(tuple(neck.values()), 2))]); _put(out, f"anatomy.clearance.groin.L{level}", [min(p[0] for p in right_hip.values()) - max(p[0] for p in left_hip.values())]); _put(out, f"anatomy.clearance.medial_thigh.L{level}", [min(p[0] for p in right_thigh.values()) - max(p[0] for p in left_thigh.values())])
     if len(out) != 78: _fail("anatomy inventory is not exactly 78 measures", len(out))
@@ -234,8 +234,8 @@ def anatomy_threshold_records():
     ids = [f"anatomy.neck_exposure.L{l}" for l in range(3)] + [f"anatomy.{m}.{s}.L{l}" for m in ANATOMY_METRICS for s in ("left", "right") for l in range(3)] + [f"anatomy.clearance.{c}.L{l}" for c in CLEARANCES for l in range(3)]; result = []
     for key in sorted(ids): relation, bound, unit = _spec(key); result.append({"threshold_id": f"threshold.{key}", "relation": relation, "lower": bound if relation == "ge" else None, "upper": bound if relation == "le" else None, "unit": unit})
     return result
-def anatomy_gate_records(value, prepared, chart_summary=None):
-    measures = measure_anatomy(value, prepared, chart_summary); failures = []
+def anatomy_gate_records(value, geometry, chart_summary=None):
+    measures = measure_anatomy(value, geometry, chart_summary); failures = []
     for key, item in measures.items():
         relation, bound, _ = _spec(key); valid = item["maximum"] <= bound if relation == "le" else item["minimum"] >= bound
         failures.extend((key,) if not valid else ())

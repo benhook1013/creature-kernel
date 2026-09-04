@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import json
 import runpy
 import sys
@@ -32,7 +33,11 @@ sys.path.insert(0, str(PACKAGE))
 import artifact_serialization as artifacts
 import prepared_projection as projection
 from prepared_projection import (
+    MUST_AFFECT_COMPONENTS,
+    MUST_AFFECT_PARAMETER_IDS,
+    PERTURBATION_DELTA_M,
     PreparedProjectionError,
+    GeometryComponents,
     _admit_profile_bytes,
     _admit_source_bytes,
     _validate_binding_records,
@@ -44,6 +49,8 @@ from prepared_projection import (
     canonical_json_sha256,
     normalize_source_address,
     prepare_standard_neutral,
+    project_perturbed_geometry,
+    project_geometry,
     source_binding_records,
     validate_prepared,
 )
@@ -141,11 +148,59 @@ class PreparedProjectionTests(unittest.TestCase):
         cls.source_document = json.loads(SOURCE.read_bytes())
         cls.profile_document = json.loads(PROFILE_TABLE.read_bytes())
         cls.prepared = prepare_standard_neutral(SOURCE)
+        cls.geometry = project_geometry(cls.prepared)
 
     def assert_runtime_vector(self, value, length=3):
         self.assertIs(type(value), list)
         self.assertEqual(len(value), length)
         self.assertTrue(all(type(item) is float for item in value))
+    def test_public_geometry_carrier_is_exact_numeric_only_projection(self):
+        geometry = self.geometry
+        self.assertIs(type(geometry), GeometryComponents)
+        self.assertEqual(tuple(GeometryComponents.__slots__), ("values",))
+        self.assertEqual(len(geometry.values), 92)
+        self.assertTrue(all(type(value) is float for value in geometry.values))
+        self.assertFalse(hasattr(geometry, "__dict__"))
+        components = tuple(row["prepared_component"] for row in source_binding_records())
+        expected = []
+        for component in components:
+            path = component.split("."); value = self.prepared
+            for field in path[:-1]: value = value[field]
+            expected.append(value["xyz".index(path[-1])] if path[-1] in "xyz" and len(path[-1]) == 1 else value[path[-1]])
+        self.assertEqual(geometry.values, tuple(expected))
+        for excluded in ("profile_id", "contract", "source", "parts", "provenance", "path", "sha256", "label", "scale"):
+            self.assertFalse(hasattr(geometry, excluded))
+        for path, replacement in ((('profile_selection', 'profile_id'), 'forged'), (('stations', 'lower_pelvis', 'rL'), 1.51)):
+            with self.subTest(path=path), self.assertRaises(PreparedProjectionError): project_geometry(_mutated(self.prepared, path, replacement))
+        self.assertEqual(tuple(inspect.signature(project_geometry).parameters), ("prepared",))
+        self.assertIsNone(project_geometry.__defaults__)
+        self.assertIsNone(project_geometry.__kwdefaults__)
+        with patch.object(projection, "validate_prepared", side_effect=AssertionError("caller-overridable dependency")), patch.object(projection, "source_binding_records", side_effect=AssertionError("caller-overridable dependency")):
+            self.assertEqual(project_geometry(self.prepared), geometry)
+    def test_projection_order_is_proved_with_asymmetric_sentinels(self):
+        components = tuple(row["prepared_component"] for row in source_binding_records())
+        sentinels = {component: float(index + 0.125) for index, component in enumerate(components)}
+        projector, _ = projection._geometry_apis(
+            _ids=components,
+            _validate=lambda value: value,
+            _read=lambda value, component: sentinels[component],
+            _bindings=lambda: [{"prepared_component": component} for component in components],
+        )
+        projected = projector({"sentinel": True})
+        self.assertEqual(projected.values, tuple(sentinels[component] for component in components))
+        self.assertEqual(len(set(projected.values)), 92)
+    def test_project_perturbed_geometry_copies_one_prepared_scalar_before_projection(self):
+        original = canonical_json_bytes(self.prepared)
+        for parameter in MUST_AFFECT_PARAMETER_IDS:
+            with self.subTest(parameter=parameter):
+                component = MUST_AFFECT_COMPONENTS[parameter]
+                index = projection._GEOMETRY_COMPONENT_IDS.index(component)
+                expected = list(self.geometry.values); expected[index] = float(expected[index] + PERTURBATION_DELTA_M)
+                self.assertEqual(project_perturbed_geometry(self.prepared, parameter).values, tuple(expected))
+        self.assertEqual(canonical_json_bytes(self.prepared), original)
+        for bad in ("unknown", "left.r_y.extra", 1):
+            with self.subTest(parameter=bad), self.assertRaises(PreparedProjectionError): project_perturbed_geometry(self.prepared, bad)
+        with self.assertRaises(PreparedProjectionError): project_perturbed_geometry(self.geometry, MUST_AFFECT_PARAMETER_IDS[0])
     def test_complete_prepared_schema_values_and_runtime_types(self):
         prepared = self.prepared
         self.assertEqual(set(prepared), {

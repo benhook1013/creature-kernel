@@ -78,7 +78,8 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         self.candidate_path = EXPERIMENT / "structural_profile_candidates.json"
         self.source_path = REPO_ROOT / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         self.candidate = json.loads(self.candidate_path.read_text(encoding="utf-8"))
-        self.base = json.loads(self.source_path.read_text(encoding="utf-8"))
+        self.base_json = json.loads(self.source_path.read_text(encoding="utf-8"))
+        self.base = generator.load_json(self.source_path, "authored source")
         self.output_dir = self.root / "sources"
         generator.write_sources(self.candidate_path, self.source_path, self.output_dir)
         self.sources = {
@@ -266,6 +267,35 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                         for value in values
                     )
                 )
+
+    def test_active_generation_rejects_float_before_precision_can_change_ties_to_even(self) -> None:
+        dimension_role = "form_head_neck_profile_cranium_crown_forward_radius"
+        where = "test.dimension"
+        self.assertEqual(generator._positive_finite_metre(1, where), Decimal("1"))
+        self.assertEqual(generator._positive_finite_metre(Decimal("0.65"), where), Decimal("0.65"))
+
+        precise_source = copy.deepcopy(self.base)
+        precise_dimension = next(
+            dimension
+            for dimension in precise_source["body"]["dimensions"]  # type: ignore[index]
+            if dimension["owner"] == address("head") and dimension["role"] == dimension_role  # type: ignore[index]
+        )
+        precise_dimension["value"] = Decimal("0.6500000000000000001")  # type: ignore[index]
+        precise_outputs = generator.generate_sources(copy.deepcopy(self.candidate), precise_source)
+        precise_compact = next(
+            output for output in precise_outputs if output["source"]["document"].endswith("__compact_broad_short_limb_large_head")
+        )
+        self.assertEqual(self.dimension(precise_compact, "head", dimension_role), 0.813)
+
+        float_source = copy.deepcopy(self.base)
+        float_dimension = next(
+            dimension
+            for dimension in float_source["body"]["dimensions"]  # type: ignore[index]
+            if dimension["owner"] == address("head") and dimension["role"] == dimension_role  # type: ignore[index]
+        )
+        float_dimension["value"] = 0.65  # type: ignore[index]
+        with self.assertRaisesRegex(generator.ProfileGenerationError, "positive finite metre number"):
+            generator.generate_sources(copy.deepcopy(self.candidate), float_source)
 
     def test_generated_dimensions_remain_positive_finite_canonical_metres(self) -> None:
         for profile_id, document in self.sources.items():
@@ -517,7 +547,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             "stylized_digitigrade_biped_authored_form__structural_profile__"
             "standard_neutral_reference"
         )
-        expected_neutral = copy.deepcopy(self.base)
+        expected_neutral = copy.deepcopy(self.base_json)
         expected_neutral["source"]["document"] = expected_document  # type: ignore[index]
         for module in expected_neutral["body"]["modules"]:  # type: ignore[index]
             module["declaration"]["document"] = expected_document  # type: ignore[index]
@@ -676,7 +706,7 @@ class StructuralProfileSourcesTests(unittest.TestCase):
         self.assertEqual(len(bounded_stages), 1)
         self.assertEqual(list(bounded_stages[0].iterdir()), [])
 
-        same_identity_source = copy.deepcopy(self.base)
+        same_identity_source = copy.deepcopy(self.base_json)
         same_identity_source["extensions"] = ["lineage-mismatch"]
         same_identity_path = self.root / "same-identity-different-source.json"
         same_identity_path.write_bytes(generator.canonical_source_bytes(same_identity_source))

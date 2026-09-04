@@ -19,15 +19,14 @@ import prepared_projection
 import render_export as render
 
 
-def _prepared():
-    return prepared_projection.prepare_standard_neutral(
-        REPO / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
-    )
+def _geometry():
+    prepared = prepared_projection.prepare_standard_neutral(REPO / "examples/body-documents/stylized-digitigrade-biped-authored-form.json")
+    return prepared_projection.project_geometry(prepared)
 
 
 @lru_cache(maxsize=1)
 def _evaluation():
-    return surface.evaluate(_prepared())
+    return surface.evaluate(_geometry())
 
 
 def _level2():

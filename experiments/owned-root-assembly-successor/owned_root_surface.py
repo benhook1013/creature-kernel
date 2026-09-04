@@ -1,7 +1,6 @@
 """Frozen topology, formula, subdivision, derivative, and incidence authority; chart and summary data belong to ``chart_lineage``."""
 from __future__ import annotations
 
-import copy
 from collections import defaultdict, namedtuple
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -10,24 +9,42 @@ from functools import reduce
 from hashlib import sha256
 from math import gcd, isfinite, pow
 from typing import Any
-
-try:
-    import prepared_projection
-except ImportError:  # pragma: no cover
-    from . import prepared_projection
 try:
     import mesh_correctness as _generic
 except ImportError:  # pragma: no cover
     from . import mesh_correctness as _generic
-
 DOMAINS = tuple(f"domain.{name}" for name in "pelvis abdomen thorax neck left_shoulder right_shoulder left_hip right_hip".split())  # noqa: SIM905
 JUNCTIONS = tuple(f"junction.{name}" for name in "pelvis__left_hip pelvis__abdomen abdomen__thorax thorax__left_shoulder thorax__neck pelvis__right_hip thorax__right_shoulder".split())  # noqa: SIM905
 PORTS = tuple(f"port.{name}" for name in "neck left_arm right_arm left_thigh right_thigh".split())  # noqa: SIM905
 FORMULAS = tuple("formula.axial.j1.edge formula.axial.j1.interior formula.axial.station formula.neck.stem formula.shoulder.left formula.shoulder.right formula.hip.left formula.hip.right".split())  # noqa: SIM905
 SPECIAL_CASE_IDS = tuple("formula.axial.j1.edge formula.axial.j1.interior formula.neck.stem formula.shoulder.left formula.shoulder.right formula.hip.left formula.hip.right topology.open-port-cap topology.shared-junction".split())  # noqa: SIM905
-_STATIONS = tuple((name, ("main", [], "part", role), prefix) for name, role, prefix in (row.split() for row in "lower_pelvis pelvis form_torso_profile_lower_pelvis;upper_pelvis pelvis form_torso_profile_upper_pelvis;lower_abdomen torso form_torso_profile_lower_abdomen;waist_abdomen torso form_torso_profile_waist_abdomen;upper_abdomen torso form_torso_profile_upper_abdomen;lower_ribcage torso form_torso_profile_lower_ribcage;upper_ribcage_shoulder torso form_torso_profile_upper_ribcage_shoulder;neck_collar neck form_head_neck_profile_neck_collar;neck_upper neck form_head_neck_profile_neck_upper".split(";")))  # noqa: SIM905
-STATION_NAMES = tuple(row[0] for row in _STATIONS)
-STATION_INFO = {name: (owner, prefix) for name, owner, prefix in _STATIONS}
+STATION_NAMES = tuple("lower_pelvis upper_pelvis lower_abdomen waist_abdomen upper_abdomen lower_ribcage upper_ribcage_shoulder neck_collar neck_upper".split())
+def _geometry_component_ids():
+    values = [f"stations.{name}.{field}" for name in STATION_NAMES for field in ("C.x", "C.y", "C.z", "rL", "rA", "rP")]
+    values += [f"shoulders.{side}.{field}" for side in ("left", "right") for field in ("axilla.x", "axilla.y", "axilla.z", "peak.x", "peak.y", "peak.z", "arm_origin.x", "arm_origin.y", "arm_origin.z", "start_lateral", "start_up", "start_forward", "shoulder_depth")]
+    values += [f"hips.{side}.{field}" for side in ("left", "right") for field in ("P_s.x", "P_s.y", "P_s.z", "r_x", "r_y", "r_z")]
+    return tuple(sorted(values, key=str.encode))
+GEOMETRY_COMPONENT_IDS = _geometry_component_ids()
+_GEOMETRY_INDEX = {component: index for index, component in enumerate(GEOMETRY_COMPONENT_IDS)}
+@dataclass(frozen=True, slots=True)
+class GeometryComponents:
+    """Exact identity-free positional values admitted by the geometry seam."""
+    values: tuple[float, ...]
+    def __post_init__(self):
+        if type(self.values) is not tuple or len(self.values) != 92 or any(type(value) is not float or not isfinite(value) for value in self.values): raise ValueError("geometry components must be exactly 92 finite binary64 values")
+def validate_geometry_components(value):
+    if type(value) is not GeometryComponents: raise ValueError("geometry input must be the exact numeric carrier")
+    values = getattr(value, "values", None)
+    if type(values) is not tuple: raise ValueError("geometry components must contain a tuple")
+    if len(values) != 92: raise ValueError("geometry components must contain exactly 92 values")
+    if any(type(item) is not float or not isfinite(item) for item in values): raise ValueError("geometry components must be finite binary64 values")
+    return value
+def _geometry_value(value, component): return (value.values if type(value) is GeometryComponents else value)[_GEOMETRY_INDEX[component]]
+def geometry_component(value, component):
+    validate_geometry_components(value)
+    if type(component) is not str or component not in _GEOMETRY_INDEX: raise ValueError("unknown geometry component")
+    return _geometry_value(value, component)
+def _geometry_vector(value, prefix): return tuple(_geometry_value(value, f"{prefix}.{axis}") for axis in "xyz")
 JUNCTION_INFO = {junction: (tuple(domains.split(",")), (drop, tuple(axes.split(",")))) for junction, domains, drop, axes in (("junction.pelvis__left_hip", "domain.pelvis,domain.left_hip", "j", "i,k"), ("junction.pelvis__abdomen", "domain.pelvis,domain.abdomen", "j", "i,k"), ("junction.abdomen__thorax", "domain.abdomen,domain.thorax", "j", "i,k"), ("junction.thorax__left_shoulder", "domain.thorax,domain.left_shoulder", "i", "j,k"), ("junction.thorax__neck", "domain.thorax,domain.neck", "j", "i,k"), ("junction.pelvis__right_hip", "domain.pelvis,domain.right_hip", "j", "i,k"), ("junction.thorax__right_shoulder", "domain.thorax,domain.right_shoulder", "i", "j,k"))}
 PORT_INFO = {port: (domain, direction, tuple(controls.split(","))) for port, domain, direction, controls in (("port.neck", "domain.neck", "+Y", "c057,c079,c080,c081,c059,c058"), ("port.left_arm", "domain.left_shoulder", "-X", "c009,c012,c014,c015,c016,c013,c011,c010"), ("port.right_arm", "domain.right_shoulder", "+X", "c112,c113,c114,c116,c119,c118,c117,c115"), ("port.left_thigh", "domain.left_hip", "-Y", "c000,c001,c002,c018,c040,c039,c038,c017"), ("port.right_thigh", "domain.right_hip", "-Y", "c060,c061,c062,c083,c105,c104,c103,c082"))}
 JUNCTION_TRACES = {junction: tuple(controls.split(",")) for junction, controls in (("junction.pelvis__left_hip", "c003,c004,c005,c020,c043,c042,c041,c019"), ("junction.pelvis__abdomen", "c021,c022,c023,c045,c067,c088,c087,c086,c066,c044"), ("junction.abdomen__thorax", "c027,c028,c029,c049,c071,c094,c093,c092,c070,c048"), ("junction.thorax__left_shoulder", "c030,c031,c032,c034,c037,c036,c035,c033"), ("junction.thorax__neck", "c054,c055,c056,c078,c077,c076"), ("junction.pelvis__right_hip", "c063,c064,c065,c085,c108,c107,c106,c084"), ("junction.thorax__right_shoulder", "c095,c096,c097,c099,c102,c101,c100,c098"))}
@@ -167,10 +184,8 @@ CATALOG_REPORT = validate_catalogs()
 def symbolic_topology(): return CONTROL_IDS, tuple(tuple(int(c[1:]) for c in f[2]) for f in FACE_RECORDS), tuple((name, tuple(int(c[1:]) for c in info[2])) for name, info in PORT_INFO.items())
 @dataclass(frozen=True)
 class Mesh:
-    vertices: tuple[tuple[float, float, float], ...]; quads: tuple[tuple[int, int, int, int], ...]
-    control_ids: tuple[str, ...]; formula_ids: tuple[str, ...]; dependencies: tuple[tuple[str, ...], ...]
-    boundary_loops: tuple[tuple[str, tuple[int, ...]], ...]; triangles: tuple[tuple[int, int, int], ...] = ()
-    level: int = 0; face_ids: tuple[str, ...] = (); face_owners: tuple[str, ...] = ()
+    vertices: tuple[tuple[float, float, float], ...]; quads: tuple[tuple[int, int, int, int], ...]; control_ids: tuple[str, ...]; formula_ids: tuple[str, ...]; dependencies: tuple[tuple[str, ...], ...]
+    boundary_loops: tuple[tuple[str, tuple[int, ...]], ...]; triangles: tuple[tuple[int, int, int], ...] = (); level: int = 0; face_ids: tuple[str, ...] = (); face_owners: tuple[str, ...] = ()
     formula_records: tuple[Mapping[str, Any], ...] = (); vertex_records: tuple[Mapping[str, Any], ...] = (); source_stencils: tuple[tuple[int, ...], ...] = ()
 @dataclass(frozen=True)
 class SurfaceEvaluation: cage: Mesh; levels: tuple[Mesh, Mesh]
@@ -178,43 +193,43 @@ _FORMULA_RECORD_FIELDS = ("control_id", "lattice_key", "formula_id", "constructi
 _FORMULA_LEDGER_SHA256 = "da8569de79e3c7479f94a94c5a2d45a9a131f623880c9301835a8e5f8e322bd5"
 def _reference_e(center, u, q, lateral, anterior, posterior, exponent):
     def signed_power(value):
-        magnitude = pow(abs(value), 2.0 / exponent)
-        return 0.0 if magnitude == 0.0 else -magnitude if value < 0.0 else magnitude
+        magnitude = pow(abs(value), 2.0 / exponent); return 0.0 if magnitude == 0.0 else -magnitude if value < 0.0 else magnitude
     return (center[0] + lateral * signed_power(u), center[1], center[2] + (anterior if q >= 0.0 else posterior) * signed_power(q))
-def _reference_control_coordinate(prepared, control):
+def _reference_control_coordinate(geometry, control):
     i, j, k = COORDINATE_BY_CONTROL[control]; q = float(k - 1)
     if j in (6, 7) and i in (2, 3):
-        row = prepared["stations"]["neck_collar" if j == 6 else "neck_upper"]
+        row = _station_record(geometry, "neck_collar" if j == 6 else "neck_upper")
         return _reference_e(row["C"], 2.0 * (float(i) - 2.5), q, row["rL"], row["rA"], row["rP"], 2.2)
     if j in (4, 5, 6) and i in (0, 1, 4, 5):
-        side = "left" if i < 2 else "right"; sign = -1.0 if side == "left" else 1.0; a = 1 - i if side == "left" else i - 4; v = (float(j) - 4.0) / 2.0; row = prepared["shoulders"][side]
+        side = "left" if i < 2 else "right"; sign = -1.0 if side == "left" else 1.0; a = 1 - i if side == "left" else i - 4; v = (float(j) - 4.0) / 2.0; row = _shoulder(geometry, side)
         inner = tuple((1.0 - v) * row["axilla"][axis] + v * row["peak"][axis] for axis in range(3)); outer = (row["arm_origin"][0] + sign * row["start_lateral"], row["arm_origin"][1] + (2.0 * v - 1.0) * row["start_up"] * .5, row["arm_origin"][2])
         center = tuple((1.0 - float(a)) * inner[axis] + float(a) * outer[axis] for axis in range(3)); inner_depth = .75 * row["start_forward"] if v == 0.0 else row["shoulder_depth"]; depth = (1.0 - float(a)) * inner_depth + float(a) * row["start_forward"]
         return _reference_e(center, 0.0, q, 0.0, depth, depth, 2.2)
     if j in (-1, 0):
-        side = "left" if i <= 2 else "right"; row = prepared["hips"][side]; u = float(i) - (1.0 if side == "left" else 4.0); ps = row["P_s"]
+        side = "left" if i <= 2 else "right"; row = _hip(geometry, side); u = float(i) - (1.0 if side == "left" else 4.0); ps = row["P_s"]
         if j == -1: return (ps[0] + u * row["r_x"], ps[1], ps[2] + q * row["r_z"])
-        low = prepared["stations"]["lower_pelvis"]; distance = low["C"][1] - ps[1]; maximum_x = low["rL"] - abs(ps[0] - low["C"][0]); hc = row["r_y"] + .25 * (distance - row["r_y"]); hs = .70 * hc
+        low = _station_record(geometry, "lower_pelvis"); distance = low["C"][1] - ps[1]; maximum_x = low["rL"] - abs(ps[0] - low["C"][0]); hc = row["r_y"] + .25 * (distance - row["r_y"]); hs = .70 * hc
         jf = row["r_z"] + .20 * (low["rA"] - row["r_z"]); jb = row["r_z"] + .20 * (low["rP"] - row["r_z"])
-        return (ps[0] + u * (row["r_x"] + (maximum_x - row["r_x"])), ps[1] + hs + (hc - hs) * (1.0 - u * u), ps[2] + .20 * (low["C"][2] - ps[2]) + (jf if q >= 0.0 else jb) * q)
+        j0z = (1.0 - .20) * ps[2] + .20 * low["C"][2]
+        return (ps[0] + u * (row["r_x"] + (maximum_x - row["r_x"])), ps[1] + hs + (hc - hs) * (1.0 - u * u), j0z + (jf if q >= 0.0 else jb) * q)
     if j == 1:
-        row = prepared["stations"]["upper_pelvis"] if i in (0, 5) else prepared["stations"]["lower_abdomen"]; u = (float(i) - 2.5) / 2.5
-        center = row["C"] if i in (0, 5) else (row["C"][0], (prepared["stations"]["upper_pelvis"]["C"][1] + row["C"][1]) / 2.0, row["C"][2])
+        row = _station_record(geometry, "upper_pelvis" if i in (0, 5) else "lower_abdomen"); u = (float(i) - 2.5) / 2.5
+        center = row["C"] if i in (0, 5) else (row["C"][0], (_station_record(geometry, "upper_pelvis")["C"][1] + row["C"][1]) / 2.0, row["C"][2])
         return _reference_e(center, u, q, row["rL"], row["rA"], row["rP"], 2.6)
     u = (float(i) - 2.5) / 1.5
     if j == 5:
-        low, high = (prepared["stations"][name] for name in ("lower_ribcage", "upper_ribcage_shoulder")); center = tuple((low["C"][axis] + high["C"][axis]) / 2.0 for axis in range(3)); radii = tuple((low[name] + high[name]) / 2.0 for name in ("rL", "rA", "rP"))
+        low, high = (_station_record(geometry, name) for name in ("lower_ribcage", "upper_ribcage_shoulder")); center = tuple((low["C"][axis] + high["C"][axis]) / 2.0 for axis in range(3)); radii = tuple((low[name] + high[name]) / 2.0 for name in ("rL", "rA", "rP"))
     else:
-        row = prepared["stations"][("waist_abdomen", "upper_abdomen", "lower_ribcage")[j - 2]]; center, radii = row["C"], (row["rL"], row["rA"], row["rP"])
+        row = _station_record(geometry, ("waist_abdomen", "upper_abdomen", "lower_ribcage")[j - 2]); center, radii = row["C"], (row["rL"], row["rA"], row["rP"])
     return _reference_e(center, u, q, *radii, 2.6)
-def _validate_cage_lineage(mesh, prepared):
+def _validate_cage_lineage(mesh, geometry):
     if type(mesh.formula_records) is not tuple: raise ValueError("L0 formula records are not a tuple")
-    reference_vertices = tuple(tuple(float(x) for x in _reference_control_coordinate(prepared, control)) for control in CONTROL_IDS)
-    if mesh.vertices != reference_vertices: raise ValueError("L0 vertices differ from independent prepared reference")
+    reference_vertices = tuple(tuple(float(x) for x in _reference_control_coordinate(geometry, control)) for control in CONTROL_IDS)
+    if mesh.vertices != reference_vertices: raise ValueError("L0 vertices differ from independent numeric reference")
     ledger = []
     for index, (control, record) in enumerate(zip(CONTROL_IDS, mesh.formula_records)):
         if type(record) is not dict or set(record) != set(_FORMULA_RECORD_FIELDS): raise ValueError(f"L0 formula record schema mismatch at {index}")
-        if type(record["coordinate"]) is not list or len(record["coordinate"]) != 3 or any(type(value) is not float or not isfinite(value) for value in record["coordinate"]) or record["coordinate"] != list(reference_vertices[index]): raise ValueError(f"L0 formula coordinate differs from independent prepared reference at {index}")
+        if type(record["coordinate"]) is not list or len(record["coordinate"]) != 3 or any(type(value) is not float or not isfinite(value) for value in record["coordinate"]) or record["coordinate"] != list(reference_vertices[index]): raise ValueError(f"L0 formula coordinate differs from independent numeric reference at {index}")
         ledger.append({field: record[field] for field in _FORMULA_RECORD_FIELDS[:-1]})
     if sha256(repr(tuple(ledger)).encode("ascii")).hexdigest() != _FORMULA_LEDGER_SHA256: raise ValueError("L0 formula ledger differs from the frozen contract")
     if mesh.formula_ids != tuple(record["formula_id"] for record in mesh.formula_records) or mesh.dependencies != tuple(tuple(record["geometry_dependencies"]) for record in mesh.formula_records): raise ValueError("L0 formula projections disagree with formula records")
@@ -243,7 +258,6 @@ def _validate_level_shape(mesh):
     expected_triangles = tuple(t for face in mesh.quads for t in ((face[0], face[1], face[2]), (face[0], face[2], face[3])))
     if mesh.triangles != expected_triangles: raise ValueError(f"L{mesh.level} triangle catalog mismatch")
     return report
-def _mesh_difference(actual, expected): return next((field for field in Mesh.__dataclass_fields__ if getattr(actual, field) != getattr(expected, field)), None)
 def _reference_subdivision(parent, level):
     uses = _check_faces(parent.quads, len(parent.vertices)); edges = tuple(sorted(uses)); boundary, around, incident = defaultdict(set), defaultdict(list), defaultdict(list)
     for face_index, face in enumerate(parent.quads):
@@ -279,21 +293,18 @@ def _reference_subdivision(parent, level):
 def _validate_derived_level(mesh, parent):
     report = _validate_level_shape(mesh)
     if type(parent) is not Mesh or parent.level != mesh.level - 1: raise ValueError(f"L{mesh.level} requires its immediately preceding parent")
-    _validate_level_shape(parent); expected = _reference_subdivision(parent, mesh.level); difference = _mesh_difference(mesh, expected)
+    _validate_level_shape(parent); expected = _reference_subdivision(parent, mesh.level); difference = next((field for field in Mesh.__dataclass_fields__ if getattr(mesh, field) != getattr(expected, field)), None)
     if difference is not None: raise ValueError(f"L{mesh.level} differs from its parent-derived {difference}")
     return report
-def _validate_level_structure_admitted(mesh, prepared, parent=None):
+def _validate_level_structure_numeric(mesh, geometry, parent=None):
     report = _validate_level_shape(mesh)
     if mesh.level == 0:
         if parent is not None: raise ValueError("level 0 cannot have a parent")
-        _validate_cage_lineage(mesh, prepared); return report
-    if type(parent) is Mesh and parent.level == 0: _validate_cage_lineage(parent, prepared)
+        _validate_cage_lineage(mesh, geometry); return report
+    if type(parent) is Mesh and parent.level == 0: _validate_cage_lineage(parent, geometry)
     return _validate_derived_level(mesh, parent)
-def validate_level_structure(mesh, prepared=None, parent=None):
-    cage = mesh if type(mesh) is Mesh and mesh.level == 0 else parent if type(parent) is Mesh and parent.level == 0 else None
-    prepared = _infer_surface_prepared(cage) if prepared is None and cage is not None else prepared
-    if prepared is None: raise ValueError("prepared input is required when no L0 cage is available")
-    _admit_surface_prepared(prepared); return _validate_level_structure_admitted(mesh, prepared, parent)
+def validate_level_structure(mesh, geometry, parent=None):
+    validate_geometry_components(geometry); return _validate_level_structure_numeric(mesh, geometry, parent)
 def _evaluation_meshes(value):
     if type(value) is SurfaceEvaluation: cage, levels = value.cage, value.levels
     elif isinstance(value, Mapping) and set(value) == {"cage", "levels"}: cage, levels = value["cage"], value["levels"]
@@ -301,10 +312,8 @@ def _evaluation_meshes(value):
     else: raise ValueError("evaluation requires cage and levels 0 through 2")
     if type(levels) is not tuple or len(levels) != 2: raise ValueError("evaluation requires two derived levels")
     return (cage, *levels)
-def validate_evaluation(value, prepared=None):
-    meshes = _evaluation_meshes(value)
-    prepared = _infer_surface_prepared(meshes[0]) if prepared is None else prepared; _admit_surface_prepared(prepared)
-    _validate_level_structure_admitted(meshes[0], prepared); _validate_level_structure_admitted(meshes[1], prepared, meshes[0]); _validate_level_structure_admitted(meshes[2], prepared, meshes[1])
+def validate_evaluation(value, geometry):
+    meshes = _evaluation_meshes(value); validate_geometry_components(geometry); _validate_level_structure_numeric(meshes[0], geometry); _validate_level_structure_numeric(meshes[1], geometry, meshes[0]); _validate_level_structure_numeric(meshes[2], geometry, meshes[1])
     return meshes
 def topology_incidence(mesh):
     uses = _check_faces(mesh.quads, len(mesh.vertices)); return tuple({"edge": edge, "incident_faces": tuple(u[0] for u in uses[edge]), "slots": tuple(u[3] for u in uses[edge])} for edge in sorted(uses))
@@ -312,16 +321,20 @@ def level_topology(mesh):
     return {"level": mesh.level, "vertex_ids": mesh.control_ids, "face_ids": mesh.face_ids, "face_owners": mesh.face_owners, "faces": mesh.quads, "edges": topology_incidence(mesh), "boundary_loops": mesh.boundary_loops, "triangles": mesh.triangles}
 def _component_dependencies(name, u, q):
     return {f"stations.{name}.C.{axis}" for axis in "xyz"} | ({f"stations.{name}.rL"} if u != 0.0 else set()) | ({f"stations.{name}.rA"} if q > 0.0 else set()) | ({f"stations.{name}.rP"} if q < 0.0 else set())
-def _station(prepared, name):
-    row = prepared["stations"][name]; return row["C"], row["rL"], row["rA"], row["rP"]
-def _formula_for_control(prepared, control_id):
+def _station_record(geometry, name):
+    prefix = f"stations.{name}"; return {"C": _geometry_vector(geometry, prefix + ".C"), "rL": _geometry_value(geometry, prefix + ".rL"), "rA": _geometry_value(geometry, prefix + ".rA"), "rP": _geometry_value(geometry, prefix + ".rP")}
+def _shoulder(geometry, side):
+    prefix = f"shoulders.{side}"; return {name: _geometry_vector(geometry, prefix + "." + name) for name in ("axilla", "peak", "arm_origin")} | {name: _geometry_value(geometry, prefix + "." + name) for name in ("start_lateral", "start_up", "start_forward", "shoulder_depth")}
+def _hip(geometry, side):
+    prefix = f"hips.{side}"; return {"P_s": _geometry_vector(geometry, prefix + ".P_s")} | {name: _geometry_value(geometry, prefix + "." + name) for name in ("r_x", "r_y", "r_z")}
+def _formula_for_control(geometry, control_id):
     i, j, k = COORDINATE_BY_CONTROL[control_id]; q = float(k - 1)
     if j in (6, 7) and i in (2, 3):
-        name = "neck_collar" if j == 6 else "neck_upper"; C, rl, ra, rp = _station(prepared, name); u = _mul(2.0, _sub(float(i), 2.5)); point = _e(C, u, q, rl, ra, rp, 2.2)
+        name = "neck_collar" if j == 6 else "neck_upper"; row = _station_record(geometry, name); C, rl, ra, rp = row["C"], row["rL"], row["rA"], row["rP"]; u = _mul(2.0, _sub(float(i), 2.5)); point = _e(C, u, q, rl, ra, rp, 2.2)
         deps = _component_dependencies(name, u, q); formula = "formula.neck.stem"; params = {"i": i, "j": j, "k": k, "u": u, "q": q, "n": 2.2, "station_selector": name}
     elif j in (4, 5, 6) and i in (0, 1, 4, 5):
         side = "left" if i < 2 else "right"; sign = -1 if side == "left" else 1
-        a = 1 - i if side == "left" else i - 4; v = _div(_sub(float(j), 4.0), 2.0); row = prepared["shoulders"][side]
+        a = 1 - i if side == "left" else i - 4; v = _div(_sub(float(j), 4.0), 2.0); row = _shoulder(geometry, side)
         inner = _vlerp(row["axilla"], row["peak"], v); outer = _vadd(row["arm_origin"], (_mul(float(sign), row["start_lateral"]), _mul(_mul(_sub(_mul(2.0, v), 1.0), row["start_up"]), .5), 0.0)); inner_depth = _mul(.75, row["start_forward"]) if v == 0.0 else row["shoulder_depth"]
         depth = _add(_mul(float(1 - a), inner_depth), _mul(float(a), row["start_forward"])); point = _e(_vlerp(inner, outer, float(a)), 0.0, q, 0.0, depth, depth, 2.2); deps = set()
         if a == 0:
@@ -335,39 +348,39 @@ def _formula_for_control(prepared, control_id):
             if q != 0: deps.add(f"shoulders.{side}.start_forward")
         formula = f"formula.shoulder.{side}"; params = {"i": i, "j": j, "k": k, "side": side, "a": float(a), "v": v, "q": q, "sign": sign}
     elif j in (-1, 0):
-        side = "left" if i <= 2 else "right"; row = prepared["hips"][side]; u = _sub(float(i), 1.0 if side == "left" else 4.0)
+        side = "left" if i <= 2 else "right"; row = _hip(geometry, side); u = _sub(float(i), 1.0 if side == "left" else 4.0)
         if j == -1:
             point = (_add(row["P_s"][0], _mul(u, row["r_x"])), row["P_s"][1], _add(row["P_s"][2], _mul(q, row["r_z"])))
             deps = {f"hips.{side}.P_s.{x}" for x in "xyz"} | ({f"hips.{side}.r_x"} if u != 0 else set()) | ({f"hips.{side}.r_z"} if q != 0 else set())
         else:
-            low = prepared["stations"]["lower_pelvis"]; ps = row["P_s"]; D = _sub(low["C"][1], ps[1]); Mx = _sub(low["rL"], abs(_sub(ps[0], low["C"][0]))); Hc = _add(row["r_y"], _mul(.25, _sub(D, row["r_y"]))); Hs = _mul(.70, Hc); Jx = _add(row["r_x"], _sub(Mx, row["r_x"]))
+            low = _station_record(geometry, "lower_pelvis"); ps = row["P_s"]; D = _sub(low["C"][1], ps[1]); Mx = _sub(low["rL"], abs(_sub(ps[0], low["C"][0]))); Hc = _add(row["r_y"], _mul(.25, _sub(D, row["r_y"]))); Hs = _mul(.70, Hc); Jx = _add(row["r_x"], _sub(Mx, row["r_x"]))
             Jf = _add(row["r_z"], _mul(.20, _sub(low["rA"], row["r_z"]))); Jb = _add(row["r_z"], _mul(.20, _sub(low["rP"], row["r_z"]))); J0z = _lerp(ps[2], low["C"][2], .20); Qz = _mul(Jf if q >= 0 else Jb, q)
             point = (_add(ps[0], _mul(u, Jx)), _add(_add(ps[1], Hs), _mul(_sub(Hc, Hs), _sub(1., _mul(u, u)))), _add(J0z, Qz))
             deps = {f"hips.{side}.P_s.y", f"hips.{side}.P_s.z", f"hips.{side}.r_y", "stations.lower_pelvis.C.y", "stations.lower_pelvis.C.z"} | ({f"hips.{side}.P_s.x"} if not ((side == "left" and u == -1.) or (side == "right" and u == 1.)) else set()) | ({"stations.lower_pelvis.rL", "stations.lower_pelvis.C.x"} if u != 0 else set()) | ({f"hips.{side}.r_z", "stations.lower_pelvis.rA"} if q > 0 else {f"hips.{side}.r_z", "stations.lower_pelvis.rP"} if q < 0 else set())
         formula = f"formula.hip.{side}"; params = {"i": i, "j": j, "k": k, "side": side, "u": u, "q": q}
     else:
         if j == 1 and i in (0, 5):
-            name, d = "upper_pelvis", 2.5; C, rl, ra, rp = _station(prepared, name); u = _div(_sub(float(i), 2.5), d); point = _e(C, u, q, rl, ra, rp, 2.6); deps = _component_dependencies(name, u, q); formula = "formula.axial.j1.edge"; selector = name
+            name, d = "upper_pelvis", 2.5; row = _station_record(geometry, name); C, rl, ra, rp = row["C"], row["rL"], row["rA"], row["rP"]; u = _div(_sub(float(i), 2.5), d); point = _e(C, u, q, rl, ra, rp, 2.6); deps = _component_dependencies(name, u, q); formula = "formula.axial.j1.edge"; selector = name
         elif j == 1:
-            low, up = prepared["stations"]["lower_abdomen"], prepared["stations"]["upper_pelvis"]; d = 2.5; u = _div(_sub(float(i), 2.5), d); C = (low["C"][0], _div(_add(up["C"][1], low["C"][1]), 2.), low["C"][2]); point = _e(C, u, q, low["rL"], low["rA"], low["rP"], 2.6)
+            low, up = _station_record(geometry, "lower_abdomen"), _station_record(geometry, "upper_pelvis"); d = 2.5; u = _div(_sub(float(i), 2.5), d); C = (low["C"][0], _div(_add(up["C"][1], low["C"][1]), 2.), low["C"][2]); point = _e(C, u, q, low["rL"], low["rA"], low["rP"], 2.6)
             deps = _component_dependencies("lower_abdomen", u, q) | {"stations.upper_pelvis.C.y"}; formula = "formula.axial.j1.interior"; selector = "virtual.upper_pelvis_y__lower_abdomen"
         else:
             d = 1.5; u = _div(_sub(float(i), 2.5), d)
             if j == 5:
-                low, up = prepared["stations"]["lower_ribcage"], prepared["stations"]["upper_ribcage_shoulder"]; C = tuple(_div(_add(low["C"][x], up["C"][x]), 2.) for x in range(3)); radii = tuple(_div(_add(low[x], up[x]), 2.) for x in ("rL", "rA", "rP")); selector = "virtual.lower_ribcage__upper_ribcage_shoulder"
+                low, up = _station_record(geometry, "lower_ribcage"), _station_record(geometry, "upper_ribcage_shoulder"); C = tuple(_div(_add(low["C"][x], up["C"][x]), 2.) for x in range(3)); radii = tuple(_div(_add(low[x], up[x]), 2.) for x in ("rL", "rA", "rP")); selector = "virtual.lower_ribcage__upper_ribcage_shoulder"
                 point = _e(C, u, q, *radii, 2.6); deps = {f"stations.{name}.C.{x}" for name in ("lower_ribcage", "upper_ribcage_shoulder") for x in "xyz"}
                 if u != 0: deps.update(f"stations.{name}.rL" for name in ("lower_ribcage", "upper_ribcage_shoulder"))
                 if q > 0: deps.update(f"stations.{name}.rA" for name in ("lower_ribcage", "upper_ribcage_shoulder"))
                 if q < 0: deps.update(f"stations.{name}.rP" for name in ("lower_ribcage", "upper_ribcage_shoulder"))
             else:
-                selector = {2: "waist_abdomen", 3: "upper_abdomen", 4: "lower_ribcage"}[j]; C, rl, ra, rp = _station(prepared, selector); point = _e(C, u, q, rl, ra, rp, 2.6); deps = _component_dependencies(selector, u, q)
+                selector = {2: "waist_abdomen", 3: "upper_abdomen", 4: "lower_ribcage"}[j]; row = _station_record(geometry, selector); C, rl, ra, rp = row["C"], row["rL"], row["rA"], row["rP"]; point = _e(C, u, q, rl, ra, rp, 2.6); deps = _component_dependencies(selector, u, q)
             formula = "formula.axial.station"
         params = {"i": i, "j": j, "k": k, "u": u, "q": q, "d": float(d), "n": 2.6, "station_selector": selector}
     return formula, tuple(sorted(deps)), tuple(point), params
-def _formula_candidate_records_admitted(prepared):
-    return tuple({"control_id": control, "lattice_key": list(COORDINATE_BY_CONTROL[control]), "formula_id": formula, "construction_owner": CONTROL_OWNERS[control], "index_parameters": params, "geometry_dependencies": list(deps), "coordinate": [float(x) for x in point]} for control in CONTROL_IDS for formula, deps, point, params in (_formula_for_control(prepared, control),))
-def formula_candidate_records(prepared):
-    prepared_projection.validate_prepared(prepared); return _formula_candidate_records_admitted(prepared)
+def _formula_candidate_records_numeric(geometry):
+    return tuple({"control_id": control, "lattice_key": list(COORDINATE_BY_CONTROL[control]), "formula_id": formula, "construction_owner": CONTROL_OWNERS[control], "index_parameters": params, "geometry_dependencies": list(deps), "coordinate": [float(x) for x in point]} for control in CONTROL_IDS for formula, deps, point, params in (_formula_for_control(geometry, control),))
+def formula_candidate_records(geometry):
+    validate_geometry_components(geometry); return _formula_candidate_records_numeric(geometry)
 def _record(level, vertex_id, contributors, formulas):
     controls = tuple(sorted(set(contributors), key=lambda x: int(x[1:]))); deps = tuple(sorted({d for c in controls for d in formulas[int(c[1:])]["geometry_dependencies"]}))
     contributing = {domain for c in controls for domain in (JUNCTION_INFO[CONTROL_OWNERS[c]][0] if CONTROL_OWNERS[c].startswith("junction.") else (CONTROL_OWNERS[c],))}; domains = tuple(domain for domain in DOMAINS if domain in contributing)
@@ -414,14 +427,12 @@ def propagate_junction_tags(mesh, junction):
 def _half_tag(left, right):
     numerator = left[0] * right[1] + right[0] * left[1]; denominator = 2 * left[1] * right[1]; common = gcd(abs(numerator), denominator)
     return numerator // common, denominator // common
-def _build_cage_admitted(prepared):
-    records = _formula_candidate_records_admitted(prepared); quads = tuple(tuple(int(c[1:]) for c in f[2]) for f in FACE_RECORDS)
+def build_cage(geometry):
+    validate_geometry_components(geometry); records = _formula_candidate_records_numeric(geometry); quads = tuple(tuple(int(c[1:]) for c in f[2]) for f in FACE_RECORDS)
     loops = tuple((name, tuple(int(c[1:]) for c in info[2])) for name, info in PORT_INFO.items())
     triangles = tuple(t for f in quads for t in ((f[0], f[1], f[2]), (f[0], f[2], f[3])))
     mesh = Mesh(tuple(tuple(r["coordinate"]) for r in records), quads, CONTROL_IDS, tuple(r["formula_id"] for r in records), tuple(tuple(r["geometry_dependencies"]) for r in records), loops, triangles, 0, tuple(f[0] for f in FACE_RECORDS), tuple(f[1] for f in FACE_RECORDS), records, tuple(_record(0, c, (c,), records) for c in CONTROL_IDS), tuple((i,) for i in range(120)))
-    _validate_level_structure_admitted(mesh, prepared); return mesh
-def build_cage(prepared):
-    prepared_projection.validate_prepared(prepared); return _build_cage_admitted(prepared)
+    _validate_level_structure_numeric(mesh, geometry); return mesh
 def _subdivide_once(mesh, level, points=None):
     if type(level) is not int or level not in (1, 2) or mesh.level != level - 1: raise ValueError("subdivision level must follow level 0,1 order")
     inc = subdivision_incidence(mesh); uses, edges, boundary, faces, incident_edges = _incidence(mesh); points = mesh.vertices if points is None else points
@@ -452,68 +463,11 @@ def subdivide(mesh, level=1):
     for target in range(mesh.level + 1, level + 1):
         parent = result; result = _subdivide_once(parent, target); _validate_derived_level(result, parent)
     return result
-def _evaluate_cage(cage, prepared):
-    level1 = subdivide(cage, 1); level2 = subdivide(level1, 2); evaluation = SurfaceEvaluation(cage, (level1, level2)); validate_evaluation(evaluation, prepared); return evaluation
-def evaluate(prepared, levels=2):
+def _evaluate_cage(cage, geometry):
+    level1 = subdivide(cage, 1); level2 = subdivide(level1, 2); evaluation = SurfaceEvaluation(cage, (level1, level2)); validate_evaluation(evaluation, geometry); return evaluation
+def evaluate(geometry, levels=2):
     if type(levels) is not int or levels != 2: raise ValueError("the frozen neutral surface evaluates exactly two levels")
-    return _evaluate_cage(build_cage(prepared), prepared)
-_MUST_AFFECT = (
-    ("left.r_y", "hips.left.r_y"), ("right.r_y", "hips.right.r_y"), ("lower_pelvis.L_y", "stations.lower_pelvis.C.y"), ("lower_pelvis.C_z", "stations.lower_pelvis.C.z"), ("left.r_x", "hips.left.r_x"), ("right.r_x", "hips.right.r_x"),
-    ("lower_pelvis.R_x", "stations.lower_pelvis.rL"), ("left.r_z", "hips.left.r_z"), ("right.r_z", "hips.right.r_z"), ("lower_pelvis.R_f", "stations.lower_pelvis.rA"), ("lower_pelvis.R_b", "stations.lower_pelvis.rP"),
-    ("left.thigh_start_x", "hips.left.P_s.x"), ("left.thigh_start_y", "hips.left.P_s.y"), ("left.thigh_start_z", "hips.left.P_s.z"), ("right.thigh_start_x", "hips.right.P_s.x"), ("right.thigh_start_y", "hips.right.P_s.y"), ("right.thigh_start_z", "hips.right.P_s.z"),
-    ("neck_collar.C_y", "stations.neck_collar.C.y"), ("neck_collar.rL", "stations.neck_collar.rL"), ("neck_upper.C_y", "stations.neck_upper.C.y"), ("neck_upper.rL", "stations.neck_upper.rL"),
-    ("left.axilla_x", "shoulders.left.axilla.x"), ("left.axilla_y", "shoulders.left.axilla.y"), ("right.axilla_x", "shoulders.right.axilla.x"), ("right.axilla_y", "shoulders.right.axilla.y"), ("left.peak_y", "shoulders.left.peak.y"), ("right.peak_y", "shoulders.right.peak.y"),
-    ("left.start_lateral", "shoulders.left.start_lateral"), ("right.start_lateral", "shoulders.right.start_lateral"), ("left.start_up", "shoulders.left.start_up"), ("right.start_up", "shoulders.right.start_up"),
-    ("left.shoulder_depth", "shoulders.left.shoulder_depth"), ("right.shoulder_depth", "shoulders.right.shoulder_depth"))
-MUST_AFFECT_PARAMETER_IDS = tuple(parameter for parameter, _ in _MUST_AFFECT)
-MUST_AFFECT_COMPONENTS = dict(_MUST_AFFECT)
-_MUST_AFFECT_PATHS = {parameter: tuple("xyz".index(axis) if len(axis) == 1 and axis in "xyz" else axis for axis in component.split(".")) for parameter, component in _MUST_AFFECT}
-_PERTURBATION_DELTA = float.fromhex("0x1.47ae147ae147bp-7")
-PERTURBATION_DELTA_M = _PERTURBATION_DELTA
-def _path_get(value, path):
-    for key in path: value = value[key]
-    return value
-def _path_set(value, path, replacement): _path_get(value, path[:-1])[path[-1]] = replacement
-def _admit_surface_prepared(prepared):
-    try:
-        prepared_projection.validate_prepared(prepared); return prepared
-    except prepared_projection.PreparedProjectionError:
-        canonical = prepared_projection.prepare_standard_neutral(); canonical_bytes = prepared_projection.canonical_json_bytes(canonical); matches = 0
-        for path in _MUST_AFFECT_PATHS.values():
-            try:
-                baseline, candidate = _path_get(canonical, path), _path_get(prepared, path)
-                if type(candidate) is not float or candidate != float(baseline + _PERTURBATION_DELTA): continue
-                restored = copy.deepcopy(prepared); _path_set(restored, path, baseline); matches += prepared_projection.canonical_json_bytes(restored) == canonical_bytes
-            except (KeyError, IndexError, TypeError, ValueError, OverflowError): continue
-        if matches != 1: raise
-        return prepared
-def _surface_prepared_candidates():
-    canonical = prepared_projection.prepare_standard_neutral(); yield canonical
-    for path in _MUST_AFFECT_PATHS.values():
-        candidate = copy.deepcopy(canonical); baseline = _path_get(candidate, path); _path_set(candidate, path, float(baseline + _PERTURBATION_DELTA)); yield candidate
-def _infer_surface_prepared(cage):
-    if type(cage) is not Mesh: raise ValueError("prepared inference requires an L0 cage")
-    matches = []
-    for candidate in _surface_prepared_candidates():
-        try: _validate_cage_lineage(cage, candidate)
-        except (ValueError, TypeError, IndexError): continue
-        matches.append(candidate)
-    if len(matches) != 1: raise ValueError("L0 cage does not identify exactly one frozen prepared input")
-    return matches[0]
-def perturb_prepared(prepared, parameter_id):
-    if type(parameter_id) is not str or parameter_id not in _MUST_AFFECT_PATHS: raise ValueError("parameter_id is not one of the 33 frozen must-affect parameters")
-    prepared_projection.validate_prepared(prepared); path = _MUST_AFFECT_PATHS[parameter_id]; component = MUST_AFFECT_COMPONENTS[parameter_id]; baseline = _path_get(prepared, path)
-    if type(baseline) is not float or not isfinite(baseline): raise ValueError(f"{component} is not binary64")
-    candidate = copy.deepcopy(prepared); changed = float(baseline + _PERTURBATION_DELTA); _path_set(candidate, path, changed)
-    if _path_get(candidate, path) != changed: raise ValueError("perturbation did not change its selected component")
-    restored = copy.deepcopy(candidate); _path_set(restored, path, baseline)
-    if prepared_projection.canonical_json_bytes(restored) != prepared_projection.canonical_json_bytes(prepared): raise ValueError("perturbation changed more than its selected component")
-    return candidate
-def build_perturbed_cage(prepared, parameter_id): return _build_cage_admitted(perturb_prepared(prepared, parameter_id))
-def evaluate_perturbation(prepared, parameter_id, levels=2):
-    if type(levels) is not int or levels != 2: raise ValueError("the frozen surface evaluates exactly two levels")
-    candidate = perturb_prepared(prepared, parameter_id); return _evaluate_cage(_build_cage_admitted(candidate), candidate)
-evaluate_perturbed = evaluate_perturbation
+    return _evaluate_cage(build_cage(geometry), geometry)
 @dataclass(frozen=True)
 class _Dual:
     value: float
@@ -529,34 +483,25 @@ class _Dual:
     def __abs__(self): return _Dual(abs(self.value), self.derivative if self.value > 0 else -self.derivative if self.value < 0 else 0.0)
 def _value(x): return x.value if isinstance(x, _Dual) else x
 def _derivative(x): return x.derivative if isinstance(x, _Dual) else Fraction(0)
-def _analytic_components(prepared):
-    source = {record["prepared_component"] for record in prepared_projection.source_binding_records()}; formula = {dependency for control in CONTROL_IDS for dependency in _formula_for_control(prepared, control)[1]}
-    if not formula <= source: raise ValueError("formula authority names a component outside frozen source bindings")
+def _analytic_components(geometry):
+    formula = {dependency for control in CONTROL_IDS for dependency in _formula_for_control(geometry, control)[1]}
+    if not formula <= set(GEOMETRY_COMPONENT_IDS): raise ValueError("formula authority names a component outside the numeric carrier")
     return formula
-def analytic_control_derivatives(prepared, component):
-    _admit_surface_prepared(prepared)
-    if component not in _analytic_components(prepared): raise ValueError(f"unknown prepared component: {component}")
-    dual = copy.deepcopy(prepared); parts = component.split("/") if "/" in component else component.split("."); leaf = parts[-1]
-    if leaf in "xyz" and len(parts) >= 2:
-        target = dual
-        for part in parts[:-2]: target = target[part]
-        vector = list(target[parts[-2]]); vector["xyz".index(leaf)] = _Dual(vector["xyz".index(leaf)], Fraction(1)); target[parts[-2]] = tuple(vector)
-    else:
-        target = dual
-        for part in parts[:-1]: target = target[part]
-        target[leaf] = _Dual(target[leaf], Fraction(1))
+def analytic_control_derivatives(geometry, component):
+    validate_geometry_components(geometry)
+    if component not in _analytic_components(geometry): raise ValueError(f"unknown geometry component: {component}")
+    dual = list(geometry.values); index = _GEOMETRY_INDEX[component]; dual[index] = _Dual(dual[index], Fraction(1)); dual = tuple(dual)
     result = []
     for control in CONTROL_IDS:
         _, _, point, _ = _formula_for_control(dual, control); result.append(tuple(_derivative(x) for x in point))
     return tuple(result)
-def _propagate_values(mesh, values, level): return _subdivide_once(mesh, level, values).vertices
 def propagate_derivative(mesh, derivatives, level=2):
     if len(derivatives) != len(mesh.vertices): raise ValueError("derivative vector count mismatch")
     result, current = tuple(tuple(_rational(x) for x in p) for p in derivatives), mesh
-    for target in range(mesh.level + 1, level + 1): result = _propagate_values(current, result, target); current = subdivide(current, target)
+    for target in range(mesh.level + 1, level + 1): result = _subdivide_once(current, target, result).vertices; current = subdivide(current, target)
     return result
-def predicted_support(prepared, component): cage = build_cage(prepared); derivative = analytic_control_derivatives(prepared, component); level2 = propagate_derivative(cage, derivative, 2); return tuple(i for i, point in enumerate(level2) if any(value != 0.0 for value in point))
+def predicted_support(geometry, component): cage = build_cage(geometry); derivative = analytic_control_derivatives(geometry, component); level2 = propagate_derivative(cage, derivative, 2); return tuple(i for i, point in enumerate(level2) if any(value != 0.0 for value in point))
 analytic_derivative_support = predicted_support
 causal_support = predicted_support
 validate_topology, build_surface = validate_catalogs, build_cage
-__all__ = ["CELL_CATALOG", "CONTROL_BY_COORDINATE", "CONTROL_DOMAIN_INCIDENTS", "CONTROL_IDS", "CONTROL_JUNCTION_INCIDENTS", "CONTROL_OWNERS", "COORDINATE_BY_CONTROL", "DOMAINS", "EDGE_RECORDS", "FACE_CATALOG", "FACE_RECORDS", "FORMULAS", "JUNCTIONS", "JUNCTION_INFO", "JUNCTION_TRACES", "MUST_AFFECT_COMPONENTS", "MUST_AFFECT_PARAMETER_IDS", "PERTURBATION_DELTA_M", "PORTS", "PORT_INFO", "SPECIAL_CASE_IDS", "Mesh", "SurfaceEvaluation", "analytic_control_derivatives", "analytic_derivative_support", "build_cage", "build_perturbed_cage", "causal_support", "evaluate", "evaluate_perturbation", "evaluate_perturbed", "formula_candidate_records", "junction_trace_inputs", "level_topology", "perturb_prepared", "predicted_support", "propagate_derivative", "propagate_junction_tags", "propagate_port_loops", "subdivide", "subdivision_incidence", "symbolic_topology", "topology_incidence", "validate_catalogs", "validate_evaluation", "validate_level_structure"]
+__all__ = ["CELL_CATALOG", "CONTROL_BY_COORDINATE", "CONTROL_DOMAIN_INCIDENTS", "CONTROL_IDS", "CONTROL_JUNCTION_INCIDENTS", "CONTROL_OWNERS", "COORDINATE_BY_CONTROL", "DOMAINS", "EDGE_RECORDS", "FACE_CATALOG", "FACE_RECORDS", "FORMULAS", "GEOMETRY_COMPONENT_IDS", "GeometryComponents", "JUNCTIONS", "JUNCTION_INFO", "JUNCTION_TRACES", "PORTS", "PORT_INFO", "SPECIAL_CASE_IDS", "Mesh", "SurfaceEvaluation", "analytic_control_derivatives", "analytic_derivative_support", "build_cage", "causal_support", "evaluate", "formula_candidate_records", "geometry_component", "junction_trace_inputs", "level_topology", "predicted_support", "propagate_derivative", "propagate_junction_tags", "propagate_port_loops", "subdivide", "subdivision_incidence", "symbolic_topology", "topology_incidence", "validate_catalogs", "validate_evaluation", "validate_geometry_components", "validate_level_structure"]

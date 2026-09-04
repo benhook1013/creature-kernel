@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import copy
 import hashlib
 import inspect
@@ -39,6 +40,16 @@ def identity_fixture():
 
 
 class FrozenInventoryTests(unittest.TestCase):
+    def test_causality_perturbation_crosses_prepared_boundary(self):
+        source = inspect.getsource(builder._causality)
+        self.assertIn("project_perturbed_geometry", source)
+        self.assertNotIn("surface.evaluate_perturbation", source)
+        self.assertNotIn("surface.perturb_geometry", source)
+
+    def test_boundary_inventory_uses_each_inner_loop_successor(self):
+        source = inspect.getsource(builder._ownership_counts)
+        self.assertIn("values[(slot + 1) % len(values)]", source)
+
     def test_contract_identity_and_private_roles_are_closed(self):
         self.assertEqual(len(builder.PARAMETER_IDS), 33)
         self.assertEqual(len(builder.SURFACE_ROLES), 3)
@@ -158,8 +169,9 @@ class SupportAndGateTests(unittest.TestCase):
         import prepared_projection as prepared_api
         import chart_lineage as chart_api
         prepared = prepared_api.prepare_standard_neutral()
-        evaluation = surface.evaluate(prepared)
-        formulas = tuple(surface.formula_candidate_records(prepared))
+        geometry_input = prepared_api.project_geometry(prepared)
+        evaluation = surface.evaluate(geometry_input)
+        formulas = tuple(surface.formula_candidate_records(geometry_input))
         chart_summary = chart_api.build_chart_summary(evaluation, formulas)
         base_faces = tuple(tuple(int(control[1:]) for control in row[2])
                            for row in surface.FACE_RECORDS)
@@ -175,7 +187,7 @@ class SupportAndGateTests(unittest.TestCase):
                 reference = surface.propagate_junction_tags(evaluation, junction)[level]
                 self.assertEqual(row["expected_domain_vertex_tags"], (reference, reference))
             ownership = builder._ownership_counts(surface, evaluation, chart_api, mesh_api,
-                                                  prepared, formulas, chart_summary, level)
+                                                  geometry_input, formulas, chart_summary, level)
             self.assertEqual((ownership["unowned_elements"],
                               ownership["overowned_elements"]), (0, 0))
             for junction in surface.JUNCTIONS:
@@ -197,8 +209,9 @@ class SupportAndGateTests(unittest.TestCase):
         import prepared_projection as prepared_api
         import chart_lineage as chart_api
         prepared = prepared_api.prepare_standard_neutral()
-        evaluation = surface.evaluate(prepared)
-        formulas = tuple(surface.formula_candidate_records(prepared))
+        geometry_input = prepared_api.project_geometry(prepared)
+        evaluation = surface.evaluate(geometry_input)
+        formulas = tuple(surface.formula_candidate_records(geometry_input))
         chart_summary = chart_api.build_chart_summary(evaluation, formulas)
         level, junction = 1, surface.JUNCTIONS[0]
         domains = surface.JUNCTION_INFO[junction][0]

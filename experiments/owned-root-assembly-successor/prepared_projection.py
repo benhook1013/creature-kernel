@@ -1,13 +1,15 @@
 """Closed section-2 source admission and standard-neutral projection."""
+import copy
 import json
 import math
 from functools import wraps
 from pathlib import Path
 from types import MappingProxyType
-
 import artifact_serialization as artifacts
-
-
+try:
+    from owned_root_surface import GEOMETRY_COMPONENT_IDS as _GEOMETRY_COMPONENT_IDS, GeometryComponents
+except ImportError:  # pragma: no cover
+    from .owned_root_surface import GEOMETRY_COMPONENT_IDS as _GEOMETRY_COMPONENT_IDS, GeometryComponents
 class PreparedProjectionError(ValueError):
     """A source, profile, or prepared-input boundary failed closed."""
 ROOT = Path(__file__).resolve().parents[2]
@@ -57,14 +59,10 @@ _SHOULDER_SPEC = {field: _PB64 for field, _ in SHOULDER_DIMS}
 _SHOULDER_SPEC.update({field: ("vector", 3) for field in ("axilla", "peak", "arm_origin")})
 _HIP_SPEC = {"P_s": ("vector", 3), **{field: _PB64 for field, _ in HIP_DIMS}}
 _PREPARED_SPEC = {
-    "schema": str, "contract": _IDENTITY_SPEC, "source": _IDENTITY_SPEC,
-    "profile_selection": {"profile_id": str, "profile_table_path": str, "profile_table_sha256": str,
-                          "dimensions": {key: _B64 for key in PROFILE_DIMENSION_KEYS}},
-    "basis": {key: str for key, _ in _BASIS_ITEMS},
-    "parts": ("list", len(PARTS), _PART_SPEC),
-    "stations": {name: _STATION_SPEC for name, _, _ in STATIONS},
-    "shoulders": {side: _SHOULDER_SPEC for side in ("left", "right")},
-    "hips": {side: _HIP_SPEC for side in ("left", "right")},
+    "schema": str, "contract": _IDENTITY_SPEC, "source": _IDENTITY_SPEC, "profile_selection": {"profile_id": str, "profile_table_path": str, "profile_table_sha256": str,
+                                                                                              "dimensions": {key: _B64 for key in PROFILE_DIMENSION_KEYS}},
+    "basis": {key: str for key, _ in _BASIS_ITEMS}, "parts": ("list", len(PARTS), _PART_SPEC), "stations": {name: _STATION_SPEC for name, _, _ in STATIONS},
+    "shoulders": {side: _SHOULDER_SPEC for side in ("left", "right")}, "hips": {side: _HIP_SPEC for side in ("left", "right")},
     "provenance": {"source_files": ("list", 2, {"path": str, "sha256": str, "bytes": int})},
 }
 def _freeze(value):
@@ -185,16 +183,13 @@ def _fixed_scalars(value, items, where):
 def _validate_source_document(source, _semantic=_COMMITMENTS["semantic"]):
     _keys(source, {"contract", "source", "basis", "profiles", "body", "extensions"}, "source")
     _fixed_scalars(source["contract"], _semantic["source_contract"], "source.contract")
-    identity = _obj(source["source"], "source.source")
-    _keys(identity, {"document", "namespace", "dependencies"}, "source.source")
+    identity = _obj(source["source"], "source.source"); _keys(identity, {"document", "namespace", "dependencies"}, "source.source")
     for key, expected in _semantic["source_identity"]:
         _literal(identity[key], expected, f"source.source.{key}")
     _need(type(identity["dependencies"]) is list and not identity["dependencies"], "source.dependencies", "not empty")
-    _fixed_scalars(source["basis"], _semantic["basis"], "source.basis")
-    _fixed_scalars(source["profiles"], (("semantic_numeric", "ck.numeric-frame.r1"),), "source.profiles")
+    _fixed_scalars(source["basis"], _semantic["basis"], "source.basis"); _fixed_scalars(source["profiles"], (("semantic_numeric", "ck.numeric-frame.r1"),), "source.profiles")
     _need(type(source["extensions"]) is list and not source["extensions"], "source.extensions", "not empty")
-    body = _obj(source["body"], "source.body")
-    _keys(body, _semantic["body_counts"], "source.body")
+    body = _obj(source["body"], "source.body"); _keys(body, _semantic["body_counts"], "source.body")
     valid_counts = all(type(body[name]) is list and len(body[name]) == count for name, count in _semantic["body_counts"].items())
     _need(valid_counts, "source.body", "wrong required record counts")
     parts = {}
@@ -204,16 +199,14 @@ def _validate_source_document(source, _semantic=_COMMITMENTS["semantic"]):
         _source_transform(row["placement"], f"{where}.placement")
         _obj(row["containment"], f"{where}.containment")
         parts[address] = row, index
-    dimensions, _ = _validate_selector_rows(body["dimensions"], "dimensions"); frames, _ = _validate_selector_rows(body["frames"], "frames")
-    landmarks, references = _validate_selector_rows(body["landmarks"], "landmarks")
+    dimensions, _ = _validate_selector_rows(body["dimensions"], "dimensions"); frames, _ = _validate_selector_rows(body["frames"], "frames"); landmarks, references = _validate_selector_rows(body["landmarks"], "landmarks")
     _need(references <= set(frames), "source.body.landmarks", "missing referenced frame")
     return parts, frames, landmarks, dimensions
 def _admit_source_bytes(raw, _admission=_COMMITMENTS["admission"]):
     source, digest = _decode_source_json(raw, "source")
     _need(len(raw) == _admission["sizes"][2] and digest == _admission["hashes"][1], "source", "source identity mismatch")
     parts, frames, landmarks, dimensions = _validate_source_document(source)
-    return {"parts": parts, "frames": frames, "landmarks": landmarks,
-            "dimensions": dimensions, "bytes": raw, "sha256": digest}
+    return {"parts": parts, "frames": frames, "landmarks": landmarks, "dimensions": dimensions, "bytes": raw, "sha256": digest}
 def _validate_profile_table(table, _c=_COMMITMENTS):
     admission, semantic = _c["admission"], _c["semantic"]
     _keys(table, {"base_source", "canonicalization", "format", "profiles", "transform"}, "profile table")
@@ -236,19 +229,15 @@ def _admit_profile_bytes(raw, _admission=_COMMITMENTS["admission"]):
 def _verify_contract(path=_PATHS[0], _c=_COMMITMENTS):
     _admission, operations = _c["admission"], _c["operations"]
     paths, hashes, sizes = _admission["paths"], _admission["hashes"], _admission["sizes"]
-    contract = _fixed_path(path, paths[0], "contract path")
-    sidecar = _fixed_path(paths[1], paths[1], "contract sidecar path")
+    contract = _fixed_path(path, paths[0], "contract path"); sidecar = _fixed_path(paths[1], paths[1], "contract sidecar path")
     contract_raw, sidecar_raw = _read(contract, "contract"), _read(sidecar, "contract sidecar")
     contract_digest = operations["sha256_bytes"](contract_raw)
     _need(len(contract_raw) == sizes[0] and contract_digest == hashes[0], "contract", "identity mismatch")
     _need(len(sidecar_raw) == sizes[1] and sidecar_raw == _admission["sidecar"], "contract sidecar", "identity mismatch")
     return contract_digest
 def _fixed_inputs(source_path, contract_path, profile_path, _admission=_COMMITMENTS["admission"]):
-    paths = _admission["paths"]
-    contract_digest = _verify_contract(contract_path)
-    source = _fixed_path(source_path, paths[2], "source path"); profile = _fixed_path(profile_path, paths[3], "profile table path")
-    admission = _admit_source_bytes(_read(source, "source")); selected, raw, digest = _admit_profile_bytes(_read(profile, "profile table"))
-    return contract_digest, admission, selected, raw, digest
+    paths = _admission["paths"]; contract_digest = _verify_contract(contract_path)
+    source = _fixed_path(source_path, paths[2], "source path"); profile = _fixed_path(profile_path, paths[3], "profile table path"); admission = _admit_source_bytes(_read(source, "source")); selected, raw, digest = _admit_profile_bytes(_read(profile, "profile table")); return contract_digest, admission, selected, raw, digest
 def _select(rows, owner, role, name):
     match = rows.get((owner, role))
     _need(match is not None, f"body.{name}.{role}", "missing required record")
@@ -291,7 +280,6 @@ def _walk(value, spec, where, *, wire, _c=_COMMITMENTS):
         if wire: value[index] = converted
     return value
 def _validate_prepared_structure(prepared, *, wire=False, _spec=_COMMITMENTS["prepared_spec"]): return _walk(prepared, _spec, "prepared", wire=wire)
-def _validate_prepared_shape(prepared): return _validate_prepared_structure(prepared)
 def _chains():
     pelvis, torso, neck = _a("pelvis"), _a("torso"), _a("neck")
     result = {pelvis: (pelvis,), torso: (pelvis, torso), neck: (pelvis, torso, neck)}
@@ -329,17 +317,16 @@ def _build_prepared(admission, profile, profile_raw, profile_digest, _c=_COMMITM
         "shoulders": sides["shoulders"], "hips": sides["hips"],
         "provenance": {"source_files": _source_files(admission["sha256"], len(admission["bytes"]), profile_digest, len(profile_raw))},
     }
-    return _validate_prepared_shape(prepared)
+    return _validate_prepared_structure(prepared)
 def _prepared_apis(_c):
     fixed, operations = _c["admission"], _c["operations"]
-    shape, structure, build, inputs, need, attempt = _validate_prepared_shape, _validate_prepared_structure, _build_prepared, _fixed_inputs, _need, _attempt
+    shape, structure, build, inputs, need, attempt = _validate_prepared_structure, _validate_prepared_structure, _build_prepared, _fixed_inputs, _need, _attempt
     expected_bytes_cache = {}
     @_public_admission
     def validate_prepared(prepared):
         """Admit only the projection freshly derived from the fixed files."""
         value = shape(prepared)
-        contract_digest, admission, profile, profile_raw, profile_digest = inputs(
-            fixed["paths"][2], fixed["paths"][0], fixed["paths"][3])
+        contract_digest, admission, profile, profile_raw, profile_digest = inputs(fixed["paths"][2], fixed["paths"][0], fixed["paths"][3])
         digest_triple = (contract_digest, admission["sha256"], profile_digest)
         expected_bytes = expected_bytes_cache.get(digest_triple)
         if expected_bytes is None:
@@ -392,8 +379,7 @@ def _validate_binding_records(records, _c=_COMMITMENTS):
             _runtime_address(address, f"{where}.source_addresses[{address_index}]")
         for pointer_index, pointer in enumerate(pointers):
             _text(pointer, f"{where}.source_pointers[{pointer_index}]")
-    _need(len(set(components)) == 92 and components == sorted(components, key=str.encode),
-          "source bindings", "wrong component order or uniqueness")
+    _need(len(set(components)) == 92 and components == sorted(components, key=str.encode), "source bindings", "wrong component order or uniqueness")
     hashes, operations = _c["admission"]["binding_hashes"], _c["operations"]
     _need(operations["sha256_bytes"](operations["json_bytes"](components)) == hashes[0], "source bindings", "component universe mismatch")
     _need(operations["sha256_bytes"](operations["json_bytes"](records)) == hashes[1], "source bindings", "mapping mismatch")
@@ -402,8 +388,7 @@ def _append_sum(bindings, admission, parts, chains, component, owner, landmark_r
     chain, landmark_index = chains[owner], None
     if landmark_role is not None:
         landmark_index = _select(admission["landmarks"], owner, landmark_role, "landmarks")[1]
-    derivation = ("source.world-landmark-axis-sum.v1" if landmark_role
-                  else "source.world-placement-axis-sum.v1")
+    derivation = "source.world-landmark-axis-sum.v1" if landmark_role else "source.world-placement-axis-sum.v1"
     for axis, name in enumerate(_axes):
         pointers = [_pointer("part", parts[item][1], axis) for item in chain]
         if landmark_index is not None:
@@ -414,8 +399,7 @@ def _append_group(bindings, admission, parts, chains, prefix, owner, sums, dimen
         _append_sum(bindings, admission, parts, chains, f"{prefix}.{field}", owner, landmark)
     for field, role in dimensions:
         _, index = _dimension(admission, owner, role)
-        bindings.append(_bind(f"{prefix}.{field}", "source.dimension-value.v1",
-                              (owner,), (_pointer("dimension", index),)))
+        bindings.append(_bind(f"{prefix}.{field}", "source.dimension-value.v1", (owner,), (_pointer("dimension", index),)))
 def _binding_api(_c):
     fixed, semantic = _c["admission"], _c["semantic"]
     inputs, chains_for_parts, address, suffixes, append, validate = _fixed_inputs, _chains, _a, _station_suffixes, _append_group, _validate_binding_records
@@ -434,15 +418,83 @@ def _binding_api(_c):
     return source_binding_records
 source_binding_records = _binding_api(_COMMITMENTS)
 build_source_binding_records = source_binding_records
+def _geometry_value(prepared, component):
+    path = component.split("."); value = prepared
+    for field in path[:-1]: value = value[field]
+    return value["xyz".index(path[-1])] if path[-1] in "xyz" and len(path[-1]) == 1 else value[path[-1]]
+_MUST_AFFECT = (
+    ("left.r_y", "hips.left.r_y"), ("right.r_y", "hips.right.r_y"),
+    ("lower_pelvis.L_y", "stations.lower_pelvis.C.y"),
+    ("lower_pelvis.C_z", "stations.lower_pelvis.C.z"),
+    ("left.r_x", "hips.left.r_x"), ("right.r_x", "hips.right.r_x"),
+    ("lower_pelvis.R_x", "stations.lower_pelvis.rL"),
+    ("left.r_z", "hips.left.r_z"), ("right.r_z", "hips.right.r_z"),
+    ("lower_pelvis.R_f", "stations.lower_pelvis.rA"),
+    ("lower_pelvis.R_b", "stations.lower_pelvis.rP"),
+    ("left.thigh_start_x", "hips.left.P_s.x"),
+    ("left.thigh_start_y", "hips.left.P_s.y"),
+    ("left.thigh_start_z", "hips.left.P_s.z"),
+    ("right.thigh_start_x", "hips.right.P_s.x"),
+    ("right.thigh_start_y", "hips.right.P_s.y"),
+    ("right.thigh_start_z", "hips.right.P_s.z"),
+    ("neck_collar.C_y", "stations.neck_collar.C.y"),
+    ("neck_collar.rL", "stations.neck_collar.rL"),
+    ("neck_upper.C_y", "stations.neck_upper.C.y"),
+    ("neck_upper.rL", "stations.neck_upper.rL"),
+    ("left.axilla_x", "shoulders.left.axilla.x"),
+    ("left.axilla_y", "shoulders.left.axilla.y"),
+    ("right.axilla_x", "shoulders.right.axilla.x"),
+    ("right.axilla_y", "shoulders.right.axilla.y"),
+    ("left.peak_y", "shoulders.left.peak.y"),
+    ("right.peak_y", "shoulders.right.peak.y"),
+    ("left.start_lateral", "shoulders.left.start_lateral"),
+    ("right.start_lateral", "shoulders.right.start_lateral"),
+    ("left.start_up", "shoulders.left.start_up"),
+    ("right.start_up", "shoulders.right.start_up"),
+    ("left.shoulder_depth", "shoulders.left.shoulder_depth"),
+    ("right.shoulder_depth", "shoulders.right.shoulder_depth"),
+)
+MUST_AFFECT_PARAMETER_IDS = tuple(parameter for parameter, _ in _MUST_AFFECT)
+MUST_AFFECT_COMPONENTS = MappingProxyType(dict(_MUST_AFFECT))
+_PERTURBATION_DELTA = float.fromhex("0x1.47ae147ae147bp-7")
+PERTURBATION_DELTA_M = _PERTURBATION_DELTA
+def _selector_path(component):
+    path = component.split(".")
+    return tuple((*path[:-1], "xyz".index(path[-1]))) if path[-1] in "xyz" and len(path[-1]) == 1 else tuple(path)
+def _path_get(value, path):
+    for field in path: value = value[field]
+    return value
+def _geometry_apis(_ids=_GEOMETRY_COMPONENT_IDS, _carrier=GeometryComponents,
+                   _validate=validate_prepared, _bindings=source_binding_records,
+                   _read=_geometry_value, _required=_need):
+    ids, carrier, validate, bindings, read, required = tuple(_ids), _carrier, _validate, _bindings, _read, _required
+    selectors = tuple((parameter, component, _selector_path(component)) for parameter, component in _MUST_AFFECT)
+    delta = _PERTURBATION_DELTA
+    def project_value(value):
+        records = bindings()
+        required(tuple(record["prepared_component"] for record in records) == ids,
+                 "geometry projection", "component universe differs from source bindings")
+        return carrier(tuple(read(value, component) for component in ids))
+    @_public_admission
+    def project_geometry(prepared):
+        """Convert the admitted neutral prepared object to identity-free numbers."""
+        return project_value(validate(prepared))
+    @_public_admission
+    def project_perturbed_geometry(prepared, parameter_id):
+        """Admit one literal prepared-input perturbation, then project it."""
+        value = validate(prepared)
+        if type(parameter_id) is not str: raise PreparedProjectionError("parameter_id is not one frozen selector")
+        matches = tuple((component, path) for parameter, component, path in selectors if parameter == parameter_id)
+        if len(matches) != 1: raise PreparedProjectionError("parameter_id does not resolve exactly one frozen selector")
+        component, path = matches[0]; candidate = copy.deepcopy(value); baseline = _path_get(value, path)
+        if type(baseline) is not float or not math.isfinite(baseline): raise PreparedProjectionError(f"{component} is not binary64")
+        changed = float(baseline + delta); _path_get(candidate, path[:-1])[path[-1]] = changed
+        if _path_get(candidate, path) != changed: raise PreparedProjectionError("perturbation did not change its selected component")
+        restored = copy.deepcopy(candidate); _path_get(restored, path[:-1])[path[-1]] = baseline
+        if _JSON_BYTES(restored) != _JSON_BYTES(value): raise PreparedProjectionError("perturbation changed more than its selected component")
+        return project_value(candidate)
+    return project_geometry, project_perturbed_geometry
+project_geometry, project_perturbed_geometry = _geometry_apis()
 canonical_json_bytes = _JSON_BYTES
-def _sha_api(operations):
-    def canonical_json_sha256(value): return operations["sha256_bytes"](operations["json_bytes"](value))
-    return canonical_json_sha256
-canonical_json_sha256 = _sha_api(_COMMITMENTS["operations"])
-__all__ = [
-    "EXPECTED_CONTRACT_SHA256", "EXPECTED_PROFILE_TABLE_SHA256",
-    "EXPECTED_SOURCE_SHA256", "PreparedProjectionError",
-    "admit_prepared_bytes", "build_source_binding_records", "canonical_json_bytes",
-    "canonical_json_sha256", "normalize_source_address",
-    "prepare_standard_neutral", "source_binding_records", "validate_prepared",
-]
+def canonical_json_sha256(value): return _COMMITMENTS["operations"]["sha256_bytes"](_COMMITMENTS["operations"]["json_bytes"](value))
+__all__ = ["EXPECTED_CONTRACT_SHA256", "EXPECTED_PROFILE_TABLE_SHA256", "EXPECTED_SOURCE_SHA256", "GeometryComponents", "PreparedProjectionError", "admit_prepared_bytes", "build_source_binding_records", "canonical_json_bytes", "canonical_json_sha256", "normalize_source_address", "MUST_AFFECT_COMPONENTS", "MUST_AFFECT_PARAMETER_IDS", "PERTURBATION_DELTA_M", "prepare_standard_neutral", "project_geometry", "project_perturbed_geometry", "source_binding_records", "validate_prepared"]

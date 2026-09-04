@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-09-03 (NZST; repository activity is recorded in NZST while
+Status date: 2026-09-05 (NZST; repository activity is recorded in NZST while
 GitHub timestamps are UTC)
 
 ## Phase
@@ -44,24 +44,52 @@ The required
 is now frozen and SHA-256-bound at
 `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`, recorded
 by its sidecar. Two independent Sol reviews returned `FREEZE` with zero
-blockers. The bounded implementation phase is active at
+blockers. The bounded implementation phase completed at
 `correction_round=0`; the builder must reject a missing or mismatched
 design-contract identity.
 
-Advance only through the documented bounded implementation and internal gates.
-Do not add profile branches, hidden skin, render corrections, solvers, distal
-body, tail, runtime/deformation, gallery, or exact-five work before credible
-standard-neutral evidence. If the required cues remain unclear after the
-initial implementation and two shared corrections, reject this candidate;
-another representation requires a newly recorded runway rather than an
-automatic fallback.
+The exact neutral evidence baseline is commit
+`2efd0b28c492423630b2fed3930da23f1b69bd9b`. The main public evidence is the
+96-file publication in logical local cache
+`artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. It records 121
+tests with zero failures, errors, or skips; the seed gates and cross-seed
+comparison passed. The exact `comparison-report.json` SHA-256, obtainable from
+the exact sidecar, is
+`f87afb2ac517e4fd42ffb04248d97045df016f59d9f6d344d4a45659340b7ab7`. The
+direct PNG is
+`b98d9cf219cad3c60ce43921fc86be7817529fd93448386860738b60110075ed`, the
+lineage PNG is
+`19a006f8f237857d94821894016364dcc446caece3358e9c6da0794a75bf74d2`, the
+stable manifest is
+`3a8c87da8a297fb19f6f07b6ea669bde196e5a43b5609525f639e07fc168235e`, and
+the runtime fingerprint is
+`c19ca9c0b8268504f93513d55f90a0eb63777e566aba06e376b503c5e648f085`.
 
-The named human checkpoint is Ben's appraisal of the exact-five owned-root
-assembly, but only after standard neutral passes the unchanged internal gates
-and the exact-five evidence is generated. The checkpoint uses fixed front,
-side, and three-quarter final-surface renders. Internal metrics and model
-reviews do not substitute for Ben's visual judgment. The [terminal seven-ring
-outcome](../research/programmatic-root-complex-surface-investigation.md#terminal-outcome-2026-09-03)
+Main-thread visual appraisal found the neutral neck, shoulder/axilla,
+pelvic-wrap, and thigh-root cues credible. Two independent Sol vision checks
+agreed and found no material blocker. The exact-five gate is therefore
+unlocked, but no exact-five executable or gallery exists yet.
+
+The semantics-preserving numeric-only geometry seam now fits the frozen LOC
+cap and passes 126 managed tests, both seed gates, and cross-seed comparison.
+Its fresh 96-file publication is in logical local cache
+`artifact-cache/owned-root-assembly-successor/seam-20260905-1`; all 38
+geometry/perturbation/render roles in each seed are byte-identical to the
+pre-seam baseline. The post-seam comparison report SHA-256 is
+`912467f8c435932cd685b089911f0141ba2454b5e7a62dcea0501412960b09ea`
+and the post-seam stable-manifest SHA-256 is
+`56da91b3459f381a85c682844d1b3e25c76a491519847c9ebc2c2e3a7e9b0ed4`.
+
+Next is the separately SHA-bound activation contract and sibling exact-five
+runner/publisher. Do not add a private-internal wrapper, duplicate geometry,
+profile-aware branching, geometry correction, or a new representation.
+
+The named human checkpoint remains Ben's later exact-five gallery appraisal of
+the owned-root assembly, but only after standard neutral passes the unchanged
+internal gates and the exact-five evidence is generated. The checkpoint uses
+fixed front, side, and three-quarter final-surface renders. Internal metrics
+and model reviews do not substitute for Ben's visual judgment. The [terminal
+seven-ring outcome](../research/programmatic-root-complex-surface-investigation.md#terminal-outcome-2026-09-03)
 remains historical evidence and is not reactivated.
 
 ## Historical failed-candidate runway (2026-09-01)

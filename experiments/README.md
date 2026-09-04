@@ -115,8 +115,9 @@ The [owned root assembly successor](owned-root-assembly-successor/README.md)
 is the unregistered exploratory successor targeting open `RQ-002`, `RQ-012`,
 `RQ-020`, and `RQ-021`. It is not `EXP-0001`; its candidate-local design
 contract is frozen and SHA-256-bound, and its bounded implementation phase is
-active at `correction_round=0`. It cannot establish a formal technology
-outcome, production surface contract, or Stage 1 result.
+complete at `correction_round=0`. Its credible neutral evidence unlocks the
+separately contracted exact-five activation work; it cannot establish a formal
+technology outcome, production surface contract, or Stage 1 result.
 
 ## Artifact policy
 

@@ -339,12 +339,16 @@ merge authority.
 
 ## CodeRabbit and external review
 
-For a substantial PR that is final-review-ready, the main thread launches the
-hosted CodeRabbit pass and the committed-diff CLI pass in parallel as one
-deliberate cycle. Both review the same clean, immutable pushed OID. Before
-launching, the main thread fetches the PR branch, requires a clean worktree,
-verifies local `HEAD` equals the remote PR-head OID, and records that OID with
-both results.
+For a substantial PR, the main thread pushes its first coherent, review-useful
+head early enough for external review to run in parallel with later disjoint
+work in the same PR. It does not wait for every planned addition to be complete
+before starting the review clock. For each review-useful head, the main thread
+launches the hosted CodeRabbit pass and the committed-diff CLI pass in parallel
+as one deliberate cycle. Both review the same clean, immutable pushed OID.
+Before launching, the main thread fetches the PR branch, requires the committed
+tree to match the intended review content, verifies local `HEAD` equals the
+remote PR-head OID, and records that OID with both results. Uncommitted disjoint
+follow-on work may remain local and is not represented as reviewed.
 
 The CLI pass supports the hosted pass but cannot satisfy the hosted taper gate.
 Every changed pushed head receives a fresh hosted-plus-CLI cycle; findings

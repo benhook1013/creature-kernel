@@ -277,9 +277,7 @@ def _integer(value: Any, where: str, *, minimum: int = 0, maximum: int = MAX_SAF
 def _positive_finite_metre(value: Any, where: str) -> Decimal:
     """Validate a JSON number as a positive canonical metre value."""
 
-    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
-        raise ProfileGenerationError(f"{where} must be a positive finite metre number")
-    if isinstance(value, float) and not math.isfinite(value):
+    if isinstance(value, bool) or isinstance(value, float) or not isinstance(value, (int, Decimal)):
         raise ProfileGenerationError(f"{where} must be a positive finite metre number")
     try:
         decimal = Decimal(str(value))

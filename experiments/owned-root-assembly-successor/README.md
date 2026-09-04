@@ -1,11 +1,11 @@
 # Owned root assembly successor
 
-Status: bounded experiment-local successor implementation phase; frozen,
-SHA-256-bound, non-normative
+Status: standard-neutral execution complete; frozen, SHA-256-bound,
+non-normative
 
-Experiment lifecycle: planned
+Experiment lifecycle: finished
 
-Evidence closure: open
+Evidence closure: complete
 
 Technology outcome: none
 
@@ -13,7 +13,7 @@ Owner: Creature Kernel main Sol thread; Ben retains direction and acceptance
 
 Date started: 2026-09-03
 
-Date completed: —
+Date completed: 2026-09-05
 
 Research questions: canonical open `RQ-002`, `RQ-012`, `RQ-020`, and `RQ-021`
 in the [open-questions registry](../../docs/research/open-questions.md). This
@@ -26,24 +26,66 @@ returned `FREEZE` with zero blockers
 
 Design contract SHA-256: `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`
 
-`correction_round=0`: initial implementation phase; at most two shared
-correction rounds remain available after the initial build
+`correction_round=0`: initial implementation completed; at most two shared
+correction rounds remain available
 
 ## Status and authority
 
 This is the frozen candidate contract and bounded implementation phase for one
 new, standard-neutral experiment. It is the successor direction authorized
 after the seven-ring candidate in PR #125 reached its three-round stop rule.
-It remains an unaccepted experiment-local candidate: it does not accept a
+It remains an unaccepted experiment-local candidate: the neutral result
+supports proceeding to the unchanged exact-five gate, but does not establish a
 production schema, architecture, topology, supported morphology promise, or
-technology outcome. It does not reactivate a parked workstream or satisfy the
-DR-0013 Stage 1 proof.
+permanent technology choice. It does not reactivate a parked workstream or
+satisfy the DR-0013 Stage 1 proof.
 
 The previous candidate is evidence, not a foundation to transplant. Its
 seven-ring topology, projection, formulas, macros, IDs, thresholds, and
 anatomy-specific tests are archive/reimplementation candidates under the
 ledger below. Representation-independent utilities may be reused only after
 the focused audit required here.
+
+## Current execution state
+
+The exact neutral evidence baseline is commit
+`2efd0b28c492423630b2fed3930da23f1b69bd9b`. The main public evidence is the
+96-file publication in logical local cache
+`artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. It records 121
+tests with zero failures, errors, or skips; the seed gates and cross-seed
+comparison passed.
+
+The exact `comparison-report.json` SHA-256, obtainable from the exact
+`comparison-report.sha256` sidecar, is
+`f87afb2ac517e4fd42ffb04248d97045df016f59d9f6d344d4a45659340b7ab7`. The
+direct PNG is
+`b98d9cf219cad3c60ce43921fc86be7817529fd93448386860738b60110075ed`, the
+lineage PNG is
+`19a006f8f237857d94821894016364dcc446caece3358e9c6da0794a75bf74d2`, the
+stable manifest is
+`3a8c87da8a297fb19f6f07b6ea669bde196e5a43b5609525f639e07fc168235e`, and
+the runtime fingerprint is
+`c19ca9c0b8268504f93513d55f90a0eb63777e566aba06e376b503c5e648f085`.
+
+Main-thread visual appraisal found the neutral neck, shoulder/axilla,
+pelvic-wrap, and thigh-root cues credible. Two independent Sol vision checks
+agreed and found no material blocker. The exact-five gate is therefore
+unlocked, but no exact-five executable or gallery exists yet. The named human
+checkpoint remains Ben's later exact-five gallery appraisal.
+
+The semantics-preserving numeric-only geometry seam now fits the frozen LOC
+cap and passes 126 managed tests, both seed gates, and cross-seed comparison.
+Its fresh 96-file publication is in logical local cache
+`artifact-cache/owned-root-assembly-successor/seam-20260905-1`; all 38
+geometry/perturbation/render roles in each seed are byte-identical to the
+pre-seam baseline. The post-seam comparison report SHA-256 is
+`912467f8c435932cd685b089911f0141ba2454b5e7a62dcea0501412960b09ea`
+and the post-seam stable-manifest SHA-256 is
+`56da91b3459f381a85c682844d1b3e25c76a491519847c9ebc2c2e3a7e9b0ed4`.
+
+Next is the separately SHA-bound activation contract and sibling exact-five
+runner/publisher. Do not add a private-internal wrapper, duplicate geometry,
+profile-aware branching, geometry correction, or a new representation.
 
 ## Protocol
 
@@ -115,11 +157,10 @@ decimal arithmetic, quantizes to the nearest millimetre using ties-to-even,
 and emits canonical metres. Before execution, the launcher records both active
 source hashes and stops on source drift rather than silently using a new input.
 
-This is a metadata/hash rebaseline only. Standard-neutral geometry is expected
-to remain unchanged, and the historical source/evidence is not rewritten. The
-design contract is now frozen and SHA-256-bound; this README activates the
-bounded implementation phase but does not claim that implementation evidence
-or successor execution results exist.
+The source change is a metadata/hash rebaseline only: standard-neutral input
+ownership remains intact, and historical source/evidence is not rewritten.
+The design contract is frozen and SHA-256-bound; the completed neutral
+execution and its evidence are recorded below.
 
 The prepared input may contain only source-derived frames, named landmarks,
 section measurements, derived scalar parameters, module state, and provenance.
@@ -521,21 +562,23 @@ does not authorize promotion into production code or canonical architecture.
 
 ## Results, limitations, and conclusion
 
-No result exists yet. Execution is activated at `correction_round=0`; until a
-run closes evidence, lifecycle remains `planned`, evidence closure remains
-`open`, and technology outcome remains `none`.
+The standard-neutral execution completed at `correction_round=0` against the
+exact baseline above. Its 96-file publication, 121-test clean result, passed
+seed gates, and passed cross-seed comparison permit proceeding to the unchanged
+exact-five gate. No exact-five executable or gallery exists yet.
 
 The trial is limited to one standard-neutral root assembly. It does not test
 the exact-five profiles, optional modules, tails, hands, feet, faces, distal
 anatomy, posing, skeleton runtime, deformation, simulation, engine adapters,
-or production packaging. A positive result would only justify the next
-recorded investigation and human checkpoint.
+or production packaging. This positive result does not approve production use;
+it only unlocks the next recorded investigation and human checkpoint.
 
 ## Recommended follow-up
 
-Implement only the standard-neutral candidate within the frozen contract,
-using its recorded interface curves, patch/junction layout, port orientations,
-subdivision support, continuity and fold measures, candidate-specific
-geometric measures, causal perturbations, and exact reproduction command. Do
+Implement the semantics-preserving numeric-only geometry seam, then revalidate
+the exact-neutral bytes and evidence against the baseline above. Separately,
+prepare the SHA-bound activation contract and sibling exact-five
+runner/publisher. Do not add a private-internal wrapper, duplicate geometry,
+profile-aware branching, geometry correction, or a new representation, and do
 not edit canonical specifications or production architecture as part of this
 experiment.
