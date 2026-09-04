@@ -47,7 +47,8 @@ class PreparedProjectionTests(unittest.TestCase):
         self.assertLess(self.prepared["landmarks"]["shoulder_peak_left"]["point"][0], 0)
         self.assertGreater(self.prepared["landmarks"]["shoulder_peak_right"]["point"][0], 0)
         self.assertEqual(self.prepared["scalars"]["arm_root_depth"]["value"], self.prepared["scalars"]["thigh_lateral_radius"]["value"])
-        point_derivation = "derivation=parent_local_part_translation_plus_landmark_position_v1"; dimension_derivation = "derivation=source_dimension_canonical_metre_value_v1"
+        point_derivation = "derivation=parent_local_part_translation_plus_landmark_position_v1"
+        dimension_derivation = "derivation=source_dimension_canonical_metre_value_v1"
         expected_provenance = (
             ("shoulder_peak_left", ("body.parts[0].placement.translation", "body.parts[1].placement.translation", "body.parts[4].placement.translation", "body.landmarks[0].position", point_derivation)),
             ("shoulder_peak_right", ("body.parts[0].placement.translation", "body.parts[1].placement.translation", "body.parts[7].placement.translation", "body.landmarks[2].position", point_derivation)),
@@ -142,13 +143,25 @@ class PreparedProjectionTests(unittest.TestCase):
         role = "form_torso_profile_lower_pelvis_lateral_radius"
         cases = ((10**400, "expected finite number"), (True, "expected finite number"), (False, "expected finite number"), (0, "expected positive number"), (-0.01, "expected positive number"))
         for value, message in cases:
-            with self.subTest(value=value): self.assert_rejected(rf"body\.dimensions\[\d+\]\.value: {message}", lambda source, value=value: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, role)].__setitem__("value", value))
+            with self.subTest(value=value):
+                self.assert_rejected(rf"body\.dimensions\[\d+\]\.value: {message}", lambda source, value=value: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, role)].__setitem__("value", value))
         for index in range(153):
-            with self.subTest(index=index): self.assert_rejected(rf"body\.dimensions\[{index}\]\.value: expected positive number", lambda source, index=index: source["body"]["dimensions"][index].__setitem__("value", 0))
+            with self.subTest(index=index):
+                self.assert_rejected(rf"body\.dimensions\[{index}\]\.value: expected positive number", lambda source, index=index: source["body"]["dimensions"][index].__setitem__("value", 0))
     def test_canonical_metre_dimensions_and_non_dimension_routes(self):
-        with tempfile.TemporaryDirectory() as directory: source = copy.deepcopy(self.source); source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner("pelvis"), "form_torso_profile_lower_pelvis_lateral_radius")]["value"] = 1.2345; source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner("pelvis"), "form_torso_profile_lower_pelvis_anterior_radius")]["value"] = 2; path = Path(directory) / "source.json"; path.write_text(json.dumps(source), encoding="utf-8"); prepared = prepare_standard_neutral(path)
-        self.assertEqual(prepared["stations"]["lower_pelvis"]["lateral_radius"], 1.2345); self.assertEqual(prepared["stations"]["lower_pelvis"]["front_extent"], 2)
-        self.assertEqual(prepared["basis"], self.prepared["basis"]); self.assertEqual(prepared["frames"], self.prepared["frames"]); self.assertEqual(prepared["landmarks"], self.prepared["landmarks"]); self.assertEqual({name: station["center"] for name, station in prepared["stations"].items()}, {name: station["center"] for name, station in self.prepared["stations"].items()})
+        with tempfile.TemporaryDirectory() as directory:
+            source = copy.deepcopy(self.source)
+            source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner("pelvis"), "form_torso_profile_lower_pelvis_lateral_radius")]["value"] = 1.2345
+            source["body"]["dimensions"][self.record_index(source, "dimensions", self.owner("pelvis"), "form_torso_profile_lower_pelvis_anterior_radius")]["value"] = 2
+            path = Path(directory) / "source.json"
+            path.write_text(json.dumps(source), encoding="utf-8")
+            prepared = prepare_standard_neutral(path)
+        self.assertEqual(prepared["stations"]["lower_pelvis"]["lateral_radius"], 1.2345)
+        self.assertEqual(prepared["stations"]["lower_pelvis"]["front_extent"], 2)
+        self.assertEqual(prepared["basis"], self.prepared["basis"])
+        self.assertEqual(prepared["frames"], self.prepared["frames"])
+        self.assertEqual(prepared["landmarks"], self.prepared["landmarks"])
+        self.assertEqual({name: station["center"] for name, station in prepared["stations"].items()}, {name: station["center"] for name, station in self.prepared["stations"].items()})
     def test_add_rejects_arbitrary_precision_integer(self):
         with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):
             _add((10**400, 0, 0), (0, 0, 0))
@@ -171,4 +184,7 @@ class PreparedProjectionTests(unittest.TestCase):
         self.assert_rejected(r"body\.landmarks\.form_torso_profile_lower_pelvis: missing or duplicate required record", lambda source: self.duplicate_record(source, "landmarks", (pelvis, "form_torso_profile_lower_pelvis"), (pelvis, "form_torso_profile_upper_pelvis")))
         self.assert_rejected(r"body\.landmarks\[\d+\]: missing record selector", lambda source: self.blank_record(source, "landmarks", (self.owner("upper_arm", ("left",)), "form_shoulder_peak")))
         self.assert_rejected(r"source\.body: unknown or missing collection", lambda source: source["body"].__setitem__("unknown", []))
-        self.assert_rejected(r"body\.frames\.form_torso_profile_control: missing or duplicate required record", lambda source: self.duplicate_record(source, "frames", (self.owner("torso"), "form_torso_profile_control"), (pelvis, "form_torso_profile_control"))); self.assert_rejected(r"body\.dimensions\[0\]: unknown or missing required field", lambda source: source["body"]["dimensions"][0].__setitem__("extra", 1)); self.assert_rejected(r"body\.dimensions\[0\]\.owner: invalid part address", lambda source: source["body"]["dimensions"][0]["owner"].__setitem__("kind", "joint")); self.assert_rejected(r"body\.dimensions\[0\]\.role: expected non-empty role", lambda source: source["body"]["dimensions"][0].__setitem__("role", ""))
+        self.assert_rejected(r"body\.frames\.form_torso_profile_control: missing or duplicate required record", lambda source: self.duplicate_record(source, "frames", (self.owner("torso"), "form_torso_profile_control"), (pelvis, "form_torso_profile_control")))
+        self.assert_rejected(r"body\.dimensions\[0\]: unknown or missing required field", lambda source: source["body"]["dimensions"][0].__setitem__("extra", 1))
+        self.assert_rejected(r"body\.dimensions\[0\]\.owner: invalid part address", lambda source: source["body"]["dimensions"][0]["owner"].__setitem__("kind", "joint"))
+        self.assert_rejected(r"body\.dimensions\[0\]\.role: expected non-empty role", lambda source: source["body"]["dimensions"][0].__setitem__("role", ""))

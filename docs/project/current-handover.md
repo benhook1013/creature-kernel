@@ -12,7 +12,7 @@ untrusted until verified live:
 - Checkout: `/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor`
 - Worktree: `/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor`
 - Branch: `codex/owned-root-assembly-successor`
-- Pull request: none yet; successor-plan worktree is not a PR
+- Pull request: PR #127 is an open draft for `codex/owned-root-assembly-successor`
 
 ## Live verification checklist
 

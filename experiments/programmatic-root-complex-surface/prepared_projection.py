@@ -7,21 +7,15 @@ import json
 import math
 from pathlib import Path
 
-
 class PreparedProjectionError(ValueError): pass
-
 
 class _DuplicateJSONKeyError(ValueError): pass
 
-
 class _NonFiniteJSONConstantError(ValueError): pass
-
 
 class _NonFiniteJSONNumberError(ValueError): pass
 
-
 class _JSONRootTypeError(TypeError): pass
-
 _TOP = {"basis", "body", "contract", "extensions", "profiles", "source"}
 _BODY = {"attachments", "capabilities", "dimensions", "fields", "frames", "joints", "landmarks", "modules", "parts", "regions", "sockets"}
 _COUNT = {"parts": 18, "frames": 16, "landmarks": 43, "dimensions": 153}
@@ -107,8 +101,15 @@ def _part(rows, owner, parent):
     return translation, where
 def _add(a, b): result = tuple(x + y for x, y in zip(a, b)); _ok(all(_finite(value) for value in result), "derived point", "expected finite number"); return result
 def _validate_dimensions(rows):
-    for i, raw in enumerate(rows): where, row = f"body.dimensions[{i}]", _dict(raw, f"body.dimensions[{i}]"); _ok(set(row) == {"owner", "role", "value"}, where, "unknown or missing required field"); _addr(row["owner"], f"{where}.owner"); _ok(isinstance(row["role"], str) and row["role"], f"{where}.role", "expected non-empty role"); _num(row["value"], f"{where}.value", True)
-def _dimension(rows, owner, role): row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); return row["value"], f"{where}.value; {_D}"
+    for i, raw in enumerate(rows):
+        where, row = f"body.dimensions[{i}]", _dict(raw, f"body.dimensions[{i}]")
+        _ok(set(row) == {"owner", "role", "value"}, where, "unknown or missing required field")
+        _addr(row["owner"], f"{where}.owner")
+        _ok(isinstance(row["role"], str) and row["role"], f"{where}.role", "expected non-empty role")
+        _num(row["value"], f"{where}.value", True)
+def _dimension(rows, owner, role):
+    row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions")
+    return row["value"], f"{where}.value; {_D}"
 def _landmark(rows, owner, role, frame):
     row, where = _pick(rows, owner, role, {"owner", "role", "frame", "position"}, "landmarks"); ref = _dict(row["frame"], f"{where}.frame"); _ok(set(ref) == {"owner", "role"} and (_addr(ref["owner"], where), ref["role"]) == frame, where, "invalid landmark frame"); return _vec(row["position"], f"{where}.position"), where
 def _world_part(part_data, world, owner, parent):
@@ -165,7 +166,6 @@ def prepare_standard_neutral(path):
     scalars = {name: _bilateral_scalar(body["dimensions"], owners[role], dimension_role, name)
                for name, (role, dimension_role) in _BILATERAL_SCALARS.items()}
     return {"source": {"document": source["source"]["document"], "namespace": ns, "sha256": digest, "provenance": "raw_source_utf8_bytes_sha256_v1"}, "basis": dict(source["basis"]), "frames": {"body": frame_body}, "landmarks": landmarks, "stations": stations, "scalars": scalars}
-
 
 def canonical_json_bytes(value): return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
 def canonical_json_sha256(value): return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
