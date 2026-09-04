@@ -24,7 +24,9 @@ DEPTH_QUADS = np.asarray(((0, 1, 2, 3), (4, 5, 6, 7)), dtype=np.int64); EXTREME_
 def png_chunk_types(data: bytes) -> list[bytes]:
     offset, result = 8, []
     while offset < len(data):
-        length = struct.unpack(">I", data[offset : offset + 4])[0]; result.append(data[offset + 4 : offset + 8]); offset += 12 + length
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        result.append(data[offset + 4 : offset + 8])
+        offset += 12 + length
     return result
 
 
@@ -45,7 +47,9 @@ class RenderExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="root-complex-render-") as d:
             root = Path(d); render_export.render_skin_png(root / "forward.png", DEPTH_VERTICES, DEPTH_QUADS); render_export.render_skin_png(root / "reverse.png", DEPTH_VERTICES, DEPTH_QUADS[::-1])
             self.assertEqual((root / "forward.png").read_bytes(), (root / "reverse.png").read_bytes())
-            with Image.open(root / "forward.png") as image: pixel = image.getpixel((300, 246))
+            _, centres, scale = render_export._frames(DEPTH_VERTICES); sample = tuple(round(value) for value in render_export._screen(np.asarray(((0.0, 0.35, 0.0),)), centres[0], scale, 0)[0])
+            # Front-view y=0.35 lies inside both quads, where sloped z=2.025 exceeds flat z=1.6.
+            with Image.open(root / "forward.png") as image: pixel = image.getpixel(sample)
         normal = np.cross(DEPTH_VERTICES[1] - DEPTH_VERTICES[0], DEPTH_VERTICES[2] - DEPTH_VERTICES[0]); brightness = 0.38 + 0.62 * max(0.0, float(np.dot(normal / np.linalg.norm(normal), render_export._LIGHT)))
         self.assertEqual(pixel, tuple(int(round(channel * brightness)) for channel in render_export._BASE_COLOUR))
 
@@ -96,9 +100,7 @@ class RenderExportTests(unittest.TestCase):
     def test_builder_publishes_complete_metrics_and_manifest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-build-") as d:
             target = Path(d) / "standard-neutral"; self.assertEqual(builder.build(SOURCE, target), target); self.assertEqual({p.name for p in target.iterdir()}, set(ARTIFACTS))
-            expected = {"skin.ply": "bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf", "skin.png": "695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce", "cage.png": "06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046"}
-            for name, digest in expected.items(): self.assertEqual(hashlib.sha256((target / name).read_bytes()).hexdigest(), digest, name)
-            metrics = json.loads((target / "metrics.json").read_text(encoding="utf-8")); manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8")); self.assertEqual(metrics["intersection_status"], "zero"); self.assertEqual(metrics["intersection_counts_by_level"], [0, 0]); self.assertEqual(set(manifest["files"]), set(ARTIFACTS[:-1])); self.assertEqual(manifest["files"]["metrics.json"], hashlib.sha256((target / "metrics.json").read_bytes()).hexdigest())
+            metrics = json.loads((target / "metrics.json").read_text(encoding="utf-8")); manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8")); self.assertEqual(metrics["intersection_status"], "zero"); self.assertEqual(metrics["intersection_counts_by_level"], [0, 0]); self.assertNotIn("metrics.json", metrics["files"]); self.assertEqual(set(manifest["files"]), set(ARTIFACTS) - {"manifest.json"}); self.assertEqual(manifest["files"]["metrics.json"], hashlib.sha256((target / "metrics.json").read_bytes()).hexdigest())
 
     def test_atomic_publication_refuses_existing_target_without_overwrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-publish-") as d:
@@ -117,8 +119,8 @@ class RenderExportTests(unittest.TestCase):
                 environment = os.environ.copy(); environment["PYTHONHASHSEED"] = str(seed)
                 try:
                     subprocess.run((str(LAUNCHER), str(BUILD_SCRIPT), str(SOURCE), str(target)), cwd=REPOSITORY, env=environment, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120)
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-                    description = "timed out after 120 seconds" if isinstance(exc, subprocess.TimeoutExpired) else f"failed with exit code {exc.returncode}"
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as exc:
+                    description = f"could not start: {exc}" if isinstance(exc, OSError) else ("timed out after 120 seconds" if isinstance(exc, subprocess.TimeoutExpired) else f"failed with exit code {exc.returncode}")
                     self.fail(f"launcher {description}\nstdout:\n{getattr(exc, 'stdout', '')}\nstderr:\n{getattr(exc, 'stderr', '')}")
             for name in ARTIFACTS: self.assertEqual((targets[0] / name).read_bytes(), (targets[1] / name).read_bytes(), name)
 

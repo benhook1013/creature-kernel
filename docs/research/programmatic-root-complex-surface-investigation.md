@@ -16,7 +16,7 @@ The execution procedure below is retained as the investigation's historical
 plan. The terminal outcome recorded here supersedes its continuation steps for
 this seven-ring candidate.
 
-## Terminal outcome (2026-09-03)
+## Terminal outcome (2026-09-03 NZST)
 
 The seven-ring candidate exhausted exactly three frozen shared correction
 rounds. Round 1 fixed the measured shoulder intersections; round 2 improved
@@ -31,7 +31,18 @@ correction round is allowed.
 
 Structural evidence still passed: the cage has 72 vertices and 63 quads; the
 level-2 surface has 1,053 vertices and 1,008 quads; level-1 and level-2
-intersection counts are both zero; and all five final clearance ratios pass.
+intersection counts are both zero; and all five reported clearance labels
+pass. Those labels represent only four distinct clearance measurements:
+`groin = min(right) - max(left)` and pairwise `medial_thigh = min(right -
+left)` are algebraically the same scalar, tested at `0.020 S` and `0.025 S`,
+respectively. This is a known terminal-candidate measurement limitation; it
+does not overturn the pass at the stricter `0.025 S` threshold and is not
+reused by the owned-root successor.
+The now-published normal-angle/fold diagnostic, which makes no C1/G1 claim,
+observed at level 1: 480 interior edges, 16 angles > pi/2, and max
+2.950328334548629 rad; level 2: 1,968 edges, 12 > pi/2, and max
+2.8042631317384212 rad. These are diagnostic observations, not an added
+acceptance gate.
 This is a scoped rejection of this seven-ring candidate, not formal Stage 1,
 not a global rejection of programmatic or hybrid surfaces, and not authority
 to reactivate DR-0009, DR-0010, or another parked workstream.
@@ -47,12 +58,16 @@ the recorded SHA-256 identities are:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `prepared.json` | `48503089e82b5332dc12caaad2b85eab8749639e2af8952a13badb4bff774916` |
+| `prepared.json` | `7d9c6e50d0d6c85bc9e9e2793f74c5a292b3962764bb913c055b593275b74c80` |
 | `skin.ply` | `bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf` |
 | `skin.png` | `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce` |
 | `cage.png` | `06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046` |
-| `metrics.json` | `253786962faf206285a058804af58e4c19a40c643cc5cd1ed27d91242d018fa8` |
-| `manifest.json` | `b13659dfc1cd347582cf3cc4cea8a2e4177c67654b1fd26acb76b43b9006b3fb` |
+| `metrics.json` | `54fbf1ad90da86fbc58cadc79b093900557363e5096cac6c2501c1a271b8c1d4` |
+| `manifest.json` | `8e7e48542acc3cb2e4c289a7bb48ce5c4aee91e0418717aa78adef8dc30f9daf` |
+
+The terminal evidence observed Python `3.10.12`; the launcher validated its
+pinned package environment: NumPy `2.2.6`, Pillow `11.1.0`, and scikit-image
+`0.25.2`.
 
 The evidence can be regenerated with the README's standard-neutral launcher
 command; its output target must be a new temporary path. The next retained

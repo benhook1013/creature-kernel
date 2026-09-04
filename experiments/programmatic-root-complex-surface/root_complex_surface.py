@@ -3,12 +3,11 @@
 from collections import Counter, defaultdict, deque
 from collections.abc import Mapping
 from dataclasses import dataclass
-from math import cos, isfinite, pi, sin
+from math import cos, hypot, isfinite, pi, sin
 
 import numpy as np
 
 import mesh_correctness
-
 
 RING_NAMES = (
     "neck_collar",
@@ -35,7 +34,6 @@ _RECORD_FIELDS = {kind: frozenset(fields.split()) for kind, fields in (
     ("frame", "lateral_axis up_axis forward_axis provenance"), ("landmark", "point provenance"),
     ("station", "center lateral_radius front_extent back_extent provenance"), ("scalar", "value provenance"))}
 
-
 @dataclass(frozen=True)
 class Mesh:
     vertices: tuple[tuple[float, float, float], ...]
@@ -47,14 +45,12 @@ class Mesh:
     boundary_loops: tuple[tuple[str, tuple[int, ...]], ...]
     triangles: tuple[tuple[int, int, int], ...] = ()
 
-
 @dataclass(frozen=True)
 class SurfaceEvaluation:
     cage: Mesh
     levels: tuple[Mesh, ...]
     intersection_counts: tuple[int, ...] = ()
     clearance_ratios: tuple[tuple[str, float], ...] = ()
-
 
 @dataclass(frozen=True)
 class TopologyReport:
@@ -66,7 +62,6 @@ class TopologyReport:
     boundary_lengths: tuple[int, ...]
     valence_inventory: tuple[tuple[int, int], ...]
 
-
 def _edges(faces):
     uses = defaultdict(list)
     for fi, face in enumerate(faces):
@@ -74,7 +69,6 @@ def _edges(faces):
             b = face[(i + 1) % 4]
             uses[tuple(sorted((a, b)))].append((fi, a, b))
     return uses
-
 
 def _orient(faces):
     uses = _edges(faces)
@@ -98,7 +92,6 @@ def _orient(faces):
     if len(flips) != len(faces):
         raise ValueError("symbolic topology is disconnected")
     return tuple(tuple(reversed(face)) if flips[i] else tuple(face) for i, face in enumerate(faces))
-
 
 def symbolic_topology():
     """Return fixed control IDs, oriented quads, and named cuff loops."""
@@ -131,8 +124,6 @@ def symbolic_topology():
              ("left_thigh", (64, 67, 66, 65)),
              ("right_thigh", (68, 69, 70, 71)))
     return tuple(ids), _orient(faces), loops
-
-
 def validate_topology(vertex_count, faces, loops, expected_valences=None):
     if any(len(face) != 4 or len(set(face)) != 4 for face in faces):
         raise ValueError("all faces must be non-degenerate quads")
@@ -141,15 +132,14 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
     uses = _edges(faces)
     if any(len(value) not in (1, 2) for value in uses.values()):
         raise ValueError("non-manifold edge")
-    _orient(faces)
+    if _orient(faces) != tuple(tuple(face) for face in faces): raise ValueError("shared interior edge uses the same direction")
     boundary = {edge for edge, value in uses.items() if len(value) == 1}
     boundary_directed = {(a, b) for value in uses.values() if len(value) == 1 for _, a, b in value}
-    declared, declared_directed = set(), set()
-    for _, loop in loops:
-        if len(loop) < 3 or len(set(loop)) != len(loop):
-            raise ValueError("boundary loop is not simple")
-        edges = [(loop[i], loop[(i + 1) % len(loop)]) for i in range(len(loop))]
-        declared.update(tuple(sorted(edge)) for edge in edges); declared_directed.update(edges)
+    if any(len(loop) < 3 or len(set(loop)) != len(loop) for _, loop in loops):
+        raise ValueError("boundary loop is not simple")
+    loop_edges = [(loop[i], loop[(i + 1) % len(loop)]) for _, loop in loops for i in range(len(loop))]
+    declared = {tuple(sorted(edge)) for edge in loop_edges}
+    declared_directed = set(loop_edges)
     if declared != boundary:
         raise ValueError("declared boundary loops do not match mesh boundary")
     if declared_directed != boundary_directed:
@@ -162,75 +152,62 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
     inventory = tuple(sorted(Counter(len(v) for v in neighbors.values()).items()))
     if expected_valences is not None and inventory != tuple(expected_valences):
         raise ValueError(f"unexpected valence inventory: {inventory}")
-    report = TopologyReport(vertex_count, len(uses), len(faces), len(boundary),
-                            vertex_count - len(uses) + len(faces), tuple(len(loop) for _, loop in loops), inventory)
+    report = TopologyReport(vertex_count, len(uses), len(faces), len(boundary), vertex_count - len(uses) + len(faces), tuple(len(loop) for _, loop in loops), inventory)
     if report.euler != 2 - len(loops):
         raise ValueError("Euler characteristic does not match boundary count")
     return report
-
-
 def _vector(value, path):
     try:
         result = np.asarray(value, dtype=float)
-    except (TypeError, ValueError) as exc:
+    except (OverflowError, TypeError, ValueError) as exc:
         raise ValueError(f"{path} must be a finite 3-vector") from exc
     if result.shape != (3,) or not np.isfinite(result).all():
         raise ValueError(f"{path} must be a finite 3-vector")
     return result
-
-
 def _number(value, path, positive=False):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
-        raise ValueError(f"{path} must be finite")
-    value = float(value)
-    if positive and value <= 0:
-        raise ValueError(f"{path} must be positive")
+    if isinstance(value, bool) or not isinstance(value, (int, float)): raise ValueError(f"{path} must be finite")
+    try: value = float(value)
+    except (OverflowError, TypeError, ValueError) as exc: raise ValueError(f"{path} must be finite") from exc
+    if not isfinite(value): raise ValueError(f"{path} must be finite")
+    if positive and value <= 0: raise ValueError(f"{path} must be positive")
     return value
-
-
 def _record(mapping, key, kind):
-    try:
-        value = mapping[key]
-    except (KeyError, TypeError) as exc:
-        raise ValueError(f"missing {kind} {key}") from exc
+    value = mapping.get(key)
     if (not isinstance(value, Mapping) or set(value) != _RECORD_FIELDS[kind] or not
             (isinstance(value.get("provenance"), str) and value["provenance"].strip())):
         raise ValueError(f"{kind} {key} has unknown or missing fields or requires provenance")
     return value
-
-
 def _exact_keys(value, expected, path, required=None):
     keys = set(value) if isinstance(value, Mapping) else None
     if keys is None or not keys <= expected or not (expected if required is None else required) <= keys: raise ValueError(f"{path} has unknown or missing fields")
 
-
 def _prepared(prepared):
     if not isinstance(prepared, Mapping):
         raise ValueError("prepared input must be a mapping")
-    pending = [prepared]
+    seen = set(); pending = [prepared]
     for item in pending:
-        if isinstance(item, Mapping):
-            keys = {"".join(char for char in str(key).lower() if char.isalnum()) for key in item}
+        if isinstance(item, Mapping) and id(item) not in seen:
+            seen.add(id(item)); keys = {"".join(char for char in str(key).lower() if char.isalnum()) for key in item}
             if keys & {"profile", "profileid"}:
                 raise ValueError("profile identity is forbidden geometry input")
             if keys & _FORBIDDEN_KEYS:
                 raise ValueError("forbidden prepared geometry input")
             pending.extend(item.values())
-        elif isinstance(item, (tuple, list)):
-            pending.extend(item)
+        elif isinstance(item, (tuple, list)) and id(item) not in seen:
+            seen.add(id(item)); pending.extend(item)
     _exact_keys(prepared, _PREPARED_FIELDS, "prepared input"); _exact_keys(prepared["source"], _SOURCE_FIELDS, "prepared.source"); _exact_keys(prepared["basis"], _BASIS_FIELDS, "prepared.basis")
-    for name, expected, required in (("frames", _FRAME_NAMES, None), ("landmarks", _LANDMARK_NAMES, None), ("stations", _STATION_NAMES, None), ("scalars", _SCALAR_NAMES, _REQUIRED_SCALARS)):
-        _exact_keys(prepared[name], expected, f"prepared.{name}", required)
+    for name, expected, required in (("frames", _FRAME_NAMES, None), ("landmarks", _LANDMARK_NAMES, None), ("stations", _STATION_NAMES, None), ("scalars", _SCALAR_NAMES, _REQUIRED_SCALARS)): _exact_keys(prepared[name], expected, f"prepared.{name}", required)
     stations, landmarks = prepared.get("stations"), prepared.get("landmarks"); frames, scalars = prepared.get("frames"), prepared.get("scalars")
     if not all(isinstance(x, Mapping) for x in (stations, landmarks, frames, scalars)):
         raise ValueError("stations, landmarks, frames, and scalars mappings are required")
     if len(stations) > 10 or len(landmarks) > 24 or len(frames) > 8:
         raise ValueError("prepared input exceeds admission caps")
     frame = _record(frames, "body", "frame")
-    axes = tuple(_vector(frame[name], f"frames.body.{name}") for name in
-                 ("lateral_axis", "up_axis", "forward_axis"))
-    L, U, F = (axis / np.linalg.norm(axis) for axis in axes)
-    if any(not np.isfinite(axis).all() for axis in (L, U, F)) or np.dot(np.cross(L, U), F) < 0.999:
+    axes = tuple(_vector(frame[name], f"frames.body.{name}") for name in ("lateral_axis", "up_axis", "forward_axis"))
+    lengths = tuple(hypot(*axis) for axis in axes)
+    if any(not isfinite(length) or length <= 0 for length in lengths): raise ValueError("body frame axes must have finite positive norms")
+    L, U, F = (axis / length for axis, length in zip(axes, lengths))
+    if any(abs(np.dot((L, U, F)[i], (L, U, F)[j])) > 1e-8 for i in range(3) for j in range(i)) or np.dot(np.cross(L, U), F) <= 1 - 1e-8:
         raise ValueError("body frame must be orthonormal and right-handed")
     constants, constant_provenance = dict(CONSTANTS), {key: f"formula_constant.{key}.v1" for key in CONSTANTS}
     for key in constants:
@@ -242,12 +219,10 @@ def _prepared(prepared):
         if not low <= constants[key] <= high:
             raise ValueError(f"scalar {key} outside frozen range")
     return stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame["provenance"]
-
-
-def build_cage(prepared):
-    stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame_prov = _prepared(prepared)
-    ids, faces, loops = symbolic_topology()
-    validate_topology(72, faces, loops, EXPECTED_VALENCES)
+def build_cage(prepared): return _build_cage(_prepared(prepared))
+def _build_cage(prepared_values):
+    stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame_prov = prepared_values
+    ids, faces, loops = symbolic_topology(); validate_topology(72, faces, loops, EXPECTED_VALENCES)
     points, formulas, dependencies, provenance = [], [], [], []
 
     def station_values(name):
@@ -263,8 +238,7 @@ def build_cage(prepared):
         rec = _record(landmarks, name, "landmark")
         return _vector(rec.get("point"), f"landmarks.{name}.point"), rec["provenance"]
 
-    ring_sources = ("neck_collar", "upper_ribcage_shoulder", "lower_ribcage", "waist_abdomen",
-                    "lower_abdomen", "upper_pelvis", "lower_pelvis")
+    ring_sources = ("neck_collar", "upper_ribcage_shoulder", "lower_ribcage", "waist_abdomen", "lower_abdomen", "upper_pelvis", "lower_pelvis")
     ring_data = {name: station_values(name) for name in ring_sources}
     thigh_radius_record = _record(scalars, "thigh_lateral_radius", "scalar"); thigh_depth_record = _record(scalars, "thigh_depth", "scalar")
     thigh_radius = _number(thigh_radius_record.get("value"), "scalars.thigh_lateral_radius.value", True); thigh_depth = _number(thigh_depth_record.get("value"), "scalars.thigh_depth.value", True)
@@ -276,18 +250,15 @@ def build_cage(prepared):
         thigh_data[side] = (start, mid, start + constants["eta"] * route, start_prov, mid_prov)
 
     clamp_names = ("lower_ribcage", "lower_abdomen", "lower_pelvis"); clamped_ring_names = set()
-    envelope = [(float(np.dot(ring_data[name][0], U)), *ring_data[name][1:]) for name in
-                ("upper_ribcage_shoulder", "waist_abdomen", "upper_pelvis")]
+    envelope = [(float(np.dot(ring_data[name][0], U)), *ring_data[name][1:]) for name in ("upper_ribcage_shoulder", "waist_abdomen", "upper_pelvis")]
     seats = tuple(thigh_data[side][2] for side in ("left", "right"))
-    seat_deps = tuple(f"landmarks.thigh_{point}_{side}" for side in ("left", "right") for point in
-                      ("start", "mid")) + ("scalars.thigh_lateral_radius", "scalars.thigh_depth", "scalars.eta")
+    seat_deps = tuple(f"landmarks.thigh_{point}_{side}" for side in ("left", "right") for point in ("start", "mid")) + ("scalars.thigh_lateral_radius", "scalars.thigh_depth", "scalars.eta")
     seat_prov = "|".join((*[item for side in ("left", "right") for item in thigh_data[side][3:]],
                           thigh_radius_record["provenance"], thigh_depth_record["provenance"],
                           constant_provenance["eta"]))
     seat_extents = (max(abs(float(np.dot(seat, L))) for seat in seats) + thigh_radius,
                     thigh_depth, thigh_depth)
-    envelope.append((float(np.mean([np.dot(seat, U) for seat in seats])), seat_extents,
-                     seat_deps, seat_prov))
+    envelope.append((float(np.mean([np.dot(seat, U) for seat in seats])), seat_extents, seat_deps, seat_prov))
     if any(high[0] <= low[0] for high, low in zip(envelope, envelope[1:])): raise ValueError("axial envelope anchors must descend strictly")
     for name in clamp_names:
         center, values, deps, prov = ring_data[name]
@@ -325,8 +296,8 @@ def build_cage(prepared):
 
     arm_depth_record = _record(scalars, "arm_root_depth", "scalar"); arm_out_record = _record(scalars, "arm_root_outward", "scalar")
     arm_depth = _number(arm_depth_record.get("value"), "scalars.arm_root_depth.value", True); arm_out = _number(arm_out_record.get("value"), "scalars.arm_root_outward.value", True)
-    neck_center, neck_prov = ring_data["neck_collar"][0], ring_data["neck_collar"][3]; upper_center = ring_data["upper_ribcage_shoulder"][0]
-    neck_separation = float(np.dot(neck_center - upper_center, U))
+    neck_center, neck_prov = ring_data["neck_collar"][0], ring_data["neck_collar"][3]; upper_station_center = ring_data["upper_ribcage_shoulder"][0]
+    neck_separation = float(np.dot(neck_center - upper_station_center, U))
     if not isfinite(neck_separation) or neck_separation <= 0:
         raise ValueError("neck must be above upper ribcage")
     branch_data, socket_data = {}, {}
@@ -430,16 +401,13 @@ def build_cage(prepared):
     vertices = tuple(tuple(float(v) for v in point) for point in points)
     mesh = Mesh(vertices, faces, ids, tuple(formulas), tuple(dependencies), tuple(provenance), loops); validate_geometry(mesh); return mesh
 
-
 def _scale(mesh):
     loop_map = dict(mesh.boundary_loops)
-    centroids = [np.mean([mesh.vertices[i] for i in loop_map[name]], axis=0)
-                 for name in ("neck", "left_thigh", "right_thigh")]
+    centroids = [np.mean([mesh.vertices[i] for i in loop_map[name]], axis=0) for name in ("neck", "left_thigh", "right_thigh")]
     value = np.linalg.norm(centroids[0] - (centroids[1] + centroids[2]) / 2)
     if not isfinite(value) or value <= 0:
         raise ValueError("trial scale must be positive")
     return value
-
 
 def validate_geometry(mesh, evaluated=False):
     validate_topology(len(mesh.vertices), mesh.quads, mesh.boundary_loops)
@@ -467,15 +435,14 @@ def validate_geometry(mesh, evaluated=False):
                 raise ValueError("triangle below area threshold")
     return scale
 
-
 def subdivide(mesh, level=1):
     if level not in (1, 2):
         raise ValueError("subdivision level must be one or two")
+    validate_topology(len(mesh.vertices), mesh.quads, mesh.boundary_loops)
     result = mesh
     for iteration in range(level):
-        result = _subdivide_once(result, iteration + 1)
+        result, _ = _subdivide_once(result, iteration + 1)
     return result
-
 
 def _subdivide_once(mesh, level):
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -497,6 +464,8 @@ def _subdivide_once(mesh, level):
     for i, point in enumerate(vertices):
         if i in boundary_neighbors:
             neighbors = sorted(boundary_neighbors[i])
+            if len(neighbors) != 2 or neighbors[0] == neighbors[1]:
+                raise ValueError("boundary vertex must have exactly two boundary neighbors")
             value = (6 * point + vertices[neighbors[0]] + vertices[neighbors[1]]) / 8
             formula = "catmull_clark.open_boundary_vertex"
             dependency_indices = (i, *neighbors)
@@ -511,8 +480,7 @@ def _subdivide_once(mesh, level):
             dependency = tuple(mesh.control_ids[j] for j in dependency_indices)
         new_vertices.append(value); ids.append(f"L{level}.v.{mesh.control_ids[i]}")
         formulas.append(formula); deps.append(tuple(dict.fromkeys(dependency)))
-        prov.append(tuple(dict.fromkeys(p for j in dependency_indices
-                                     for p in mesh.provenance_ids[j])))
+        prov.append(tuple(dict.fromkeys(p for j in dependency_indices for p in mesh.provenance_ids[j])))
     edge_index = {}
     for edge in edge_keys:
         edge_index[edge] = len(new_vertices)
@@ -523,14 +491,12 @@ def _subdivide_once(mesh, level):
         else:
             value = (vertices[a] + vertices[b] + face_points[edge_uses[0][0]] + face_points[edge_uses[1][0]]) / 4
             formula = "catmull_clark.interior_edge"
-            dependency = (mesh.control_ids[a], mesh.control_ids[b]) + tuple(
-                mesh.control_ids[v] for use in edge_uses for v in mesh.quads[use[0]])
+            dependency = (mesh.control_ids[a], mesh.control_ids[b]) + tuple(mesh.control_ids[v] for use in edge_uses for v in mesh.quads[use[0]])
         new_vertices.append(value); ids.append(f"L{level}.e.{mesh.control_ids[a]}|{mesh.control_ids[b]}")
         formulas.append(formula); deps.append(tuple(dict.fromkeys(dependency)))
         source_indices = (a, b) if len(edge_uses) == 1 else (a, b, *(
             vertex for use in edge_uses for vertex in mesh.quads[use[0]]))
-        prov.append(tuple(dict.fromkeys(p for index in source_indices
-                                       for p in mesh.provenance_ids[index])))
+        prov.append(tuple(dict.fromkeys(p for index in source_indices for p in mesh.provenance_ids[index])))
     face_indices = []
     for fi, face in enumerate(mesh.quads):
         face_indices.append(len(new_vertices)); new_vertices.append(face_points[fi])
@@ -541,8 +507,7 @@ def _subdivide_once(mesh, level):
     for fi, face in enumerate(mesh.quads):
         for i, vertex in enumerate(face):
             previous = face[i - 1]; following = face[(i + 1) % 4]
-            quads.append((vertex, edge_index[tuple(sorted((vertex, following)))],
-                          face_indices[fi], edge_index[tuple(sorted((previous, vertex)))]))
+            quads.append((vertex, edge_index[tuple(sorted((vertex, following)))], face_indices[fi], edge_index[tuple(sorted((previous, vertex)))]))
     loops = []
     for name, loop in mesh.boundary_loops:
         expanded = []
@@ -552,18 +517,18 @@ def _subdivide_once(mesh, level):
     output_vertices = tuple(tuple(float(x) for x in point) for point in new_vertices)
     triangles = tuple(triangle for q in quads for triangle in ((q[0], q[1], q[2]), (q[0], q[2], q[3])))
     output = Mesh(output_vertices, tuple(quads), tuple(ids), tuple(formulas), tuple(deps),
-                  tuple(prov), tuple(loops), triangles); validate_geometry(output, evaluated=True); return output
-
+                  tuple(prov), tuple(loops), triangles)
+    return output, validate_geometry(output, evaluated=True)
 
 def evaluate(prepared, levels=2):
     if levels not in (1, 2):
         raise ValueError("levels must be one or two")
-    _, _, _, (lateral, up, forward), _, _, _ = _prepared(prepared)
-    cage = build_cage(prepared)
+    prepared_values = _prepared(prepared)
+    _, _, _, (lateral, up, forward), _, _, _ = prepared_values
+    cage = _build_cage(prepared_values)
     outputs, intersection_counts, clearance_ratios, current = [], [], (), cage
     for level in range(1, levels + 1):
-        current = _subdivide_once(current, level)
-        scale = validate_geometry(current, evaluated=True)
+        current, scale = _subdivide_once(current, level)
         pairs = mesh_correctness.validate_triangle_intersections(
             current.vertices, current.triangles, scale)
         intersection_counts.append(len(pairs))
@@ -574,5 +539,4 @@ def evaluate(prepared, levels=2):
             clearance_ratios = tuple((name, float(values[name])) for name in (
                 "neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
         outputs.append(current)
-    return SurfaceEvaluation(cage, tuple(outputs), tuple(intersection_counts),
-                             clearance_ratios)
+    return SurfaceEvaluation(cage, tuple(outputs), tuple(intersection_counts), clearance_ratios)

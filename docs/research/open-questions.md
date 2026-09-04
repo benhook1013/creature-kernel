@@ -72,7 +72,7 @@ experiments, decision records, fixtures, and benchmarks.
 | --- | --- | --- |
 | RQ-060 | Which language and build system best support the compiler and runtime boundary? | Open |
 | RQ-061 | Which geometry library or host tool should power the first surface experiment? | Open |
-| RQ-062 | Which game engine should receive the first adapter? | Partially answered — qualified: Godot 4.7.2 is the provisional first reference-host feasibility candidate only; the question remains open pending the bounded trial. See [first host runtime evaluation](first-host-runtime-evaluation.md). |
+| RQ-062 | Which game engine should receive the first adapter? | Partially answered — qualified: the bounded Godot 4.7.2 feasibility trial is complete, but no permanent host or adapter is selected. A later comparison can refresh Bevy 0.19 using first-party BRP and separately qualified community MCP, agent, and physics tooling. See [first host runtime evaluation](first-host-runtime-evaluation.md). |
 | RQ-063 | Which collision, compute, and deformable-body backends should be evaluated? | Open |
 | RQ-064 | What serialized format and compatibility model should the runtime avatar use? | Open |
 | RQ-065 | How are large generated artifacts stored and reproduced? | Open |

@@ -2,28 +2,26 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
+import json
+import math
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
-
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
 import mesh_correctness  # noqa: E402
-
+import build_root_complex  # noqa: E402
 
 def synthetic_prepared():
     def station(center, radius, front, back, name):
-        return {
-            "center": center,
-            "lateral_radius": radius,
-            "front_extent": front,
-            "back_extent": back,
-            "provenance": f"synthetic.station.{name}",
-        }
+        return dict(center=center, lateral_radius=radius, front_extent=front,
+                    back_extent=back, provenance=f"synthetic.station.{name}")
 
     def landmark(point, name):
         return {"point": point, "provenance": f"synthetic.landmark.{name}"}
@@ -42,83 +40,56 @@ def synthetic_prepared():
     }
     landmarks = {}
     for side, sign in (("left", -1.0), ("right", 1.0)):
-        landmarks[f"shoulder_peak_{side}"] = landmark(
-            (sign * 1.38, 2.55, 0.0), f"shoulder_peak_{side}")
-        landmarks[f"axilla_{side}"] = landmark(
-            (sign * 1.25, 1.76, 0.0), f"axilla_{side}")
-        landmarks[f"thigh_start_{side}"] = landmark(
-            (sign * 0.78, -0.70, 0.0), f"thigh_start_{side}")
-        landmarks[f"thigh_mid_{side}"] = landmark(
-            (sign * 0.82, -1.85, 0.03), f"thigh_mid_{side}")
-    return {
-        "source": {"document": "synthetic_root_complex", "namespace": "synthetic", "sha256": "synthetic-source", "provenance": "synthetic.source"},
-        "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
-        "stations": stations,
-        "landmarks": landmarks,
-        "frames": {"body": {
-            "lateral_axis": (1.0, 0.0, 0.0),
-            "up_axis": (0.0, 1.0, 0.0),
-            "forward_axis": (0.0, 0.0, 1.0),
-            "provenance": "synthetic.frame.body",
-        }},
-        "scalars": {
-            "arm_root_depth": scalar(0.34, "arm_root_depth"),
-            "arm_root_outward": scalar(0.22, "arm_root_outward"),
-            "thigh_lateral_radius": scalar(0.70, "thigh_lateral_radius"),
-            "thigh_depth": scalar(0.42, "thigh_depth"),
-        },
-    }
-
-
+        for kind, x, y, z in (("shoulder_peak", 1.38, 2.55, 0.0),
+                              ("axilla", 1.25, 1.76, 0.0),
+                              ("thigh_start", 0.78, -0.70, 0.0),
+                              ("thigh_mid", 0.82, -1.85, 0.03)):
+            name = f"{kind}_{side}"; landmarks[name] = landmark((sign * x, y, z), name)
+    frame = dict(zip(("lateral_axis", "up_axis", "forward_axis"),
+                     ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))))
+    frame["provenance"] = "synthetic.frame.body"
+    scalars = {name: scalar(value, name) for name, value in (
+        ("arm_root_depth", 0.34), ("arm_root_outward", 0.22),
+        ("thigh_lateral_radius", 0.70), ("thigh_depth", 0.42))}
+    return {"source": {"document": "synthetic_root_complex", "namespace": "synthetic", "sha256": "synthetic-source", "provenance": "synthetic.source"},
+            "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
+            "stations": stations, "landmarks": landmarks, "frames": {"body": frame}, "scalars": scalars}
 def independent_subdivision_stencils(quads, loops, vertex_count):
     uses = {}
     for face_index, face in enumerate(quads):
-        for a, b in zip(face, face[1:] + face[:1]):
-            uses.setdefault(tuple(sorted((a, b))), []).append(face_index)
+        for a, b in zip(face, face[1:] + face[:1]): uses.setdefault(tuple(sorted((a, b))), []).append(face_index)
     boundary, incident = {}, {}
     for edge, face_indices in uses.items():
-        for vertex in edge:
-            incident.setdefault(vertex, []).extend(face_indices)
+        for vertex in edge: incident.setdefault(vertex, []).extend(face_indices)
         if len(face_indices) == 1:
-            boundary.setdefault(edge[0], []).append(edge[1])
-            boundary.setdefault(edge[1], []).append(edge[0])
+            boundary.setdefault(edge[0], []).append(edge[1]); boundary.setdefault(edge[1], []).append(edge[0])
     sources = []
-    for vertex in range(vertex_count):
-        sources.append({vertex, *boundary[vertex]} if vertex in boundary else {v for fi in incident[vertex] for v in quads[fi]})
+    for vertex in range(vertex_count): sources.append({vertex, *boundary[vertex]} if vertex in boundary else {v for fi in incident[vertex] for v in quads[fi]})
     edges = tuple(sorted(uses))
-    for edge in edges:
-        source = set(edge) | ({v for fi in uses[edge] for v in quads[fi]} if len(uses[edge]) == 2 else set())
-        sources.append(source)
+    for edge in edges: sources.append(set(edge) | ({v for fi in uses[edge] for v in quads[fi]} if len(uses[edge]) == 2 else set()))
     sources.extend(set(face) for face in quads)
     edge_index = {edge: vertex_count + i for i, edge in enumerate(edges)}
     face_index = {fi: vertex_count + len(edges) + fi for fi in range(len(quads))}
     next_quads = tuple((vertex, edge_index[tuple(sorted((vertex, face[(i + 1) % 4])))], face_index[fi], edge_index[tuple(sorted((face[i - 1], vertex)))]) for fi, face in enumerate(quads) for i, vertex in enumerate(face))
     next_loops = tuple((name, tuple(value for i, vertex in enumerate(loop) for value in (vertex, edge_index[tuple(sorted((vertex, loop[(i + 1) % len(loop)]))) ]))) for name, loop in loops)
     return tuple(sources), next_quads, next_loops
-
-
 def station_fields(name):
     return {f"stations.{name}.{key}" for key in ("center", "lateral_radius", "front_extent", "back_extent")}
-
-
 class SymbolicTopologyTests(unittest.TestCase):
     def test_exact_counts_loops_euler_orientation_and_valences(self):
         ids, quads, loops = surface.symbolic_topology()
         report = surface.validate_topology(len(ids), quads, loops, surface.EXPECTED_VALENCES)
         self.assertEqual(surface.RING_NAMES, ("neck_collar", "upper_ribcage_shoulder", "axilla_transition", "lower_ribcage", "waist_abdomen", "iliac_overlap", "lower_pelvis"))
         self.assertEqual((report.vertex_count, report.edge_count, report.face_count), (72, 138, 63))
-        self.assertEqual(report.boundary_edge_count, 24)
-        self.assertEqual(report.boundary_lengths, (8, 4, 4, 4, 4))
-        self.assertEqual(report.euler, -3)
-        self.assertEqual(report.valence_inventory, ((3, 22), (4, 40), (5, 10)))
-        self.assertEqual(loops, (("neck", (0, 1, 2, 3, 4, 5, 6, 7)),
-                                 ("left_arm", (56, 59, 58, 57)),
-                                 ("right_arm", (60, 63, 62, 61)),
-                                 ("left_thigh", (64, 67, 66, 65)),
+        self.assertEqual((report.boundary_edge_count, report.euler, report.boundary_lengths,
+                          report.valence_inventory), (24, -3, (8, 4, 4, 4, 4), ((3, 22), (4, 40), (5, 10))))
+        self.assertEqual(loops, (("neck", (0, 1, 2, 3, 4, 5, 6, 7)), ("left_arm", (56, 59, 58, 57)),
+                                 ("right_arm", (60, 63, 62, 61)), ("left_thigh", (64, 67, 66, 65)),
                                  ("right_thigh", (68, 69, 70, 71))))
-        self.assertEqual(ids[16:24], tuple(f"ring.axilla_transition.{i}" for i in range(8)))
-        self.assertEqual(ids[56:64], tuple(f"shoulder.{side}.{i}" for side in ("left", "right") for i in range(4)))
-        self.assertEqual(ids[64:72], tuple(f"thigh.{side}.{i}" for side in ("left", "right") for i in range(4)))
+        self.assertEqual((ids[16:24], ids[56:64], ids[64:72]),
+                         (tuple(f"ring.axilla_transition.{i}" for i in range(8)),
+                          tuple(f"shoulder.{side}.{i}" for side in ("left", "right") for i in range(4)),
+                          tuple(f"thigh.{side}.{i}" for side in ("left", "right") for i in range(4))))
         uses = {}
         for face in quads:
             for a, b in zip(face, face[1:] + face[:1]):
@@ -126,27 +97,23 @@ class SymbolicTopologyTests(unittest.TestCase):
         self.assertTrue(all(len(value) in (1, 2) for value in uses.values()))
         self.assertTrue(all(value[0] == tuple(reversed(value[1]))
                             for value in uses.values() if len(value) == 2))
-
     def test_validator_rejects_bad_quad_and_boundary_declaration(self):
         ids, quads, loops = surface.symbolic_topology()
         with self.assertRaisesRegex(ValueError, "quad index"):
             surface.validate_topology(len(ids), quads[:-1] + ((0, 1, 2, 99),), loops)
         with self.assertRaisesRegex(ValueError, "declared boundary"):
             surface.validate_topology(len(ids), quads, loops[:-1])
-        reversed_loop = list(loops)
-        reversed_loop[1] = ("left_arm", tuple(reversed(loops[1][1])))
-        with self.assertRaisesRegex(ValueError, "directed winding"):
-            surface.validate_topology(len(ids), quads, tuple(reversed_loop))
-
-
+        reversed_loop = list(loops); reversed_loop[1] = ("left_arm", tuple(reversed(loops[1][1])))
+        with self.assertRaisesRegex(ValueError, "directed winding"): surface.validate_topology(len(ids), quads, tuple(reversed_loop))
+        same_direction = list(quads); same_direction[8] = tuple(reversed(same_direction[8]))
+        with self.assertRaisesRegex(ValueError, "same direction"): surface.validate_topology(len(ids), tuple(same_direction), loops)
+        reversed_faces = tuple(tuple(reversed(face)) for face in quads); reversed_loops = tuple((name, tuple(reversed(loop))) for name, loop in loops); self.assertEqual(surface.validate_topology(len(ids), reversed_faces, reversed_loops), surface.validate_topology(len(ids), quads, loops))
 class FormulaAndInputTests(unittest.TestCase):
     def test_plain_mapping_build_has_complete_immutable_records(self):
         cage = surface.build_cage(synthetic_prepared())
-        self.assertEqual((len(cage.vertices), len(cage.quads)), (72, 63))
-        self.assertEqual(len(set(cage.control_ids)), 72)
-        self.assertEqual(len(cage.formula_ids), 72)
-        self.assertTrue(all(item for item in cage.dependencies))
-        self.assertTrue(all(item for item in cage.provenance_ids))
+        self.assertEqual((len(cage.vertices), len(cage.quads), len(set(cage.control_ids)),
+                          len(cage.formula_ids)), (72, 63, 72, 72))
+        self.assertTrue(all(item for item in cage.dependencies) and all(item for item in cage.provenance_ids))
         self.assertEqual(set(cage.formula_ids), {
             "station.asymmetric_superellipse", "iliac.blend.superellipse",
             "shoulder.axilla_transition", "shoulder.peak_axilla_collar",
@@ -155,14 +122,26 @@ class FormulaAndInputTests(unittest.TestCase):
         })
         with self.assertRaises(FrozenInstanceError):
             cage.vertices = ()
-
+    def test_numeric_conversion_failures_have_stable_errors(self):
+        prepared = synthetic_prepared(); prepared["scalars"]["n"] = {"value": 10 ** 309, "provenance": "huge.integer"}
+        with self.assertRaises(ValueError) as raised: surface.build_cage(prepared)
+        self.assertEqual(str(raised.exception), "scalars.n.value must be finite"); self.assertIsInstance(raised.exception.__cause__, OverflowError); self.assertEqual(surface._number(2, "ordinary"), 2.0)
+        prepared = synthetic_prepared(); prepared["stations"]["neck_collar"]["center"] = (10 ** 309, 3.1, 0.0)
+        with self.assertRaises(ValueError) as raised: surface.build_cage(prepared)
+        self.assertEqual(str(raised.exception), "stations.neck_collar.center must be a finite 3-vector"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
+        for base, failure in ((int, TypeError), (float, TypeError), (float, ValueError)):
+            class Broken(base):
+                def __float__(self): raise failure("broken conversion")
+            with self.subTest(base=base), self.assertRaises(ValueError) as raised: surface._number(Broken(1), "scalar")
+            self.assertEqual(str(raised.exception), "scalar must be finite"); self.assertIsInstance(raised.exception.__cause__, failure)
+        baseline = surface.build_cage(synthetic_prepared()); ordinary = synthetic_prepared(); ordinary["scalars"]["n"] = {"value": 2.6, "provenance": "ordinary.float"}
+        self.assertEqual(baseline.vertices, surface.build_cage(ordinary).vertices)
     def test_unknown_names_fields_and_provenance_are_rejected(self):
         mutations = (("empty station provenance", lambda p: p["stations"]["neck_collar"].update(provenance="")), ("blank landmark provenance", lambda p: p["landmarks"]["axilla_left"].update(provenance=" \t\n")), ("empty frame provenance", lambda p: p["frames"]["body"].update(provenance="")), ("blank scalar provenance", lambda p: p["scalars"]["thigh_depth"].update(provenance=" \t\n")), ("top-level collection", lambda p: p.update(extra={})), ("frame name", lambda p: p["frames"].update(extra={})), ("landmark name", lambda p: p["landmarks"].update(extra={})), ("station name", lambda p: p["stations"].update(extra={})), ("scalar name", lambda p: p["scalars"].update(extra={})), ("source field", lambda p: p["source"].update(extra="rejected")), ("basis field", lambda p: p["basis"].update(extra="rejected")), ("frame field", lambda p: p["frames"]["body"].update(extra="rejected")), ("landmark field", lambda p: p["landmarks"]["axilla_left"].update(extra="rejected")), ("station field", lambda p: p["stations"]["neck_collar"].update(extra="rejected")), ("scalar field", lambda p: p["scalars"]["thigh_depth"].update(extra="rejected")))
         for kind, mutate in mutations:
             with self.subTest(kind=kind):
                 prepared = synthetic_prepared(); mutate(prepared)
                 with self.assertRaisesRegex(ValueError, "unknown or missing|requires provenance"): surface.build_cage(prepared)
-
     def test_named_boundaries_and_shoulder_offsets_use_canonical_sides(self):
         prepared = synthetic_prepared(); cage = surface.build_cage(prepared)
         lateral = np.array((1.0, 0.0, 0.0))
@@ -181,7 +160,6 @@ class FormulaAndInputTests(unittest.TestCase):
                              - local[(i + 1) % 4, 0] * local[i, 1]
                              for i in range(4))
             self.assertGreater(abs(area), 1e-12)
-
     def test_symmetric_pair_of_pants_routes_are_exact(self):
         _, faces, _ = surface.symbolic_topology()
         expected = []
@@ -191,33 +169,27 @@ class FormulaAndInputTests(unittest.TestCase):
                             for i in range(4))
         expected.append((50, 64, 54, 68))
         self.assertEqual(faces[-9:], tuple(expected[:4]) + tuple(tuple(reversed(face)) for face in expected[4:8]) + (expected[8],))
-
     def test_pelvic_routes_have_no_proper_front_projection_crossings(self):
         cage = surface.build_cage(synthetic_prepared())
         routes = ((50, 51), (51, 52), (52, 53), (53, 54),
                   (50, 49), (49, 48), (48, 55), (55, 54), (50, 54))
         projected = np.asarray(cage.vertices)[:, (0, 1)]
-
         def orientation(a, b, c):
             return ((b[0] - a[0]) * (c[1] - a[1])
                     - (b[1] - a[1]) * (c[0] - a[0]))
-
         def proper_crossing(a, b, c, d):
             ab = orientation(a, b, c) * orientation(a, b, d)
             cd = orientation(c, d, a) * orientation(c, d, b)
             return ab < 0 and cd < 0
-
         for index, (a, b) in enumerate(routes):
             for c, d in routes[index + 1:]:
                 if {a, b} & {c, d}:
                     continue
                 self.assertFalse(proper_crossing(projected[a], projected[b],
                                                  projected[c], projected[d]))
-
     def test_symmetric_fixture_is_mirror_equivalent_at_all_levels(self):
         prepared = synthetic_prepared(); prepared["scalars"]["saddle"] = {"value": 0.60, "provenance": "override.saddle"}
         result = surface.evaluate(prepared, levels=2)
-
         def assert_mirror(vertices):
             values = np.asarray(vertices, dtype=float)
             reflected = values.copy(); reflected[:, 0] *= -1
@@ -227,10 +199,8 @@ class FormulaAndInputTests(unittest.TestCase):
                 index = int(np.argmin(distances))
                 self.assertLessEqual(distances[index], 1e-8)
                 remaining.pop(index)
-
         for mesh in (result.cage, *result.levels):
             assert_mirror(mesh.vertices)
-
     def test_axial_envelope_and_axilla_transition_use_exact_interpolation(self):
         prepared = synthetic_prepared(); prepared["scalars"]["thigh_lateral_radius"]["value"] = 0.73; prepared["scalars"]["thigh_depth"]["value"] = 0.47; cage = surface.build_cage(prepared)
         keys = ("lateral_radius", "front_extent", "back_extent")
@@ -245,14 +215,12 @@ class FormulaAndInputTests(unittest.TestCase):
         anchors.append((np.mean([seat[1] for seat in seats]),
                         (max(abs(seat[0]) for seat in seats) + prepared["scalars"]["thigh_lateral_radius"]["value"],
                          prepared["scalars"]["thigh_depth"]["value"], prepared["scalars"]["thigh_depth"]["value"])))
-
         def limited(name):
             station = prepared["stations"][name]; position = station["center"][1]
             high, low = next(pair for pair in zip(anchors, anchors[1:]) if pair[1][0] <= position <= pair[0][0])
             fraction = (position - low[0]) / (high[0] - low[0])
             bound = tuple(lo + fraction * (hi - lo) for hi, lo in zip(high[1], low[1]))
             return np.asarray(station["center"]), tuple(min(station[key], value) for key, value in zip(keys, bound))
-
         def cardinal(center, extents):
             radius, front, back = extents; middle = center + (0, 0, (front - back) / 2)
             return (middle + (radius, 0, 0), center + (0, 0, front),
@@ -306,6 +274,8 @@ class FormulaAndInputTests(unittest.TestCase):
         self.assertEqual((authored_cage.formula_ids[26], set(authored_cage.dependencies[26])),
                          ("station.asymmetric_superellipse", station_fields("lower_ribcage") | {"frames.body", "scalars.n"}))
 
+        exact_anchor = synthetic_prepared(); exact_anchor["stations"]["lower_ribcage"].update(center=(0.11, 0.72, 0.07), lateral_radius=1.0, front_extent=0.60, back_extent=0.56); exact_dependencies = set(surface.build_cage(exact_anchor).dependencies[26]); self.assertIn("stations.waist_abdomen.lateral_radius", exact_dependencies); self.assertNotIn("stations.upper_ribcage_shoulder.lateral_radius", exact_dependencies)
+
     def test_shoulder_bridges_are_outward_and_each_quad_is_unfolded(self):
         cage = surface.build_cage(synthetic_prepared()); _, faces, _ = surface.symbolic_topology()
         vertices = np.asarray(cage.vertices)
@@ -353,7 +323,7 @@ class FormulaAndInputTests(unittest.TestCase):
         lateral = np.asarray((1.0, 0.0, 0.0))
         up = np.asarray((0.0, 1.0, 0.0))
         forward = np.asarray((0.0, 0.0, 1.0))
-        socket_indices = set()
+        socket_sides = {}
         for side, sign, ring_segment, front_index, back_index in (
                 ("left", -1, 3, 3, 4), ("right", 1, 0, 1, 0)):
             arm = prepared["scalars"]
@@ -385,7 +355,7 @@ class FormulaAndInputTests(unittest.TestCase):
                 anchor = station_center + ((station["front_extent"] - station["back_extent"]) / 2) * forward + sign * station["lateral_radius"] * lateral
                 for index, depth_sign in ((front_index, 1), (back_index, -1)):
                     actual_index = ring_start + index
-                    socket_indices.add(actual_index)
+                    socket_sides[actual_index] = side
                     expected = (float(np.dot(anchor, lateral)) * lateral +
                                 float(np.dot(center, up)) * up +
                                 (float(np.dot(center, forward)) + depth_sign * arm["arm_root_depth"]["value"]) * forward)
@@ -406,13 +376,13 @@ class FormulaAndInputTests(unittest.TestCase):
                     self.assertEqual(set(cage.dependencies[actual_index]), expected_dependencies)
                     self.assertTrue(all(value for value in cage.provenance_ids[actual_index]))
 
-        for index in socket_indices:
+        for index in socket_sides:
             self.assertIn("stations.", " ".join(cage.dependencies[index]))
         collar_indices = set(range(56, 64))
         edges = set()
         for face in cage.quads:
             for a, b in zip(face, face[1:] + face[:1]):
-                if {a, b} <= socket_indices | collar_indices and ({a, b} & socket_indices) and ({a, b} & collar_indices):
+                if {a, b} <= socket_sides.keys() | collar_indices and ({a, b} & socket_sides.keys()) and ({a, b} & collar_indices):
                     edges.add(tuple(sorted((a, b))))
         self.assertEqual(len(edges), 8)
         directions = {"left": [], "right": []}
@@ -420,9 +390,10 @@ class FormulaAndInputTests(unittest.TestCase):
             delta = vertices[collar] - vertices[socket]
             np.testing.assert_allclose(np.dot(delta, up), 0.0, atol=1e-12)
             np.testing.assert_allclose(np.dot(delta, forward), 0.0, atol=1e-12)
-            side = "left" if socket in {11, 12, 19, 20} else "right"
+            side = socket_sides[socket]
             sign = -1 if side == "left" else 1
             directions[side].append(sign * float(np.dot(delta, lateral)))
+        self.assertEqual((len(directions["left"]), len(directions["right"])), (4, 4))
         for values in directions.values():
             self.assertTrue(all(value * values[0] > 0.0 for value in values))
 
@@ -435,27 +406,23 @@ class FormulaAndInputTests(unittest.TestCase):
             target[path[-1]] = value
             with self.assertRaisesRegex(ValueError, "profile identity"):
                 surface.build_cage(prepared)
-        self.assertNotIn("profile", surface.build_cage.__code__.co_varnames)
+        self.assertRaisesRegex(ValueError, "profile identity", surface.evaluate, {**synthetic_prepared(), "profile_id": "forbidden"})
 
     def test_shared_formula_constants_have_local_expected_effects(self):
         baseline = surface.build_cage(synthetic_prepared())
+        base_eval = surface.evaluate(synthetic_prepared(), levels=2)
         changed = synthetic_prepared(); changed["scalars"]["n"] = {"value": 3.1, "provenance": "synthetic.constant.n"}
         powered = surface.build_cage(changed)
         self.assertNotEqual(baseline.vertices[1], powered.vertices[1])
-        self.assertEqual((baseline.vertices[0], baseline.vertices[56:]),
-                         (powered.vertices[0], powered.vertices[56:]))
-
+        self.assertEqual((baseline.vertices[0], baseline.vertices[56:]), (powered.vertices[0], powered.vertices[56:]))
         changed = synthetic_prepared(); changed["scalars"]["lambda"] = {"value": 0.5, "provenance": "synthetic.constant.lambda"}
         blended = surface.build_cage(changed)
-        self.assertNotEqual(baseline.vertices[40:48], blended.vertices[40:48])
-        self.assertEqual((baseline.vertices[:40], baseline.vertices[48:]),
-                         (blended.vertices[:40], blended.vertices[48:]))
-
+        self.assertTrue(all(baseline.vertices[index] != blended.vertices[index] for index in range(40, 48)))
+        self.assertEqual((baseline.vertices[:40], baseline.vertices[48:]), (blended.vertices[:40], blended.vertices[48:]))
         changed = synthetic_prepared(); changed["scalars"]["eta"] = {"value": 0.5, "provenance": "synthetic.constant.eta"}
         seated = surface.build_cage(changed)
-        self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]),
-                         (seated.vertices[:48], seated.vertices[56:64]))
-        for region in (slice(48, 56), slice(64, 68), slice(68, 72)): self.assertNotEqual(baseline.vertices[region], seated.vertices[region])
+        self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]), (seated.vertices[:48], seated.vertices[56:64]))
+        for region in (slice(48, 56), slice(64, 68), slice(68, 72)): self.assertTrue(all(baseline.vertices[index] != seated.vertices[index] for index in range(region.start, region.stop)))
         for side, offset in (("left", 64), ("right", 68)):
             start = np.asarray(changed["landmarks"][f"thigh_start_{side}"]["point"], dtype=float)
             mid = np.asarray(changed["landmarks"][f"thigh_mid_{side}"]["point"], dtype=float)
@@ -465,12 +432,9 @@ class FormulaAndInputTests(unittest.TestCase):
             np.testing.assert_allclose(centroid, expected)
             projection = float(np.dot(centroid - start, route)); self.assertGreater(projection, 0.0)
             self.assertAlmostEqual(projection / float(np.dot(route, route)), changed["scalars"]["eta"]["value"])
-
         changed = synthetic_prepared(); changed["stations"]["upper_pelvis"]["front_extent"] = 0.5; sourced = surface.build_cage(changed)
-        self.assertEqual((baseline.vertices[:8], baseline.vertices[56:]),
-                         (sourced.vertices[:8], sourced.vertices[56:]))
-        self.assertNotEqual((baseline.vertices[42], baseline.vertices[50]), (sourced.vertices[42], sourced.vertices[50]))
-
+        self.assertEqual((baseline.vertices[:8], baseline.vertices[56:]), (sourced.vertices[:8], sourced.vertices[56:]))
+        self.assertTrue(all(baseline.vertices[index] != sourced.vertices[index] for index in (42, 50)))
         for key, changed_slice, stable_slice in (
                 ("shoulder", slice(56, 58), slice(58, 60)),
                 ("axilla", slice(58, 60), slice(56, 58))):
@@ -478,13 +442,13 @@ class FormulaAndInputTests(unittest.TestCase):
             changed["scalars"][key] = {"value": surface.RANGES[key][1],
                                        "provenance": f"synthetic.constant.{key}"}
             collar = surface.build_cage(changed)
-            self.assertNotEqual(baseline.vertices[changed_slice], collar.vertices[changed_slice])
+            self.assertTrue(all(baseline.vertices[index] != collar.vertices[index] for index in range(changed_slice.start, changed_slice.stop)))
             self.assertEqual(baseline.vertices[stable_slice], collar.vertices[stable_slice])
 
         axilla_u = synthetic_prepared()
         for side in ("left", "right"):
             point = list(axilla_u["landmarks"][f"axilla_{side}"]["point"]); point[1] += 0.12; axilla_u["landmarks"][f"axilla_{side}"]["point"] = tuple(point)
-        moved = surface.build_cage(axilla_u); self.assertTrue(all(baseline.vertices[a:b] != moved.vertices[a:b] for a, b in ((16, 24), (58, 60), (62, 64))))
+        moved = surface.build_cage(axilla_u); self.assertTrue(all(baseline.vertices[index] != moved.vertices[index] for a, b in ((16, 24), (58, 60), (62, 64)) for index in range(a, b)))
         self.assertEqual((baseline.vertices[24:32], tuple(baseline.vertices[i] for i in (10, 13, 14, 15))), (moved.vertices[24:32], tuple(moved.vertices[i] for i in (10, 13, 14, 15))))
 
         for key, value, expected_indices in (
@@ -495,7 +459,7 @@ class FormulaAndInputTests(unittest.TestCase):
             changed_indices = {i for i, (before, after) in enumerate(zip(baseline.vertices, candidate.vertices)) if before != after}
             self.assertEqual(changed_indices, expected_indices)
             self.assertEqual((baseline.quads, baseline.control_ids), (candidate.quads, candidate.control_ids))
-            base_eval = surface.evaluate(synthetic_prepared(), levels=2); changed_eval = surface.evaluate(changed, levels=2)
+            changed_eval = surface.evaluate(changed, levels=2)
             l1_inputs, l1_quads, l1_loops = independent_subdivision_stencils(baseline.quads, baseline.boundary_loops, len(baseline.vertices))
             l1_changed = {i for i, inputs in enumerate(l1_inputs) if inputs & changed_indices}
             l2_inputs, _, _ = independent_subdivision_stencils(l1_quads, l1_loops, len(base_eval.levels[0].vertices))
@@ -508,10 +472,8 @@ class FormulaAndInputTests(unittest.TestCase):
 
         changed = synthetic_prepared(); changed["scalars"]["gamma"] = {"value": 0.12, "provenance": "synthetic.constant.gamma"}
         gapped = surface.build_cage(changed)
-        self.assertNotEqual((baseline.vertices[64], baseline.vertices[68]),
-                            (gapped.vertices[64], gapped.vertices[68]))
-        self.assertEqual((baseline.vertices[65:68], baseline.vertices[69:72]),
-                         (gapped.vertices[65:68], gapped.vertices[69:72]))
+        self.assertTrue(all(baseline.vertices[index] != gapped.vertices[index] for index in (64, 68)))
+        self.assertEqual((baseline.vertices[65:68], baseline.vertices[69:72]), (gapped.vertices[65:68], gapped.vertices[69:72]))
 
         overrides = synthetic_prepared()
         for key, value in (("n", 2.7), ("lambda", 0.3), ("shoulder", 0.81),
@@ -534,41 +496,49 @@ class FormulaAndInputTests(unittest.TestCase):
             prepared = synthetic_prepared(); prepared["stations"]["waist_abdomen"][key] = None
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "forbidden prepared geometry"):
                 surface.build_cage(prepared)
+        prepared = synthetic_prepared(); shared = []; shared.append(shared)
+        prepared["source"]["document"] = shared; prepared["source"]["namespace"] = shared
+        self.assertEqual(len(surface.build_cage(prepared).vertices), 72)
+        prepared = synthetic_prepared(); shared = [{"vertices": None}]; shared.append(shared)
+        prepared["source"]["document"] = shared; prepared["source"]["namespace"] = shared
+        with self.assertRaisesRegex(ValueError, "forbidden prepared geometry"):
+            surface.build_cage(prepared)
 
     def test_invalid_inputs_fail_closed(self):
-        cases = ((lambda p: p["stations"].pop("neck_collar"), r"prepared\.stations has unknown or missing fields"), (lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), r"stations\.waist_abdomen\.center must be a finite 3-vector"), (lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), "body frame must be orthonormal and right-handed"), (lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), "thigh route left must have positive length"), (lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), "thigh medial radius left is non-positive"), (lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], "axilla transition interpolation must have 0 < t < 1"), (lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)), "neck must be above upper ribcage"))
+        cases = ((lambda p: p["stations"].pop("neck_collar"), r"prepared\.stations has unknown or missing fields"), (lambda p: p["stations"]["waist_abdomen"].update(center=(0, np.nan, 0)), r"stations\.waist_abdomen\.center must be a finite 3-vector"), (lambda p: p["frames"]["body"].update(lateral_axis=(0, 0, 0)), "body frame axes must have finite positive norms"), (lambda p: p["frames"]["body"].update(lateral_axis=(np.finfo(float).max,) * 3), "body frame axes must have finite positive norms"), (lambda p: p["frames"]["body"].update(forward_axis=(0, 0, -1)), "body frame must be orthonormal and right-handed"), (lambda p: p["landmarks"]["thigh_mid_left"].update(point=p["landmarks"]["thigh_start_left"]["point"]), "thigh route left must have positive length"), (lambda p: p["landmarks"]["thigh_start_left"].update(point=(0.2, -0.7, 0)), "thigh medial radius left is non-positive"), (lambda p: [p["landmarks"][f"axilla_{side}"].update(point=(0, 1.55, 0)) for side in ("left", "right")], "axilla transition interpolation must have 0 < t < 1"), (lambda p: p["stations"]["neck_collar"].update(center=(0, 2.40, 0)), "neck must be above upper ribcage"))
         for index, (mutate, message) in enumerate(cases):
             with self.subTest(case=index):
                 prepared = synthetic_prepared(); mutate(prepared)
-                with self.assertRaisesRegex(ValueError, message):
-                    surface.build_cage(prepared)
-
-
+                self.assertRaisesRegex(ValueError, message, surface.build_cage, prepared)
 class SubdivisionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.prepared = synthetic_prepared()
-        cls.result = surface.evaluate(cls.prepared, levels=2)
-
+        cls.prepared = synthetic_prepared(); cls.result = surface.evaluate(cls.prepared, levels=2)
     def test_open_boundaries_subdivide_and_euler_is_preserved(self):
         first, second = self.result.levels
         self.assertEqual((len(first.vertices), len(first.quads)), (273, 252))
         self.assertEqual((len(second.vertices), len(second.quads)), (1053, 1008))
         for level, multiplier in ((first, 2), (second, 4)):
             report = surface.validate_topology(len(level.vertices), level.quads, level.boundary_loops)
-            self.assertEqual(report.euler, -3)
-            self.assertEqual(report.boundary_lengths, tuple(multiplier * n for n in (8, 4, 4, 4, 4)))
-            self.assertEqual(len(level.triangles), 2 * len(level.quads))
+            self.assertEqual((report.euler, report.boundary_lengths, len(level.triangles)),
+                             (-3, tuple(multiplier * n for n in (8, 4, 4, 4, 4)), 2 * len(level.quads)))
             surface.validate_geometry(level, evaluated=True)
         self.assertEqual(self.result.intersection_counts, (0, 0))
         self.assertEqual(tuple(name for name, _ in self.result.clearance_ratios),
                          ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
-        self.assertTrue(all(value > threshold for (_, value), threshold in zip(
-            self.result.clearance_ratios, (0.030, 0.025, 0.025, 0.020, 0.025))))
-
+        self.assertTrue(all(value > mesh_correctness.CLEARANCE_THRESHOLDS[name]
+                            for name, value in self.result.clearance_ratios))
     def test_final_level_clearance_gate_runs_at_requested_level(self):
         self.assertEqual(tuple(name for name, _ in surface.evaluate(self.prepared, levels=1).clearance_ratios), ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
-
+    def test_evaluate_validates_each_produced_level_once(self):
+        original = surface.validate_geometry; evaluated_meshes = []
+        def counted(mesh, evaluated=False):
+            if evaluated:
+                evaluated_meshes.append(mesh)
+            return original(mesh, evaluated=evaluated)
+        with patch.object(surface, "validate_geometry", counted):
+            result = surface.evaluate(self.prepared, levels=2)
+        self.assertEqual(evaluated_meshes, list(result.levels))
     def test_correspondence_order_and_results_are_deterministic(self):
         repeated = surface.evaluate(synthetic_prepared(), levels=2)
         self.assertEqual(self.result, repeated)
@@ -579,47 +549,123 @@ class SubdivisionTests(unittest.TestCase):
         self.assertIn("catmull_clark.open_boundary_vertex", first.formula_ids)
         self.assertIn("catmull_clark.open_boundary_edge", first.formula_ids)
         self.assertTrue(all(dependency for dependency in first.dependencies))
-
     def test_invalid_level_is_rejected(self):
         for operation in (lambda: surface.subdivide(self.result.cage, 0),
                           lambda: surface.evaluate(self.prepared, levels=3)):
             with self.assertRaisesRegex(ValueError, "one or two"):
                 operation()
+    def test_normal_angle_fold_diagnostics_are_deterministic_and_explicit(self):
+        diagnostics = build_root_complex.normal_angle_fold_diagnostics(self.result.levels)
+        self.assertEqual(diagnostics, build_root_complex.normal_angle_fold_diagnostics(self.result.levels))
+        self.assertEqual(diagnostics["schema"], "programmatic-root-complex.normal-angle-fold.v1")
+        self.assertEqual(tuple(report["level"] for report in diagnostics["levels"]), (1, 2))
+        for report in diagnostics["levels"]:
+            self.assertGreater(report["interior_edge_count"], 0)
+            self.assertLessEqual(report["interior_edge_count"], build_root_complex.MAX_NORMAL_ANGLE_DIAGNOSTIC_INTERIOR_EDGES)
+            self.assertGreaterEqual(report["normal_angle_min_radians"], 0.0)
+            self.assertLessEqual(report["normal_angle_max_radians"], math.pi)
+            self.assertLessEqual(report["normal_angle_min_radians"], report["normal_angle_mean_radians"])
+            self.assertLessEqual(report["normal_angle_mean_radians"], report["normal_angle_max_radians"])
+            self.assertGreaterEqual(report["folded_edge_count"], 0)
+            self.assertGreaterEqual(report["folded_edge_fraction"], 0.0)
+            self.assertLessEqual(report["folded_edge_fraction"], 1.0)
+    def test_normal_angle_fold_diagnostic_defines_fold_count(self):
+        mesh = type("DiagnosticMesh", (), {
+            "vertices": ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0),
+                         (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (0.0, 1.0, 1.0)),
+            "quads": ((0, 1, 2, 3), (2, 1, 4, 5)),
+        })()
+        report = build_root_complex.normal_angle_fold_diagnostics((mesh,))["levels"][0]
+        self.assertEqual(report["interior_edge_count"], 1)
+        self.assertAlmostEqual(report["normal_angle_min_radians"], 3.0 * math.pi / 4.0)
+        self.assertEqual(report["folded_edge_count"], 1)
+        self.assertEqual(report["folded_edge_fraction"], 1.0)
 
-
+    def test_normal_angle_fold_diagnostics_are_invariant_to_cyclic_quad_rotation(self):
+        vertices = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0),
+                    (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (0.0, 1.0, 1.0))
+        faces = ((0, 1, 2, 3), (2, 1, 4, 5))
+        def mesh(quads):
+            return type("DiagnosticMesh", (), {"vertices": vertices, "quads": quads})()
+        reference = build_root_complex.normal_angle_fold_diagnostics(
+            (mesh(faces),))
+        for face_index in range(2):
+            for rotation in range(4):
+                rotated = list(faces)
+                face = rotated[face_index]
+                rotated[face_index] = face[rotation:] + face[:rotation]
+                candidate = mesh(tuple(rotated))
+                self.assertEqual(
+                    reference,
+                    build_root_complex.normal_angle_fold_diagnostics((candidate,)),
+                )
+class BuildMetricsTests(unittest.TestCase):
+    def test_published_metrics_include_evaluated_normal_angle_fold_diagnostics(self):
+        source = ROOT.parents[1] / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "published"
+            build_root_complex.build(source, output)
+            metrics = json.loads((output / "metrics.json").read_text(encoding="utf-8"))
+        diagnostics = metrics["normal_angle_fold_diagnostics"]
+        self.assertEqual(diagnostics["schema"], "programmatic-root-complex.normal-angle-fold.v1")
+        self.assertEqual([report["level"] for report in diagnostics["levels"]], [1, 2])
+        self.assertTrue(all("folded_edge_count" in report for report in diagnostics["levels"]))
 class MeshCorrectnessTests(unittest.TestCase):
-    def assert_pairs(self, vertices, triangles, expected):
-        self.assertEqual(mesh_correctness.intersecting_triangle_pairs(vertices, triangles, 1.0), expected)
-
+    def assert_pairs(self, vertices, triangles, expected, scale=1.0):
+        self.assertEqual(mesh_correctness.intersecting_triangle_pairs(vertices, triangles, scale), expected)
     def test_real_intersection_cases_and_adjacency_policy(self):
-        crossing = np.asarray((
-            (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0),
-            (0.25, -0.25, -1.0), (0.25, 0.75, 1.0), (0.25, 0.75, -1.0)),
-            dtype=float)
-        triangles = np.asarray(((0, 1, 2), (3, 4, 5)), dtype=np.int64)
-        self.assert_pairs(crossing, triangles, ((0, 1),))
-        with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"):
-            mesh_correctness.validate_triangle_intersections(crossing, triangles, 1.0)
-
-        coplanar_overlap = np.vstack((
-            crossing[:3], ((0.25, 0.25, 0.0), (0.9, 0.1, 0.0), (0.1, 0.9, 0.0))))
-        self.assert_pairs(coplanar_overlap, triangles, ((0, 1),))
-        coplanar_disjoint = np.vstack((
-            crossing[:3], ((2.0, 0.0, 0.0), (3.0, 0.0, 0.0), (2.0, 1.0, 0.0))))
-        self.assert_pairs(coplanar_disjoint, triangles, ())
-        separated = coplanar_overlap.copy(); separated[3:, 2] = 2.0
-        self.assert_pairs(separated, triangles, ())
-        near = coplanar_overlap.copy(); near[3:, 2] = mesh_correctness.INTERSECTION_TOLERANCE / 2
-        self.assert_pairs(near, triangles, ((0, 1),))
-
-        shared = np.asarray(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
-                             (0.0, 1.0, 0.0), (0.0, -1.0, 0.0),
-                             (-1.0, 0.0, 0.0)), dtype=float)
-        self.assert_pairs(shared, np.asarray(((0, 1, 2), (0, 3, 4)), dtype=np.int64), ())
-        coincident = np.vstack((crossing[:3], crossing[:3]))
-        self.assert_pairs(coincident, triangles, ((0, 1),))
-
+        base = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+        fan = ((0.0, 0.0, 0.0), (1.0, 1.0, 0.0), (1.0, -1.0, 0.0))
+        delta = mesh_correctness.INTERSECTION_TOLERANCE / 2
+        separate = ((0, 1, 2), (3, 4, 5))
+        shared = ((0, 1, 2), (0, 3, 4))
+        cases = (
+            ("crossing", base, ((0.25, -0.25, -1.0), (0.25, 0.75, 1.0), (0.25, 0.75, -1.0)), separate, ((0, 1),)),
+            ("coplanar overlap", base, ((0.25, 0.25, 0.0), (0.9, 0.1, 0.0), (0.1, 0.9, 0.0)), separate, ((0, 1),)),
+            ("coplanar disjoint", base, ((2.0, 0.0, 0.0), (3.0, 0.0, 0.0), (2.0, 1.0, 0.0)), separate, ()),
+            ("parallel separated", base, ((0.25, 0.25, 2.0), (0.9, 0.1, 2.0), (0.1, 0.9, 2.0)), separate, ()),
+            ("near contact", base, ((0.25, 0.25, delta), (0.9, 0.1, delta), (0.1, 0.9, delta)), separate, ((0, 1),)),
+            ("coincident", base, base, separate, ((0, 1),)),
+            ("coplanar point fan", base, ((0.0, -1.0, 0.0), (-1.0, 0.0, 0.0)), shared, ()),
+            ("shared edge", base, ((0.0, -1.0, 0.0),), ((0, 1, 2), (1, 0, 3)), ()),
+            ("noncoplanar point fan", fan, ((-1.0, 0.0, 1.0), (-1.0, 0.0, -1.0)), shared, ()),
+            ("sub-tolerance coplanar overlap", fan, ((delta, 0.0, 0.0), (-1.0, 0.25, 0.0)), shared, ((0, 1),)),
+            ("sub-tolerance noncoplanar overlap", fan, ((delta, 0.0, -1.0), (-delta / 2, 0.0, 1.0)), shared, ((0, 1),)),
+            ("near-degenerate axis", fan, ((-1.0, -1.0 + 1e-12, 1e-12), (-1.0, 1.0, 1e-12)), shared, ()),
+        )
+        for name, first, extra, faces, expected in cases:
+            for scale, translation in ((1.0, (0.0, 0.0, 0.0)),
+                                       (0.25, (17.25, -3.5, 41.0)),
+                                       (2.5, (-12.5, 0.125, 8.75)),
+                                       (1e-200, (1e5, -2e5, 3e5)),
+                                       (1e200, (1e5, -2e5, 3e5))):
+                with self.subTest(case=name, scale=scale, translation=translation):
+                    points = np.asarray(first + extra, dtype=float) * scale
+                    points += np.asarray(translation, dtype=float) * scale
+                    self.assert_pairs(points, np.asarray(faces, dtype=np.int64), expected, scale)
+        crossing = np.asarray(base + cases[0][2], dtype=float)
+        with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"): mesh_correctness.validate_triangle_intersections(crossing, np.asarray(separate, dtype=np.int64), 1.0)
+        with self.assertRaises(ValueError) as raised: mesh_correctness.intersecting_triangle_pairs(np.asarray(base), np.asarray(((0, 1, 2),), dtype=np.int64), 10 ** 309)
+        self.assertEqual(str(raised.exception), "scale must be finite and positive"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
+        with self.assertRaises(ValueError) as raised: mesh_correctness.intersecting_triangle_pairs((*base[:2], (0.0, 10 ** 309, 0.0)), ((0, 1, 2),), 1.0)
+        self.assertEqual(str(raised.exception), "vertices must be a finite N x 3 array"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
+        collinear = np.asarray(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)))
+        with self.assertRaisesRegex(ValueError, "^triangle 0 normal must be nonzero$"):
+            mesh_correctness.intersecting_triangle_pairs(collinear, np.asarray(((0, 1, 2),), dtype=np.int64), 1.0)
+        tiny_normal = np.asarray(((0.0, 0.0, 0.0), (5e-324, 0.0, 0.0), (0.0, 1.0, 0.0)))
+        with self.assertRaisesRegex(ValueError, "^triangle 0 normal must be nonzero$"):
+            mesh_correctness.intersecting_triangle_pairs(tiny_normal, np.asarray(((0, 1, 2),), dtype=np.int64), 1.0)
+        separated = np.asarray((*collinear, (10.0, 0.0, 0.0), (10.0, 1.0, 0.0), (10.0, 0.0, 1.0)))
+        with self.assertRaisesRegex(ValueError, "^triangle 1 normal must be nonzero$"):
+            mesh_correctness.validate_triangle_intersections(separated, np.asarray(((3, 4, 5), (0, 1, 2)), dtype=np.int64), 1.0)
+        overflowing = np.asarray(base + ((0.0, 0.0, 0.0), (1e308, 0.0, 0.0), (0.0, 1e308, 0.0)))
+        with self.assertRaisesRegex(ValueError, "^triangle 1 normal length must be finite$"): mesh_correctness.intersecting_triangle_pairs(overflowing, np.asarray(separate, dtype=np.int64), 1.0)
+        tiny = 2e-6 * np.asarray(base + ((1.5, 1.5, 0.0), (2.5, 1.5, 0.0), (1.5, 2.5, 0.0)))
+        self.assert_pairs(tiny, np.asarray(separate, dtype=np.int64), ())
+        noncoplanar = 2e-6 * np.asarray(((1.0, 1.0, 1.0), (2.0, -2.0, -2.0), (-2.0, -2.0, -2.0), (-1.0, 0.0, 0.0), (1.0, 2.0, 2.0), (2.0, 2.0, 2.0)))
+        self.assert_pairs(noncoplanar, np.asarray(separate, dtype=np.int64), ())
     def test_intersection_resource_caps_fail_closed(self):
+        self.assertEqual((mesh_correctness.MAX_TRIANGLES, len(mesh_correctness._triangles(np.tile((0, 1, 2), (mesh_correctness.MAX_TRIANGLES, 1)), 3))), (3072, 3072))
         with self.assertRaisesRegex(ValueError, "triangle cap"):
             mesh_correctness.intersecting_triangle_pairs(
                 np.zeros((3, 3)),
@@ -636,15 +682,18 @@ class MeshCorrectnessTests(unittest.TestCase):
                     crossing, np.asarray(((0, 1, 2), (3, 4, 5)), dtype=np.int64), 1.0)
         finally:
             mesh_correctness.MAX_CANDIDATES = old_cap
-
     def test_boundary_clearances_are_rotation_invariant_and_reject_each_collapse(self):
         result = surface.evaluate(synthetic_prepared(), levels=2); mesh = result.levels[-1]
         vertices = np.asarray(mesh.vertices, dtype=float); loops = dict(mesh.boundary_loops)
         axes = {"L": (1.0, 0.0, 0.0), "U": (0.0, 1.0, 0.0), "F": (0.0, 0.0, 1.0)}; scale = surface.validate_geometry(mesh, evaluated=True)
         baseline = mesh_correctness.boundary_clearance_ratios(vertices, loops, axes, scale)
+        for name in ("L", "U", "F"):
+            invalid_axes = dict(axes); invalid_axes[name] = (10 ** 309, 0.0, 0.0)
+            with self.subTest(axis=name), self.assertRaises(ValueError) as raised: mesh_correctness.boundary_clearance_ratios(vertices, loops, invalid_axes, scale)
+            self.assertEqual(str(raised.exception), "body axes L, U, and F are required"); self.assertIsInstance(raised.exception.__cause__, OverflowError)
         left, right = loops["left_thigh"], loops["right_thigh"]
-        lateral = np.asarray(axes["L"]); points = vertices / scale; medial_gap = float((points[list(right)] @ lateral).min() - (points[list(left)] @ lateral).max()); legacy_gap = float(np.dot(points[right[0]] - points[left[0]], lateral))
-        self.assertGreater(medial_gap, 0.0); self.assertEqual((baseline["groin"], medial_gap), (legacy_gap, legacy_gap))
+        lateral = np.asarray(axes["L"]); points = vertices / scale; left_lateral = points[list(left)] @ lateral; right_lateral = points[list(right)] @ lateral; medial_gap = float(right_lateral.min() - left_lateral.max()); groin_right = right[int(np.argmin(right_lateral))]; groin_left = left[int(np.argmax(left_lateral))]
+        self.assertGreater(medial_gap, 0.0); self.assertAlmostEqual(baseline["groin"], medial_gap, delta=1e-12)
         for left_shift, right_shift in ((i, j) for i in range(len(left)) for j in range(len(right))):
             rotated = dict(loops); rotated["left_thigh"] = left[left_shift:] + left[:left_shift]; rotated["right_thigh"] = right[right_shift:] + right[:right_shift]
             self.assertEqual(mesh_correctness.boundary_clearance_ratios(vertices, rotated, axes, scale), baseline)
@@ -653,12 +702,46 @@ class MeshCorrectnessTests(unittest.TestCase):
             if name in ("neck", "axilla_left", "axilla_right"):
                 loop_name = {"neck": "neck", "axilla_left": "left_arm", "axilla_right": "right_arm"}[name]; indices = loops[loop_name]; collapsed[list(indices)] = collapsed[indices[0]]
             elif name == "groin":
-                collapsed[loops["right_thigh"][0], 0] = collapsed[loops["left_thigh"][0], 0]
+                collapsed[groin_right, 0] = collapsed[groin_left, 0]
             else:
-                collapsed[right[0], 0] = collapsed[left[0], 0] + 0.022 * scale
+                collapsed[groin_right, 0] = collapsed[groin_left, 0] + 0.022 * scale
             with self.subTest(gate=name), self.assertRaisesRegex(ValueError, name):
                 mesh_correctness.validate_boundary_clearances(collapsed, loops, axes, scale)
-
-
+        with patch.object(mesh_correctness, "MAX_BOUNDARY_CLEARANCE_PAIRS", 9):
+            minimal = dict(loops); minimal["left_thigh"] = left[:3]; minimal["right_thigh"] = right[:3]; exact = mesh_correctness.boundary_clearance_ratios(vertices, minimal, axes, scale)
+            expected = min(float((points[r] - points[l]) @ lateral) for l in minimal["left_thigh"] for r in minimal["right_thigh"]); self.assertEqual(exact["medial_thigh"], expected); over = dict(minimal); over["right_thigh"] = right[:4]
+            with self.assertRaisesRegex(ValueError, r"boundary clearance pair cap exceeded: 12 > 9"): mesh_correctness.boundary_clearance_ratios(vertices, over, axes, scale)
+    def test_subdivide_rejects_malformed_mesh_before_boundary_indexing(self):
+        mesh = surface.Mesh(tuple((float(i), 0.0, 0.0) for i in range(8)),
+                            ((0, 1, 2, 3), (0, 1, 4, 3), (0, 1, 6, 7)),
+                            tuple(f"c{i}" for i in range(8)), ("f",) * 8,
+                            (("d",),) * 8, (("p",),) * 8, ())
+        valid = surface.subdivide(surface.build_cage(synthetic_prepared()))
+        self.assertEqual((len(valid.vertices), len(valid.quads)), (273, 252))
+        with self.assertRaisesRegex(ValueError, "non-manifold edge"):
+            surface.subdivide(mesh)
+        with patch.object(surface, "validate_topology", return_value=None):
+            with self.assertRaisesRegex(ValueError, "exactly two boundary neighbors"):
+                surface.subdivide(mesh)
+class ComplexityBoundaryTests(unittest.TestCase):
+    def test_exact_python_inventory_and_physical_line_caps(self):
+        production_names = ("build_root_complex.py", "mesh_correctness.py", "prepared_projection.py",
+                            "render_export.py", "root_complex_surface.py")
+        test_names = ("test_prepared_projection.py", "test_render_export.py", "test_root_complex_surface.py")
+        expected_paths = tuple(sorted(production_names + tuple(f"tests/{name}" for name in test_names)))
+        actual_paths = tuple(sorted(path.relative_to(ROOT).as_posix() for path in ROOT.rglob("*.py") if path.is_file()))
+        self.assertEqual(actual_paths, expected_paths, "unexpected, missing, or additional Python files")
+        self.assertEqual(len(actual_paths), 8)
+        def physical_lines(paths):
+            total = 0
+            for path in paths:
+                with path.open(encoding="utf-8") as handle:
+                    total += sum(1 for _ in handle)
+            return total
+        production = tuple(ROOT / name for name in production_names)
+        tests = tuple(ROOT / "tests" / name for name in test_names)
+        self.assertLessEqual(physical_lines(production), 1250)
+        self.assertLessEqual(physical_lines(tests), 1050)
+        self.assertLessEqual(physical_lines((ROOT / "mesh_correctness.py",)), 220)
 if __name__ == "__main__":
     unittest.main()

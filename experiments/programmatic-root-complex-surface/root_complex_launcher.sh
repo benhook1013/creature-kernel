@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly LAUNCHER_DIR="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+LAUNCHER_DIR="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly LAUNCHER_DIR
 readonly PREVIEW_LAUNCHER="$LAUNCHER_DIR/../current-form-surface-preview/surface_preview_launcher.sh"
 
 if [[ ! -e "$PREVIEW_LAUNCHER" ]]; then

@@ -58,28 +58,11 @@ protocol](../../docs/research/visual-quality-evaluation.md).
 The admission gate accepts only source-derived scalar dimensions or
 measurements, rigid frames, individually named landmarks, section stations
 with scalar width/depth/offset/taper/squareness, module state, and provenance.
-Dimension values are finite, strictly positive canonical metre values and are
-admitted exactly as authored; this consumer does not interpret integers as
-thousandths or apply a `/1000` scale.
 The prepared input is capped at 8 frames, 24 landmarks, 10 stations, and 6
 scalars per station. Every numeric value carries source provenance or a
 deterministic derivation. The four scalar records emitted by the frozen
 projection and the seven declared shared formula-constant override names are
 the complete accepted scalar-name set.
-
-### Standard-neutral regression provenance
-
-The standard-neutral geometry and render outputs have durable regression
-identities at the actual builder boundary: `skin.ply` is
-`bb1d19d8264c9df7575a978b523346477b7ac30e62d955736bfa7b68bf7ed6cf`, `skin.png`
-is `695eec4a39742ecdda501ca84d930c7a28eca10f9a637e9dc0878647cf5d39ce`, and
-`cage.png` is
-`06e17b31d909936fbe1151ae3853bb8b52e7b8bb52112745e8d7e86604bde046`. These
-three digests were cross-checked against the prior exact commit
-`fc2d56555e063680b15c67f7d438c4eb375c498b`, built with the former
-source/adapter. Metadata hashes intentionally rebaseline across the canonical
-unit migration. This is regression provenance for unchanged geometry/rendering,
-not acceptance of the historical experiment.
 
 The following are forbidden inputs: cage or mesh vertices, faces, edges, rings,
 or connectivity; ordered perimeter samples; point clouds, fields, masks, or
@@ -120,7 +103,7 @@ The induced directed boundary loops are `neck=(0,1,2,3,4,5,6,7)`,
 
 The frozen complexity cap permits at most 72 cage controls and 96 base quads;
 this candidate uses 72 cage controls and 63 base quads as stated above.
-Extraordinary controls must have only the declared valences 3 through 6. The
+Extraordinary controls must have only the declared valences 3 through 5. The
 symbolic topology preflight must prove connected manifold and boundary facts
 and Euler's relation before any anatomy coordinates are admitted. If the
 proposed count or pelvic macro cannot meet the proof, stop and revise this
@@ -131,15 +114,15 @@ candidate record before rendering.
 All formulas are shared across sides, regions, and profiles. Initial constants
 and frozen exploratory ranges are:
 
-| Formula constant | Initial value | Frozen range |
+| Formula constant (scalar override key) | Initial value | Frozen range |
 | --- | ---: | ---: |
-| asymmetric-superellipse power `n` | 2.6 | [2.0, 3.2] |
-| iliac-overlap blend `lambda` | 0.25 | [0.0, 0.5] |
-| shoulder interpolation factor `sigma` | 0.80 | [0.70, 1.00] |
-| axilla outward factor | 0.55 | [0.35, 0.75] |
-| thigh-seat route fraction `eta` | 0.25 | [0.0, 0.5] |
-| medial-gap factor `gamma` | 0.08 | [0.04, 0.12] |
-| superior axial saddle `saddle` | 0.45 | [0.30, 0.60] |
+| asymmetric-superellipse power (`n`) | 2.6 | [2.0, 3.2] |
+| iliac-overlap blend (`lambda`) | 0.25 | [0.0, 0.5] |
+| shoulder interpolation factor (`shoulder`) | 0.80 | [0.70, 1.00] |
+| axilla outward factor (`axilla`) | 0.55 | [0.35, 0.75] |
+| thigh-seat route fraction (`eta`) | 0.25 | [0.0, 0.5] |
+| medial-gap factor (`gamma`) | 0.08 | [0.04, 0.12] |
+| superior axial saddle (`saddle`) | 0.45 | [0.30, 0.60] |
 
 The section coordinates use source-derived asymmetric superellipses with the
 visible shared power `n`. The iliac overlap uses the shared `lambda` blend.
@@ -175,11 +158,11 @@ now connect the upper-ribcage and transition rings at segment 3 on the left
 and segment 0 on the right. Shoulder-collar upper and lower pairs derive from
 the source shoulder-peak and axilla landmarks plus source arm-root extents and
 the two shared outward factors. In correction round 1, for side sign `s`
-(`-1` left, `+1` right), the shared formula uses `sigma` as follows:
+(`-1` left, `+1` right), the shared formula uses the `shoulder` scalar as follows:
 
 ```text
-upper_center = axilla + sigma * (shoulder_peak - axilla)
-               + s * sigma * arm_root_outward * L
+upper_center = axilla + shoulder * (shoulder_peak - axilla)
+               + s * shoulder * arm_root_outward * L
 lower_center = axilla + s * axilla_factor * arm_root_outward * L
 ```
 
@@ -285,10 +268,11 @@ extraordinary vertices or open ports.
 ## Determinism and causality
 
 The checkpoint determinism gate runs two fresh launcher processes with
-different `PYTHONHASHSEED` values in the same pinned environment. The prepared
-record, cage and evaluated PLY, dependency and metrics manifests, and
-metadata-free PNG must be byte-identical. Paths and timestamps are excluded
-from identity.
+different `PYTHONHASHSEED` values in the same pinned environment. The six
+published deterministic artifacts are `prepared.json`, `skin.ply`, `skin.png`,
+`cage.png`, `metrics.json`, and `manifest.json`; they must be byte-identical.
+Formula, dependency, and provenance IDs are in-memory construction records,
+not published artifacts. Paths and timestamps are excluded from identity.
 
 For causality, perturb admitted prepared controls and regenerate every output.
 Topology, IDs, and formula IDs must remain unchanged. Every generated control
@@ -308,10 +292,16 @@ the listed scale-relative thresholds:
 - each axilla: `min(span_U(arm), span_F(arm)) >= 0.025 S`;
 - groin: signed `L` separation of the right thigh loop's minimum and the left
   thigh loop's maximum `L` projections (`min(right) - max(left)`) `>= 0.020 S`; and
-- medial thigh: minimum signed `L` separation across right-versus-left thigh
-  loop samples `>= 0.025 S`.
+- medial thigh: pairwise minimum signed `L` separation across right-versus-left
+  thigh loop samples (`min(right - left)`), algebraically the same scalar as
+  groin's `min(right) - max(left)`, `>= 0.025 S`.
 
-Store and report the five ratios independently; there is no aggregate score.
+Store and report the five named labels separately; they represent only four
+distinct clearance measurements because groin and medial thigh are the same
+scalar tested at `0.020 S` and `0.025 S`, respectively. This is a known
+terminal-candidate measurement limitation; it does not overturn the pass at
+the stricter `0.025 S` threshold and is not reused by the owned-root successor.
+There is no aggregate score.
 Human vision remains authoritative for whether those spaces read anatomically.
 
 ## Human evidence
@@ -335,9 +325,12 @@ numeric score substitutes for that human judgment.
 
 Before any gallery work, use only the existing pinned NumPy/Pillow/scikit-image
 environment (`render_export.py` imports `skimage.draw`); add no dependency. The
-narrow apparatus amendment for this correction is at
-most 975 non-test Python LOC, 775 test LOC, 8 Python files, and 170 non-test
-LOC in `mesh_correctness.py`. All geometry, topology, tunable, subdivision,
+narrow apparatus amendment for this correction is at most 1,250 non-test
+physical Python lines, 1,050 test physical Python lines, exactly 8 Python
+files, and 220 non-test physical lines in `mesh_correctness.py`. The
+physical-line counts include blank and comment lines; the test suite enforces
+the exact file-name allowlist and all four caps. All geometry, topology,
+tunable, subdivision,
 and correction-round gates remain: 72 controls, 96 base quads, two subdivision
 levels, 12 coordinate-formula functions, and 32 shared scalar tunables. The construction
 has one axial template, one bilateral branch-root construction pattern, and
@@ -382,11 +375,14 @@ which requires the sibling
 `experiments/current-form-surface-preview/surface_preview_launcher.sh` and
 delegates interpreter, pinned-environment, and temporary-root selection to it.
 The sibling launcher must exist and be executable; no fallback exists. Keep
-generated outputs in `/tmp` or the approved cache, never in Git. The initial
-neutral output set is expected to contain `prepared.json`, `skin.ply`,
-`skin.png`, `cage.png`, `metrics.json`, and `manifest.json`; large artifacts
-remain uncommitted. Metrics report the per-level intersection counts, a clear
-zero-intersection status, and the five final clearance ratios individually.
+generated outputs in `/tmp` or the approved cache, never in Git. The builder
+publishes exactly six deterministic artifacts: `prepared.json`, `skin.ply`,
+`skin.png`, `cage.png`, `metrics.json`, and `manifest.json`. Formula,
+dependency, and provenance IDs are in-memory construction records, not
+published artifacts. Large artifacts remain uncommitted. Metrics report the
+per-level intersection counts, a clear zero-intersection status, and the five
+final clearance labels separately; those labels represent four distinct
+clearance measurements because groin and medial thigh share one scalar.
 
 From the repository root, copy-paste this standard-neutral build command:
 
