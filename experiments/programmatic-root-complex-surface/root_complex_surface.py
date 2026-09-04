@@ -165,11 +165,11 @@ def _vector(value, path):
         raise ValueError(f"{path} must be a finite 3-vector")
     return result
 def _number(value, path, positive=False):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
-        raise ValueError(f"{path} must be finite")
-    value = float(value)
-    if positive and value <= 0:
-        raise ValueError(f"{path} must be positive")
+    if isinstance(value, bool) or not isinstance(value, (int, float)): raise ValueError(f"{path} must be finite")
+    try: value = float(value)
+    except OverflowError as exc: raise ValueError(f"{path} must be finite") from exc
+    if not isfinite(value): raise ValueError(f"{path} must be finite")
+    if positive and value <= 0: raise ValueError(f"{path} must be positive")
     return value
 def _record(mapping, key, kind):
     value = mapping.get(key)

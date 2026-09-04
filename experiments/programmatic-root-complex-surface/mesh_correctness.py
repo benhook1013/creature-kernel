@@ -40,10 +40,8 @@ def _triangles(raw, count):
         raise ValueError("triangles must be an integer M x 3 array") from exc
     if value.ndim != 2 or value.shape[1:] != (3,) or value.dtype.kind not in "iu":
         raise ValueError("triangles must be an integer M x 3 array")
-    if len(value) > MAX_TRIANGLES:
-        raise ValueError(f"triangle cap exceeded: {len(value)} > {MAX_TRIANGLES}")
-    if ((value < 0) | (value >= count)).any():
-        raise ValueError("triangle index out of range")
+    if len(value) > MAX_TRIANGLES: raise ValueError(f"triangle cap exceeded: {len(value)} > {MAX_TRIANGLES}")
+    if ((value < 0) | (value >= count)).any(): raise ValueError("triangle index out of range")
     if any(len(set(map(int, row))) != 3 for row in value):
         raise ValueError("triangle has repeated vertex index")
     return value.astype(np.int64, copy=False)
@@ -57,7 +55,6 @@ def _unit(vector):
     if not np.isfinite(value).all():
         raise ValueError("SAT axis must be finite")
     return value
-
 def _axes(a, b):
     na = np.cross(a[1] - a[0], a[2] - a[0])
     nb = np.cross(b[1] - b[0], b[2] - b[0])
@@ -105,8 +102,11 @@ def intersecting_triangle_pairs(vertices, triangles, scale):
     if not len(faces):
         return ()
     corners = points[faces]
-    bounds = tuple(tuple(float(value) for value in (*minimum, *maximum))
-                   for minimum, maximum in zip(corners.min(axis=1), corners.max(axis=1)))
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        normals = np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0])
+        normal_lengths = np.linalg.norm(normals, axis=1)
+    if not np.isfinite(normal_lengths).all() or np.any(normal_lengths <= 0): raise ValueError("triangle normal must be nonzero")
+    bounds = tuple(tuple(float(value) for value in (*minimum, *maximum)) for minimum, maximum in zip(corners.min(axis=1), corners.max(axis=1)))
     face_sets = tuple(frozenset(int(index) for index in face) for face in faces)
     order = sorted(range(len(faces)), key=lambda i: (bounds[i][0], i))
     active, candidates = [], []

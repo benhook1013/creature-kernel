@@ -54,7 +54,6 @@ def synthetic_prepared():
     return {"source": {"document": "synthetic_root_complex", "namespace": "synthetic", "sha256": "synthetic-source", "provenance": "synthetic.source"},
             "basis": {"length_unit": "metre", "handedness": "right", "up": "+y", "forward": "+z"},
             "stations": stations, "landmarks": landmarks, "frames": {"body": frame}, "scalars": scalars}
-
 def independent_subdivision_stencils(quads, loops, vertex_count):
     uses = {}
     for face_index, face in enumerate(quads):
@@ -74,10 +73,8 @@ def independent_subdivision_stencils(quads, loops, vertex_count):
     next_quads = tuple((vertex, edge_index[tuple(sorted((vertex, face[(i + 1) % 4])))], face_index[fi], edge_index[tuple(sorted((face[i - 1], vertex)))]) for fi, face in enumerate(quads) for i, vertex in enumerate(face))
     next_loops = tuple((name, tuple(value for i, vertex in enumerate(loop) for value in (vertex, edge_index[tuple(sorted((vertex, loop[(i + 1) % len(loop)]))) ]))) for name, loop in loops)
     return tuple(sources), next_quads, next_loops
-
 def station_fields(name):
     return {f"stations.{name}.{key}" for key in ("center", "lateral_radius", "front_extent", "back_extent")}
-
 class SymbolicTopologyTests(unittest.TestCase):
     def test_exact_counts_loops_euler_orientation_and_valences(self):
         ids, quads, loops = surface.symbolic_topology()
@@ -100,7 +97,6 @@ class SymbolicTopologyTests(unittest.TestCase):
         self.assertTrue(all(len(value) in (1, 2) for value in uses.values()))
         self.assertTrue(all(value[0] == tuple(reversed(value[1]))
                             for value in uses.values() if len(value) == 2))
-
     def test_validator_rejects_bad_quad_and_boundary_declaration(self):
         ids, quads, loops = surface.symbolic_topology()
         with self.assertRaisesRegex(ValueError, "quad index"):
@@ -109,7 +105,6 @@ class SymbolicTopologyTests(unittest.TestCase):
             surface.validate_topology(len(ids), quads, loops[:-1])
         reversed_loop = list(loops); reversed_loop[1] = ("left_arm", tuple(reversed(loops[1][1])))
         with self.assertRaisesRegex(ValueError, "directed winding"): surface.validate_topology(len(ids), quads, tuple(reversed_loop))
-
         same_direction = list(quads); same_direction[8] = tuple(reversed(same_direction[8]))
         with self.assertRaisesRegex(ValueError, "same direction"): surface.validate_topology(len(ids), tuple(same_direction), loops)
         reversed_faces = tuple(tuple(reversed(face)) for face in quads); reversed_loops = tuple((name, tuple(reversed(loop))) for name, loop in loops); self.assertEqual(surface.validate_topology(len(ids), reversed_faces, reversed_loops), surface.validate_topology(len(ids), quads, loops))
@@ -127,14 +122,18 @@ class FormulaAndInputTests(unittest.TestCase):
         })
         with self.assertRaises(FrozenInstanceError):
             cage.vertices = ()
-
+    def test_number_admission_handles_huge_integer_with_stable_error(self):
+        prepared = synthetic_prepared(); prepared["scalars"]["n"] = {"value": 10 ** 309, "provenance": "huge.integer"}
+        with self.assertRaises(ValueError) as raised: surface.build_cage(prepared)
+        self.assertEqual(str(raised.exception), "scalars.n.value must be finite"); self.assertIsInstance(raised.exception.__cause__, OverflowError); self.assertEqual(surface._number(2, "ordinary"), 2.0)
+        baseline = surface.build_cage(synthetic_prepared()); ordinary = synthetic_prepared(); ordinary["scalars"]["n"] = {"value": 2.6, "provenance": "ordinary.float"}
+        self.assertEqual(baseline.vertices, surface.build_cage(ordinary).vertices)
     def test_unknown_names_fields_and_provenance_are_rejected(self):
         mutations = (("empty station provenance", lambda p: p["stations"]["neck_collar"].update(provenance="")), ("blank landmark provenance", lambda p: p["landmarks"]["axilla_left"].update(provenance=" \t\n")), ("empty frame provenance", lambda p: p["frames"]["body"].update(provenance="")), ("blank scalar provenance", lambda p: p["scalars"]["thigh_depth"].update(provenance=" \t\n")), ("top-level collection", lambda p: p.update(extra={})), ("frame name", lambda p: p["frames"].update(extra={})), ("landmark name", lambda p: p["landmarks"].update(extra={})), ("station name", lambda p: p["stations"].update(extra={})), ("scalar name", lambda p: p["scalars"].update(extra={})), ("source field", lambda p: p["source"].update(extra="rejected")), ("basis field", lambda p: p["basis"].update(extra="rejected")), ("frame field", lambda p: p["frames"]["body"].update(extra="rejected")), ("landmark field", lambda p: p["landmarks"]["axilla_left"].update(extra="rejected")), ("station field", lambda p: p["stations"]["neck_collar"].update(extra="rejected")), ("scalar field", lambda p: p["scalars"]["thigh_depth"].update(extra="rejected")))
         for kind, mutate in mutations:
             with self.subTest(kind=kind):
                 prepared = synthetic_prepared(); mutate(prepared)
                 with self.assertRaisesRegex(ValueError, "unknown or missing|requires provenance"): surface.build_cage(prepared)
-
     def test_named_boundaries_and_shoulder_offsets_use_canonical_sides(self):
         prepared = synthetic_prepared(); cage = surface.build_cage(prepared)
         lateral = np.array((1.0, 0.0, 0.0))
@@ -153,7 +152,6 @@ class FormulaAndInputTests(unittest.TestCase):
                              - local[(i + 1) % 4, 0] * local[i, 1]
                              for i in range(4))
             self.assertGreater(abs(area), 1e-12)
-
     def test_symmetric_pair_of_pants_routes_are_exact(self):
         _, faces, _ = surface.symbolic_topology()
         expected = []
@@ -163,13 +161,11 @@ class FormulaAndInputTests(unittest.TestCase):
                             for i in range(4))
         expected.append((50, 64, 54, 68))
         self.assertEqual(faces[-9:], tuple(expected[:4]) + tuple(tuple(reversed(face)) for face in expected[4:8]) + (expected[8],))
-
     def test_pelvic_routes_have_no_proper_front_projection_crossings(self):
         cage = surface.build_cage(synthetic_prepared())
         routes = ((50, 51), (51, 52), (52, 53), (53, 54),
                   (50, 49), (49, 48), (48, 55), (55, 54), (50, 54))
         projected = np.asarray(cage.vertices)[:, (0, 1)]
-
         def orientation(a, b, c):
             return ((b[0] - a[0]) * (c[1] - a[1])
                     - (b[1] - a[1]) * (c[0] - a[0]))
@@ -623,7 +619,6 @@ class BuildMetricsTests(unittest.TestCase):
 class MeshCorrectnessTests(unittest.TestCase):
     def assert_pairs(self, vertices, triangles, expected, scale=1.0):
         self.assertEqual(mesh_correctness.intersecting_triangle_pairs(vertices, triangles, scale), expected)
-
     def test_real_intersection_cases_and_adjacency_policy(self):
         base = ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
         fan = ((0.0, 0.0, 0.0), (1.0, 1.0, 0.0), (1.0, -1.0, 0.0))
@@ -657,6 +652,15 @@ class MeshCorrectnessTests(unittest.TestCase):
         crossing = np.asarray(base + cases[0][2], dtype=float)
         with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"):
             mesh_correctness.validate_triangle_intersections(crossing, np.asarray(separate, dtype=np.int64), 1.0)
+        collinear = np.asarray(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)))
+        with self.assertRaisesRegex(ValueError, "triangle normal must be nonzero"):
+            mesh_correctness.intersecting_triangle_pairs(collinear, np.asarray(((0, 1, 2),), dtype=np.int64), 1.0)
+        tiny_normal = np.asarray(((0.0, 0.0, 0.0), (5e-324, 0.0, 0.0), (0.0, 1.0, 0.0)))
+        with self.assertRaisesRegex(ValueError, "triangle normal must be nonzero"):
+            mesh_correctness.intersecting_triangle_pairs(tiny_normal, np.asarray(((0, 1, 2),), dtype=np.int64), 1.0)
+        separated = np.asarray((*collinear, (10.0, 0.0, 0.0), (10.0, 1.0, 0.0), (10.0, 0.0, 1.0)))
+        with self.assertRaisesRegex(ValueError, "triangle normal must be nonzero"):
+            mesh_correctness.validate_triangle_intersections(separated, np.asarray(((0, 1, 2), (3, 4, 5)), dtype=np.int64), 1.0)
         tiny = 2e-6 * np.asarray(
             base + ((1.5, 1.5, 0.0), (2.5, 1.5, 0.0), (1.5, 2.5, 0.0)))
         self.assert_pairs(tiny, np.asarray(separate, dtype=np.int64), ())
@@ -664,7 +668,6 @@ class MeshCorrectnessTests(unittest.TestCase):
             ((1.0, 1.0, 1.0), (2.0, -2.0, -2.0), (-2.0, -2.0, -2.0),
              (-1.0, 0.0, 0.0), (1.0, 2.0, 2.0), (2.0, 2.0, 2.0)))
         self.assert_pairs(noncoplanar, np.asarray(separate, dtype=np.int64), ())
-
     def test_intersection_resource_caps_fail_closed(self):
         self.assertEqual((mesh_correctness.MAX_TRIANGLES, len(mesh_correctness._triangles(np.tile((0, 1, 2), (mesh_correctness.MAX_TRIANGLES, 1)), 3))), (3072, 3072))
         with self.assertRaisesRegex(ValueError, "triangle cap"):
@@ -683,7 +686,6 @@ class MeshCorrectnessTests(unittest.TestCase):
                     crossing, np.asarray(((0, 1, 2), (3, 4, 5)), dtype=np.int64), 1.0)
         finally:
             mesh_correctness.MAX_CANDIDATES = old_cap
-
     def test_boundary_clearances_are_rotation_invariant_and_reject_each_collapse(self):
         result = surface.evaluate(synthetic_prepared(), levels=2); mesh = result.levels[-1]
         vertices = np.asarray(mesh.vertices, dtype=float); loops = dict(mesh.boundary_loops)
@@ -709,7 +711,6 @@ class MeshCorrectnessTests(unittest.TestCase):
             minimal = dict(loops); minimal["left_thigh"] = left[:3]; minimal["right_thigh"] = right[:3]; exact = mesh_correctness.boundary_clearance_ratios(vertices, minimal, axes, scale)
             expected = min(float((points[r] - points[l]) @ lateral) for l in minimal["left_thigh"] for r in minimal["right_thigh"]); self.assertEqual(exact["medial_thigh"], expected); over = dict(minimal); over["right_thigh"] = right[:4]
             with self.assertRaisesRegex(ValueError, r"boundary clearance pair cap exceeded: 12 > 9"): mesh_correctness.boundary_clearance_ratios(vertices, over, axes, scale)
-
     def test_subdivide_rejects_malformed_mesh_before_boundary_indexing(self):
         mesh = surface.Mesh(tuple((float(i), 0.0, 0.0) for i in range(8)),
                             ((0, 1, 2, 3), (0, 1, 4, 3), (0, 1, 6, 7)),
@@ -737,7 +738,6 @@ class ComplexityBoundaryTests(unittest.TestCase):
                 with path.open(encoding="utf-8") as handle:
                     total += sum(1 for _ in handle)
             return total
-
         production = tuple(ROOT / name for name in production_names)
         tests = tuple(ROOT / "tests" / name for name in test_names)
         self.assertLessEqual(physical_lines(production), 1250)
