@@ -9,14 +9,12 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = ROOT.parents[1]
 SOURCE = REPOSITORY / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
 sys.path.insert(0, str(ROOT))
 import root_complex_surface as surface  # noqa: E402
 from prepared_projection import (PreparedProjectionError, _add, _load, _reject_excessive_json_nesting, canonical_json_bytes, canonical_json_sha256, prepare_standard_neutral)  # noqa: E402
-
 BILATERAL_SCALARS = (
     ("arm_root_depth", "upper_arm", "form_arm_profile_upper_arm_start_forward_radius"),
     ("arm_root_outward", "upper_arm", "form_arm_profile_upper_arm_start_lateral_radius"),
@@ -134,14 +132,11 @@ class PreparedProjectionTests(unittest.TestCase):
                 prepare_standard_neutral(path)
         self.assertEqual(str(context.exception), "source contains non-finite JSON numbers")
         self.assertIsInstance(context.exception.__cause__, ValueError)
-
     def test_non_empty_fields_are_rejected_before_projection(self):
         self.assert_rejected(r"body\.fields: forbidden geometry-input collection", lambda source: source["body"]["fields"].append({"geometry": "must-not-reach-prepared-output"}))
-
     def test_add_rejects_non_finite_result_from_finite_operands(self):
         with self.assertRaisesRegex(PreparedProjectionError, r"derived point: expected finite number"):
             _add((sys.float_info.max, 0, 0), (sys.float_info.max, 0, 0))
-
     def test_consumed_source_rejects_invalid_dimension_values(self):
         pelvis = self.owner("pelvis")
         role = "form_torso_profile_lower_pelvis_lateral_radius"
