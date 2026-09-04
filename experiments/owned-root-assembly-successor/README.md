@@ -21,8 +21,8 @@ experiment does not change their lifecycle.
 
 Related DRs: DR-0013 context only; DR-0009 and DR-0010 remain parked
 
-Freeze state: double-FREEZE; two independent Sol reviews returned `FREEZE`
-with zero blockers
+Freeze state: double-FREEZE; two completed independent Sol FREEZE reviews
+returned `FREEZE` with zero blockers
 
 Design contract SHA-256: `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`
 
@@ -144,25 +144,29 @@ serialized production schemas, canonical identifiers, or additions to
 - **Domain plan**: one owner for each domain interior and its local chart,
   including declared boundary participation.
 - **Junction plan**: the shared boundary between incident domains, its ordered
-  interface curve, port relationship, and continuity obligations.
+  interface curve, port relationship, and continuity obligations; the declared
+  junction is the boundary's single construction owner and records all incident
+  domains.
 - **Causal binding**: source address/role to derived parameter, control,
   subdivision stencil, and evaluated-surface lineage.
 - **Surface artifact**: one welded control/evaluated surface with ephemeral
   domain, junction, port, chart, contributor, and diagnostic metadata.
 
-The construction layer owns base faces, domain interiors, and junction
-construction. The semantic layer carries causality from authored addresses and
-roles through derived parameters and subdivision stencils. The evaluated
-surface carries contributor and chart lineage, which may name multiple
-domains. These layers may reference one another through explicit bindings but
-may not silently replace one another.
+The construction layer owns base faces, domain interiors, and each declared
+junction's shared boundary; each junction records all incident domains. The
+semantic layer carries causality from authored addresses and roles through
+derived parameters and subdivision stencils. The evaluated surface carries
+contributor and chart lineage, which may name multiple domains. These layers
+may reference one another through explicit bindings but may not silently
+replace one another.
 
 Every base face and control has exactly one construction owner: a domain
-interior or a declared junction. Every shared junction boundary is represented
-once in the welded surface and records all incident domains. Every evaluated
-surface element has valid contributor/chart lineage. There is no unowned
-output. A categorical colour or legend may expose lineage in a diagnostic,
-but it is never evidence of causality by itself.
+interior or a declared junction. Every declared junction is the single
+construction owner of its shared boundary, which is represented once in the
+welded surface and records all incident domains. Every evaluated surface
+element has valid contributor/chart lineage. There is no unowned output. A
+categorical colour or legend may expose lineage in a diagnostic, but it is
+never evidence of causality by itself.
 
 ## Fixed scope and hard caps
 
@@ -198,9 +202,12 @@ ownership rules, it stops before producing evidence.
 The bounded design pass created
 `experiments/owned-root-assembly-successor/design-contract.md` as the sole
 freeze artifact for the candidate design. Its exact raw bytes are recorded in
-`experiments/owned-root-assembly-successor/design-contract.sha256` with
-SHA-256 `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`.
-The builder must require that identity, hash the file before admitting source
+the existing
+`experiments/owned-root-assembly-successor/design-contract.sha256` sidecar,
+which records matching SHA-256
+`3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`. The
+implementation README records two completed independent FREEZE reviews. The
+builder must require that identity, hash the file before admitting source
 inputs, and reject a missing file or mismatch without producing an artifact.
 The bounded implementation phase is active under this frozen contract.
 
@@ -387,6 +394,65 @@ for evidence.
 This implementation-phase README provides the exact copy-paste reproduction
 command and lists all raw outputs. Execution remains bounded by that command
 and the frozen design-contract identity.
+
+## Exact reproduction and final output
+
+From the repository root, use the only public entrypoint with the contract's
+exact invocation form:
+
+```bash
+PYTHONHASHSEED=0 experiments/owned-root-assembly-successor/owned_root_launcher.sh --output ABSENT_PATH
+```
+
+Replace `ABSENT_PATH` with a fresh absolute path that does not exist before the
+invocation. The final successful output is the complete outer root below. Each
+seed directory contains exactly the same 47 relative roles listed in the
+inventory; the comparison directory contains exactly its two listed files.
+
+```text
+ABSENT_PATH/
+├── seed-17/       exact 47-role inventory below
+├── seed-29/       the same exact 47-role inventory below
+└── comparison/
+    ├── comparison-report.json
+    └── comparison-report.sha256
+
+Per-seed roles, relative to seed-17/ or seed-29/:
+surface-level-0.ply, surface-level-1.ply, surface-level-2.ply
+perturb-left-r_y.ply, perturb-right-r_y.ply
+perturb-lower_pelvis-L_y.ply, perturb-left-r_x.ply
+perturb-lower_pelvis-C_z.ply, perturb-right-r_x.ply
+perturb-lower_pelvis-R_x.ply, perturb-left-r_z.ply
+perturb-right-r_z.ply, perturb-lower_pelvis-R_f.ply
+perturb-lower_pelvis-R_b.ply, perturb-left-thigh_start_x.ply
+perturb-left-thigh_start_y.ply, perturb-left-thigh_start_z.ply
+perturb-right-thigh_start_x.ply, perturb-right-thigh_start_y.ply
+perturb-right-thigh_start_z.ply, perturb-neck_collar-C_y.ply
+perturb-neck_collar-rL.ply, perturb-neck_upper-C_y.ply
+perturb-neck_upper-rL.ply, perturb-left-axilla_x.ply
+perturb-left-axilla_y.ply, perturb-right-axilla_x.ply
+perturb-right-axilla_y.ply, perturb-left-peak_y.ply
+perturb-right-peak_y.ply, perturb-left-start_lateral.ply
+perturb-right-start_lateral.ply, perturb-left-start_up.ply
+perturb-right-start_up.ply, perturb-left-shoulder_depth.ply
+perturb-right-shoulder_depth.ply
+direct.png, lineage.png
+input-manifest.json, coordinate-manifest.json, gate-manifest.json
+causality-manifest.json, render-manifest.json, stable-manifest.json
+prepared-input.json, report.json, report.sha256
+```
+
+The repository contract sidecar is an input, not a published output role. The
+managed-test receipt is staging-only and is removed before publication. On any
+failed test, builder, comparison, receipt removal, closed-root validation, or
+publication stage, the launcher exits `1`, publishes neither the comparison
+directory nor the outer root, and emits nothing at `ABSENT_PATH`; cleanup is
+limited to invocation-owned staging. Success exits `0`, and only the complete
+published outer root is technical evidence. See the frozen contract's
+[§10.3](design-contract.md#103-closed-inventory-and-acyclic-hash-graph),
+[§11](design-contract.md#11-paths-launcher-and-reproducibility), and
+[§13](design-contract.md#13-seed-local-gate-and-pair-publication-order) for
+the authoritative inventory and publication rules.
 
 ## Correction stop
 

@@ -93,10 +93,11 @@ port orientations, extraordinary placement and valence, continuity tolerances,
 normal/fold bounds, and subdivision support are frozen in the required design
 contract before coordinates or images are judged.
 
-Each domain owns its interior faces and controls. Each shared boundary is
-represented once by a named junction owned by its incident domains; there are
-no overlapping skins that merely happen to coincide. Domains, charts, ports,
-and junctions are ephemeral experiment records, not canonical anatomy IDs.
+Each domain owns its interior faces and controls. Each declared junction is the
+single construction owner of its shared boundary and records all incident
+domains; the boundary is represented once, with no overlapping skins that
+merely happen to coincide. Domains, charts, ports, and junctions are ephemeral
+experiment records, not canonical anatomy IDs.
 The frozen design must enumerate every base face and control owner, every
 junction adjacency and its incident domains, and every domain's nonempty
 interior. It rejects any domain interior that crosses a required neck,
@@ -129,10 +130,14 @@ The required sole freeze artifact for the candidate design is
 `experiments/owned-root-assembly-successor/design-contract.md`. Its exact raw
 bytes are frozen and SHA-256-bound at
 `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`, recorded
-by `experiments/owned-root-assembly-successor/design-contract.sha256`. The
-builder must require that identity and reject a missing file or any mismatch
-before admitting inputs or producing output. The bounded implementation is
-next under this frozen contract; no implementation result is implied.
+by the existing
+`experiments/owned-root-assembly-successor/design-contract.sha256` sidecar,
+which records that matching contract SHA-256. The implementation README records
+two completed independent FREEZE reviews. The builder must require that
+identity and reject a missing file or any mismatch before admitting inputs or
+producing output. The bounded implementation is next under this frozen
+contract; no implementation result is implied. This research record remains
+experiment-local, non-authoritative evidence and direction context.
 
 The frozen design contract covers every item in the preflight below and sets
 finite caps for total junction count and interface cardinality; chart, formula,
