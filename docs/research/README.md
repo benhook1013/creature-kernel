@@ -11,8 +11,9 @@ hypotheses, references, and research context.
 - [Open questions](open-questions.md)
 - [First host runtime evaluation](first-host-runtime-evaluation.md) — the
   2026-08-25 official-source comparison of Godot 4.7.2, Unity 6.3 LTS, Unreal
-  Engine 5.8, and Bevy 0.19. Godot is recorded as a provisional first
-  feasibility candidate only; RQ-062 remains open pending the bounded trial.
+  Engine 5.8, and Bevy 0.19, plus a 2026-09-04 follow-up covering the completed
+  bounded Godot trial and Bevy's remote-control, community AI, and physics
+  ecosystem. No permanent host is selected; RQ-062 remains open.
 - [Reference index](references.md)
 - [Provisional morphology-knowledge inventory and pilot dossiers](morphology-knowledge-inventory-and-pilot-dossiers.md) — research-only
   inventory and exactly two selected anatomy pilots for the five-profile
