@@ -124,7 +124,6 @@ def symbolic_topology():
              ("left_thigh", (64, 67, 66, 65)),
              ("right_thigh", (68, 69, 70, 71)))
     return tuple(ids), _orient(faces), loops
-
 def validate_topology(vertex_count, faces, loops, expected_valences=None):
     if any(len(face) != 4 or len(set(face)) != 4 for face in faces):
         raise ValueError("all faces must be non-degenerate quads")
@@ -157,7 +156,6 @@ def validate_topology(vertex_count, faces, loops, expected_valences=None):
     if report.euler != 2 - len(loops):
         raise ValueError("Euler characteristic does not match boundary count")
     return report
-
 def _vector(value, path):
     try:
         result = np.asarray(value, dtype=float)
@@ -166,7 +164,6 @@ def _vector(value, path):
     if result.shape != (3,) or not np.isfinite(result).all():
         raise ValueError(f"{path} must be a finite 3-vector")
     return result
-
 def _number(value, path, positive=False):
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
         raise ValueError(f"{path} must be finite")
@@ -174,14 +171,12 @@ def _number(value, path, positive=False):
     if positive and value <= 0:
         raise ValueError(f"{path} must be positive")
     return value
-
 def _record(mapping, key, kind):
     value = mapping.get(key)
     if (not isinstance(value, Mapping) or set(value) != _RECORD_FIELDS[kind] or not
             (isinstance(value.get("provenance"), str) and value["provenance"].strip())):
         raise ValueError(f"{kind} {key} has unknown or missing fields or requires provenance")
     return value
-
 def _exact_keys(value, expected, path, required=None):
     keys = set(value) if isinstance(value, Mapping) else None
     if keys is None or not keys <= expected or not (expected if required is None else required) <= keys: raise ValueError(f"{path} has unknown or missing fields")
@@ -224,7 +219,6 @@ def _prepared(prepared):
         if not low <= constants[key] <= high:
             raise ValueError(f"scalar {key} outside frozen range")
     return stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame["provenance"]
-
 def build_cage(prepared): return _build_cage(_prepared(prepared))
 def _build_cage(prepared_values):
     stations, landmarks, scalars, (L, U, F), constants, constant_provenance, frame_prov = prepared_values
@@ -415,7 +409,6 @@ def _scale(mesh):
         raise ValueError("trial scale must be positive")
     return value
 
-
 def validate_geometry(mesh, evaluated=False):
     validate_topology(len(mesh.vertices), mesh.quads, mesh.boundary_loops)
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -442,15 +435,14 @@ def validate_geometry(mesh, evaluated=False):
                 raise ValueError("triangle below area threshold")
     return scale
 
-
 def subdivide(mesh, level=1):
     if level not in (1, 2):
         raise ValueError("subdivision level must be one or two")
+    validate_topology(len(mesh.vertices), mesh.quads, mesh.boundary_loops)
     result = mesh
     for iteration in range(level):
         result, _ = _subdivide_once(result, iteration + 1)
     return result
-
 
 def _subdivide_once(mesh, level):
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -472,6 +464,8 @@ def _subdivide_once(mesh, level):
     for i, point in enumerate(vertices):
         if i in boundary_neighbors:
             neighbors = sorted(boundary_neighbors[i])
+            if len(neighbors) != 2 or neighbors[0] == neighbors[1]:
+                raise ValueError("boundary vertex must have exactly two boundary neighbors")
             value = (6 * point + vertices[neighbors[0]] + vertices[neighbors[1]]) / 8
             formula = "catmull_clark.open_boundary_vertex"
             dependency_indices = (i, *neighbors)
@@ -525,7 +519,6 @@ def _subdivide_once(mesh, level):
     output = Mesh(output_vertices, tuple(quads), tuple(ids), tuple(formulas), tuple(deps),
                   tuple(prov), tuple(loops), triangles)
     return output, validate_geometry(output, evaluated=True)
-
 
 def evaluate(prepared, levels=2):
     if levels not in (1, 2):

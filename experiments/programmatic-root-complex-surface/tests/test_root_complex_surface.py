@@ -78,7 +78,6 @@ def independent_subdivision_stencils(quads, loops, vertex_count):
 def station_fields(name):
     return {f"stations.{name}.{key}" for key in ("center", "lateral_radius", "front_extent", "back_extent")}
 
-
 class SymbolicTopologyTests(unittest.TestCase):
     def test_exact_counts_loops_euler_orientation_and_valences(self):
         ids, quads, loops = surface.symbolic_topology()
@@ -114,8 +113,6 @@ class SymbolicTopologyTests(unittest.TestCase):
         same_direction = list(quads); same_direction[8] = tuple(reversed(same_direction[8]))
         with self.assertRaisesRegex(ValueError, "same direction"): surface.validate_topology(len(ids), tuple(same_direction), loops)
         reversed_faces = tuple(tuple(reversed(face)) for face in quads); reversed_loops = tuple((name, tuple(reversed(loop))) for name, loop in loops); self.assertEqual(surface.validate_topology(len(ids), reversed_faces, reversed_loops), surface.validate_topology(len(ids), quads, loops))
-
-
 class FormulaAndInputTests(unittest.TestCase):
     def test_plain_mapping_build_has_complete_immutable_records(self):
         cage = surface.build_cage(synthetic_prepared())
@@ -422,12 +419,10 @@ class FormulaAndInputTests(unittest.TestCase):
         powered = surface.build_cage(changed)
         self.assertNotEqual(baseline.vertices[1], powered.vertices[1])
         self.assertEqual((baseline.vertices[0], baseline.vertices[56:]), (powered.vertices[0], powered.vertices[56:]))
-
         changed = synthetic_prepared(); changed["scalars"]["lambda"] = {"value": 0.5, "provenance": "synthetic.constant.lambda"}
         blended = surface.build_cage(changed)
         self.assertTrue(all(baseline.vertices[index] != blended.vertices[index] for index in range(40, 48)))
         self.assertEqual((baseline.vertices[:40], baseline.vertices[48:]), (blended.vertices[:40], blended.vertices[48:]))
-
         changed = synthetic_prepared(); changed["scalars"]["eta"] = {"value": 0.5, "provenance": "synthetic.constant.eta"}
         seated = surface.build_cage(changed)
         self.assertEqual((baseline.vertices[:48], baseline.vertices[56:64]), (seated.vertices[:48], seated.vertices[56:64]))
@@ -441,11 +436,9 @@ class FormulaAndInputTests(unittest.TestCase):
             np.testing.assert_allclose(centroid, expected)
             projection = float(np.dot(centroid - start, route)); self.assertGreater(projection, 0.0)
             self.assertAlmostEqual(projection / float(np.dot(route, route)), changed["scalars"]["eta"]["value"])
-
         changed = synthetic_prepared(); changed["stations"]["upper_pelvis"]["front_extent"] = 0.5; sourced = surface.build_cage(changed)
         self.assertEqual((baseline.vertices[:8], baseline.vertices[56:]), (sourced.vertices[:8], sourced.vertices[56:]))
         self.assertTrue(all(baseline.vertices[index] != sourced.vertices[index] for index in (42, 50)))
-
         for key, changed_slice, stable_slice in (
                 ("shoulder", slice(56, 58), slice(58, 60)),
                 ("axilla", slice(58, 60), slice(56, 58))):
@@ -521,13 +514,10 @@ class FormulaAndInputTests(unittest.TestCase):
             with self.subTest(case=index):
                 prepared = synthetic_prepared(); mutate(prepared)
                 self.assertRaisesRegex(ValueError, message, surface.build_cage, prepared)
-
-
 class SubdivisionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.prepared = synthetic_prepared(); cls.result = surface.evaluate(cls.prepared, levels=2)
-
     def test_open_boundaries_subdivide_and_euler_is_preserved(self):
         first, second = self.result.levels
         self.assertEqual((len(first.vertices), len(first.quads)), (273, 252))
@@ -542,10 +532,8 @@ class SubdivisionTests(unittest.TestCase):
                          ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
         self.assertTrue(all(value > mesh_correctness.CLEARANCE_THRESHOLDS[name]
                             for name, value in self.result.clearance_ratios))
-
     def test_final_level_clearance_gate_runs_at_requested_level(self):
         self.assertEqual(tuple(name for name, _ in surface.evaluate(self.prepared, levels=1).clearance_ratios), ("neck", "axilla_left", "axilla_right", "groin", "medial_thigh"))
-
     def test_evaluate_validates_each_produced_level_once(self):
         original = surface.validate_geometry; evaluated_meshes = []
 
@@ -621,8 +609,6 @@ class SubdivisionTests(unittest.TestCase):
                     reference,
                     build_root_complex.normal_angle_fold_diagnostics((candidate,)),
                 )
-
-
 class BuildMetricsTests(unittest.TestCase):
     def test_published_metrics_include_evaluated_normal_angle_fold_diagnostics(self):
         source = ROOT.parents[1] / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
@@ -634,8 +620,6 @@ class BuildMetricsTests(unittest.TestCase):
         self.assertEqual(diagnostics["schema"], "programmatic-root-complex.normal-angle-fold.v1")
         self.assertEqual([report["level"] for report in diagnostics["levels"]], [1, 2])
         self.assertTrue(all("folded_edge_count" in report for report in diagnostics["levels"]))
-
-
 class MeshCorrectnessTests(unittest.TestCase):
     def assert_pairs(self, vertices, triangles, expected, scale=1.0):
         self.assertEqual(mesh_correctness.intersecting_triangle_pairs(vertices, triangles, scale), expected)
@@ -673,6 +657,13 @@ class MeshCorrectnessTests(unittest.TestCase):
         crossing = np.asarray(base + cases[0][2], dtype=float)
         with self.assertRaisesRegex(ValueError, r"first pair \(0, 1\)"):
             mesh_correctness.validate_triangle_intersections(crossing, np.asarray(separate, dtype=np.int64), 1.0)
+        tiny = 2e-6 * np.asarray(
+            base + ((1.5, 1.5, 0.0), (2.5, 1.5, 0.0), (1.5, 2.5, 0.0)))
+        self.assert_pairs(tiny, np.asarray(separate, dtype=np.int64), ())
+        noncoplanar = 2e-6 * np.asarray(
+            ((1.0, 1.0, 1.0), (2.0, -2.0, -2.0), (-2.0, -2.0, -2.0),
+             (-1.0, 0.0, 0.0), (1.0, 2.0, 2.0), (2.0, 2.0, 2.0)))
+        self.assert_pairs(noncoplanar, np.asarray(separate, dtype=np.int64), ())
 
     def test_intersection_resource_caps_fail_closed(self):
         self.assertEqual((mesh_correctness.MAX_TRIANGLES, len(mesh_correctness._triangles(np.tile((0, 1, 2), (mesh_correctness.MAX_TRIANGLES, 1)), 3))), (3072, 3072))
@@ -719,7 +710,18 @@ class MeshCorrectnessTests(unittest.TestCase):
             expected = min(float((points[r] - points[l]) @ lateral) for l in minimal["left_thigh"] for r in minimal["right_thigh"]); self.assertEqual(exact["medial_thigh"], expected); over = dict(minimal); over["right_thigh"] = right[:4]
             with self.assertRaisesRegex(ValueError, r"boundary clearance pair cap exceeded: 12 > 9"): mesh_correctness.boundary_clearance_ratios(vertices, over, axes, scale)
 
-
+    def test_subdivide_rejects_malformed_mesh_before_boundary_indexing(self):
+        mesh = surface.Mesh(tuple((float(i), 0.0, 0.0) for i in range(8)),
+                            ((0, 1, 2, 3), (0, 1, 4, 3), (0, 1, 6, 7)),
+                            tuple(f"c{i}" for i in range(8)), ("f",) * 8,
+                            (("d",),) * 8, (("p",),) * 8, ())
+        valid = surface.subdivide(surface.build_cage(synthetic_prepared()))
+        self.assertEqual((len(valid.vertices), len(valid.quads)), (273, 252))
+        with self.assertRaisesRegex(ValueError, "non-manifold edge"):
+            surface.subdivide(mesh)
+        with patch.object(surface, "validate_topology", return_value=None):
+            with self.assertRaisesRegex(ValueError, "exactly two boundary neighbors"):
+                surface.subdivide(mesh)
 class ComplexityBoundaryTests(unittest.TestCase):
     def test_exact_python_inventory_and_physical_line_caps(self):
         production_names = ("build_root_complex.py", "mesh_correctness.py", "prepared_projection.py",
@@ -741,7 +743,5 @@ class ComplexityBoundaryTests(unittest.TestCase):
         self.assertLessEqual(physical_lines(production), 1250)
         self.assertLessEqual(physical_lines(tests), 1050)
         self.assertLessEqual(physical_lines((ROOT / "mesh_correctness.py",)), 220)
-
-
 if __name__ == "__main__":
     unittest.main()

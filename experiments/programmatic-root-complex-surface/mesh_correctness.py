@@ -4,7 +4,6 @@ from collections.abc import Mapping
 
 import numpy as np
 
-
 REQUIRED_LOOPS = ("neck", "left_arm", "right_arm", "left_thigh", "right_thigh")
 INTERSECTION_TOLERANCE = 1e-10
 MAX_TRIANGLES = 3072
@@ -12,7 +11,6 @@ MAX_CANDIDATES = 250000
 MAX_BOUNDARY_CLEARANCE_PAIRS = 250000
 CLEARANCE_THRESHOLDS = {"neck": .030, "axilla_left": .025, "axilla_right": .025,
                         "groin": .020, "medial_thigh": .025}
-
 
 def _vertices(raw, scale):
     if isinstance(scale, (bool, np.bool_)):
@@ -51,14 +49,24 @@ def _triangles(raw, count):
     return value.astype(np.int64, copy=False)
 
 
+def _unit(vector):
+    length = np.linalg.norm(vector)
+    if not np.isfinite(length) or length <= 0:
+        raise ValueError("SAT axis must be finite")
+    value = vector / length
+    if not np.isfinite(value).all():
+        raise ValueError("SAT axis must be finite")
+    return value
+
 def _axes(a, b):
     na = np.cross(a[1] - a[0], a[2] - a[0])
     nb = np.cross(b[1] - b[0], b[2] - b[0])
     if not np.linalg.norm(na) > 0 or not np.linalg.norm(nb) > 0:
         raise ValueError("triangle normal must be nonzero")
-    ea = (a[1] - a[0], a[2] - a[1], a[0] - a[2])
-    eb = (b[1] - b[0], b[2] - b[1], b[0] - b[2])
-    return [na, nb, *(np.cross(x, y) for x in ea for y in eb), *(np.cross(na, edge) for edge in ea), *(np.cross(nb, edge) for edge in eb)]
+    normal_a, normal_b = _unit(na), _unit(nb)
+    ea = tuple(_unit(edge) for edge in (a[1] - a[0], a[2] - a[1], a[0] - a[2]))
+    eb = tuple(_unit(edge) for edge in (b[1] - b[0], b[2] - b[1], b[0] - b[2]))
+    return [na, nb, *(np.cross(x, y) for x in ea for y in eb), *(np.cross(normal_a, edge) for edge in ea), *(np.cross(normal_b, edge) for edge in eb)]
 
 
 def _unique_shared_contact(a, b, axis, shared_vertex):
