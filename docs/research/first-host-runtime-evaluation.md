@@ -1,25 +1,30 @@
 # First host runtime evaluation
 
-Status: Research record — provisional candidate, incomplete evidence
-Date: 2026-08-25
+Status: Research record — bounded first-host trial complete; permanent host unresolved
+Initial comparison: 2026-08-25
+Follow-up: 2026-09-04
 Question: [RQ-062](open-questions.md#technology-and-integration)
 
 ## Scope and disposition
 
-This record captures the current official-source comparison of Godot 4.7.2,
-Unity 6.3 LTS, Unreal Engine 5.8, and Bevy 0.19 for the first downstream
-runtime-host feasibility work. It is research evidence, not a product,
-specification, architecture, or technology-selection decision.
+This record preserves the 2026-08-25 official-source comparison of Godot
+4.7.2, Unity 6.3 LTS, Unreal Engine 5.8, and Bevy 0.19 for the first downstream
+runtime-host feasibility work. The 2026-09-04 follow-up records the completed
+bounded Godot trial and newly identified Bevy ecosystem evidence. It is
+research evidence, not a product, specification, architecture, or
+technology-selection decision.
 
 Ben approved Godot 4.7.2 only as the **provisional first reference-host
 feasibility candidate**. That approval does not select a permanent engine or
-activate an adapter, runtime-avatar package format, solver, or Stage 3. RQ-062
-therefore remains open and qualified pending a bounded trial.
+activate an adapter, runtime-avatar package format, solver, or Stage 3. The
+bounded trial is now complete and dispositioned as historical runway work, but
+RQ-062 remains open because no permanent host or adapter has been selected.
 
-The current recommendation is to test Godot first because it offers the
-highest information for the lowest lock-in and local setup burden among the
-compared hosts. That is a trial-order recommendation, not a claim that Godot
-will be the final host.
+The current recommendation is to preserve that Godot evidence without
+reactivating engine work during the active surface investigation. A later host
+comparison can evaluate Bevy as a Rust-native alternative after its official
+remote-control layer and separate community AI and physics tooling have been
+qualified against CK's actual package boundary.
 
 ## Evidence language
 
@@ -33,8 +38,9 @@ will be the final host.
 - **Trial-required evidence:** a claim that must be demonstrated with a bounded
   CK fixture, declared host configuration, measurements, or rendered output.
 
-No host was installed, built, or run for this record. No performance or visual
-claim is made.
+No host was installed, built, or run for the initial comparison. The later
+Godot trial evidence is linked below. No Bevy runtime, AI tool, or physics
+integration has been installed, built, or run for this follow-up.
 
 ## Comparison at 2026-08-25
 
@@ -62,6 +68,51 @@ continuity baseline. They are deferred as first hosts because each introduces
 a larger confounding factor for this particular first experiment: vendor
 terms and editor/tooling, heavy proprietary runtime facilities and hardware
 burden, or additional host infrastructure that CK would have to assemble.
+
+## Follow-up at 2026-09-04
+
+### Completed Godot trial
+
+The bounded Godot work is complete and dispositioned as
+[historical runway work](../project/status.md#historical-runway-record). Its
+package-backed probe loaded two independently identified generated avatars,
+exercised semantic contact and physical response, and included a CPU
+deformation path plus a rigid-contact-only fallback. The CPU deformation-core
+screen passed, while the frame/physics screen did not. This is bounded evidence,
+not a permanent Godot or Jolt choice, Stage 3 success, or an adapter activation.
+The experiment's exact scope, results, and limitations remain in the
+[Godot structural host probe record](../../experiments/godot-provisional-host-feasibility/README.md).
+
+### Bevy remote-control and AI ecosystem
+
+- **First-party Bevy Remote Protocol (BRP):** Bevy 0.19 includes a JSON-RPC
+  remote-control layer that can inspect and alter ECS state, expose registered
+  type schemas, discover methods, and register application-defined methods.
+  This is a useful automation and observability boundary; it is not itself a
+  creature generator, model API, or CK adapter.
+- **Community `bevy_brp_mcp`:** this separate project bridges BRP to MCP-aware
+  coding assistants. Its current compatibility table pairs
+  `bevy_brp_mcp` 0.22.5 with Bevy 0.19, and its optional extras add screenshots,
+  input, diagnostics, and application lifecycle operations. It has not been
+  tested with CK and should not be described as a Bevy-maintained capability.
+- **Community `bevy-agent`:** the discovered 0.1.0 project advertises
+  model-backed game creation, feature addition, analysis, and project commands.
+  Its current default feature depends on Bevy 0.14 and its examples name older
+  model families. It is therefore recorded as an unverified lead, not evidence
+  of Bevy 0.19 compatibility or runtime inspection comparable to BRP.
+- **Community Avian:** Avian's current compatibility table pairs Avian 0.7 with
+  Bevy 0.19 and documents rigid bodies, collision/contact queries, constraints,
+  spatial queries, and `f32`/`f64` modes. It remains a separately versioned
+  dependency and has not been evaluated against CK's contact and deformation
+  requirements.
+
+These findings reduce the tooling and physics gap implied by the initial Bevy
+comparison, especially for an AI-assisted bounded trial. They do not replace
+CK: none supplies CK's authoritative creature semantics, procedural anatomy,
+geometry, rigging, skinning, proxies, package contract, or embodiment policy.
+They also leave Bevy as a composition of the engine plus independently
+versioned community components. The evidence supports a later parity trial,
+not a current dependency, runway change, or engine selection.
 
 ## Preserved CK boundary
 
@@ -94,8 +145,8 @@ The intended division is:
 
 The exact ownership of contact resolution, deformation state, physical response,
 timing, interpolation, substeps, and CPU/GPU execution remains unresolved.
-Those are trial questions, not permissions for the host to redefine CK
-semantics.
+Those are future host-selection questions, not permissions for the host to
+redefine CK semantics.
 
 The post-Readiness-3 gate remains intact. DR-0013 requires a separate
 Ben-approved Readiness 3 transaction before resolver/semantic activation and
@@ -104,23 +155,26 @@ precision, narrowing/overflow/underflow policy, supported domain, and guarantee
 tier. Adapter activation remains separate and after Readiness 3. This record
 does not create a schema, fixture, package, adapter, or implementation.
 
-## Bounded feasibility trial
+## Original bounded feasibility-trial plan
 
-The later trial should be titled **Godot 4.7.2 provisional reference-host
-feasibility trial**, not “Godot host selection.” It must follow the queued
-CK-KICK-016 through CK-KICK-018 prerequisites and provide the bounded evidence
-for CK-KICK-019 in a deliberately narrow scenario.
+At the initial comparison, the later trial was to be titled **Godot 4.7.2
+provisional reference-host feasibility trial**, not “Godot host selection.” It
+was to follow the queued CK-KICK-016 through CK-KICK-018 prerequisites and
+provide the bounded evidence for CK-KICK-019 in a deliberately narrow scenario.
+The follow-up above and the linked experiment record describe what was actually
+completed.
 
-The smallest useful candidate scenario is two independently addressed,
+The smallest useful candidate scenario was two independently addressed,
 substantially different generated avatars undergoing a bounded press-and-
-release interaction at a declared semantic region. It should test contact
-onset, absence of unacceptable tunnelling or penetration, local response,
-recovery, and at least one lower-quality fallback. Tangential sliding,
-sustained bracing, cross-profile breadth, and more advanced internal or
-regional effects remain later probes unless the first evidence makes them
+release interaction at a declared semantic region. It was intended to test
+contact onset, absence of unacceptable tunnelling or penetration, local
+response, recovery, and at least one lower-quality fallback. Tangential
+sliding, sustained bracing, cross-profile breadth, and more advanced internal
+or regional effects remain later probes unless future work makes them
 necessary.
 
-The trial must fail closed or remain explicitly incomplete unless it records:
+The trial plan required fail-closed or explicitly incomplete reporting unless
+it recorded:
 
 1. the exact CK package/input provenance and an unchanged host load for each
    avatar package;
@@ -142,16 +196,16 @@ The trial must fail closed or remain explicitly incomplete unless it records:
 11. a rendered capture plus structured telemetry, so subjective visual judgment
     and machine evidence remain distinct.
 
-Passing this bounded trial could support a later host-selection proposal.
-Failure would be useful evidence about the package, adapter, solver split, or
+The planned interpretation was that a pass could support a later host-selection
+proposal, while a failure would inform the package, adapter, solver split, or
 the need to compare Unity, Unreal, Bevy, or a different host boundary. Neither
-outcome alone accepts a decision record or proves the unbounded Stage 3
+outcome alone would accept a decision record or prove the unbounded Stage 3
 roadmap.
 
 ## Open unknowns
 
-- Whether the current Readiness 2 outputs can be transformed into the eventual
-  engine-neutral package without prematurely freezing its format.
+- Whether the experiment-local package can inform an eventual engine-neutral
+  package contract without prematurely freezing its format.
 - Whether Rust-to-Godot should use a low-level GDExtension C ABI or a pinned
   community binding, and how lifecycle, ownership, panic, and version rules
   should be handled.
@@ -159,12 +213,12 @@ roadmap.
   or another representation should be authoritative for contact.
 - Whether local response belongs primarily to CK, the host, or a replaceable
   split, and how to keep render and collision state coherent.
-- Whether the WSL2/Linux environment or a native Windows host is the primary
-  performance envelope for the first rendered trial.
+- Whether the WSL2/Linux environment or a native Windows host should define a
+  future host performance envelope.
 - What frame target, active-character count, visual bar, quality tiers, and
   fallback are sufficient for the bounded Stage 3 claim.
-- Whether Godot's current APIs and version policy remain suitable when the
-  actual package and solver prerequisites are ready.
+- Whether Godot's APIs and version policy remain suitable if permanent-host
+  selection is reactivated.
 
 ## Official primary sources
 
@@ -214,3 +268,14 @@ establish CK suitability.
 - [Bevy 0.19 release](https://bevy.org/news/bevy-0-19/)
 - [Bevy official introduction](https://bevy.org/learn/quick-start/introduction/)
 - [Bevy official repository and development-status notice](https://github.com/bevyengine/bevy)
+- [Bevy 0.19.1 Remote Protocol documentation](https://docs.rs/bevy/0.19.1/bevy/remote/)
+
+## Community-project primary sources for the 2026-09-04 follow-up
+
+These sources establish what their own projects claim or configure. They are
+not official Bevy sources and do not establish CK suitability.
+
+- [`bevy_brp_mcp` compatibility and feature record](https://github.com/natepiano/bevy_brp/blob/40155b950b845c24c7e399b4b2234f7e40cc0b6c/mcp/README.md)
+- [`bevy-agent` repository snapshot](https://github.com/jbuehler23/bevy-agent/tree/7247f237fcef0d6e854e291ea3cbbd143ae2583d)
+- [`bevy-agent` dependency configuration](https://github.com/jbuehler23/bevy-agent/blob/7247f237fcef0d6e854e291ea3cbbd143ae2583d/Cargo.toml)
+- [Avian features and compatibility record](https://github.com/avianphysics/avian/blob/e1b63a45d7ab8fcba37606f6c71d1649db390c5e/README.md)
