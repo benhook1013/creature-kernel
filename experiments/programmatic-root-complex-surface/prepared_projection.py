@@ -124,7 +124,6 @@ def _bilateral_scalar(rows, owners, role, name):
     _ok(left[0] == right[0], f"scalars.{name}", "left and right dimensions must match")
     return {"value": left[0], "provenance": "; ".join((left[1], right[1], "derivation=validated_bilateral_scalar_v1"))}
 
-
 def prepare_standard_neutral(path):
     source, digest = _load(path); _ok(set(source) == _TOP, "source", "unknown or missing top-level field")
     _ok(source["contract"] == {"family": "creature-kernel.body", "revision": 1}, "source.contract", "wrong contract")
