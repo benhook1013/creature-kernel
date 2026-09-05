@@ -101,35 +101,37 @@ def _actual_feature_edges(mesh, charts, feature, expected=None):
     return result
 def _base_feature_edges(feature, mesh):
     ids = surface.PORT_INFO[feature][2] if feature in PORTS else surface.JUNCTION_TRACES[feature]; indexes = {name: i for i, name in enumerate(mesh.control_ids)}; cycle = tuple(indexes[name] for name in ids); return {tuple(sorted((a, cycle[(i + 1) % len(cycle)]))) for i, a in enumerate(cycle)}
-def _feature_edges(levels, charts, feature, target):
-    selected = _base_feature_edges(feature, levels[0]); actual = _actual_feature_edges(levels[0], charts[0], feature, selected)
-    if selected != actual: _fail("incidence selector disagrees with catalog", f"{feature}:L0")
-    for level in range(1, target + 1):
-        parent = levels[level - 1]; incidence = surface.subdivision_incidence(parent); edge_point = dict(incidence["edge_point_indices"]); expected = set()
-        for a, b in selected: mid = edge_point[(a, b)]; expected.update((tuple(sorted((a, mid))), tuple(sorted((mid, b)))))
+def _new_selector_cache(): return {"incidence": {}, "feature_edges": {}}
+def _cached_incidence(levels, level, cache): return cache["incidence"][level] if level in cache["incidence"] else cache["incidence"].setdefault(level, surface.subdivision_incidence(levels[level]))
+def _feature_edge_levels(levels, charts, feature, target, cache=None):
+    cache = _new_selector_cache() if cache is None else cache; cached = cache["feature_edges"].setdefault(feature, [])
+    if not cached: selected = _base_feature_edges(feature, levels[0]); actual = _actual_feature_edges(levels[0], charts[0], feature, selected); _fail("incidence selector disagrees with catalog", f"{feature}:L0") if selected != actual else cached.append(frozenset(selected))
+    for level in range(len(cached), target + 1):
+        incidence = _cached_incidence(levels, level - 1, cache); edge_point = dict(incidence["edge_point_indices"]); expected = set()
+        for a, b in cached[-1]: mid = edge_point[(a, b)]; expected.update((tuple(sorted((a, mid))), tuple(sorted((mid, b)))))
         actual = _actual_feature_edges(levels[level], charts[level], feature, expected)
-        if expected != actual: _fail("propagated incidence selector disagrees with catalog", f"{feature}:L{level}")
-        selected = expected
-    return selected
+        _fail("propagated incidence selector disagrees with catalog", f"{feature}:L{level}") if expected != actual else cached.append(frozenset(expected))
+    return tuple(set(edges) for edges in cached[:target + 1])
+def _feature_edges(levels, charts, feature, target, cache=None): return _feature_edge_levels(levels, charts, feature, target, cache)[target]
 def _tag(control, feature):
     coords = surface.COORDINATE_BY_CONTROL[control]; axes = (0, 2) if feature in PORTS and feature in ("port.neck", "port.left_thigh", "port.right_thigh") else (1, 2) if feature in PORTS else tuple(0 if x == "i" else 1 if x == "j" else 2 for x in DROPS[feature][1]); return tuple(Fraction(coords[a]) for a in axes)
-def _feature_tags(levels, charts, feature, target):
-    base = {c: _tag(levels[0].control_ids[c], feature) for edge in _feature_edges(levels, charts, feature, 0) for c in edge}; tags = base
+def _feature_tags(levels, charts, feature, target, cache=None):
+    cache = _new_selector_cache() if cache is None else cache; edge_levels = _feature_edge_levels(levels, charts, feature, target, cache)
+    base = {c: _tag(levels[0].control_ids[c], feature) for edge in edge_levels[0] for c in edge}; tags = base
     for level in range(1, target + 1):
-        parent = levels[level - 1]; incidence = surface.subdivision_incidence(parent); edge_points = dict(incidence["edge_point_indices"])
-        out = {i: tag for i, tag in tags.items()}
-        for edge in _feature_edges(levels, charts, feature, level - 1): out[edge_points[edge]] = tuple((tags[edge[0]][a] + tags[edge[1]][a]) / 2 for a in range(2))
-        expected = {v for edge in _feature_edges(levels, charts, feature, level) for v in edge}
+        edge_points = dict(_cached_incidence(levels, level - 1, cache)["edge_point_indices"]); out = {i: tag for i, tag in tags.items()}
+        for edge in edge_levels[level - 1]: out[edge_points[edge]] = tuple((tags[edge[0]][a] + tags[edge[1]][a]) / 2 for a in range(2))
+        expected = {v for edge in edge_levels[level] for v in edge}
         if set(out) != expected: _fail("feature tag propagation mismatch", f"{feature}:L{level}")
         tags = out
     return tags
-def _trace(levels, charts, feature, level):
+def _trace(levels, charts, feature, level, cache=None):
     if feature not in PORTS + JUNCTIONS or level not in range(3): _fail("unknown anatomy selector", feature)
-    tags = _feature_tags(levels, charts, feature, level); result = {tag: tuple(levels[level].vertices[index]) for index, tag in tags.items()}
+    tags = _feature_tags(levels, charts, feature, level, cache); result = {tag: tuple(levels[level].vertices[index]) for index, tag in tags.items()}
     if len(result) != len(tags): _fail("ambiguous anatomy selector", feature)
     return dict(sorted(result.items()))
 def select_trace(value, geometry, feature, level=2, chart_summary=None):
-    levels, charts = _context(value, geometry, chart_summary); return _trace(levels, charts, feature, level)
+    levels, charts = _context(value, geometry, chart_summary); return _trace(levels, charts, feature, level, _new_selector_cache())
 def _vec(value, name):
     if not isinstance(value, (tuple, list)) or len(value) != 3 or any(type(x) is not float or not isfinite(x) for x in value): raise ValueError(f"{name} must be a finite binary64 vector3")
     return tuple(value)
@@ -197,8 +199,8 @@ def _span(points, axis): return max(p[axis] for p in points) - min(p[axis] for p
 def _pair(a, b, name):
     if not a or set(a) != set(b): _fail("anatomy traces are missing or unequal", name)
     return [(tag, a[tag], b[tag]) for tag in sorted(a)]
-def _side(out, levels, charts, level, side, neck_y, geometry):
-    shoulder = _trace(levels, charts, f"junction.thorax__{side}_shoulder", level); arm = _trace(levels, charts, f"port.{side}_arm", level); prefix = "anatomy."
+def _side(out, levels, charts, level, side, neck_y, geometry, cache=None):
+    shoulder = _trace(levels, charts, f"junction.thorax__{side}_shoulder", level, cache); arm = _trace(levels, charts, f"port.{side}_arm", level, cache); prefix = "anatomy."
     _put(out, prefix + f"arm_port_descent.{side}.L{level}", [neck_y - p[1] for p in arm.values()])
     owners = tuple(c["construction_owner"] for c in charts[level]); points = {i for fi, face in enumerate(levels[level].quads) if owners[fi] == f"domain.{side}_shoulder" for i in face}
     _put(out, prefix + f"shoulder_surface_descent.{side}.L{level}", [neck_y - levels[level].vertices[i][1] for i in sorted(points)])
@@ -211,7 +213,7 @@ def _side(out, levels, charts, level, side, neck_y, geometry):
     _put(out, prefix + f"axillary_turn_depth.{side}.L{level}", [x.turn_depth for x in axillary]); _put(out, prefix + f"axillary_path_stretch.{side}.L{level}", [x.path_stretch for x in axillary], "le", "dimensionless")
     paired = _pair({t: p for t, p in shoulder.items() if 4 <= t[0] <= 5}, {t: p for t, p in arm.items() if 4 <= t[0] <= 5}, "axillary recess"); sign = 1 if side == "right" else -1
     _put(out, prefix + f"axillary_inboard_recess.{side}.L{level}", [sign * (o[0] - j[0]) for _, j, o in paired]); _put(out, prefix + f"axillary_downward_recess.{side}.L{level}", [o[1] - j[1] for _, j, o in paired])
-    hip = _trace(levels, charts, f"junction.pelvis__{side}_hip", level); thigh = _trace(levels, charts, f"port.{side}_thigh", level); paired = _pair(hip, thigh, "pelvic wrap");
+    hip = _trace(levels, charts, f"junction.pelvis__{side}_hip", level, cache); thigh = _trace(levels, charts, f"port.{side}_thigh", level, cache); paired = _pair(hip, thigh, "pelvic wrap");
     _put(out, prefix + f"pelvic_vertical_wrap.{side}.L{level}", [j[1] - p[1] for _, j, p in paired])
     ps_x = surface.geometry_component(geometry, f"hips.{side}.P_s.x"); ratios = [abs(j[0] - ps_x) / abs(p[0] - ps_x) for _, j, p in paired if p[0] - ps_x != 0.0]; omitted = len(paired) - len(ratios)
     if not ratios: _fail("pelvic lateral ratio has no nonzero denominators", side)
@@ -219,12 +221,12 @@ def _side(out, levels, charts, level, side, neck_y, geometry):
     _put(out, prefix + f"front_depth_wrap.{side}.L{level}", [j[2] - p[2] for tag, j, p in paired if tag[1] > 1], "ge", "m"); _put(out, prefix + f"back_depth_wrap.{side}.L{level}", [p[2] - j[2] for tag, j, p in paired if tag[1] < 1], "ge", "m")
     _put(out, prefix + f"clearance.{side}_axilla.L{level}", [min(_span(tuple(arm.values()), 1), _span(tuple(arm.values()), 2))])
 def measure_anatomy(value, geometry, chart_summary=None):
-    levels, charts = _context(value, geometry, chart_summary); out = {}
+    levels, charts = _context(value, geometry, chart_summary); out = {}; cache = _new_selector_cache()
     for level in range(3):
-        neck = _trace(levels, charts, "port.neck", level); neck_junction = _trace(levels, charts, "junction.thorax__neck", level); paired = _pair(neck, neck_junction, "neck exposure")
+        neck = _trace(levels, charts, "port.neck", level, cache); neck_junction = _trace(levels, charts, "junction.thorax__neck", level, cache); paired = _pair(neck, neck_junction, "neck exposure")
         _put(out, f"anatomy.neck_exposure.L{level}", [port[1] - junction[1] for _, port, junction in paired]); neck_y = min(p[1] for p in neck.values())
-        for side in ("left", "right"): _side(out, levels, charts, level, side, neck_y, geometry)
-        left_hip, right_hip = _trace(levels, charts, "junction.pelvis__left_hip", level), _trace(levels, charts, "junction.pelvis__right_hip", level); left_thigh, right_thigh = _trace(levels, charts, "port.left_thigh", level), _trace(levels, charts, "port.right_thigh", level)
+        for side in ("left", "right"): _side(out, levels, charts, level, side, neck_y, geometry, cache)
+        left_hip, right_hip = _trace(levels, charts, "junction.pelvis__left_hip", level, cache), _trace(levels, charts, "junction.pelvis__right_hip", level, cache); left_thigh, right_thigh = _trace(levels, charts, "port.left_thigh", level, cache), _trace(levels, charts, "port.right_thigh", level, cache)
         _put(out, f"anatomy.clearance.neck.L{level}", [min(_span(tuple(neck.values()), 0), _span(tuple(neck.values()), 2))]); _put(out, f"anatomy.clearance.groin.L{level}", [min(p[0] for p in right_hip.values()) - max(p[0] for p in left_hip.values())]); _put(out, f"anatomy.clearance.medial_thigh.L{level}", [min(p[0] for p in right_thigh.values()) - max(p[0] for p in left_thigh.values())])
     if len(out) != 78: _fail("anatomy inventory is not exactly 78 measures", len(out))
     return out

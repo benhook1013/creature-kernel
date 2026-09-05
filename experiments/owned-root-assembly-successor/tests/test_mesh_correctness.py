@@ -6,26 +6,20 @@ import unittest
 from importlib import import_module
 from pathlib import Path
 from unittest.mock import patch
-
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
 mesh = import_module("mesh_correctness")
-
-
 P0 = float.fromhex("0x0.0p+0")
 ONE = float.fromhex("0x1.0000000000000p+0")
 D50 = float.fromhex("0x1.0000000000000p-50")
 MIN_SUBNORMAL = float.fromhex("0x0.0000000000001p-1022")
 D = float.fromhex("0x1.0000000000000p-46")
 I0 = float.fromhex("0x1.b7cdfd9d7bdbbp-34")
-
 def _shared_base(b0=(ONE, P0, P0), b1=(P0, ONE, P0)):
     shared = (P0, P0, P0)
     a0 = (ONE, P0, P0)
     a1 = (P0, ONE, P0)
     return [shared, a0, a1], [shared, b0, b1]
-
-
 def _count_fixture(quad_count, control_count=128):
     points = tuple((float(index), 0.0, 0.0) for index in range(control_count))
     faces = []
@@ -468,7 +462,12 @@ class IntegratedGeometryTests(unittest.TestCase):
         return mesh.validate_geometry(**{**self.inputs, **changes})
 
     def test_success_runs_every_mandatory_production_gate(self):
-        report = self._validate()
+        with patch.object(mesh, "intersection_diagnostics", wraps=mesh.intersection_diagnostics) as diagnostic:
+            report = self._validate()
+        canonical = tuple(triangle for face in self.inputs["quads"] for triangle in ((face[0], face[1], face[2]), (face[0], face[2], face[3])))
+        diagnostic.assert_called_once()
+        self.assertEqual(diagnostic.call_args.args[1], canonical)
+        self.assertEqual(report["intersection_report"], mesh.intersection_diagnostics(self.inputs["vertices"], canonical))
         floor = mesh.STRUCTURAL_FLOORS[0]
         self.assertEqual(report["topology"].boundary_components, 5)
         self.assertEqual(report["intersection_hit_count"], 0)
@@ -542,6 +541,13 @@ class IntegratedGeometryTests(unittest.TestCase):
 
 
 class ProductionIntersectionFixtureTests(unittest.TestCase):
+    def test_interleaved_quad_triangles_preserve_published_pair_order(self):
+        points = ((0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (0.0, 2.0, 0.0), (10.0, 0.0, 0.0), (12.0, 0.0, 0.0), (10.0, 2.0, 0.0), (0.5, 0.5, -1.0), (0.5, 0.5, 1.0), (1.0, 0.5, 0.0), (20.0, 0.0, 0.0), (22.0, 0.0, 0.0), (20.0, 2.0, 0.0))
+        first, second, third, fourth = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11))
+        interleaved = mesh.intersection_diagnostics(points, (first, second, third, fourth))
+        grouped = mesh.intersection_diagnostics(points, (first, third, second, fourth))
+        self.assertEqual(interleaved["first_hit_pair"], (0, 2))
+        self.assertEqual(grouped["first_hit_pair"], (0, 1))
     def test_contract_fixture_matrix(self):
         shared_names = (
             "shared1.offset-d50-point-only", "shared1.coplanar-duplicate-hit",

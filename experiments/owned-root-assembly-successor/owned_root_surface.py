@@ -399,9 +399,9 @@ def subdivision_incidence(mesh):
     stencils = tuple((i, *sorted(boundary[i])) if i in boundary else tuple(v for fi in sorted(faces[i]) for v in mesh.quads[fi]) for i in range(V))
     edge_stencils = tuple((edge, tuple(edge) + tuple(v for fi, *_ in sorted(uses[edge]) for v in mesh.quads[fi])) for edge in edges)
     face_stencils = tuple((fi, tuple(mesh.quads[fi])) for fi in range(Q))
-    edge_indices = tuple((edge, V + i) for i, edge in enumerate(edges)); face_indices = tuple((fi, V + E + fi) for fi in range(Q))
-    children = tuple((fi, corner, (face[corner], edge_indices[edges.index(tuple(sorted((face[corner], face[(corner + 1) % 4]))))][1], V + E + fi, edge_indices[edges.index(tuple(sorted((face[(corner - 1) % 4], face[corner]))))][1])) for fi, face in enumerate(mesh.quads) for corner in range(4))
-    propagated = tuple((name, tuple(item for i, v in enumerate(loop) for item in (v, edge_indices[edges.index(tuple(sorted((v, loop[(i + 1) % len(loop)]))))][1])) ) for name, loop in mesh.boundary_loops)
+    edge_indices = tuple((edge, V + i) for i, edge in enumerate(edges)); edge_index = dict(edge_indices); face_indices = tuple((fi, V + E + fi) for fi in range(Q))
+    children = tuple((fi, corner, (face[corner], edge_index[tuple(sorted((face[corner], face[(corner + 1) % 4])))], V + E + fi, edge_index[tuple(sorted((face[(corner - 1) % 4], face[corner])))])) for fi, face in enumerate(mesh.quads) for corner in range(4))
+    propagated = tuple((name, tuple(item for i, v in enumerate(loop) for item in (v, edge_index[tuple(sorted((v, loop[(i + 1) % len(loop)])))]))) for name, loop in mesh.boundary_loops)
     return {"source_level": mesh.level, "target_level": mesh.level + 1, "edges": tuple((e, tuple(u[0] for u in uses[e])) for e in edges), "boundary_edges": tuple(e for e in edges if len(uses[e]) == 1), "vertex_stencils": stencils, "edge_stencils": edge_stencils, "face_stencils": face_stencils, "edge_point_indices": edge_indices, "face_point_indices": face_indices, "child_emission": children, "propagated_port_loops": propagated}
 def propagate_port_loops(mesh):
     return dict(subdivision_incidence(mesh)["propagated_port_loops"])
@@ -445,11 +445,11 @@ def _subdivide_once(mesh, level, points=None):
             fs = sorted(faces[i]); es = sorted(incident_edges[i]); n = len(fs); F = tuple(_div(_ordered(face_points[f][a] for f in fs), float(n)) for a in range(3)); R = tuple(_div(_ordered(_div(_add(points[x][a], points[y][a]), 2.) for x, y in es), float(len(es))) for a in range(3))
             t0 = tuple(_mul(2., x) for x in R); t1 = tuple(_add(F[a], t0[a]) for a in range(3)); t2 = tuple(_mul(float(n - 3), point[a]) for a in range(3)); value = tuple(_div(_add(t1[a], t2[a]), float(n)) for a in range(3)); formula = "subdivision.interior-vertex"
         vertices.append(value); formulas.append(formula); base = _contributors(mesh, source); deps.append(tuple(sorted({d for c in base for d in mesh.formula_records[int(c[1:])]["geometry_dependencies"]})))
-    for edge in edges:
+    for edge_position, edge in enumerate(edges):
         a, b = edge
         if len(uses[edge]) == 1: value = tuple(_div(_add(points[a][x], points[b][x]), 2.) for x in range(3)); formula = "subdivision.boundary-edge"
         else: f0, f1 = sorted(u[0] for u in uses[edge]); value = tuple(_div(_add(_add(_add(points[a][x], points[b][x]), face_points[f0][x]), face_points[f1][x]), 4.) for x in range(3)); formula = "subdivision.interior-edge"
-        vertices.append(value); formulas.append(formula); base = _contributors(mesh, inc["edge_stencils"][edges.index(edge)][1]); deps.append(tuple(sorted({d for c in base for d in mesh.formula_records[int(c[1:])]["geometry_dependencies"]})))
+        vertices.append(value); formulas.append(formula); base = _contributors(mesh, inc["edge_stencils"][edge_position][1]); deps.append(tuple(sorted({d for c in base for d in mesh.formula_records[int(c[1:])]["geometry_dependencies"]})))
     for fi, face in enumerate(mesh.quads):
         vertices.append(face_points[fi]); formulas.append("subdivision.face-point"); base = _contributors(mesh, face); deps.append(tuple(sorted({d for c in base for d in mesh.formula_records[int(c[1:])]["geometry_dependencies"]})))
     quads = tuple(child[2] for child in inc["child_emission"]); face_ids = tuple(f"face.L{level}.q{i:04d}" for i in range(len(quads))); owners = tuple(mesh.face_owners[fi] for fi, _, _ in inc["child_emission"]); loops = inc["propagated_port_loops"]; ids = tuple(f"vertex.L{level}.v{i:04d}" for i in range(len(vertices)))
@@ -480,7 +480,7 @@ class _Dual:
     def __rmul__(self, other): return self * other
     def __truediv__(self, other): return _Dual(self.value / _value(other), (self.derivative * _rational(_value(other)) - _rational(self.value) * _derivative(other)) / (_rational(_value(other)) ** 2))
     def __rtruediv__(self, other): return _Dual(_value(other) / self.value, (_derivative(other) * _rational(self.value) - _rational(_value(other)) * self.derivative) / (_rational(self.value) ** 2))
-    def __abs__(self): return _Dual(abs(self.value), self.derivative if self.value > 0 else -self.derivative if self.value < 0 else 0.0)
+    def __abs__(self): return _Dual(abs(self.value), self.derivative if self.value > 0 else -self.derivative if self.value < 0 else Fraction(0))
 def _value(x): return x.value if isinstance(x, _Dual) else x
 def _derivative(x): return x.derivative if isinstance(x, _Dual) else Fraction(0)
 def _analytic_components(geometry):

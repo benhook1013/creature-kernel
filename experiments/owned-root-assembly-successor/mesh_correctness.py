@@ -528,7 +528,7 @@ def validate_geometry(vertices, quads, level, boundary_loops, port_directions, e
     if len(loops) != 5: _fail("exactly 5 boundary loops are required")
     topology = _topology_report(len(points), faces, loops, _expected_face_catalogs(expected_base_faces)[level]); owners = _face_owners(face_owners, len(faces)); incidence = _edge_incidence(faces)
     edge_lengths = tuple(_norm_vec(_sub_vec(points[b], points[a])) for a, b in incidence)
-    triangles = tuple((face[0], face[1], face[2]) for face in faces) + tuple((face[0], face[2], face[3]) for face in faces)
+    triangles = tuple(triangle for face in faces for triangle in ((face[0], face[1], face[2]), (face[0], face[2], face[3])))
     triangle_areas = tuple(0.5 * _norm_vec(_triangle_normal(face, points)) for face in triangles); quad_data = tuple(_quad_data(face, points) for face in faces); quad_areas = tuple(value[0] for value in quad_data)
     if any(not math.isfinite(value) for value in edge_lengths + triangle_areas + quad_areas): _fail("structural metrics must be finite")
     floor = _STRUCTURAL_FLOORS[level]
@@ -542,7 +542,7 @@ def validate_geometry(vertices, quads, level, boundary_loops, port_directions, e
     junctions = _validate_junction_inputs(junction_inputs)
     residuals = tuple((name, _junction_continuity_metrics(points, faces, owners, row["incident_domains"], row["domain_vertex_tags"], row.get("expected_domain_vertex_tags"))["coordinate_residual"]) for name, row in junctions.items())
     fold_count = _run_fold_gates(incidence, owners, quad_normals, level)
-    return {"topology": topology, "edge_length_min": min(edge_lengths), "triangle_area_min": min(triangle_areas), "quad_area_min": min(quad_areas), "intersection_hit_count": 0, "port_count": len(loops), "port_metrics": port_metrics, "fold_count": fold_count, "junction_count": len(junctions), "junction_residuals": residuals}
+    return {"topology": topology, "edge_length_min": min(edge_lengths), "triangle_area_min": min(triangle_areas), "quad_area_min": min(quad_areas), "intersection_hit_count": 0, "intersection_report": intersection, "port_count": len(loops), "port_metrics": port_metrics, "fold_count": fold_count, "junction_count": len(junctions), "junction_residuals": residuals}
 
 def intersection_candidate_threshold_records(): return tuple(dict(record) for record in _THRESHOLD_RECORDS)
 def _normalize_public(function):

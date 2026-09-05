@@ -135,9 +135,12 @@ by the existing
 which records that matching contract SHA-256. The implementation README records
 two completed independent FREEZE reviews. The builder must require that
 identity and reject a missing file or any mismatch before admitting inputs or
-producing output. The bounded implementation is next under this frozen
-contract; no implementation result is implied. This research record remains
-experiment-local, non-authoritative evidence and direction context.
+producing output. This paragraph originally described the pre-implementation
+state; the bounded standard-neutral implementation is now complete at
+`correction_round=0`, with its authoritative evidence and remaining work
+recorded in the experiment README and `docs/project/status.md`. This research
+record remains experiment-local, non-authoritative evidence and direction
+context.
 
 The frozen design contract covers every item in the preflight below and sets
 finite caps for total junction count and interface cardinality; chart, formula,

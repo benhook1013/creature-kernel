@@ -22,8 +22,6 @@ import render_export as render
 def _geometry():
     prepared = prepared_projection.prepare_standard_neutral(REPO / "examples/body-documents/stylized-digitigrade-biped-authored-form.json")
     return prepared_projection.project_geometry(prepared)
-
-
 @lru_cache(maxsize=1)
 def _evaluation():
     return surface.evaluate(_geometry())
@@ -277,13 +275,19 @@ class RendererTests(unittest.TestCase):
             self.assertEqual((image.mode, image.size, image.format), ("RGB", (512, 1536), "PNG"))
             self.assertEqual(image.getbbox(), (0, 0, 512, 1536))
     def test_row_candidates_are_bounded_and_triangle_ordered(self):
-        screen = ((0.0, 0.0, 0.0), (4.0, 0.0, 1.0), (0.0, 4.0, 2.0), (4.0, 4.0, 3.0))
-        records, rows, degenerate = render._panel_candidates(screen, ((0, 1, 2), (0, 2, 3)))
-        self.assertEqual((len(records), degenerate), (2, 0))
+        screen = ((0.0, 0.0, 0.0), (4.0, 0.0, 1.0), (0.0, 4.0, 2.0), (4.0, 4.0, 3.0)); clipped = ((-100.0, 10.0, 0.0), (600.0, 10.0, 1.0), (-100.0, 20.0, 2.0), (600.0, 20.0, 3.0))
+        records, rows, degenerate = render._panel_candidates(screen, ((0, 1, 2), (0, 2, 3))); clipped_records, clipped_rows, clipped_degenerate = render._panel_candidates(clipped, ((0, 1, 2), (0, 2, 3))); rows += clipped_rows
+        self.assertEqual((len(records), degenerate), (2, 0)); self.assertEqual((len(clipped_records), clipped_degenerate), (2, 0)); self.assertIn((0, render.WIDTH - 1), {(c0, c1) for row in clipped_rows for _, c0, c1 in row})
         for row in rows:
             candidates = [item[0] for item in row]
             self.assertEqual(candidates, sorted(candidates))
-
+            for _triangle_index, c0, c1 in row:
+                self.assertGreaterEqual(c0, 0)
+                self.assertLessEqual(c1, render.WIDTH - 1)
+                self.assertLessEqual(c0, c1)
+        source = __import__("inspect").getsource(render.build_visibility)
+        self.assertIn("for column in range(c0, c1 + 1)", source)
+        self.assertNotIn("for column in range(WIDTH)", source)
     def test_png_has_only_frozen_chunks_and_lineage_domain_colours(self):
         direct, lineage, visibility = render.render_pair_bytes(self.mesh)
         def chunks(data):

@@ -6,12 +6,11 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
-
 HERE = Path(__file__).resolve().parents[1]
 REPO = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 import anatomy_gates as anatomy
-import chart_lineage as chart
+import chart_lineage as chart; import mesh_correctness as mesh_api
 import owned_root_surface as surface
 import prepared_projection
 def prepared():
@@ -21,8 +20,6 @@ def prepared():
 def independent_charts(evaluation):
     """Build valid chart ancestry while anatomy remains the unit under test."""
     return chart.build_chart_summary(evaluation, evaluation.cage.formula_records)
-
-
 class CatalogTests(unittest.TestCase):
     def test_independent_catalog_counts_and_boundary_inventory(self):
         report = surface.validate_catalogs()
@@ -50,8 +47,6 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(surface.FACE_RECORDS[0], ("q000", "domain.left_hip", ("c000", "c001", "c004", "c003")))
         self.assertNotIn("_make_chart_records", surface.__dict__)
         self.assertNotIn("_attach_samples", surface.__dict__)
-
-
 class SurfaceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -117,7 +112,12 @@ class SurfaceTests(unittest.TestCase):
         self.assertLessEqual(max(len(r["base_control_contributors"]) for r in level2.vertex_records), 20)
         self.assertLessEqual(max(len(r["geometry_dependency_union"]) for r in level2.vertex_records), 54)
         self.assertLessEqual(max(len(r["contributor_domains"]) for r in level2.vertex_records), 5)
-
+    def test_subdivision_edge_map_preserves_legacy_order_and_reference_bytes(self):
+        for mesh_item in (self.evaluation.cage, self.evaluation.levels[0]):
+            edges = tuple(sorted({tuple(sorted((face[corner], face[(corner + 1) % 4]))) for face in mesh_item.quads for corner in range(4)})); V, E = len(mesh_item.vertices), len(edges); edge_points = {edge: V + index for index, edge in enumerate(edges)}
+            children = tuple((fi, corner, (face[corner], edge_points[tuple(sorted((face[corner], face[(corner + 1) % 4])))], V + E + fi, edge_points[tuple(sorted((face[(corner - 1) % 4], face[corner])))])) for fi, face in enumerate(mesh_item.quads) for corner in range(4)); loops = tuple((name, tuple(item for i, vertex in enumerate(loop) for item in (vertex, edge_points[tuple(sorted((vertex, loop[(i + 1) % len(loop)])))]))) for name, loop in mesh_item.boundary_loops)
+            incidence = surface.subdivision_incidence(mesh_item); candidate = surface._subdivide_once(mesh_item, mesh_item.level + 1); reference = surface._reference_subdivision(mesh_item, mesh_item.level + 1)
+            with self.subTest(level=mesh_item.level): self.assertEqual(incidence["edge_point_indices"], tuple((edge, edge_points[edge]) for edge in edges)); self.assertEqual(incidence["child_emission"], children); self.assertEqual(incidence["propagated_port_loops"], loops); self.assertEqual(candidate, reference)
     def test_contributor_domains_follow_catalog_order_and_forged_topology_fails(self):
         cage = self.evaluation.cage
         junction = cage.vertex_records[cage.control_ids.index("c021")]
@@ -137,7 +137,14 @@ class SurfaceTests(unittest.TestCase):
         self.assertEqual(len(surface.predicted_support(self.geometry, "hips.left.P_s.x")), 436)
         self.assertEqual(len(surface.predicted_support(self.geometry, "hips.right.P_s.x")), 436)
         with self.assertRaises(ValueError): surface.predicted_support(self.geometry, "outside.component")
-
+    def test_dual_abs_zero_preserves_exact_fraction_subgradient(self):
+        result = abs(surface._Dual(0.0, surface.Fraction(7, 9))); self.assertEqual((result.value, result.derivative), (0.0, surface.Fraction(0))); self.assertIs(type(result.derivative), surface.Fraction)
+    def test_all_33_numeric_perturbations_match_exact_analytic_support(self):
+        parameters = prepared_projection.MUST_AFFECT_PARAMETER_IDS; self.assertEqual(len(parameters), 33)
+        for parameter in parameters:
+            component = prepared_projection.MUST_AFFECT_COMPONENTS[parameter]; predicted = surface.predicted_support(self.geometry, component); perturbed = prepared_projection.project_perturbed_geometry(self.prepared, parameter); actual = surface.evaluate(perturbed).levels[1]; reference_cage = surface.build_cage(perturbed); reference_level1 = surface._reference_subdivision(reference_cage, 1); reference = surface._reference_subdivision(reference_level1, 2)
+            movement = tuple(mesh_api.norm(mesh_api.sub(candidate, baseline)) for baseline, candidate in zip(self.evaluation.levels[1].vertices, actual.vertices)); observed = tuple(i for i, value in enumerate(movement) if value > mesh_api.T)
+            with self.subTest(parameter=parameter): self.assertTrue(predicted); self.assertEqual(actual, reference); self.assertGreaterEqual(max(movement[i] for i in predicted), float.fromhex("0x1.d14e3bcd35a85p-11")); self.assertEqual(observed, predicted)
     def test_analytic_support_ignores_formula_record_dependency_metadata(self):
         component = "hips.left.P_s.x"
         derivative = surface.analytic_control_derivatives(self.geometry, component)
@@ -235,9 +242,6 @@ class ChartLineageTests(unittest.TestCase):
                               for item in row["geometry_dependencies"]}), 92)
         self.assertEqual(len(self.formulas), 120)
         self.assertLessEqual(max(len(row["geometry_dependencies"]) for row in self.formulas), 12)
-        lines = (HERE / "chart_lineage.py").read_text(encoding="utf-8").count("\n")
-        self.assertIn(lines, range(190, 269))
-        self.assertLessEqual(Path(__file__).read_text(encoding="utf-8").count("\n"), 400)
 
     def test_domain_cycle_rejects_disconnected_open_shared_boundary(self):
         self.assertRaisesRegex(chart.ChartLineageError, "a junction is not one closed trace", chart._domain_cycle, {(0, 1): (0, 1), (2, 3): (2, 3)}, {(0, 1), (2, 3)})

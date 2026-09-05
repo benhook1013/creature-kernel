@@ -179,11 +179,9 @@ def build_visibility(mesh: object) -> VisibilityBuffer:
         degenerate += count
         base = panel_index * WIDTH * HEIGHT
         for row in range(HEIGHT):
-            for column in range(WIDTH):
-                for triangle_index, c0, c1 in rows[row]:
-                    if not c0 <= column <= c1:
-                        continue
-                    (_ax, _ay, za, _bx, _by, zb, cx, cy, zc, n0a, n0c, n1a, n1c, denominator, _, _) = records[triangle_index]
+            for triangle_index, c0, c1 in rows[row]:
+                (_ax, _ay, za, _bx, _by, zb, cx, cy, zc, n0a, n0c, n1a, n1c, denominator, _, _) = records[triangle_index]
+                for column in range(c0, c1 + 1):
                     px, py = _fl(column + 0.5), _fl(row + 0.5)
                     n0 = _fl(_fl(n0a * _fl(px - cx)) + _fl(n0c * _fl(py - cy)))
                     w0 = _fl(n0 / denominator)

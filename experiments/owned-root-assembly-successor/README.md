@@ -26,8 +26,9 @@ returned `FREEZE` with zero blockers
 
 Design contract SHA-256: `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`
 
-`correction_round=0`: initial implementation completed; at most two shared
-correction rounds remain available
+`correction_round=0`: the initial implementation phase is complete. A separate
+budget of at most two shared correction rounds remains available; none has been
+consumed.
 
 ## Status and authority
 
@@ -73,15 +74,15 @@ agreed and found no material blocker. The exact-five gate is therefore
 unlocked, but no exact-five executable or gallery exists yet. The named human
 checkpoint remains Ben's later exact-five gallery appraisal.
 
-The semantics-preserving numeric-only geometry seam now fits the frozen LOC
-cap and passes 126 managed tests, both seed gates, and cross-seed comparison.
-Its fresh 96-file publication is in logical local cache
-`artifact-cache/owned-root-assembly-successor/seam-20260905-1`; all 38
-geometry/perturbation/render roles in each seed are byte-identical to the
-pre-seam baseline. The post-seam comparison report SHA-256 is
-`912467f8c435932cd685b089911f0141ba2454b5e7a62dcea0501412960b09ea`
-and the post-seam stable-manifest SHA-256 is
-`56da91b3459f381a85c682844d1b3e25c76a491519847c9ebc2c2e3a7e9b0ed4`.
+The semantics-preserving numeric-only geometry seam and correction batch fit
+the frozen LOC caps and pass 132 managed tests, both seed gates, and cross-seed
+comparison. The current 96-file publication is in logical local cache
+`artifact-cache/owned-root-assembly-successor/correction-batch-20260905-2`;
+all 38 geometry/perturbation/render roles in each seed are byte-identical to
+both the seam and pre-seam baselines. The current comparison report SHA-256 is
+`433cefd54ef00703441fe47d3cf952c281f30724f192b4bc9469eba6aa00a15c`
+and the current stable-manifest SHA-256 is
+`873ded1c775af5d411fc9ddb9030f47bcf4eee99e44a25fec5b3793d0fc9fce5`.
 
 Next is the separately SHA-bound activation contract and sibling exact-five
 runner/publisher. Do not add a private-internal wrapper, duplicate geometry,
@@ -250,7 +251,9 @@ which records matching SHA-256
 implementation README records two completed independent FREEZE reviews. The
 builder must require that identity, hash the file before admitting source
 inputs, and reject a missing file or mismatch without producing an artifact.
-The bounded implementation phase is active under this frozen contract.
+The bounded implementation phase is complete under this frozen contract at
+`correction_round=0`. The separate budget of at most two shared correction
+rounds remains available and unused.
 
 The frozen design contract fixes all details needed to make the candidate
 reproducible without inventing them during coding:
@@ -575,9 +578,9 @@ it only unlocks the next recorded investigation and human checkpoint.
 
 ## Recommended follow-up
 
-Implement the semantics-preserving numeric-only geometry seam, then revalidate
-the exact-neutral bytes and evidence against the baseline above. Separately,
-prepare the SHA-bound activation contract and sibling exact-five
+The semantics-preserving numeric-only geometry seam is implemented and
+revalidated against the baseline above. Separately, prepare the SHA-bound
+activation contract and sibling exact-five
 runner/publisher. Do not add a private-internal wrapper, duplicate geometry,
 profile-aware branching, geometry correction, or a new representation, and do
 not edit canonical specifications or production architecture as part of this

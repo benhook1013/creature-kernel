@@ -10,13 +10,9 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
-
-
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
 import build_owned_root as builder  # noqa: E402
-
-
 def identity_fixture():
     runtime = {"schema": "owned-root-assembly-successor-runtime.v2", "fixture": "focused"}
     runtime_bytes = builder.artifacts.canonical_json_bytes(runtime)
@@ -37,8 +33,6 @@ def identity_fixture():
         "runtime_fingerprint_sha256": builder.artifacts.sha256_bytes(runtime_bytes),
         "implementation_files": records,
     }
-
-
 class FrozenInventoryTests(unittest.TestCase):
     def test_causality_perturbation_crosses_prepared_boundary(self):
         source = inspect.getsource(builder._causality)
@@ -59,7 +53,6 @@ class FrozenInventoryTests(unittest.TestCase):
         self.assertEqual(len(set(builder.ARTIFACT_ROLES)), 47)
         self.assertEqual(builder.RUN_REPORT_GATES[0], "seed.1.identity")
         self.assertEqual(builder.RUN_REPORT_GATES[-1], "seed.6.serialization")
-
     def test_parameter_to_ply_mapping_is_literal_and_reversible(self):
         expected = (
             "perturb-left-r_y.ply", "perturb-right-r_y.ply",
@@ -86,8 +79,6 @@ class FrozenInventoryTests(unittest.TestCase):
         self.assertNotEqual(builder.ARTIFACT_ROLES, tuple(sorted(builder.ARTIFACT_ROLES)))
         self.assertEqual(builder._order(builder.ARTIFACT_ROLES), tuple(sorted(builder.ARTIFACT_ROLES)))
         self.assertEqual(builder._order(builder.IMPLEMENTATION_ROLES), tuple(sorted(builder.IMPLEMENTATION_ROLES)))
-
-
 class SupportAndGateTests(unittest.TestCase):
     def test_support_hash_uses_the_frozen_header_and_u32_indices(self):
         indices = (0, 4, 1736)
@@ -112,7 +103,6 @@ class SupportAndGateTests(unittest.TestCase):
                                      1, 1, 1, "eq", 0, 0, "count")
         self.assertEqual(failed["outcome"], "fail")
         with self.assertRaises(builder.BuildError): builder._validate_gate(failed, zero, "hostile")
-
     def _synthetic_continuity(self, residual_samples, fold_samples):
         counts = (2, 4, 8)
         meshes = tuple(mock.Mock(vertices=(), quads=(), face_owners=(),
@@ -255,7 +245,48 @@ class SupportAndGateTests(unittest.TestCase):
                 mesh.vertices, mesh.quads, mesh.face_owners, **inputs[junction]
             )
 
-
+    def test_anatomy_turn_depth_keeps_metre_unit_and_selector_cache_is_exact(self):
+        import anatomy_gates as anatomy
+        import chart_lineage as chart_api
+        import owned_root_surface as surface
+        import prepared_projection as prepared_api
+        prepared = prepared_api.prepare_standard_neutral()
+        geometry = prepared_api.project_geometry(prepared)
+        evaluation = surface.evaluate(geometry)
+        charts = chart_api.build_chart_summary(
+            evaluation, tuple(surface.formula_candidate_records(geometry))
+        )
+        with mock.patch.object(
+                anatomy.surface, "subdivision_incidence",
+                wraps=anatomy.surface.subdivision_incidence) as incidence:
+            actual = anatomy.measure_anatomy(evaluation, geometry, charts)
+        self.assertEqual(
+            builder.artifacts.sha256_bytes(builder.artifacts.canonical_json_bytes(actual)),
+            "7d656aea745f23cb86ec0ba6177496e6eb92df8e71333e20419fec982c1853c1",
+        )
+        self.assertEqual(incidence.call_count, 2)
+        self.assertEqual(tuple(call.args[0].level for call in incidence.call_args_list), (0, 1))
+        turn_key = "anatomy.axillary_turn_depth.left.L0"
+        self.assertEqual(actual[turn_key]["unit"], "m")
+        thresholds = {row["threshold_id"]: row for row in anatomy.anatomy_threshold_records()}
+        self.assertEqual(thresholds[f"threshold.{turn_key}"]["unit"], "m")
+    def test_geometry_reuses_each_complete_validation_intersection_report(self):
+        import anatomy_gates as anatomy; import chart_lineage as chart_api
+        import mesh_correctness as mesh_api; import owned_root_surface as surface
+        import prepared_projection as prepared_api
+        geometry_input = prepared_api.project_geometry(prepared_api.prepare_standard_neutral())
+        fixtures = tuple({"fixture_id": fixture_id, "outcome": "pass"} for fixture_id in mesh_api.INTERSECTION_FIXTURE_IDS)
+        observed = []
+        original = mesh_api.intersection_diagnostics
+        def capture(*args):
+            observed.append(original(*args))
+            return observed[-1]
+        with mock.patch.object(mesh_api, "run_production_intersection_fixtures", return_value=fixtures), mock.patch.object(mesh_api, "intersection_diagnostics", side_effect=capture) as diagnostic:
+            result = builder._geometry(surface, mesh_api, chart_api, anatomy, geometry_input)
+        meshes = (result["evaluation"].cage, *result["evaluation"].levels)
+        self.assertEqual(diagnostic.call_count, 3)
+        self.assertEqual(tuple(call.args[1] for call in diagnostic.call_args_list), tuple(candidate.triangles for candidate in meshes))
+        self.assertEqual(tuple(report["intersection_report"] for report in result["reports"]), tuple(observed))
 class StaticAdmissionTests(unittest.TestCase):
     def test_package_implementation_fits_frozen_physical_loc_caps(self):
         counts = {"production": 0, "tests": 0}
@@ -300,10 +331,10 @@ class StaticAdmissionTests(unittest.TestCase):
                         publication.index("publish_no_replace"))
         self.assertNotIn("else mesh.quads", geometry)
         self.assertIn("derive_expected_face_catalogs(expected)", geometry)
+        self.assertNotIn("intersection_diagnostics", geometry)
+        self.assertIn('report["intersection_report"]', geometry)
         self.assertNotIn("reversed", junctions)
         self.assertIn("propagate_junction_tags", junctions)
-
-
 class ManagedDispatchTests(unittest.TestCase):
     def test_invalid_command_does_not_enter_admission(self):
         with mock.patch.object(builder, "_static_admission") as admission:
@@ -336,8 +367,6 @@ class ManagedDispatchTests(unittest.TestCase):
             "test_owned_root_surface.ProductionAxillaryFixtureTests.test_contract_fixture_matrix", ids
         )
         self.assertEqual(len(ids), len(tests))
-
-
 class PublicValidatorTests(unittest.TestCase):
     def receipt(self, path):
         identity = identity_fixture()
@@ -360,7 +389,6 @@ class PublicValidatorTests(unittest.TestCase):
                         "unexpected_successes": 0},
         }
         return identity, value
-
     def report(self, root, seed=17):
         identity = identity_fixture()
         stable = {"role_path": "stable-manifest.json", "bytes": 123,
@@ -390,7 +418,6 @@ class PublicValidatorTests(unittest.TestCase):
                       for gate in builder.RUN_REPORT_GATES],
         }
         return identity, value
-
     def test_three_required_validator_exports_are_callable(self):
         self.assertTrue(callable(builder.validate_managed_test_receipt))
         self.assertTrue(callable(builder.validate_seed_bundle))
@@ -504,21 +531,12 @@ class PublicValidatorTests(unittest.TestCase):
                                              identity=identity_fixture())
             self.assertEqual(tuple(root.iterdir()), before)
 
-    def test_seed_validator_admits_complete_serialized_bundle(self):
-        requested_seed = os.environ.get("PYTHONHASHSEED")
-        self.assertIn(requested_seed, ("0", "17", "29"),
-                      "test requires literal PYTHONHASHSEED=0, 17, or 29")
-        if requested_seed == "0":
-            return
-        seed = int(requested_seed)
+    def test_seed_builder_rejects_managed_test_seed_without_mutation(self):
+        self.assertEqual(os.environ.get("PYTHONHASHSEED"), "0")
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / f"seed-{seed}"
-            identity = builder._static_admission()
-            builder.build_seed(root)
-            self.assertIsInstance(
-                builder.validate_seed_bundle(root=root, seed=seed, identity=identity), dict
-            )
-
-
+            root = Path(directory) / "seed-17"
+            with self.assertRaisesRegex(builder.BuildError, "literal PYTHONHASHSEED"):
+                builder.build_seed(root)
+            self.assertFalse(root.exists())
 if __name__ == "__main__":
     unittest.main()
