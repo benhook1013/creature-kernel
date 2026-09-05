@@ -74,15 +74,18 @@ agreed and found no material blocker. The exact-five gate is therefore
 unlocked, but no exact-five executable or gallery exists yet. The named human
 checkpoint remains Ben's later exact-five gallery appraisal.
 
-The semantics-preserving numeric-only geometry seam and correction batch fit
-the frozen LOC caps and pass 132 managed tests, both seed gates, and cross-seed
-comparison. The current 96-file publication is in logical local cache
-`artifact-cache/owned-root-assembly-successor/correction-batch-20260905-2`;
+The semantics-preserving numeric-only geometry seam and change batch fit the
+frozen LOC caps and pass 134 managed tests, both seed gates, and cross-seed
+comparison. This is not a correction round under [Correction stop](#correction-stop):
+it changes no shared construction formula or tunable, and all 38 published
+roles remain byte-identical, so the two-round budget remains unused. The
+current 96-file publication is in logical local cache
+`artifact-cache/owned-root-assembly-successor/correction-batch-20260905-4`;
 all 38 geometry/perturbation/render roles in each seed are byte-identical to
 both the seam and pre-seam baselines. The current comparison report SHA-256 is
-`433cefd54ef00703441fe47d3cf952c281f30724f192b4bc9469eba6aa00a15c`
+`fe450e9047275c517de297f50b9ed7881c969fd2c315e9714334dcb8d9e68f2a`
 and the current stable-manifest SHA-256 is
-`873ded1c775af5d411fc9ddb9030f47bcf4eee99e44a25fec5b3793d0fc9fce5`.
+`1b4aaed96671a55ae65dc163fd80db45288daf1b9dc9c91745bf19e414fa7ffa`.
 
 Next is the separately SHA-bound activation contract and sibling exact-five
 runner/publisher. Do not add a private-internal wrapper, duplicate geometry,

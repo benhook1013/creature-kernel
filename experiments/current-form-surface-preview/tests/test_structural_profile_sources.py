@@ -268,6 +268,14 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                     )
                 )
 
+    def test_load_json_with_bytes_rejects_nonzero_float_underflow(self) -> None:
+        for label, token in (("positive", "1e-4000"), ("negative", "-1e-4000")):
+            with self.subTest(label=label):
+                source_path = self.root / f"{label}-underflow.json"
+                source_path.write_bytes(f'{{"ordinary": {token}}}\n'.encode("ascii"))
+                with self.assertRaisesRegex(generator.ProfileGenerationError, "not finite UTF-8 JSON"):
+                    generator.load_json_with_bytes(source_path, f"{label} underflow source")
+
     def test_active_generation_rejects_float_before_precision_can_change_ties_to_even(self) -> None:
         dimension_role = "form_head_neck_profile_cranium_crown_forward_radius"
         where = "test.dimension"

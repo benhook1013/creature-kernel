@@ -415,6 +415,7 @@ def propagate_junction_tags(mesh, junction):
     if junction not in JUNCTIONS: raise ValueError("unknown junction")
     trace = _junction_evidence()[junction]["trace"]; meshes = (mesh.cage, *mesh.levels) if hasattr(mesh, "cage") else tuple(mesh) if isinstance(mesh, (list, tuple)) else (mesh,)
     if not meshes or len(meshes) > 3: raise ValueError("junction tag propagation requires levels 0 through 2")
+    if type(meshes[0]) is not Mesh or meshes[0].level != 0: raise ValueError("junction tag propagation requires a level-0 mesh as the first sequence item")
     axes = JUNCTION_INFO[junction][1][1]; index = {c: i for i, c in enumerate(meshes[0].control_ids)}
     cycle = tuple(index[c] for c in trace); selected = {tuple(sorted((a, cycle[(i + 1) % len(cycle)]))) for i, a in enumerate(cycle)}
     tags = {i: tuple((COORDINATE_BY_CONTROL[meshes[0].control_ids[i]][{"i": 0, "j": 1, "k": 2}[axis]], 1) for axis in axes) for i in {v for edge in selected for v in edge}}

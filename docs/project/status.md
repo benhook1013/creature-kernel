@@ -70,15 +70,17 @@ pelvic-wrap, and thigh-root cues credible. Two independent Sol vision checks
 agreed and found no material blocker. The exact-five gate is therefore
 unlocked, but no exact-five executable or gallery exists yet.
 
-The semantics-preserving numeric-only geometry seam now fits the frozen LOC
-cap and passes 126 managed tests, both seed gates, and cross-seed comparison.
-Its fresh 96-file publication is in logical local cache
-`artifact-cache/owned-root-assembly-successor/seam-20260905-1`; all 38
-geometry/perturbation/render roles in each seed are byte-identical to the
-pre-seam baseline. The post-seam comparison report SHA-256 is
-`912467f8c435932cd685b089911f0141ba2454b5e7a62dcea0501412960b09ea`
-and the post-seam stable-manifest SHA-256 is
-`56da91b3459f381a85c682844d1b3e25c76a491519847c9ebc2c2e3a7e9b0ed4`.
+The semantics-preserving numeric-only geometry seam and change batch fit the
+frozen LOC caps and pass 134 managed tests, both seed gates, and cross-seed
+comparison. The batch changes no shared formula or tunable and all 38 payloads
+remain byte-identical, so it consumes no correction round. The current 96-file
+publication is in logical local cache
+`artifact-cache/owned-root-assembly-successor/correction-batch-20260905-4`;
+all 38 geometry/perturbation/render roles in each seed are byte-identical to
+both the seam and pre-seam baselines. The current comparison report SHA-256 is
+`fe450e9047275c517de297f50b9ed7881c969fd2c315e9714334dcb8d9e68f2a`
+and the current stable-manifest SHA-256 is
+`1b4aaed96671a55ae65dc163fd80db45288daf1b9dc9c91745bf19e414fa7ffa`.
 
 Next is the separately SHA-bound activation contract and sibling exact-five
 runner/publisher. Do not add a private-internal wrapper, duplicate geometry,

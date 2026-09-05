@@ -148,9 +148,12 @@ def _restore_json_number_types(value: Any, path: tuple[str | int, ...] = ()) -> 
         if _is_active_dimension_value_path(path):
             return value
         try:
-            return float(value)
+            number = float(value)
         except (OverflowError, ValueError) as exc:
             raise ProfileGenerationError("JSON number cannot be represented as a host float") from exc
+        if value != 0 and number == 0:
+            raise ProfileGenerationError("nonzero JSON number underflows to host float zero")
+        return number
     if isinstance(value, list):
         return [_restore_json_number_types(item, path + (index,)) for index, item in enumerate(value)]
     if isinstance(value, dict):

@@ -26,10 +26,11 @@ metres.
 The active candidate-table binding is
 `experiments/current-form-surface-preview/structural_profile_candidates.json`
 with SHA-256
-`a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640`. This is
-a source/hash metadata rebaseline only: standard-neutral geometry is expected
-to remain unchanged. Historical source and evidence remain untouched; this
-record does not claim that the successor implementation is complete.
+`a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640`. This
+paragraph records only the source/hash metadata rebaseline: standard-neutral
+geometry was expected, and is now proven, to remain unchanged. Historical
+source and evidence remain untouched. The successor-neutral implementation is
+complete; exact-five activation and its later human checkpoint remain active.
 
 ## Research-question mapping
 
@@ -185,7 +186,8 @@ profile expansion.
 
 ## Execution order and stop rule
 
-The next implementation work proceeds in this order:
+The work proceeds in this order; items 1 through 5 are complete and item 6 is
+active:
 
 1. audit the terminal candidate's utilities for representation-independent
    reuse;

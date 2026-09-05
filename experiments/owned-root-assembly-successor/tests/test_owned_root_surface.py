@@ -30,7 +30,6 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(len(report.extraordinary_controls), 20)
         self.assertEqual(len(surface.JUNCTION_INFO), 7)
         self.assertEqual(len(surface.PORT_INFO), 5)
-
         expected_ports = {
             "port.neck": ("c057", "c079", "c080", "c081", "c059", "c058"),
             "port.left_arm": ("c009", "c012", "c014", "c015", "c016", "c013", "c011", "c010"),
@@ -39,7 +38,6 @@ class CatalogTests(unittest.TestCase):
             "port.right_thigh": ("c060", "c061", "c062", "c083", "c105", "c104", "c103", "c082"),
         }
         self.assertEqual({key: value[2] for key, value in surface.PORT_INFO.items()}, expected_ports)
-
     def test_public_surface_boundary_has_no_chart_or_sample_outputs(self):
         ids, faces, ports = surface.symbolic_topology()
         self.assertEqual((len(ids), len(faces), len(ports)), (120, 104, 5))
@@ -53,7 +51,6 @@ class SurfaceTests(unittest.TestCase):
         cls.prepared = prepared()
         cls.geometry = prepared_projection.project_geometry(cls.prepared)
         cls.evaluation = surface.evaluate(cls.geometry)
-
     def test_formula_candidates_use_numeric_boundary_and_exact_dispatch(self):
         with patch.object(surface, "validate_geometry_components", wraps=surface.validate_geometry_components) as admitted:
             cage = surface.build_cage(self.geometry)
@@ -69,7 +66,6 @@ class SurfaceTests(unittest.TestCase):
         self.assertNotIn("hips.left.P_s.x", records["c003"]["geometry_dependencies"])
         self.assertIn("hips.left.P_s.x", records["c020"]["geometry_dependencies"])
         self.assertEqual(set(cage.formula_ids), set(surface.FORMULAS))
-
     def test_surface_rejects_prepared_identity_and_nonexact_numeric_carriers(self):
         source = (HERE / "owned_root_surface.py").read_text(encoding="utf-8")
         self.assertNotIn("prepared_projection", source); self.assertNotIn("_admit_surface", source); self.assertNotIn("perturb", source)
@@ -137,6 +133,10 @@ class SurfaceTests(unittest.TestCase):
         self.assertEqual(len(surface.predicted_support(self.geometry, "hips.left.P_s.x")), 436)
         self.assertEqual(len(surface.predicted_support(self.geometry, "hips.right.P_s.x")), 436)
         with self.assertRaises(ValueError): surface.predicted_support(self.geometry, "outside.component")
+    def test_standalone_level1_junction_tags_raise_value_error(self):
+        self.assertRaisesRegex(ValueError, "level-0 mesh", surface.propagate_junction_tags, self.evaluation.levels[0], surface.JUNCTIONS[0]); self.assertRaisesRegex(ValueError, "level-0 mesh", surface.propagate_junction_tags, self.evaluation.levels, surface.JUNCTIONS[0])
+    def test_standalone_level2_junction_tags_raise_value_error(self):
+        with self.assertRaisesRegex(ValueError, "level-0 mesh"): surface.propagate_junction_tags(self.evaluation.levels[1], surface.JUNCTIONS[0])
     def test_dual_abs_zero_preserves_exact_fraction_subgradient(self):
         result = abs(surface._Dual(0.0, surface.Fraction(7, 9))); self.assertEqual((result.value, result.derivative), (0.0, surface.Fraction(0))); self.assertIs(type(result.derivative), surface.Fraction)
     def test_all_33_numeric_perturbations_match_exact_analytic_support(self):
