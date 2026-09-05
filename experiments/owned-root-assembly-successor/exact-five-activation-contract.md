@@ -141,8 +141,6 @@ fixed order.
 The post-seam neutral baseline identity is:
 
 ```text
-exact local root:
-  /home/ben/.cache/creature-kernel/owned-root-assembly-successor/correction-batch-20260905-4
 comparison-report.json:
   bytes 24640
   sha256 fe450e9047275c517de297f50b9ed7881c969fd2c315e9714334dcb8d9e68f2a
@@ -159,14 +157,20 @@ runtime fingerprint sha256:
   c19ca9c0b8268504f93513d55f90a0eb63777e566aba06e376b503c5e648f085
 ```
 
-The public launcher uses that exact absolute baseline path; it is not a caller
-argument. The retained reports correctly preserve their original staging
-paths, so the current path-bound `build_owned_root.validate_seed_bundle` and
+The baseline path is a caller-supplied locator, never identity or stable
+evidence. The public launcher requires `--baseline-root BASELINE_ROOT`, where
+`BASELINE_ROOT` is an existing canonical absolute directory disjoint from the
+output and every invocation staging path. Any identity-equivalent relocation
+is admitted; any content drift rejects through the complete checks below. The
+retained reports correctly preserve their original staging paths, so the
+current path-bound `build_owned_root.validate_seed_bundle` and
 `compare_two_seed_outputs.outer_publication_inventory` APIs MUST NOT be called
 on this relocated publication and their private helpers MUST NOT be imported.
 
-Instead, before creating profile staging, the launcher and publisher perform
-one exact activation-local, path-neutral byte admission. Using stable,
+Instead, the launcher performs one exact activation-local, path-neutral byte
+admission before creating profile staging, and the publisher independently
+repeats it before creating public staging after all ten profile bundles exist.
+Using stable,
 no-follow reads, reject symlinks, external hardlinks, special nodes, unexpected
 or empty directories, size-cap violations, or anything except the exact outer
 directories `seed-17`, `seed-29`, and `comparison`. Require exactly 47 unique
@@ -296,8 +300,8 @@ selection/projection logic, not a new geometry or prepared representation.
 
 ### 4.2 Component order and mapping
 
-The existing `GeometryComponents` carrier and its exact 92-ID order are
-unchanged:
+The existing `GeometryComponents` carrier and its exact 92-ID family inventory
+are unchanged:
 
 ```text
 stations.<station>.C.x, .C.y, .C.z, .rL, .rA, .rP
@@ -312,6 +316,14 @@ hips.<side>.P_s.x, .y, .z, r_x, r_y, r_z
   for left, right                                             12
                                                             total 92
 ```
+
+The displayed family order above is descriptive, not positional. The sole
+carrier order is the frozen implementation's exact
+`GEOMETRY_COMPONENT_IDS`: form the complete 92-ID inventory above and sort it
+globally by UTF-8 bytes. Thus all `hips.*` IDs precede all `shoulders.*` IDs,
+which precede all `stations.*` IDs. Projection, `projected_values`, carrier
+bytes, binding records, and component-index causality selectors MUST all use
+that one global order; no family-local or table-display order is permitted.
 
 Projection first creates a profile-local copy of the admitted source by the
 rules above, then executes the existing unique selectors and aliases. The
@@ -357,10 +369,10 @@ a scaled dimension, `profile_pointers` contains exactly
 `/profiles/<profile-index>/dimension_scales/<group>`. For a world placement
 sum it contains the matching pointer for every placement in the fixed chain:
 `/profiles/<profile-index>/part_placements/<escaped-address-key>/<axis-index>`.
-For a world landmark sum it contains those placement pointers plus the source
-landmark pointer remains in `source_pointers`; no profile landmark pointer is
-invented. A dimension record retains its source dimension pointer and adds its
-one scale pointer. RFC-6901 escaping is `~` to `~0` and `/` to `~1`; profile
+For a world landmark sum, `profile_pointers` contains exactly those placement
+pointers. The source landmark pointer remains in `source_pointers`; no profile
+landmark pointer is invented. A dimension record retains its source dimension
+pointer and adds its one scale pointer. RFC-6901 escaping is `~` to `~0` and `/` to `~1`; profile
 indices and axis indices use unsigned base-10 without leading zeroes. Arrays
 sort by UTF-8 bytes. Empty, duplicate, missing, extra, differently grouped, or
 pointer-inconsistent bindings reject.
@@ -600,7 +612,11 @@ MUST match across seeds.
   },
   causality: sorted array of exactly 33 causality_evidence records,
   renders: {
-    renderer_id, render_config_sha256, visibility_sha256,
+    renderer_id,
+    render_config: exact render_export.render_config_record object,
+    render_config_sha256,
+    visibility: exact render_export.visibility_record object,
+    visibility_sha256,
     direct: file_record, lineage: file_record,
     same_surface_positions_sha256, same_surface_triangles_sha256
   },
@@ -627,6 +643,30 @@ SHA-256 of canonical JSON encoding of the array of the 92 `value` fields in
 publisher reconstructs those bytes from `projected_values`, validates the
 record, and therefore compares the exact carrier across seeds through the
 already-stable evidence file. It is not a file record and adds no bundle role.
+A selection hash always means SHA-256 of canonical JSON bytes: the complete
+selected profile row for `profile_row_sha256`, its complete
+`dimension_scales` object for `dimension_scales_sha256`, and its complete
+`part_placements` object for `part_placements_sha256`. The publisher locates
+the row again by the exact profile ID and index in the admitted fixed table,
+recreates all three preimages, and requires all three hashes.
+`profile_pointer` MUST equal `/profiles/<profile_index>` with the index written
+as unsigned base-10 without leading zeroes, and resolving that pointer in the
+admitted table MUST produce that same selected complete row.
+
+`render_config_sha256` is SHA-256 of canonical JSON bytes of the adjacent
+complete `render_config` object; the publisher validates that object through
+`render_export.validate_render_config` and recreates the hash.
+`visibility_sha256` is SHA-256 of canonical JSON bytes of the adjacent complete
+`visibility` object returned by `render_export.visibility_record`; the
+publisher requires its exact closed keys and recreates the hash.
+`same_surface_positions_sha256` MUST equal the level-2 `coordinate_sha256`.
+`same_surface_triangles_sha256` MUST equal both the level-2
+`triangle_index_sha256` and `visibility.triangle_index_sha256`. The runner MUST
+obtain `direct`, `lineage`, and the one shared visibility value from exactly
+one `render_export.render_pair_bytes(level_2_mesh)` call; separately rebuilding
+either image or its visibility is forbidden. These relations bind both image
+records to one admitted level-2 surface without embedding the raster buffer.
+
 A `causality_evidence` record is exactly the existing
 design-contract perturbation record, including its payload `file_record`.
 The three level records expose all PLY, coordinate, and triangle-index hashes.
@@ -677,7 +717,6 @@ activation evidence, sidecars, reports, or any neutral manifest.
     receipt: complete decoded section-7.0 managed-test receipt object
   },
   neutral_baseline: {
-    absolute_path: exactly the section-2 path,
     comparison_report: file_record,
     stable_manifest_sha256: hex64,
     runtime_fingerprint_sha256: hex64,
@@ -718,11 +757,12 @@ The final `run-report.json` has schema
   literal_invocation: {environment: exactly ["PYTHONHASHSEED=0"],
                        argv: exact public argv array},
   output_path, staging_path, python_executable_path: canonical absolute paths,
-  neutral_baseline_path: exactly the section-2 absolute path,
+  neutral_baseline_path: exactly the caller-supplied canonical BASELINE_ROOT,
   started_utc, finished_utc: fixed-format UTC strings,
   timings: ordered nonnegative timing_record array for identity, managed-tests,
-           baseline-admission, profile-seed-builds, comparison,
-           staging-seal, total-before-seal,
+           launcher-baseline-admission, profile-seed-builds,
+           publisher-baseline-admission, comparison, pre-report-closure,
+           total-before-seal,
   activation_contract_sha256, design_contract_sha256,
   runtime_fingerprint_sha256: hex64,
   evidence: manifest_ref for exact-five-evidence.json,
@@ -735,19 +775,57 @@ The final `run-report.json` has schema
 }
 ```
 
-The final report is created only after the evidence sidecar exists and points
-backward to the payloads, evidence, and evidence sidecar. It contains no
-record for itself or its own sidecar. Run-local values occur only in reports.
-The 21 gate IDs are `exact-five.run.01.identity`,
-`exact-five.run.02.managed-tests`,
-`exact-five.run.03.baseline-admission`, IDs 04 through 13 for the ten
-profile/seed builds in profile order and seed order 17 then 29, IDs 14 through
-18 for the five profile cross-seed comparisons in profile order,
-`exact-five.run.19.standard-neutral-payload-equality`,
-`exact-five.run.20.evidence-graph`, and
-`exact-five.run.21.staging-seal`. Each observes integer 1 against
-`gate.boolean-pass`. None claims that the later launcher-owned rename has
-already occurred.
+Before invoking the publisher, the launcher creates one canonical closed
+`owned-root-assembly-successor-exact-five-launcher-context.v1` temporary record
+containing exactly the public `literal_invocation`, `output_path`,
+`neutral_baseline_path`, and the first four timing records in the order
+`identity`, `managed-tests`, `launcher-baseline-admission`, and
+`profile-seed-builds`. The publisher admits that record and copies those exact
+values into the final report. It independently measures the next three phases.
+`total-before-seal` is exactly the arithmetic sum, in binary64 list order, of
+the preceding seven timing seconds; it is not an inferred wall-clock interval.
+
+The final report is created only after the evidence sidecar exists and the
+publisher has re-admitted the exact 17-file pre-report closure: 15 payloads,
+evidence, and evidence sidecar. The `publisher-baseline-admission` timing and gate record
+only the publisher's independent admission performed before public staging;
+the launcher's earlier pre-profile admission is reported only by the distinct
+`launcher-baseline-admission` timing copied from the launcher-context record
+and does not satisfy or replace the publisher's gate. The
+`pre-report-closure` timing and gate record only that 17-file admission. The
+report contains no record for itself or its own sidecar. After writing the
+report and sidecar, the publisher re-admits the exact 19-file staging closure;
+that necessarily later fact is not asserted inside the report. The launcher
+then independently repeats the 19-file admission. Run-local values occur only
+in reports.
+The 21 gate IDs, in exact order, are:
+
+```text
+exact-five.run.01.identity
+exact-five.run.02.managed-tests
+exact-five.run.03.publisher-baseline-admission
+exact-five.run.04.profile.standard_neutral_reference.seed-17
+exact-five.run.05.profile.standard_neutral_reference.seed-29
+exact-five.run.06.profile.compact_broad_short_limb_large_head.seed-17
+exact-five.run.07.profile.compact_broad_short_limb_large_head.seed-29
+exact-five.run.08.profile.tall_narrow_long_legged.seed-17
+exact-five.run.09.profile.tall_narrow_long_legged.seed-29
+exact-five.run.10.profile.slender_long_limb.seed-17
+exact-five.run.11.profile.slender_long_limb.seed-29
+exact-five.run.12.profile.stocky_broad_chested.seed-17
+exact-five.run.13.profile.stocky_broad_chested.seed-29
+exact-five.run.14.profile.standard_neutral_reference.cross-seed
+exact-five.run.15.profile.compact_broad_short_limb_large_head.cross-seed
+exact-five.run.16.profile.tall_narrow_long_legged.cross-seed
+exact-five.run.17.profile.slender_long_limb.cross-seed
+exact-five.run.18.profile.stocky_broad_chested.cross-seed
+exact-five.run.19.standard-neutral-payload-equality
+exact-five.run.20.evidence-graph
+exact-five.run.21.pre-report-closure
+```
+
+Each observes integer 1 against `gate.boolean-pass`. None claims that the
+later launcher-owned rename has already occurred.
 
 ## 8. Exact public inventory and acyclic publication graph
 
@@ -782,7 +860,7 @@ The one-way final hash graph is exact:
 ```text
 managed-test receipt + 15 payloads -> exact-five-evidence.json
 exact-five-evidence.json -> exact-five-evidence.sha256
-15 payloads + evidence + evidence sidecar -> run-report.json
+launcher context + 15 payloads + evidence + evidence sidecar -> run-report.json
 run-report.json -> run-report.sha256
 ```
 
@@ -795,8 +873,8 @@ triangles, visibility, and camera calculation.
 
 All 15 payloads remain external/local under the repository artifact policy and
 MUST NOT be committed by this activation. The ten 42-file profile/seed
-bundles, levels 0 and 1, 330 perturbation PLYs, and managed-test receipt are
-invocation-owned ephemeral material. They remain until the final evidence and
+bundles, levels 0 and 1, 330 perturbation PLYs, managed-test receipt, and
+launcher-context record are invocation-owned ephemeral material. They remain until the final evidence and
 report are sealed, then the launcher removes only its exact staging inputs
 before publication. A cleanup or closed-inventory failure rejects publication.
 
@@ -821,15 +899,16 @@ this contract.
 The only public command, from repository root, is:
 
 ```bash
-PYTHONHASHSEED=0 experiments/owned-root-assembly-successor-exact-five/exact_five_launcher.sh --output ABSENT_PATH
+PYTHONHASHSEED=0 experiments/owned-root-assembly-successor-exact-five/exact_five_launcher.sh --baseline-root BASELINE_ROOT --output ABSENT_PATH
 ```
 
-`ABSENT_PATH` MUST be a canonical absolute path without empty, `.` or `..`
-components. It and every invocation-owned sibling staging path MUST be absent.
-The launcher accepts exactly those two arguments in that order, requires
-literal seed `0`, uses only the fixed section-2 baseline path, binds all
-identities and the exact four-file allowlist before source admission, and
-creates no output on failure.
+`BASELINE_ROOT` MUST be the existing canonical absolute directory described in
+section 2. `ABSENT_PATH` MUST be a canonical absolute path without empty, `.`
+or `..` components. It and every invocation-owned sibling staging path MUST be
+absent and disjoint from `BASELINE_ROOT`. The launcher accepts exactly those
+four arguments in that order, requires literal seed `0`, treats the baseline
+path only as a locator, binds all identities and the exact four-file allowlist
+before source admission, and creates no output on failure.
 
 The launcher uses the existing pinned
 `surface_preview_launcher.sh` and requirements/runtime-v2 environment. In an
@@ -839,22 +918,26 @@ invocation-owned absent staging root it performs, in order:
    <staging-receipt-path>` under `PYTHONHASHSEED=0`; require the exact
    section-7.0 canonical success receipt and no skipped, expected-failure, or
    unexpected-success result.
-2. Fully admit the retained neutral baseline.
+2. Fully admit `BASELINE_ROOT` and record the
+   `launcher-baseline-admission` timing.
 3. For each profile in exact order, invoke `exact_five_runner.py --profile
    <exact-id> --output <staging-profile-seed-path>` first with
    `PYTHONHASHSEED=17`, then with `PYTHONHASHSEED=29`.
-4. Invoke `exact_five_publisher.py` under `PYTHONHASHSEED=0` with exactly the
-   fixed baseline root, ten sealed sibling bundle paths in fixed profile/seed
-   order, the managed-test receipt, and one absent staging-publication path.
-   These are private fixed-shape arguments, not a public interface.
+4. Seal the exact launcher-context record defined in section 7.3, then invoke
+   `exact_five_publisher.py` under `PYTHONHASHSEED=0` with exactly
+   `BASELINE_ROOT`, ten sealed sibling bundle paths in fixed profile/seed
+   order, the managed-test receipt, the launcher-context record, and one absent
+   staging-publication path. These are private fixed-shape arguments, not a
+   public interface.
 5. The publisher re-admits every bundle, validates all schemas and gates,
    performs every cross-seed and neutral-baseline comparison, creates and seals
    the exact 19-file staging tree, and re-admits that sealed tree. It returns
    success without deleting inputs or publishing the final path.
 6. The launcher independently re-admits the sealed staging tree, removes only
-   its exact invocation-owned ephemeral bundle and receipt paths, verifies that
-   cleanup did not alter the sealed tree, performs the sole final no-replace
-   rename to `ABSENT_PATH`, and returns success only when that rename succeeds.
+   its exact invocation-owned ephemeral bundle, receipt, and launcher-context
+   paths, verifies that cleanup did not alter the sealed tree, performs the sole
+   final no-replace rename to `ABSENT_PATH`, and returns success only when that
+   rename succeeds.
 
 The runner owns profile-table admission, unique selection, decimal projection,
 the identity-free 92-number handoff, unchanged geometry execution, all gates,
@@ -874,8 +957,9 @@ rejection, unique profile/source selection, all 92 binding/pointer mappings,
 decimal half-even boundary cases, neutral projection equality, identity-only
 geometry API shape, both exact seeds for all profiles, all 33 copied-component
 selectors, evidence schema/cardinalities, exact 19-file closure, sidecar
-grammar, and atomic no-partial-output failure tests. Tests do not replace any
-runtime gate.
+grammar, an identity-equivalent relocated-baseline success case, baseline
+content-drift rejection, and atomic no-partial-output failure tests. Tests do
+not replace any runtime gate.
 
 ## 10. Resource and cardinality caps
 
@@ -904,6 +988,7 @@ each staging evidence file or receipt: <=16 MiB
 complete staging root: <=512 MiB
 complete published root: <=32 MiB
 runtime JSON: <=64 KiB
+launcher-context record: <=64 KiB
 each additive implementation file: <=4 MiB
 additive non-test physical LOC: <=1600
 additive test physical LOC: <=1200

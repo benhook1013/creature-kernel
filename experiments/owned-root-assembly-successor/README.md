@@ -49,10 +49,11 @@ the focused audit required here.
 
 ## Current execution state
 
-The exact neutral evidence baseline is commit
+The retained pre-seam neutral evidence baseline is commit
 `2efd0b28c492423630b2fed3930da23f1b69bd9b`. The main public evidence is the
 96-file publication in logical local cache
-`artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. It records 121
+`artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. That historical
+publication records 121
 tests with zero failures, errors, or skips; the seed gates and cross-seed
 comparison passed.
 
@@ -87,9 +88,12 @@ both the seam and pre-seam baselines. The current comparison report SHA-256 is
 and the current stable-manifest SHA-256 is
 `1b4aaed96671a55ae65dc163fd80db45288daf1b9dc9c91745bf19e414fa7ffa`.
 
-Next is the separately SHA-bound activation contract and sibling exact-five
-runner/publisher. Do not add a private-internal wrapper, duplicate geometry,
-profile-aware branching, geometry correction, or a new representation.
+The exact-five activation contract is frozen at SHA-256
+`a5c38645c810efb24e79297fb7c8049f0f59529f37a67c18a5a728a7119f0d49`;
+two independent Sol reviews returned `FREEZE` with no blockers. Next is its
+sibling exact-five runner/publisher. Do not add a private-internal wrapper,
+duplicate geometry, profile-aware branching, geometry correction, or a new
+representation.
 
 ## Protocol
 
@@ -569,7 +573,7 @@ does not authorize promotion into production code or canonical architecture.
 ## Results, limitations, and conclusion
 
 The standard-neutral execution completed at `correction_round=0` against the
-exact baseline above. Its 96-file publication, 121-test clean result, passed
+retained pre-seam baseline above. Its 96-file publication, 121-test clean result, passed
 seed gates, and passed cross-seed comparison permit proceeding to the unchanged
 exact-five gate. No exact-five executable or gallery exists yet.
 
