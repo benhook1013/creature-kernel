@@ -9,6 +9,7 @@
 
 use creature_kernel_core::body_document::{ResourceProfile, Status as AdmissionStatus};
 use creature_kernel_core::frame::RigidTransform;
+use creature_kernel_core::numeric::{NormalizedBinary64, decimal_to_binary64};
 use creature_kernel_core::provisional_form_preview::{
     MAX_PROVISIONAL_PERMILLE, ProvisionalFormPreview, ProvisionalFormPreviewError,
     ProvisionalPlacementFailureKind, ProvisionalShape, ProvisionalSourceFailureKind,
@@ -140,13 +141,13 @@ const LIMITATIONS: &str = "Provisional display-only filled-form descriptors from
 
 struct PreparedAuthoredDimensions {
     inventory: Vec<AuthoredDimension>,
-    values: BTreeMap<(AddressKey, String), u32>,
+    display_values: BTreeMap<(AddressKey, String), u32>,
 }
 
 struct AuthoredDimension {
     owner: AddressKey,
     role: String,
-    value_permille: u32,
+    display_value_permille: u32,
     document: String,
     namespace: String,
 }
@@ -160,8 +161,8 @@ impl AuthoredDimension {
         &self.role
     }
 
-    const fn value_permille(&self) -> u32 {
-        self.value_permille
+    const fn display_value_permille(&self) -> u32 {
+        self.display_value_permille
     }
 
     fn provenance(&self) -> AuthoredDimensionProvenance<'_> {
@@ -350,7 +351,7 @@ impl fmt::Display for InspectionError {
                 value,
             } => write!(
                 formatter,
-                "source-authored dimension {role:?} at {address} has invalid positive permille value {value}"
+                "source-authored dimension {role:?} at {address} has invalid canonical metre value {value}"
             ),
             Self::MissingAuthoredControl { owner, role } => write!(
                 formatter,
@@ -580,7 +581,7 @@ fn authored_dimension_value(dimension: &AuthoredDimension) -> Value {
     json!({
         "owner": crate::structural_inspection::address_key_value(dimension.owner()),
         "role": dimension.role(),
-        "value_permille": dimension.value_permille(),
+        "value_permille": dimension.display_value_permille(),
         "provenance": {
             "source": dimension.provenance().source(),
             "document": dimension.provenance().document(),
@@ -1013,6 +1014,33 @@ fn authored_dimension_index(
         .expect("validated torso profile dimension was not retained")
 }
 
+fn canonical_metres_to_display_permille(value: NormalizedBinary64) -> Result<u32, &'static str> {
+    let metres = value.as_f64();
+    if !metres.is_finite() {
+        return Err("value must be finite");
+    }
+    if metres <= 0.0 {
+        return Err("value must be strictly positive");
+    }
+
+    let maximum_metres = f64::from(MAX_PROVISIONAL_PERMILLE) / 1_000.0;
+    if metres > maximum_metres {
+        return Err("value is outside the provisional display range");
+    }
+
+    // The source remains a canonical metre value.  Compare its admitted
+    // binary64 identity with each exact decimal thousandth encoding instead
+    // of rounding an arbitrary source value onto the display grid.
+    for display_value_permille in 1..=MAX_PROVISIONAL_PERMILLE {
+        let grid_metres = f64::from(display_value_permille) / 1_000.0;
+        if value.to_bits() == grid_metres.to_bits() {
+            return Ok(display_value_permille);
+        }
+    }
+
+    Err("value is not exactly representable on the provisional thousandth grid")
+}
+
 fn torso_profile_factors(profile_id: &'static str, owner_role: &str) -> (u32, u32) {
     match profile_id {
         "neutral-v0" => (1_000, 1_000),
@@ -1080,7 +1108,7 @@ fn validate_head_neck_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} cannot be checked-scaled for variant {:?} with factor {factor}",
+                    "display-grid={value} cannot be checked-scaled for variant {:?} with factor {factor}",
                     variant.id()
                 ),
             });
@@ -1090,7 +1118,7 @@ fn validate_head_neck_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
+                    "display-grid={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
                     variant.id()
                 ),
             });
@@ -1152,7 +1180,7 @@ fn validate_arm_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} cannot be checked-scaled for variant {:?} with factor {factor}",
+                    "display-grid={value} cannot be checked-scaled for variant {:?} with factor {factor}",
                     variant.id()
                 ),
             });
@@ -1162,7 +1190,7 @@ fn validate_arm_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
+                    "display-grid={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
                     variant.id()
                 ),
             });
@@ -1207,7 +1235,7 @@ fn validate_leg_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} cannot be checked-scaled for variant {:?} with factor {factor}",
+                    "display-grid={value} cannot be checked-scaled for variant {:?} with factor {factor}",
                     variant.id()
                 ),
             });
@@ -1217,7 +1245,7 @@ fn validate_leg_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
+                    "display-grid={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
                     variant.id()
                 ),
             });
@@ -1252,7 +1280,7 @@ fn validate_foot_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} cannot be checked-scaled for variant {:?} with factor {factor}",
+                    "display-grid={value} cannot be checked-scaled for variant {:?} with factor {factor}",
                     variant.id()
                 ),
             });
@@ -1262,7 +1290,7 @@ fn validate_foot_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
+                    "display-grid={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
                     variant.id()
                 ),
             });
@@ -1274,7 +1302,7 @@ fn validate_foot_profile_radius(
 fn validate_foot_profile_geometry(
     preview: &ProvisionalFormPreview,
     profile: &PreparedFootProfile,
-    dimensions: &BTreeMap<(AddressKey, String), u32>,
+    display_values: &BTreeMap<(AddressKey, String), u32>,
 ) -> Result<(), InspectionError> {
     let reference_length = (preview.reference_scale().squared_length() as f64).sqrt();
     if !reference_length.is_finite() || reference_length <= 0.0 {
@@ -1284,7 +1312,7 @@ fn validate_foot_profile_geometry(
     }
 
     let dimension_value = |address: &AddressKey, role: &str| {
-        *dimensions
+        *display_values
             .get(&(address.clone(), role.to_owned()))
             .expect("validated foot profile dimension")
     };
@@ -1415,7 +1443,7 @@ fn validate_torso_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} cannot be checked-scaled for variant {:?} with factor {factor}",
+                    "display-grid={value} cannot be checked-scaled for variant {:?} with factor {factor}",
                     variant.id()
                 ),
             });
@@ -1425,7 +1453,7 @@ fn validate_torso_profile_radius(
                 address: address.clone(),
                 role: role.to_owned(),
                 value: format!(
-                    "integer={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
+                    "display-grid={value} projects to {scaled} for variant {:?} with factor {factor}; expected 1..={MAX_PROVISIONAL_PERMILLE}",
                     variant.id()
                 ),
             });
@@ -2649,7 +2677,7 @@ fn prepare_authored_dimensions(
         }
     }
 
-    let mut values = BTreeMap::new();
+    let mut display_values = BTreeMap::new();
     for (owner_role, value) in prepared.dimensions() {
         let key = (owner_role.owner().clone(), owner_role.role().to_owned());
         if owner_role
@@ -2707,38 +2735,30 @@ fn prepare_authored_dimensions(
         if !required.contains(&key) {
             continue;
         }
-        let exact = match value.to_exact_i64() {
-            Ok(exact) => exact,
+        let display_value_permille = match canonical_metres_to_display_permille(*value) {
+            Ok(display_value_permille) => display_value_permille,
             Err(cause) => {
                 return Err(InspectionError::InvalidAuthoredDimension {
                     address: key.0,
                     role: key.1,
-                    value: format!("bits=0x{:016x} ({cause})", value.to_bits()),
+                    value: format!(
+                        "metres={} bits=0x{:016x} ({cause})",
+                        value.as_f64(),
+                        value.to_bits()
+                    ),
                 });
             }
         };
-        let value_permille = match u32::try_from(exact) {
-            Ok(value_permille) if (1..=i64::from(MAX_PROVISIONAL_PERMILLE)).contains(&exact) => {
-                value_permille
-            }
-            _ => {
-                return Err(InspectionError::InvalidAuthoredDimension {
-                    address: key.0,
-                    role: key.1,
-                    value: format!("integer={exact} bits=0x{:016x}", value.to_bits()),
-                });
-            }
-        };
-        validate_torso_profile_radius(preview, &key.0, &key.1, value_permille)?;
-        validate_head_neck_profile_radius(preview, &key.0, &key.1, value_permille)?;
-        validate_arm_profile_radius(preview, &key.0, &key.1, value_permille)?;
-        validate_leg_profile_radius(preview, &key.0, &key.1, value_permille)?;
-        validate_foot_profile_radius(preview, &key.0, &key.1, value_permille)?;
-        values.insert(key, value_permille);
+        validate_torso_profile_radius(preview, &key.0, &key.1, display_value_permille)?;
+        validate_head_neck_profile_radius(preview, &key.0, &key.1, display_value_permille)?;
+        validate_arm_profile_radius(preview, &key.0, &key.1, display_value_permille)?;
+        validate_leg_profile_radius(preview, &key.0, &key.1, display_value_permille)?;
+        validate_foot_profile_radius(preview, &key.0, &key.1, display_value_permille)?;
+        display_values.insert(key, display_value_permille);
     }
 
     for (address, role) in &required {
-        if !values.contains_key(&(address.clone(), role.clone())) {
+        if !display_values.contains_key(&(address.clone(), role.clone())) {
             return Err(InspectionError::MissingAuthoredDimension {
                 address: address.clone(),
                 role: role.clone(),
@@ -2746,20 +2766,25 @@ fn prepare_authored_dimensions(
         }
     }
 
-    validate_foot_profile_geometry(preview, foot_profile, &values)?;
+    validate_foot_profile_geometry(preview, foot_profile, &display_values)?;
 
     let source = prepared.graph().source();
-    let inventory = values
+    let inventory = display_values
         .iter()
-        .map(|((owner, role), value_permille)| AuthoredDimension {
-            owner: owner.clone(),
-            role: role.clone(),
-            value_permille: *value_permille,
-            document: source.document.clone(),
-            namespace: source.namespace.clone(),
-        })
+        .map(
+            |((owner, role), display_value_permille)| AuthoredDimension {
+                owner: owner.clone(),
+                role: role.clone(),
+                display_value_permille: *display_value_permille,
+                document: source.document.clone(),
+                namespace: source.namespace.clone(),
+            },
+        )
         .collect();
-    Ok(PreparedAuthoredDimensions { inventory, values })
+    Ok(PreparedAuthoredDimensions {
+        inventory,
+        display_values,
+    })
 }
 
 fn authored_dimension_roles(role: &str) -> Option<&'static [&'static str]> {
@@ -2780,7 +2805,7 @@ fn dimension_value(
     role: &str,
 ) -> u32 {
     *dimensions
-        .values
+        .display_values
         .get(&(address.clone(), role.to_owned()))
         .expect("required authored dimension was validated before shape construction")
 }
@@ -3267,11 +3292,15 @@ mod tests {
         creature_kernel_core::provisional_json::to_vec(&value).expect("JSON bytes")
     }
 
+    fn grid_metres(display_value_permille: u32) -> Value {
+        json!(f64::from(display_value_permille) / 1_000.0)
+    }
+
     fn set_torso_profile_radii(
         source: &mut Value,
         owner_role: Option<&str>,
         axis_suffix: Option<&str>,
-        value: u32,
+        value: Value,
     ) {
         for dimension in source["body"]["dimensions"].as_array_mut().unwrap() {
             let role = dimension["role"].as_str().unwrap();
@@ -3279,7 +3308,7 @@ mod tests {
                 && owner_role.is_none_or(|owner| dimension["owner"]["role"] == json!(owner))
                 && axis_suffix.is_none_or(|suffix| role.ends_with(suffix))
             {
-                dimension["value"] = json!(value);
+                dimension["value"] = value.clone();
             }
         }
     }
@@ -3394,6 +3423,33 @@ mod tests {
             result["diagnostics"][0]["code"],
             "ck.cli.provisional-form.authored-dimension"
         );
+    }
+
+    #[test]
+    fn canonical_metre_dimensions_use_only_exact_display_grid_values() {
+        for (token, expected_display_value_permille) in
+            [("0.001", 1), ("0.34", 340), ("1.5", 1_500), ("5", 5_000)]
+        {
+            let value = decimal_to_binary64(token).expect("finite decimal source value");
+            assert_eq!(
+                canonical_metres_to_display_permille(value),
+                Ok(expected_display_value_permille)
+            );
+        }
+
+        for token in ["0.0005", "0.3505", "1.5005", "5.001", "0", "-1"] {
+            let value = decimal_to_binary64(token).expect("finite decimal source value");
+            assert!(
+                canonical_metres_to_display_permille(value).is_err(),
+                "{token}"
+            );
+        }
+
+        // JSON numeric admission rejects overflow/non-finite spellings before
+        // this adapter boundary; there is no non-finite source value to pass
+        // into NormalizedBinary64.
+        assert!(decimal_to_binary64("1e999").is_err());
+        assert!(decimal_to_binary64("NaN").is_err());
     }
 
     fn authored_control_failure(value: Value) -> Value {
@@ -4326,7 +4382,7 @@ mod tests {
                 dimension["role"] == "form_leg_profile_hock_endpoint_forward_radius"
                     && dimension["owner"]["anchors"] == json!(["right"])
             })
-            .unwrap()["value"] = json!(180);
+            .unwrap()["value"] = grid_metres(180);
         let changed_radius = parsed(&inspect_source(&bytes(changed_radius_source)));
         assert_eq!(changed_radius["status"], "success");
 
@@ -4514,7 +4570,7 @@ mod tests {
         assert_eq!(result["status"], "invalid-source");
         assert_eq!(result["stage"], "dimensions");
 
-        for invalid in [json!(0), json!(-1), json!(5_001), json!(350.5)] {
+        for invalid in [json!(0.0), json!(-1.0), json!(5.001), json!(0.3505)] {
             let mut invalid_source = document();
             invalid_source["body"]["dimensions"]
                 .as_array_mut()
@@ -4568,7 +4624,7 @@ mod tests {
             &mut all_axes_at_projectable_lower_bound,
             None,
             None,
-            json!(2),
+            grid_metres(2),
         );
         let all_axes_at_projectable_lower_bound =
             parsed(&inspect_source(&bytes(all_axes_at_projectable_lower_bound)));
@@ -4576,7 +4632,12 @@ mod tests {
         assert_emitted_variant_radii_are_bounded(&all_axes_at_projectable_lower_bound);
 
         let mut up_at_source_minimum = document();
-        set_leg_profile_radii(&mut up_at_source_minimum, None, Some("up_radius"), json!(1));
+        set_leg_profile_radii(
+            &mut up_at_source_minimum,
+            None,
+            Some("up_radius"),
+            grid_metres(1),
+        );
         let up_at_source_minimum = parsed(&inspect_source(&bytes(up_at_source_minimum)));
         assert_eq!(up_at_source_minimum["status"], "success");
         assert_emitted_variant_radii_are_bounded(&up_at_source_minimum);
@@ -4587,7 +4648,7 @@ mod tests {
                 &mut below_projectable_lower_bound,
                 None,
                 Some(axis_suffix),
-                json!(1),
+                grid_metres(1),
             );
             let below_projectable_lower_bound =
                 parsed(&inspect_source(&bytes(below_projectable_lower_bound)));
@@ -4606,13 +4667,18 @@ mod tests {
         ];
         for (axis_suffix, boundary) in boundaries {
             let mut valid = document();
-            set_leg_profile_radii(&mut valid, None, Some(axis_suffix), json!(boundary));
+            set_leg_profile_radii(&mut valid, None, Some(axis_suffix), grid_metres(boundary));
             let valid = parsed(&inspect_source(&bytes(valid)));
             assert_eq!(valid["status"], "success");
             assert_emitted_variant_radii_are_bounded(&valid);
 
             let mut invalid = document();
-            set_leg_profile_radii(&mut invalid, None, Some(axis_suffix), json!(boundary + 1));
+            set_leg_profile_radii(
+                &mut invalid,
+                None,
+                Some(axis_suffix),
+                grid_metres(boundary + 1),
+            );
             let invalid = parsed(&inspect_source(&bytes(invalid)));
             assert_eq!(invalid["status"], "invalid-source");
             assert_eq!(invalid["stage"], "dimensions");
@@ -4719,7 +4785,7 @@ mod tests {
                 dimension["role"] == "form_arm_profile_forearm_midpoint_forward_radius"
                     && dimension["owner"]["anchors"] == json!(["right"])
             })
-            .unwrap()["value"] = json!(200);
+            .unwrap()["value"] = grid_metres(200);
         let changed_radius = parsed(&inspect_source(&bytes(changed_radius_source)));
         assert_eq!(changed_radius["status"], "success");
 
@@ -4917,7 +4983,7 @@ mod tests {
         assert_eq!(result["status"], "invalid-source");
         assert_eq!(result["stage"], "dimensions");
 
-        for invalid in [json!(0), json!(-1), json!(5_001), json!(350.5)] {
+        for invalid in [json!(0.0), json!(-1.0), json!(5.001), json!(0.3505)] {
             let mut invalid_source = document();
             invalid_source["body"]["dimensions"]
                 .as_array_mut()
@@ -4971,7 +5037,7 @@ mod tests {
             &mut all_axes_at_projectable_lower_bound,
             None,
             None,
-            json!(2),
+            grid_metres(2),
         );
         let all_axes_at_projectable_lower_bound =
             parsed(&inspect_source(&bytes(all_axes_at_projectable_lower_bound)));
@@ -4979,7 +5045,12 @@ mod tests {
         assert_emitted_variant_radii_are_bounded(&all_axes_at_projectable_lower_bound);
 
         let mut up_at_source_minimum = document();
-        set_arm_profile_radii(&mut up_at_source_minimum, None, Some("up_radius"), json!(1));
+        set_arm_profile_radii(
+            &mut up_at_source_minimum,
+            None,
+            Some("up_radius"),
+            grid_metres(1),
+        );
         let up_at_source_minimum = parsed(&inspect_source(&bytes(up_at_source_minimum)));
         assert_eq!(up_at_source_minimum["status"], "success");
         assert_emitted_variant_radii_are_bounded(&up_at_source_minimum);
@@ -4990,7 +5061,7 @@ mod tests {
                 &mut below_projectable_lower_bound,
                 None,
                 Some(axis_suffix),
-                json!(1),
+                grid_metres(1),
             );
             let below_projectable_lower_bound =
                 parsed(&inspect_source(&bytes(below_projectable_lower_bound)));
@@ -5009,13 +5080,18 @@ mod tests {
         ];
         for (axis_suffix, boundary) in boundaries {
             let mut valid = document();
-            set_arm_profile_radii(&mut valid, None, Some(axis_suffix), json!(boundary));
+            set_arm_profile_radii(&mut valid, None, Some(axis_suffix), grid_metres(boundary));
             let valid = parsed(&inspect_source(&bytes(valid)));
             assert_eq!(valid["status"], "success");
             assert_emitted_variant_radii_are_bounded(&valid);
 
             let mut invalid = document();
-            set_arm_profile_radii(&mut invalid, None, Some(axis_suffix), json!(boundary + 1));
+            set_arm_profile_radii(
+                &mut invalid,
+                None,
+                Some(axis_suffix),
+                grid_metres(boundary + 1),
+            );
             let invalid = parsed(&inspect_source(&bytes(invalid)));
             assert_eq!(invalid["status"], "invalid-source");
             assert_eq!(invalid["stage"], "dimensions");
@@ -5140,7 +5216,7 @@ mod tests {
             .find(|dimension| {
                 dimension["role"] == "form_head_neck_profile_muzzle_mid_forward_radius"
             })
-            .unwrap()["value"] = json!(550);
+            .unwrap()["value"] = grid_metres(550);
         let changed_dimension = parsed(&inspect_source(&bytes(changed_dimension_source)));
         assert_eq!(
             original["authored_landmarks"],
@@ -5334,7 +5410,7 @@ mod tests {
             "ck.cli.provisional-form.authored-dimension"
         );
 
-        for invalid in [json!(1.5), json!(0), json!(-1), json!(5_001)] {
+        for invalid in [json!(1.5005), json!(0.0), json!(-1.0), json!(5.001)] {
             let mut document = document();
             document["body"]["dimensions"].as_array_mut().unwrap()[0]["value"] = invalid;
             let result = parsed(&inspect_source(&bytes(document)));
@@ -5353,7 +5429,7 @@ mod tests {
             .iter_mut()
             .find(|dimension| dimension["role"] == "form_shoulder_depth_radius")
             .expect("shoulder depth control");
-        dimension["value"] = json!(350.5);
+        dimension["value"] = json!(0.3505);
         let fractional_profile = parsed(&inspect_source(&bytes(fractional_profile)));
         assert_eq!(fractional_profile["status"], "invalid-source");
         assert_eq!(fractional_profile["stage"], "dimensions");
@@ -5569,7 +5645,7 @@ mod tests {
             });
         assert_invalid_head_neck_dimension_source(missing);
 
-        for invalid in [json!(0), json!(-1), json!(5_001), json!(350.5)] {
+        for invalid in [json!(0.0), json!(-1.0), json!(5.001), json!(0.3505)] {
             let mut invalid_source = document();
             invalid_source["body"]["dimensions"]
                 .as_array_mut()
@@ -5631,7 +5707,7 @@ mod tests {
                 &mut valid,
                 Some(owner_role),
                 Some(axis_suffix),
-                json!(boundary),
+                grid_metres(boundary),
             );
             let valid = parsed(&inspect_source(&bytes(valid)));
             assert_eq!(valid["status"], "success");
@@ -5642,7 +5718,7 @@ mod tests {
                 &mut invalid,
                 Some(owner_role),
                 Some(axis_suffix),
-                json!(boundary + 1),
+                grid_metres(boundary + 1),
             );
             assert_invalid_head_neck_dimension_source(invalid);
         }
@@ -5817,7 +5893,7 @@ mod tests {
         assert_eq!(result["status"], "invalid-source");
         assert_eq!(result["stage"], "dimensions");
 
-        for invalid in [json!(0), json!(-1), json!(5_001), json!(350.5)] {
+        for invalid in [json!(0.0), json!(-1.0), json!(5.001), json!(0.3505)] {
             let mut invalid_source = document();
             invalid_source["body"]["dimensions"]
                 .as_array_mut()
@@ -5855,7 +5931,7 @@ mod tests {
         for owner_role in ["pelvis", "torso"] {
             for invalid in [1, MAX_PROVISIONAL_PERMILLE] {
                 let mut source = document();
-                set_torso_profile_radii(&mut source, Some(owner_role), None, invalid);
+                set_torso_profile_radii(&mut source, Some(owner_role), None, grid_metres(invalid));
                 assert_invalid_torso_radius_source(source);
             }
         }
@@ -5871,12 +5947,12 @@ mod tests {
         for (owner_role, axis_suffix, high_boundary) in high_boundaries {
             for source_radius in [2, high_boundary] {
                 let mut source = document();
-                set_torso_profile_radii(&mut source, None, None, 2);
+                set_torso_profile_radii(&mut source, None, None, grid_metres(2));
                 set_torso_profile_radii(
                     &mut source,
                     Some(owner_role),
                     Some(axis_suffix),
-                    source_radius,
+                    grid_metres(source_radius),
                 );
                 let result = parsed(&inspect_source(&bytes(source)));
                 assert_eq!(result["status"], "success");
@@ -5884,12 +5960,12 @@ mod tests {
             }
 
             let mut just_over_high = document();
-            set_torso_profile_radii(&mut just_over_high, None, None, 2);
+            set_torso_profile_radii(&mut just_over_high, None, None, grid_metres(2));
             set_torso_profile_radii(
                 &mut just_over_high,
                 Some(owner_role),
                 Some(axis_suffix),
-                high_boundary + 1,
+                grid_metres(high_boundary + 1),
             );
             assert_invalid_torso_radius_source(just_over_high);
         }
@@ -5906,7 +5982,7 @@ mod tests {
                 dimension["owner"]["role"] == "pelvis" && dimension["role"] == "form_extent_y"
             })
             .expect("pelvis y extent");
-        dimension["value"] = json!(MAX_PROVISIONAL_PERMILLE);
+        dimension["value"] = grid_metres(MAX_PROVISIONAL_PERMILLE);
 
         let result = parsed(&inspect_source(&bytes(source)));
         assert_eq!(result["status"], "success");
@@ -6117,7 +6193,7 @@ mod tests {
             Some("right"),
             Some("toe"),
             Some("forward_radius"),
-            json!(260),
+            grid_metres(260),
         );
         let changed_radius = parsed(&inspect_source(&bytes(changed_radius_source)));
         assert_eq!(changed_radius["status"], "success");
@@ -6261,7 +6337,7 @@ mod tests {
             .unwrap()["position"][1] = json!(-0.21);
         authored_control_failure(contact_gap);
 
-        for invalid in [json!(0), json!(-1), json!(5_001), json!(4_349)] {
+        for invalid in [json!(0.0), json!(-1.0), json!(5.001), json!(4.349)] {
             let mut invalid_source = document();
             set_foot_profile_radii(
                 &mut invalid_source,
@@ -6377,7 +6453,7 @@ mod tests {
                 dimension["owner"]["role"] == "torso" && dimension["role"] == "form_extent_x"
             })
             .expect("torso x control");
-        torso_x["value"] = json!(1_750);
+        torso_x["value"] = grid_metres(1_750);
         let changed = parsed(&inspect_source(&bytes(changed_source)));
 
         for (original_variant, changed_variant) in original["variants"]

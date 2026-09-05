@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-09-03 (NZST; repository activity is recorded in NZST while
+Status date: 2026-09-05 (NZST; repository activity is recorded in NZST while
 GitHub timestamps are UTC)
 
 ## Phase
@@ -18,47 +18,107 @@ This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may
 preserve evidence but do not redefine current continuation.
 
-### Terminal investigation outcome
+### Owned root assembly successor
 
-The Ben-authorized, experiment-local, pre-Readiness-4 investigation of a
-programmatic surface-domain/subdivision-cage representation is terminal for
-its seven-ring candidate. Its bounded question was whether that
-representation could produce a credible ribcage-waist-pelvis assembly with
-readable neck, axilla, and hip/thigh-root boundaries, sufficient to justify
-extending the representation. The recorded plan and outcome are in the
-[programmatic root-complex surface investigation](../research/programmatic-root-complex-surface-investigation.md).
+The Ben-authorized, experiment-local successor is the bounded [owned root
+assembly investigation](../research/owned-root-assembly-investigation.md).
+It tests one welded standard-neutral root surface using exactly eight named,
+nonempty domain interiors under the hard `<=8` cap, five open ports, at most
+128 controls and 120 base quads, two subdivision levels, and at most two shared
+correction rounds. Construction ownership, semantic causality, and
+evaluated-surface contributor/chart lineage remain separate; every output must
+be owned or have a declared junction or contributor record.
 
-The investigation consumes explicitly identified authored/prepared input only.
-It introduces no production `GeometryRequest`/`GeometryResult` contract, no
-production-core dependency, no claimed resolved graph, and no durable
-domain/chart/cage identity. It cannot satisfy or replace the DR-0013 Stage 1
-proof. DR-0009 and DR-0010 remain parked; any promotion stops for the
-appropriate decision record/canonical architecture work and Ben's approval.
+The successor uses the authored `neck_upper` and `upper_abdomen` controls; its
+oriented interfaces, patch layout, port orientation, extraordinary
+placement/valence, continuity, normal/fold bounds, subdivision support,
+causality matrix, and locality perturbations are frozen before rendering. It
+replaces the old port-span anatomy gates with candidate-specific checks for
+neck exposure, shoulder descent, axillary concavity, pelvic wrap, and
+downward thigh-root orientation. Direct skin and ownership diagnostics must
+be renders of the same evaluated surface, and categorical colour cannot stand
+in for causality.
 
-The scoped standard-neutral evidence exhausted exactly three frozen shared
-correction rounds: round 1 fixed measured shoulder intersections, round 2
-improved axial taper and thigh seating, and round 3 applied a superior axial
-saddle. Main-thread direct vision of the fixed front, side, and three-quarter
-round-3 evidence found neck emergence and downward shoulder departure still
-too weak; the arm ports continued to read in a broad superior shelf. Neutral
-credibility failed, so exact-five, tail, and gallery expansion are blocked and
-no fourth correction is allowed.
+The required
+`experiments/owned-root-assembly-successor/design-contract.md` freeze artifact
+is now frozen and SHA-256-bound at
+`3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`, recorded
+by its sidecar. Two independent Sol reviews returned `FREEZE` with zero
+blockers. The bounded implementation phase completed at
+`correction_round=0`; the builder must reject a missing or mismatched
+design-contract identity.
 
-Structural evidence nevertheless passed: 72 cage vertices and 63 quads,
-1,053 level-2 vertices and 1,008 level-2 quads, level-1/level-2 intersection
-counts `0/0`, and all five reported clearance labels passed. Those labels
-represent only four distinct clearance measurements: `groin = min(right) -
-max(left)` and pairwise `medial_thigh = min(right - left)` are algebraically
-the same scalar, tested at `0.020 S` and `0.025 S`, respectively. This is a
-known terminal-candidate measurement limitation; it does not overturn the
-pass at the stricter `0.025 S` threshold and is not reused by the owned-root
-successor. This is a scoped rejection of the seven-ring candidate, not formal
-Stage 1, not a global rejection of programmatic or hybrid surfaces, and not
-authority to reactivate DR-0009, DR-0010, or another parked workstream.
+Historical round-0 neutral evidence is retained at commit
+`2efd0b28c492423630b2fed3930da23f1b69bd9b`. The main public evidence is the
+96-file publication in logical local cache
+`artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. That historical
+publication records 121
+tests with zero failures, errors, or skips; the seed gates and cross-seed
+comparison passed. The exact `comparison-report.json` SHA-256, obtainable from
+the exact sidecar, is
+`f87afb2ac517e4fd42ffb04248d97045df016f59d9f6d344d4a45659340b7ab7`. The
+direct PNG is
+`b98d9cf219cad3c60ce43921fc86be7817529fd93448386860738b60110075ed`, the
+lineage PNG is
+`19a006f8f237857d94821894016364dcc446caece3358e9c6da0794a75bf74d2`, the
+stable manifest is
+`3a8c87da8a297fb19f6f07b6ea669bde196e5a43b5609525f639e07fc168235e`, and
+the runtime fingerprint is
+`c19ca9c0b8268504f93513d55f90a0eb63777e566aba06e376b503c5e648f085`.
 
-The next retained-human action is Ben's disposition or a newly authorized
-direction. There is no autonomous substitute checkpoint, exact-five
-continuation, or parked-work reactivation under this runway.
+Main-thread visual appraisal found the neutral neck, shoulder/axilla,
+pelvic-wrap, and thigh-root cues credible. Two independent Sol vision checks
+agreed and found no material blocker. The exact-five gate was therefore
+unlocked. The local exact-five runner, publisher, launcher, focused tests, and
+gallery adapter now exist. Projection across all five profiles is exact, and
+focused non-success-path tests pass, but publication remains fail-closed:
+four non-neutral profiles fail the unchanged gates. The canonical trigger
+evidence is
+`experiments/owned-root-assembly-successor/results/correction-round-1-preflight-trigger.json`
+(21,714 bytes; SHA-256
+`6ab89cc92b87e9c549d864b2e5162f653d892ef6fc68faf46bc9ce57780ef62b`), with
+39 observed failure records and ten profile/seed reproductions.
+
+The semantics-preserving numeric-only geometry seam and change batch fit the
+frozen LOC caps and pass 134 managed tests, both seed gates, and cross-seed
+comparison. The batch changes no shared formula or tunable and all 38 payloads
+remain byte-identical, so it consumes no correction round. The current 96-file
+publication is in logical local cache
+`artifact-cache/owned-root-assembly-successor/correction-batch-20260905-4`;
+all 38 geometry/perturbation/render roles in each seed are byte-identical to
+both the seam and pre-seam baselines. The current comparison report SHA-256 is
+`fe450e9047275c517de297f50b9ed7881c969fd2c315e9714334dcb8d9e68f2a`
+and the current stable-manifest SHA-256 is
+`1b4aaed96671a55ae65dc163fd80db45288daf1b9dc9c91745bf19e414fa7ffa`.
+
+The exact-five activation contract is frozen at SHA-256
+`a5c38645c810efb24e79297fb7c8049f0f59529f37a67c18a5a728a7119f0d49`;
+two independent Sol reviews returned `FREEZE` with no blockers. The exact-five
+execution surface is present locally, but its fail-closed publication is not a
+success result. Outside the bounded correction authorized below, do not add a
+private-internal wrapper, duplicate geometry, profile-aware branching,
+geometry correction, or a new representation.
+
+Ben explicitly authorized one bounded dimension-driven shared shoulder/hip
+correction within the existing welded representation, preceded by feasibility.
+No profile exceptions, clamps, gate or threshold relaxation, topology,
+ownership, renderer, subdivision, or representation change is authorized.
+Shoulder feasibility found a dimension-driven candidate that passes exact five
+and coherent diagnostics. Hip feasibility found the frozen formula/support
+restriction insufficient; Astra-high recommended exactly one bounded
+deterministic fixed-topology pre-filter trial using already-admitted adjacent
+station inputs. That advice is advisory evidence, not accepted architecture.
+If the trial requires profile fitting, clamps, overshoot, topology or ownership
+change, cap excess, or still fails required cases, stop rather than refreeze.
+No formula has been accepted or implemented.
+
+The named human checkpoint remains Ben's exact-five gallery appraisal of the
+owned-root assembly, but the fail-closed publication must first produce the
+appraisable gallery evidence. The checkpoint uses fixed front, side, and
+three-quarter final-surface renders. Internal metrics and model reviews do not
+substitute for Ben's visual judgment. The [terminal
+seven-ring outcome](../research/programmatic-root-complex-surface-investigation.md#terminal-outcome-2026-09-03)
+remains historical evidence and is not reactivated.
 
 ## Historical failed-candidate runway (2026-09-01)
 

@@ -112,8 +112,24 @@ lane is not activated, these passes are not required.
   when its breadth and authority boundaries require it. Use Luna-xhigh for
   narrow convergence, implementation, or bounded technical review when that
   better fits the corpus.
-- `gpt-5.6-sol` at `high` requires explicit human approval and is the absolute
-  subagent ceiling. Sol above medium is never implicit.
+- `gpt-5.6-sol` at `high` or above requires explicit human approval. Sol above
+  medium is never implicit.
+- Astra-high is an exceptional advisory route for direction adjudication,
+  difficult 3D or visual reasoning, or a high-consequence technical impasse
+  when Astra can materially improve the path. Astra advises; the main thread
+  still synthesizes and integrates, and Ben retains all product, architecture,
+  quality, and other human decisions.
+- Before every Astra call, the main thread announces the purpose and bounded
+  scope to Ben. For one major checkpoint or decision batch, one primary Astra
+  call plus at most one adversarial follow-up is allowed without another
+  permission round. Additional calls require Ben's explicit approval. The
+  main thread reports Astra use and its material recommendations in the
+  handoff so Ben can see what informed the path.
+- Astra-max/ultra, Astra as an orchestrator, and routine Astra use are
+  explicit-approval-only. Astra is not used for mechanical patches, ordinary
+  tests or CI, CodeRabbit, bookkeeping, or as a throughput substitute for
+  Luna. Promotional or reset capacity is temporary availability, not durable
+  policy or authority.
 - Terra is not a normal routing tier.
 
 ### Luna max admission gate
@@ -298,7 +314,13 @@ The risk-scaled levels are:
   fresh passes with distinct named lenses, normally Sol at `medium` for
   foundational work.
 
-More than `Double`, or Sol above `medium`, requires explicit human approval.
+More than `Double` still requires explicit human approval, and Sol above
+`medium` remains explicit-approval-only. Astra-high follows its separate
+exceptional-use limit in [Model routing](#model-routing): at most one primary
+call and one adversarial follow-up per major checkpoint or decision batch
+without further permission. An Astra recommendation is advisory and cannot
+accept a direction, DR, contract, or human checkpoint.
+
 A material change to a proposal, constraints, alternatives, or consequences
 makes older reviews stale. When `Double` remains justified, the current
 revision normally receives two new passes. `Double` is one pass per reviewer
@@ -339,12 +361,16 @@ merge authority.
 
 ## CodeRabbit and external review
 
-For a substantial PR that is final-review-ready, the main thread launches the
-hosted CodeRabbit pass and the committed-diff CLI pass in parallel as one
-deliberate cycle. Both review the same clean, immutable pushed OID. Before
-launching, the main thread fetches the PR branch, requires a clean worktree,
-verifies local `HEAD` equals the remote PR-head OID, and records that OID with
-both results.
+For a substantial PR, the main thread pushes its first coherent, review-useful
+head early enough for external review to run in parallel with later disjoint
+work in the same PR. It does not wait for every planned addition to be complete
+before starting the review clock. For each review-useful head, the main thread
+launches the hosted CodeRabbit pass and the committed-diff CLI pass in parallel
+as one deliberate cycle. Both review the same clean, immutable pushed OID.
+Before launching, the main thread fetches the PR branch, requires the committed
+tree to match the intended review content, verifies local `HEAD` equals the
+remote PR-head OID, and records that OID with both results. Uncommitted disjoint
+follow-on work may remain local and is not represented as reviewed.
 
 The CLI pass supports the hosted pass but cannot satisfy the hosted taper gate.
 Every changed pushed head receives a fresh hosted-plus-CLI cycle; findings

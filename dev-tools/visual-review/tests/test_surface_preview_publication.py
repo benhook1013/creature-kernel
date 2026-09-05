@@ -3182,10 +3182,10 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
             / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"
         )
         raw = source.read_bytes()
-        self.assertEqual(len(raw), 56_863)
+        self.assertEqual(len(raw), 56_984)
         self.assertEqual(
             hashlib.sha256(raw).hexdigest(),
-            "d4f0dad6f936d62f9ee8c0fa24701898ee4ae6e48bcdeaf44641bd4dc3b549de",
+            "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14",
         )
         evidence = publisher._validate_input_evidence(
             publisher._read_input_evidence(source), "checked-in source"

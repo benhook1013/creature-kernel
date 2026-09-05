@@ -7,26 +7,20 @@ import json
 import math
 from pathlib import Path
 
-
 class PreparedProjectionError(ValueError): pass
-
 
 class _DuplicateJSONKeyError(ValueError): pass
 
-
 class _NonFiniteJSONConstantError(ValueError): pass
-
 
 class _NonFiniteJSONNumberError(ValueError): pass
 
-
 class _JSONRootTypeError(TypeError): pass
-
 _TOP = {"basis", "body", "contract", "extensions", "profiles", "source"}
 _BODY = {"attachments", "capabilities", "dimensions", "fields", "frames", "joints", "landmarks", "modules", "parts", "regions", "sockets"}
 _COUNT = {"parts": 18, "frames": 16, "landmarks": 43, "dimensions": 153}
 _I = (0, 0, 0, 1)
-_D = "derivation=source_dimension_integer_as_thousandths_of_canonical_metre_v1"
+_D = "derivation=source_dimension_canonical_metre_value_v1"
 _P = "derivation=parent_local_part_translation_plus_landmark_position_v1"
 _BILATERAL_SCALARS = {"arm_root_depth": ("upper_arm", "form_arm_profile_upper_arm_start_forward_radius"), "arm_root_outward": ("upper_arm", "form_arm_profile_upper_arm_start_lateral_radius"), "thigh_lateral_radius": ("thigh", "form_leg_profile_thigh_start_lateral_radius"), "thigh_depth": ("thigh", "form_leg_profile_thigh_start_forward_radius")}
 
@@ -106,9 +100,16 @@ def _part(rows, owner, parent):
     _ok(containment == {"root": True} if parent is None else set(containment) == {"parent"} and _addr(containment["parent"], where) == parent, where, "invalid containment")
     return translation, where
 def _add(a, b): result = tuple(x + y for x, y in zip(a, b)); _ok(all(_finite(value) for value in result), "derived point", "expected finite number"); return result
+def _validate_dimensions(rows):
+    for i, raw in enumerate(rows):
+        where, row = f"body.dimensions[{i}]", _dict(raw, f"body.dimensions[{i}]")
+        _ok(set(row) == {"owner", "role", "value"}, where, "unknown or missing required field")
+        _addr(row["owner"], f"{where}.owner")
+        _ok(isinstance(row["role"], str) and row["role"], f"{where}.role", "expected non-empty role")
+        _num(row["value"], f"{where}.value", True)
 def _dimension(rows, owner, role):
-    row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions"); _ok(not isinstance(row["value"], bool) and isinstance(row["value"], int), f"{where}.value", "expected integer dimension"); value = _num(row["value"], f"{where}.value", True) / 1000.0
-    return value, f"{where}.value; {_D}"
+    row, where = _pick(rows, owner, role, {"owner", "role", "value"}, "dimensions")
+    return row["value"], f"{where}.value; {_D}"
 def _landmark(rows, owner, role, frame):
     row, where = _pick(rows, owner, role, {"owner", "role", "frame", "position"}, "landmarks"); ref = _dict(row["frame"], f"{where}.frame"); _ok(set(ref) == {"owner", "role"} and (_addr(ref["owner"], where), ref["role"]) == frame, where, "invalid landmark frame"); return _vec(row["position"], f"{where}.position"), where
 def _world_part(part_data, world, owner, parent):
@@ -124,7 +125,6 @@ def _bilateral_scalar(rows, owners, role, name):
     _ok(left[0] == right[0], f"scalars.{name}", "left and right dimensions must match")
     return {"value": left[0], "provenance": "; ".join((left[1], right[1], "derivation=validated_bilateral_scalar_v1"))}
 
-
 def prepare_standard_neutral(path):
     source, digest = _load(path); _ok(set(source) == _TOP, "source", "unknown or missing top-level field")
     _ok(source["contract"] == {"family": "creature-kernel.body", "revision": 1}, "source.contract", "wrong contract")
@@ -134,6 +134,7 @@ def prepare_standard_neutral(path):
     body = _dict(source["body"], "source.body"); _ok(set(body) == _BODY, "source.body", "unknown or missing collection")
     _ok(body["fields"] == [], "body.fields", "forbidden geometry-input collection")
     for name, count in _COUNT.items(): _ok(isinstance(body[name], list) and len(body[name]) == count, f"body.{name}", f"expected {count} records")
+    _validate_dimensions(body["dimensions"])
     ns = source["source"]["namespace"]
     def part(role, side=None): return ns, () if side is None else (side,), "part", role
     p = {part("pelvis"): _part(body["parts"], part("pelvis"), None), part("torso"): _part(body["parts"], part("torso"), part("pelvis")), part("neck"): _part(body["parts"], part("neck"), part("torso"))}
@@ -165,7 +166,6 @@ def prepare_standard_neutral(path):
     scalars = {name: _bilateral_scalar(body["dimensions"], owners[role], dimension_role, name)
                for name, (role, dimension_role) in _BILATERAL_SCALARS.items()}
     return {"source": {"document": source["source"]["document"], "namespace": ns, "sha256": digest, "provenance": "raw_source_utf8_bytes_sha256_v1"}, "basis": dict(source["basis"]), "frames": {"body": frame_body}, "landmarks": landmarks, "stations": stations, "scalars": scalars}
-
 
 def canonical_json_bytes(value): return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
 def canonical_json_sha256(value): return hashlib.sha256(canonical_json_bytes(value)).hexdigest()

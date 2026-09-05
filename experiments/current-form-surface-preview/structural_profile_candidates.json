@@ -3,10 +3,10 @@
     "document": "stylized_digitigrade_biped_authored_form",
     "namespace": "main",
     "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
-    "sha256": "d4f0dad6f936d62f9ee8c0fa24701898ee4ae6e48bcdeaf44641bd4dc3b549de"
+    "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
   },
   "canonicalization": {
-    "number_rule": "integer source placements and permille dimensions only; round-to-nearest ties-to-even for positive integer products",
+    "number_rule": "source placements remain integer metres and authored dimensions remain positive finite canonical metre numbers; active generated profiles apply integer-permille factors with exact decimal arithmetic, quantize to nearest millimetre ties-to-even, and emit canonical metres; no authored-source permille interpretation",
     "serialization": "candidate table uses sorted two-space JSON; generated BodyDocuments use compact sorted JSON to retain the existing CLI byte bound; both use UTF-8 and one trailing newline"
   },
   "format": "creature-kernel.disposable-structural-profile-candidates.v1",

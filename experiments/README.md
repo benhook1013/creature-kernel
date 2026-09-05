@@ -111,6 +111,14 @@ candidate-local frozen contract, neutral-first visual checkpoint, and
 experiment-local launcher are not product, Stage 1, production, or formal
 surface-comparison authority.
 
+The [owned root assembly successor](owned-root-assembly-successor/README.md)
+is the unregistered exploratory successor targeting open `RQ-002`, `RQ-012`,
+`RQ-020`, and `RQ-021`. It is not `EXP-0001`; its candidate-local design
+contract is frozen and SHA-256-bound, and its bounded implementation phase is
+complete at `correction_round=0`. Its credible neutral evidence unlocks the
+separately contracted exact-five activation work; it cannot establish a formal
+technology outcome, production surface contract, or Stage 1 result.
+
 ## Artifact policy
 
 Large meshes, caches, videos, captures, and datasets must not be committed until
