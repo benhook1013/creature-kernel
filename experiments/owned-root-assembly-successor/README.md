@@ -1,7 +1,7 @@
 # Owned root assembly successor
 
-Status: standard-neutral execution complete; frozen, SHA-256-bound,
-non-normative
+Status: standard-neutral execution complete; exact-five attempt fail-closed;
+frozen, SHA-256-bound, non-normative
 
 Experiment lifecycle: finished
 
@@ -36,10 +36,10 @@ This is the frozen candidate contract and bounded implementation phase for one
 new, standard-neutral experiment. It is the successor direction authorized
 after the seven-ring candidate in PR #125 reached its three-round stop rule.
 It remains an unaccepted experiment-local candidate: the neutral result
-supports proceeding to the unchanged exact-five gate, but does not establish a
-production schema, architecture, topology, supported morphology promise, or
-permanent technology choice. It does not reactivate a parked workstream or
-satisfy the DR-0013 Stage 1 proof.
+unlocked the unchanged exact-five gate, but the exact-five attempt is
+fail-closed and does not establish a production schema, architecture,
+topology, supported morphology promise, or permanent technology choice. It
+does not reactivate a parked workstream or satisfy the DR-0013 Stage 1 proof.
 
 The previous candidate is evidence, not a foundation to transplant. Its
 seven-ring topology, projection, formulas, macros, IDs, thresholds, and
@@ -49,7 +49,7 @@ the focused audit required here.
 
 ## Current execution state
 
-The retained pre-seam neutral evidence baseline is commit
+Historical round-0 neutral evidence is retained at commit
 `2efd0b28c492423630b2fed3930da23f1b69bd9b`. The main public evidence is the
 96-file publication in logical local cache
 `artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. That historical
@@ -71,9 +71,16 @@ the runtime fingerprint is
 
 Main-thread visual appraisal found the neutral neck, shoulder/axilla,
 pelvic-wrap, and thigh-root cues credible. Two independent Sol vision checks
-agreed and found no material blocker. The exact-five gate is therefore
-unlocked, but no exact-five executable or gallery exists yet. The named human
-checkpoint remains Ben's later exact-five gallery appraisal.
+agreed and found no material blocker. The exact-five gate was therefore
+unlocked. The local exact-five runner, publisher, launcher, focused tests, and
+gallery adapter now exist. Projection across all five profiles is exact, and
+focused non-success-path tests pass, but publication remains fail-closed:
+four non-neutral profiles fail the unchanged gates. The canonical trigger
+evidence is
+`experiments/owned-root-assembly-successor/results/correction-round-1-preflight-trigger.json`
+(21,714 bytes; SHA-256
+`6ab89cc92b87e9c549d864b2e5162f653d892ef6fc68faf46bc9ce57780ef62b`), with
+39 observed failure records and ten profile/seed reproductions.
 
 The semantics-preserving numeric-only geometry seam and change batch fit the
 frozen LOC caps and pass 134 managed tests, both seed gates, and cross-seed
@@ -90,10 +97,24 @@ and the current stable-manifest SHA-256 is
 
 The exact-five activation contract is frozen at SHA-256
 `a5c38645c810efb24e79297fb7c8049f0f59529f37a67c18a5a728a7119f0d49`;
-two independent Sol reviews returned `FREEZE` with no blockers. Next is its
-sibling exact-five runner/publisher. Do not add a private-internal wrapper,
-duplicate geometry, profile-aware branching, geometry correction, or a new
-representation.
+two independent Sol reviews returned `FREEZE` with no blockers. The exact-five
+execution surface is present locally, but its fail-closed publication is not a
+success result. Outside the bounded correction authorized below, do not add a
+private-internal wrapper, duplicate geometry, profile-aware branching,
+geometry correction, or a new representation.
+
+Ben explicitly authorized one bounded dimension-driven shared shoulder/hip
+correction within the existing welded representation, preceded by feasibility.
+No profile exceptions, clamps, gate or threshold relaxation, topology,
+ownership, renderer, subdivision, or representation change is authorized.
+Shoulder feasibility found a dimension-driven candidate that passes exact five
+and coherent diagnostics. Hip feasibility found the frozen formula/support
+restriction insufficient; Astra-high recommended exactly one bounded
+deterministic fixed-topology pre-filter trial using already-admitted adjacent
+station inputs. That advice is advisory evidence, not accepted architecture.
+If the trial requires profile fitting, clamps, overshoot, topology or ownership
+change, cap excess, or still fails required cases, stop rather than refreeze.
+No formula has been accepted or implemented.
 
 ## Protocol
 
@@ -129,9 +150,10 @@ credible.
 
 ## Decision impact
 
-A credible neutral result, after all technical gates, permits an unchanged
-exact-five profile run and a later human checkpoint about whether this
-representation is worth extending. It does not approve production use.
+A credible neutral result, after all technical gates, permitted the unchanged
+exact-five profile run and the later human checkpoint about whether this
+representation is worth extending. The exact-five attempt is fail-closed, and
+it does not approve production use.
 
 An uncured neutral failure rejects this candidate. It does not reject
 programmatic or hybrid surfaces globally. A materially different
@@ -572,23 +594,41 @@ does not authorize promotion into production code or canonical architecture.
 
 ## Results, limitations, and conclusion
 
-The standard-neutral execution completed at `correction_round=0` against the
-retained pre-seam baseline above. Its 96-file publication, 121-test clean result, passed
-seed gates, and passed cross-seed comparison permit proceeding to the unchanged
-exact-five gate. No exact-five executable or gallery exists yet.
+The standard-neutral execution completed at `correction_round=0`. The current
+post-seam correction-batch publication identified above contains 96 files,
+passes 134 managed tests, both seed gates, and cross-seed comparison, and keeps
+all 38 payload roles byte-identical to the retained pre-seam baseline. This is
+historical round-0 neutral evidence; it unlocked the unchanged exact-five
+gate.
 
-The trial is limited to one standard-neutral root assembly. It does not test
-the exact-five profiles, optional modules, tails, hands, feet, faces, distal
-anatomy, posing, skeleton runtime, deformation, simulation, engine adapters,
-or production packaging. This positive result does not approve production use;
-it only unlocks the next recorded investigation and human checkpoint.
+The exact-five execution surface now exists locally and projection across all
+five profiles is exact. Focused non-success-path tests pass. No successful
+exact-five publication is claimed: four non-neutral profiles fail the
+unchanged gates, so publication remains fail-closed. The canonical trigger
+evidence is
+`results/correction-round-1-preflight-trigger.json` (21,714 bytes; SHA-256
+`6ab89cc92b87e9c549d864b2e5162f653d892ef6fc68faf46bc9ce57780ef62b`), with
+39 observed failure records and ten profile/seed reproductions.
+
+The initial trial was limited to one standard-neutral root assembly. The
+subsequent exact-five attempt covers the five profile projections and unchanged
+gates only; it does not cover optional modules, tails, hands, feet, faces,
+distal anatomy, posing, skeleton runtime, deformation, simulation, engine
+adapters, or production packaging. The exact-five result is fail-closed and
+does not approve production use.
 
 ## Recommended follow-up
 
 The semantics-preserving numeric-only geometry seam is implemented and
-revalidated against the baseline above. Separately, prepare the SHA-bound
-activation contract and sibling exact-five
-runner/publisher. Do not add a private-internal wrapper, duplicate geometry,
-profile-aware branching, geometry correction, or a new representation, and do
-not edit canonical specifications or production architecture as part of this
-experiment.
+revalidated against the historical baseline above. Ben has authorized exactly
+one bounded dimension-driven shared shoulder/hip correction within the existing
+welded representation, preceded by feasibility. Shoulder feasibility found a
+candidate that passes exact five and coherent diagnostics. Hip feasibility found
+the frozen formula/support restriction insufficient; Astra-high's recommendation
+is advisory evidence for exactly one bounded deterministic fixed-topology
+pre-filter trial using already-admitted adjacent station inputs, not accepted
+architecture. If that trial requires profile fitting, clamps, overshoot,
+topology or ownership change, cap excess, or still fails required cases, stop
+rather than refreeze. No formula has been accepted or implemented. The human
+checkpoint remains Ben's exact-five gallery appraisal, and any PR must remain
+unmerged until his explicit approval.

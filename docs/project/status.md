@@ -48,7 +48,7 @@ blockers. The bounded implementation phase completed at
 `correction_round=0`; the builder must reject a missing or mismatched
 design-contract identity.
 
-The retained pre-seam neutral evidence baseline is commit
+Historical round-0 neutral evidence is retained at commit
 `2efd0b28c492423630b2fed3930da23f1b69bd9b`. The main public evidence is the
 96-file publication in logical local cache
 `artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. That historical
@@ -68,8 +68,16 @@ the runtime fingerprint is
 
 Main-thread visual appraisal found the neutral neck, shoulder/axilla,
 pelvic-wrap, and thigh-root cues credible. Two independent Sol vision checks
-agreed and found no material blocker. The exact-five gate is therefore
-unlocked, but no exact-five executable or gallery exists yet.
+agreed and found no material blocker. The exact-five gate was therefore
+unlocked. The local exact-five runner, publisher, launcher, focused tests, and
+gallery adapter now exist. Projection across all five profiles is exact, and
+focused non-success-path tests pass, but publication remains fail-closed:
+four non-neutral profiles fail the unchanged gates. The canonical trigger
+evidence is
+`experiments/owned-root-assembly-successor/results/correction-round-1-preflight-trigger.json`
+(21,714 bytes; SHA-256
+`6ab89cc92b87e9c549d864b2e5162f653d892ef6fc68faf46bc9ce57780ef62b`), with
+39 observed failure records and ten profile/seed reproductions.
 
 The semantics-preserving numeric-only geometry seam and change batch fit the
 frozen LOC caps and pass 134 managed tests, both seed gates, and cross-seed
@@ -85,16 +93,30 @@ and the current stable-manifest SHA-256 is
 
 The exact-five activation contract is frozen at SHA-256
 `a5c38645c810efb24e79297fb7c8049f0f59529f37a67c18a5a728a7119f0d49`;
-two independent Sol reviews returned `FREEZE` with no blockers. Next is its
-sibling exact-five runner/publisher. Do not add a private-internal wrapper,
-duplicate geometry, profile-aware branching, geometry correction, or a new
-representation.
+two independent Sol reviews returned `FREEZE` with no blockers. The exact-five
+execution surface is present locally, but its fail-closed publication is not a
+success result. Outside the bounded correction authorized below, do not add a
+private-internal wrapper, duplicate geometry, profile-aware branching,
+geometry correction, or a new representation.
 
-The named human checkpoint remains Ben's later exact-five gallery appraisal of
-the owned-root assembly, but only after standard neutral passes the unchanged
-internal gates and the exact-five evidence is generated. The checkpoint uses
-fixed front, side, and three-quarter final-surface renders. Internal metrics
-and model reviews do not substitute for Ben's visual judgment. The [terminal
+Ben explicitly authorized one bounded dimension-driven shared shoulder/hip
+correction within the existing welded representation, preceded by feasibility.
+No profile exceptions, clamps, gate or threshold relaxation, topology,
+ownership, renderer, subdivision, or representation change is authorized.
+Shoulder feasibility found a dimension-driven candidate that passes exact five
+and coherent diagnostics. Hip feasibility found the frozen formula/support
+restriction insufficient; Astra-high recommended exactly one bounded
+deterministic fixed-topology pre-filter trial using already-admitted adjacent
+station inputs. That advice is advisory evidence, not accepted architecture.
+If the trial requires profile fitting, clamps, overshoot, topology or ownership
+change, cap excess, or still fails required cases, stop rather than refreeze.
+No formula has been accepted or implemented.
+
+The named human checkpoint remains Ben's exact-five gallery appraisal of the
+owned-root assembly, but the fail-closed publication must first produce the
+appraisable gallery evidence. The checkpoint uses fixed front, side, and
+three-quarter final-surface renders. Internal metrics and model reviews do not
+substitute for Ben's visual judgment. The [terminal
 seven-ring outcome](../research/programmatic-root-complex-surface-investigation.md#terminal-outcome-2026-09-03)
 remains historical evidence and is not reactivated.
 
