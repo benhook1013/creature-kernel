@@ -72,10 +72,17 @@ Ben retains decisions about:
 - large or otherwise irreversible trade-offs; and
 - acceptance or rejection of product and direction-setting decision records.
 
-The main Sol thread owns planning, task decomposition, synthesis, integration,
-consolidated validation, Git and pull-request operations, review orchestration,
-external effects, and final repository judgment. It escalates whenever work
-would change a retained human boundary.
+The Main Worker role owns routine planning and decomposition, implementation
+and integration, direct visual inspection, consolidated validation, Git and
+review operations, external effects, and final repository judgment within the
+recorded runway. The explicitly assigned Overseer role provides concise
+prioritization and coordination, reviews consequential evidence, and makes
+direction recommendations; it does not replace Ben's decision authority.
+These are roles rather than model identities. Persistent Astra use applies
+only to Ben's explicitly recorded task/role assignment and its authorized
+scope and duration; it grants no permission for other or new tasks or
+extensions. Ben's retained boundaries above remain unchanged; this split adds
+no serial permission gate or merge/descendant authority.
 
 Routine, reversible technical implementation may proceed autonomously within a
 recorded runway. This includes implementation details, defect resolution,
@@ -84,11 +91,14 @@ deterministic or numeric algorithms, and reversible dependencies or tools when
 they remain inside canonical boundaries. The reasoning for a consequential
 technical choice remains durable in its owner document.
 
+The Main Worker and Overseer delegate routine reading, writing, and tests by
+default; they retain technical reasoning, decisive evidence inspection, and
+narrow source-ambiguity review, and do not duplicate bulk investigations.
 Subagents are bounded executors, investigators, or reviewers. They may collect
 evidence, implement settled technical work, and challenge proposals, but they
 never decide product or architecture direction. They do not spawn descendants
-unless the main thread explicitly authorizes a narrowly bounded exception. The
-main thread inspects, integrates, and disposes of delegated work; the detailed
+unless the Main Worker explicitly authorizes a narrowly bounded exception. The
+Main Worker inspects, integrates, and disposes of delegated work; the detailed
 workflow defines the exception and routing response.
 
 ## Runway and merge control
@@ -179,10 +189,18 @@ Read the named owner before taking the corresponding action:
    read [the experiments workflow](experiments/README.md), the relevant
    experiment README, and use the required launcher named there.
 6. When operational friction is unexpected and recurring or likely reusable,
-   subagents return a concise `AI observation candidate`. The main thread
-   searches the inbox narrowly, deduplicates it, and writes a durable record
-   only for an evidenced recurring or reusable pattern. A maintenance round
-   consumes, resolves, promotes, or retains inbox entries.
+   executors return a concise, evidenced `AI observation candidate`. The
+   [AI delegation and review workflow](docs/developer-workflows/ai-delegation-and-review.md#operational-observations)
+   defines the access-authorized routing: the Main Worker is the default
+   durable-record writer and deduplication owner when access is authorized,
+   subject to its explicit inbox restrictions; the Overseer adjudicates
+   escalated recurring coordination and instruction patterns and commissions
+   bounded fixes. Selective process-improvement stewardship follows the linked
+   workflow; neither role grants access to the protected inbox, and the inbox
+   is not authority over this workflow. Severe blockers may escalate
+   immediately. A matching candidate remains a recurrence rather than a
+   duplicate; no second backlog, inbox-zero obligation, or always-on reading
+   is created.
 7. When resuming from another session, worktree, or stale state, read
    [current-handover](docs/project/current-handover.md) as a live-check pointer;
    it never overrides the Active runway or a canonical authority.

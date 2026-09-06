@@ -12,24 +12,37 @@ merge gates, observation escalation, and subagent handoff. `AGENTS.md` remains
 the always-on repository safety and authority kernel; this document supplies
 the conditional procedure when its trigger applies.
 
-## Main-thread ownership
+## Main Worker and Overseer ownership
 
-The main `gpt-5.6-sol` thread owns:
+The Main Worker role owns:
 
 - discussion with the human project owner;
-- planning and decomposition into bounded steps;
+- routine planning and decomposition into bounded steps;
 - synthesis of product, architecture, research, and review evidence;
 - assignment and integration of delegated work;
+- direct visual inspection;
 - consolidated validation;
-- Git, branch, commit, pull-request, and merge operations;
+- Git, branch, commit, pull-request, and merge operations under Runway and
+  merge control;
 - CI and review orchestration;
 - external effects; and
 - final repository decisions and recommendations.
 
-Subagents are bounded executors, evidence gatherers, hands-on operators, or
-independent reviewers; they do not make product or architecture decisions.
-Reviewers recommend; the human decision owner accepts, rejects, or changes a
-direction. The main thread owns integration and final disposition.
+The explicitly assigned Overseer role provides concise prioritization and
+coordination, reviews consequential evidence, and makes direction
+recommendations. Ben's retained boundaries in `AGENTS.md` remain unchanged.
+Main Worker and Overseer are roles rather than model identities. Persistent
+Astra use applies only to Ben's explicitly recorded task/role assignment and
+its authorized scope and duration; it grants no permission for other or new
+tasks or extensions. There is no serial permission gate between them, and this
+split adds no merge or descendant authority.
+
+The Main Worker and Overseer delegate routine reading, writing, and tests by
+default; they retain technical reasoning, decisive evidence inspection, and
+narrow source-ambiguity review, and do not duplicate bulk investigations.
+Executors and independent reviewers do not make product or architecture
+decisions. Reviewers recommend; Ben accepts, rejects, or changes a direction.
+The Main Worker owns integration and final disposition.
 
 The recorded `Active runway` in `docs/project/status.md` is the destination
 for autonomous progress. The main thread may advance direct, internal,
@@ -39,9 +52,10 @@ checkpoint with an internal tooling, evidence, governance, or infrastructure
 milestone.
 
 Routine technical choices inside an accepted boundary may be settled by the
-main thread, including implementation details, deterministic or numeric
-algorithms, diagnostics, status plumbing, build integrity, code and test
-organization, and reversible dependencies or tools. The main thread records
+Main Worker within the active runway, including implementation details,
+deterministic or numeric algorithms, diagnostics, status plumbing, build
+integrity, code and test organization, and reversible dependencies or tools.
+The Main Worker records
 reasoning in the appropriate durable document when the choice warrants it.
 It classifies findings as follows:
 
@@ -50,12 +64,53 @@ It classifies findings as follows:
 - implementation- or evidence-dependent: record the trigger and defer; and
 - speculative hardening without a present need: do not build it now.
 
+### Coordination, status, and yields
+
+Status and feedback replies steer the active mandate; they do not by
+themselves pause or terminate it. Reports are nonblocking and do not require
+an acknowledgement loop. A real yield states the scoped reason, continuation
+owner, and actual continuation mechanism. Sending a message does not guarantee
+that it wakes the recipient. Explicit pauses and named human checkpoints
+remain authoritative.
+
+The Main Worker continues independent authorized work while a scoped
+consequential decision is pending unless Ben explicitly pauses that work. The
+Overseer may select and direct bounded experimental next steps already within
+Ben's recorded runway. Ben retains product and architecture acceptance and all
+retained boundaries; routine technical progress does not require human
+permission at every step or an obligatory extra review.
+
 Detailed decision-record states, acceptance prerequisites, review records, and
 the acceptance operation remain owned by `docs/decisions/README.md`. This
 workflow does not accept a DR, change a canonical product or architecture
 contract, or grant a subagent authority that the canonical owner does not
 have. Unaccepted material remains labelled `Candidate`, `Proposed`, `Under
 Review`, or `provisional`, as appropriate to its state.
+
+## Cost-aware Main Worker orchestration
+
+Before beginning a multi-step execution task, the Main Worker delegates a
+bounded step when it is independently runnable. Settled implementation, test
+writing, tool operation, monitoring, and evidence collection—including
+inventories and hashes—belong to Luna by default, especially while the Main
+Worker is an explicitly authorized Astra run. The Main Worker keeps technical
+reasoning, scope and test selection, integration decisions, and direct
+consequential geometry/vision inspection; it need not perform a worker's bulk
+operations itself.
+
+The Main Worker must not drift into a worker's job because tools are available
+or because the work can be labelled verification. Review is targeted inspection
+of decisive diffs and evidence, not repeated scans or execution. Delegated
+validation execution may satisfy consolidated checks when the Main Worker
+inspects and accepts the result. While useful independent work remains,
+dispatch it before long local reading or polling; do not create slot quotas,
+makework, or fill idle lanes. Exceptions are limited to trivial
+latency-sensitive reads/edits or reasoning genuinely inseparable from Main
+work, not broad loopholes. Do not duplicate worker scans or tests, or
+repeatedly poll without a concrete need. This adds no rigid command budgets or
+approval gates. “Main Worker” and “Overseer” are roles, not model names;
+existing model authorization, routing, and human boundaries remain unchanged,
+and this does not grant global Astra orchestration.
 
 ## Batches and research passes
 
@@ -124,7 +179,10 @@ lane is not activated, these passes are not required.
   call plus at most one adversarial follow-up is allowed without another
   permission round. Additional calls require Ben's explicit approval. The
   main thread reports Astra use and its material recommendations in the
-  handoff so Ben can see what informed the path.
+  handoff so Ben can see what informed the path. These announcement and
+  separate-call cap rules apply to advisory Astra invocations, not every turn
+  of a Ben-authorized persistent Astra Main Worker or Overseer; they do not
+  authorize a global Astra orchestrator.
 - Astra-max/ultra, Astra as an orchestrator, and routine Astra use are
   explicit-approval-only. Astra is not used for mechanical patches, ordinary
   tests or CI, CodeRabbit, bookkeeping, or as a throughput substitute for
@@ -190,6 +248,10 @@ focused investigation or research, mechanical edits, settled implementation,
 focused tests, hands-on trials, and fresh review. Keep a trivial single-read
 local when delegation overhead costs more than it saves. Delegate one bounded
 step at a time; the main thread chooses the next step after inspecting it.
+For capture-before-geometry work, tests or helpers that calculate candidate
+vertices or faces (for example `_append_ear`) are geometry and remain blocked
+until the executor has captured the source; implementation-only delegates may
+run syntax or static checks, but not those helper tests.
 
 A bounded subagent must not spawn descendants unless the main thread explicitly
 authorizes a specifically bounded nested delegation. If a Luna task appears
@@ -231,10 +293,11 @@ write permission by implication.
 
 Validation is a closed allowlist. A worker runs only commands named in its
 prompt; when none are named, it reports validation as `deferred`. The main
-thread performs consolidated validation after integration. A worker stops when
-its deliverable and named checks are complete. It does not add cleanup,
-unrequested wording or structural audits, substitute different validation, or
-start a continuation or retry loop.
+thread owns consolidated validation after integration: it may delegate
+execution or collection of named checks, then inspects and accepts the results.
+A worker stops when its deliverable and named checks are complete. It does not
+add cleanup, unrequested wording or structural audits, substitute different
+validation, or start a continuation or retry loop.
 
 Unless an exact action is delegated with any required human authorization, a
 worker does not inspect or alter Git, pull-request, CI, review, deployment, or
@@ -379,7 +442,8 @@ main thread does not push or mutate the remote PR head. It may prepare local
 fixes without presenting them as reviewed.
 
 After both results complete, the main thread verifies each finding, fixes or
-explicitly dispositions it, runs the required local and CI checks, and pushes
+explicitly dispositions it, ensures the required local and CI checks are run,
+and pushes
 the next head only when the result is ready for a new cycle. Hosted taper is
 reached when a fresh hosted pass produces no new material findings, or only
 repeats, non-actionable findings, disproportionate suggestions, or
@@ -423,25 +487,49 @@ does not mutate another project.
 
 ## Operational observations
 
-Every worker reports unexpected operational friction that forces a retry,
+Every executor reports unexpected operational friction that forces a retry,
 workaround, or changed tool path. The report includes the command or tool
 category, exact error, attempt count, workaround, and what is known versus
 inferred about the cause. Qualifying friction is unexpected, evidenced, and
 recurring, reusable, or likely to save future retries or work rounds.
 
-When qualifying friction occurs, the main thread searches
-`docs/project/ai-observations.md` narrowly for a matching pattern, deduplicates
-against existing entries, and records only a recurring or reusable evidenced
-pattern before the round closes. A matching entry is reported as a recurrence,
-not duplicated or silently bypassed. A subagent returns a concise `AI
-observation candidate` unless it has explicitly exclusive inbox ownership;
-the main thread is the default writer so parallel write scopes remain disjoint.
+The protected `docs/project/ai-observations.md` is the durable-record owner.
+The Main Worker is the default durable-record writer and deduplication owner
+when access is authorized, subject to this workflow's explicit inbox
+restrictions. The Overseer adjudicates escalated recurring coordination and
+instruction patterns and commissions bounded fixes. Neither role grants access
+to the protected inbox, and the inbox is not authority over this workflow.
+Severe blockers may escalate immediately. Executors return concise, evidenced
+`AI observation candidate` reports; a matching candidate is reported as a
+recurrence rather than duplicated or silently bypassed. Ordinary work does not
+read the inbox, and no second backlog, inbox-zero obligation, or always-on
+reading is created. Existing-entry changes remain limited to the intentional
+tooling or instruction-maintenance round and its explicit access restrictions.
+Future cleanup is explicitly authorized maintenance only; it addresses entries
+whose evidence is resolved, obsolete, or disproved, preserves unrelated and
+concurrent entries, and does not create an inbox-zero obligation.
 
-Ordinary work does not read the inbox. Existing entries are changed only in an
-intentional tooling or instruction-maintenance round. That round resolves,
-promotes, or removes entries deliberately. A repeated issue closes through a
-concrete bounded fix to a repository wrapper, preflight, active instruction,
-or other available tool path; restating the observation is not closure.
+### Selective process-improvement stewardship
+
+At meaningful existing oversight or checkpoint boundaries, the explicitly
+assigned Overseer selectively considers worthwhile batches of reported process,
+tooling, evidence, validation, or context-efficiency improvement candidates.
+The Overseer may delegate bounded, authorized fact gathering, grouping, and
+evidence checks, then personally judges a compact shortlist for usefulness,
+priority, and scope before commissioning the Main Worker or an executor. This
+is not a timer, fixed cadence, whole-inbox scan, second backlog, or new suite.
+
+Recurrence is a signal, not a prerequisite for an obvious, evidenced,
+low-cost, reusable improvement. A same-task bug remains immediate
+implementation work rather than an observation. Weigh expected benefit against
+implementation and maintenance cost, and prefer existing tools. Existing
+authorized reversible fixes may proceed; retained-human decisions go to Ben.
+This role does not grant protected-inbox access: stewardship uses reported
+candidates or separately access-authorized material.
+
+A repeated issue closes through a concrete bounded fix to a repository wrapper,
+preflight, active instruction, or other available tool path; restating the
+observation is not closure.
 
 ## Subagent handoff
 
