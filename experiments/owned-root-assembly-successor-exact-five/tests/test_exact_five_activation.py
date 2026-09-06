@@ -681,7 +681,9 @@ class ExactFiveActivationTests(unittest.TestCase):
         components = tuple(surface.GEOMETRY_COMPONENT_IDS)
         self.assertEqual(len(components), 92)
         self.assertEqual(components, tuple(sorted(components, key=lambda value: value.encode("utf-8"))))
-        self.assertEqual(len(values), len(bindings), 92)
+        self.assertEqual(len(values), len(bindings))
+        self.assertEqual(len(values), 92)
+        self.assertEqual(len(bindings), 92)
         self.assertEqual(tuple(row["prepared_component"] for row in values), components)
         self.assertEqual(tuple(row["prepared_component"] for row in bindings), components)
         selected = table["profiles"][1]

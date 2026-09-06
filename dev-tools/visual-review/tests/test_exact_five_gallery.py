@@ -291,6 +291,24 @@ class ExactFiveGalleryTests(unittest.TestCase):
         with self.assertRaises(adapter.ExactFiveGalleryError):
             self._publish("extra-file")
 
+    def test_rejects_none_entries_in_inventory_lists_without_publishing(self) -> None:
+        original = json.loads((self.exact_root / "exact-five-evidence.json").read_text())
+        mutations = {
+            "projected-values": lambda evidence: evidence["profiles"][0]["evidence"]["projected_values"].append(None),
+            "projection-bindings": lambda evidence: evidence["profiles"][0]["evidence"]["projection_bindings"].append(None),
+            "profile-payloads": lambda evidence: evidence["profiles"][0]["evidence"]["payloads"].append(None),
+            "public-payloads": lambda evidence: evidence["payloads"].append(None),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                evidence = json.loads(json.dumps(original))
+                mutate(evidence)
+                self._reseal_evidence(evidence)
+                review_id = f"none-{label}"
+                with self.assertRaises(adapter.ExactFiveGalleryError):
+                    self._publish(review_id)
+                self.assertFalse((self.reviews_root / review_id).exists())
+
     def test_admits_consecutive_split_idat_chunks(self) -> None:
         path = self.exact_root / "split-idat.png"
         path.write_bytes(_png((31, 62, 93), split_idat=True))

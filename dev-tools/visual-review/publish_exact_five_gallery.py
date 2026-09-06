@@ -275,8 +275,8 @@ def _validate_profile_evidence(
     values, bindings = nested["projected_values"], nested["projection_bindings"]
     if not (
         isinstance(values, list) and isinstance(bindings, list)
-        and [item.get("prepared_component") for item in values if isinstance(item, dict)] == list(exact_five.COMPONENT_IDS)
-        and [item.get("prepared_component") for item in bindings if isinstance(item, dict)] == list(exact_five.COMPONENT_IDS)
+        and [item.get("prepared_component") if isinstance(item, dict) else None for item in values] == list(exact_five.COMPONENT_IDS)
+        and [item.get("prepared_component") if isinstance(item, dict) else None for item in bindings] == list(exact_five.COMPONENT_IDS)
     ):
         _fail(f"profile {profile_id} projection inventory differs")
     for position, (value, binding) in enumerate(zip(values, bindings)):
