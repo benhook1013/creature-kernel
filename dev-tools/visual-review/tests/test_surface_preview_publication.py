@@ -3287,7 +3287,7 @@ class SurfacePreviewPublicationTests(unittest.TestCase):
         self.assertEqual(subject_context_size, 8_848)
         self.assertEqual(
             hashlib.sha256(subject_context_json.encode("utf-8")).hexdigest(),
-            "aa31709ee1f71ca9899ecd7fadf0a0476722b12e9c305d37e3303919b133f4d7",
+            "5afd7cd43cb5fd41ef61d621be9aecc9e14fdb3356ff463ddb98f335da22c20e",
         )
         self.assertLessEqual(subject_context_size, common.MAX_CONTEXT_JSON)
         self.assertEqual(
