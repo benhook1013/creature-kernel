@@ -32,10 +32,19 @@ def _chunk(kind: bytes, payload: bytes) -> bytes:
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
 
 
-def _png(colour: tuple[int, int, int]) -> bytes:
+def _png(colour: tuple[int, int, int], *, split_idat: bool = False, separator: bool = False) -> bytes:
     raw = b"".join(b"\x00" + bytes(colour) * adapter.PNG_WIDTH for _ in range(adapter.PNG_HEIGHT))
     header = struct.pack(">IIBBBBB", adapter.PNG_WIDTH, adapter.PNG_HEIGHT, 8, 2, 0, 0, 0)
-    return adapter.PNG_SIGNATURE + _chunk(b"IHDR", header) + _chunk(b"IDAT", zlib.compress(raw, 9)) + _chunk(b"IEND", b"")
+    compressed = zlib.compress(raw, 9)
+    if not split_idat:
+        idat = _chunk(b"IDAT", compressed)
+    else:
+        midpoint = len(compressed) // 2
+        idat = _chunk(b"IDAT", compressed[:midpoint])
+        if separator:
+            idat += _chunk(b"tEXt", b"not permitted between IDAT chunks")
+        idat += _chunk(b"IDAT", compressed[midpoint:])
+    return adapter.PNG_SIGNATURE + _chunk(b"IHDR", header) + idat + _chunk(b"IEND", b"")
 
 
 def _ply() -> bytes:
@@ -195,11 +204,25 @@ class ExactFiveGalleryTests(unittest.TestCase):
         (self.exact_root / "exact-five-evidence.json").write_bytes(evidence_raw)
         evidence_sidecar = f"{hashlib.sha256(evidence_raw).hexdigest()}  exact-five-evidence.json\n".encode()
         (self.exact_root / "exact-five-evidence.sha256").write_bytes(evidence_sidecar)
+        self.baseline_admission = {
+            "comparison_record": self._fixed_record("comparison-report.json", exact_five.BASELINE_REPORT_SHA),
+            "records": {
+                f"seed-{seed}/stable-manifest.json": self._fixed_record(
+                    f"seed-{seed}/stable-manifest.json", exact_five.BASELINE_STABLE_SHA
+                )
+                for seed in exact_five.SEEDS
+            },
+            "report": {"stable_comparisons": neutral_payloads},
+            "thresholds": thresholds,
+            "gate_ids": {
+                group: [row["gate_id"] for row in rows] for group, rows in gates.items()
+            },
+        }
         final_gate_ids = (["exact-five.run.01.identity", "exact-five.run.02.managed-tests", "exact-five.run.03.publisher-baseline-admission"] + [f"exact-five.run.{4 + index * 2 + offset:02d}.profile.{profile}.seed-{seed}" for index, profile in enumerate(exact_five.PROFILES) for offset, seed in enumerate(exact_five.SEEDS)] + [f"exact-five.run.{14 + index:02d}.profile.{profile}.cross-seed" for index, profile in enumerate(exact_five.PROFILES)] + ["exact-five.run.19.standard-neutral-payload-equality", "exact-five.run.20.evidence-graph", "exact-five.run.21.pre-report-closure"])
         report = {
-            "schema": "owned-root-assembly-successor-exact-five-run-report.v1", "outcome": "success", "literal_invocation": {"environment": ["PYTHONHASHSEED=0"], "argv": [exact_five.LAUNCHER_ROLE]},
-            "output_path": str(self.exact_root), "staging_path": str(self.exact_root.parent / ".stage"), "python_executable_path": sys.executable, "neutral_baseline_path": str(self.root / "baseline"),
-            "started_utc": "2026-01-01T00:00:00.000000Z", "finished_utc": "2026-01-01T00:00:01.000000Z", "timings": [],
+            "schema": "owned-root-assembly-successor-exact-five-run-report.v1", "outcome": "success", "literal_invocation": {"environment": ["PYTHONHASHSEED=0"], "argv": [exact_five.LAUNCHER_ROLE, "--baseline-root", str(self.root / "baseline"), "--output", str(self.exact_root)]},
+            "output_path": str(self.exact_root), "staging_path": str(self.exact_root.parent / ".exact-five-public-test"), "python_executable_path": sys.executable, "neutral_baseline_path": str(self.root / "baseline"),
+            "started_utc": "2026-01-01T00:00:00.000000Z", "finished_utc": "2026-01-01T00:00:01.000000Z", "timings": [{"phase": phase, "seconds": 1.0} for phase in adapter.FINAL_TIMING_PHASES[:-1]] + [{"phase": adapter.FINAL_TIMING_PHASES[-1], "seconds": 7.0}],
             "activation_contract_sha256": exact_five.ACTIVATION_SHA, "design_contract_sha256": exact_five.DESIGN_SHA, "runtime_fingerprint_sha256": self.identity["runtime_sha"],
             "evidence": {**self._record("exact-five-evidence.json", evidence_raw), "schema": evidence["schema"]}, "evidence_sidecar": self._record("exact-five-evidence.sha256", evidence_sidecar), "payloads": payloads,
             "profile_seed_runs": [{"profile_id": profile["profile_id"], "seed": seed, "outcome": "success", "evidence_sha256": artifacts.sha256_bytes(artifacts.canonical_json_bytes(profile["evidence"]))} for profile in nested_profiles for seed in exact_five.SEEDS],
@@ -210,7 +233,7 @@ class ExactFiveGalleryTests(unittest.TestCase):
         (self.exact_root / "run-report.sha256").write_bytes(f"{hashlib.sha256(report_raw).hexdigest()}  run-report.json\n".encode())
 
     def _publish(self, review_id: str) -> dict[str, object]:
-        with mock.patch.object(adapter.exact_five, "_static", return_value=self.identity), mock.patch.object(adapter.exact_five, "_table", return_value=self.table):
+        with mock.patch.object(adapter.exact_five, "_static", return_value=self.identity), mock.patch.object(adapter.exact_five, "_table", return_value=self.table), mock.patch.object(adapter.exact_five, "_baseline", return_value=self.baseline_admission):
             return adapter.publish_exact_five_gallery(self.reviews_root, self.exact_root, review_id=review_id)
 
     def _reseal_evidence(self, evidence: dict[str, object]) -> None:
@@ -221,6 +244,11 @@ class ExactFiveGalleryTests(unittest.TestCase):
         report = json.loads((self.exact_root / "run-report.json").read_text())
         report["evidence"] = {**self._record("exact-five-evidence.json", evidence_raw), "schema": evidence["schema"]}
         report["evidence_sidecar"] = self._record("exact-five-evidence.sha256", sidecar)
+        report_raw = artifacts.canonical_json_bytes(report)
+        (self.exact_root / "run-report.json").write_bytes(report_raw)
+        (self.exact_root / "run-report.sha256").write_bytes(f"{hashlib.sha256(report_raw).hexdigest()}  run-report.json\n".encode())
+
+    def _reseal_report(self, report: dict[str, object]) -> None:
         report_raw = artifacts.canonical_json_bytes(report)
         (self.exact_root / "run-report.json").write_bytes(report_raw)
         (self.exact_root / "run-report.sha256").write_bytes(f"{hashlib.sha256(report_raw).hexdigest()}  run-report.json\n".encode())
@@ -262,6 +290,58 @@ class ExactFiveGalleryTests(unittest.TestCase):
         (self.exact_root / "unexpected.bin").write_bytes(b"extra")
         with self.assertRaises(adapter.ExactFiveGalleryError):
             self._publish("extra-file")
+
+    def test_admits_consecutive_split_idat_chunks(self) -> None:
+        path = self.exact_root / "split-idat.png"
+        path.write_bytes(_png((31, 62, 93), split_idat=True))
+        self.assertEqual(adapter._validate_png(path, "split-idat"), path.read_bytes())
+
+    def test_rejects_noncontiguous_split_idat_chunks(self) -> None:
+        path = self.exact_root / "malformed-split-idat.png"
+        path.write_bytes(_png((31, 62, 93), split_idat=True, separator=True))
+        with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "unexpected PNG chunk"):
+            adapter._validate_png(path, "malformed-split-idat")
+
+    def test_rejects_profiles_that_agree_with_each_other_but_not_neutral_baseline(self) -> None:
+        evidence = json.loads((self.exact_root / "exact-five-evidence.json").read_text())
+        for profile in evidence["profiles"]:
+            thresholds = []
+            for threshold in profile["evidence"]["thresholds"]:
+                rewritten = dict(threshold)
+                rewritten["threshold_id"] = "threshold.alt." + threshold["threshold_id"].removeprefix("threshold.")
+                thresholds.append(rewritten)
+            profile["evidence"]["thresholds"] = sorted(thresholds, key=lambda row: row["threshold_id"].encode())
+            for rows in profile["evidence"]["gates"].values():
+                for row in rows:
+                    row["gate_id"] = "alt." + row["gate_id"]
+                    row["threshold_id"] = "threshold." + row["gate_id"]
+        self._reseal_evidence(evidence)
+        with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "profile thresholds"):
+            self._publish("neutral-baseline-mismatch")
+        self.assertFalse((self.reviews_root / "neutral-baseline-mismatch").exists())
+
+    def test_rejects_report_with_unbound_invocation(self) -> None:
+        report = json.loads((self.exact_root / "run-report.json").read_text())
+        report["literal_invocation"]["argv"][-1] = str(self.root / "wrong-output")
+        self._reseal_report(report)
+        with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "final report invocation"):
+            self._publish("unbound-report")
+        self.assertFalse((self.reviews_root / "unbound-report").exists())
+
+    def test_rejects_unbound_report_paths_and_timings(self) -> None:
+        original = json.loads((self.exact_root / "run-report.json").read_text())
+        mutations = {
+            "output path": lambda report: report.__setitem__("output_path", str(self.root / "wrong-output")),
+            "staging path": lambda report: report.__setitem__("staging_path", str(self.exact_root)),
+            "timing phases": lambda report: report["timings"].__setitem__(0, {"phase": "wrong", "seconds": 1.0}),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                report = json.loads(json.dumps(original))
+                mutate(report)
+                self._reseal_report(report)
+                with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "final report"):
+                    self._publish(f"unbound-{label.replace(' ', '-')}")
 
 
 if __name__ == "__main__":

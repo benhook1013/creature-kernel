@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import math
+import os
+import re
 import struct
 import tempfile
 import zlib
@@ -54,6 +56,17 @@ PNG_HEIGHT = 1536
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 MAX_PNG_BYTES = 2 * 1024 * 1024
 MAX_JSON_BYTES = 16 * 1024 * 1024
+FINAL_TIMING_PHASES = (
+    "identity",
+    "managed-tests",
+    "launcher-baseline-admission",
+    "profile-seed-builds",
+    "publisher-baseline-admission",
+    "comparison",
+    "pre-report-closure",
+    "total-before-seal",
+)
+UTC_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z\Z")
 
 
 def _fail(message: str) -> NoReturn:
@@ -110,6 +123,69 @@ def _same_file_identity(left: dict[str, Any], right: dict[str, Any]) -> bool:
     return left["bytes"] == right["bytes"] and left["sha256"] == right["sha256"]
 
 
+def _canonical_absolute(value: Any, where: str) -> Path:
+    if (
+        type(value) is not str
+        or not value
+        or not Path(value).is_absolute()
+        or os.path.normpath(value) != value
+        or "//" in value
+    ):
+        _fail(f"{where} is not canonical absolute")
+    return Path(value)
+
+
+def _validate_final_report(report: dict[str, Any], root: Path) -> Path:
+    output_path = _canonical_absolute(report["output_path"], "exact-five output path")
+    staging_path = _canonical_absolute(report["staging_path"], "exact-five staging path")
+    _canonical_absolute(report["python_executable_path"], "exact-five Python executable")
+    baseline_path = _canonical_absolute(report["neutral_baseline_path"], "neutral baseline path")
+    overlaps = lambda left, right: left == right or left in right.parents or right in left.parents
+    if (
+        output_path != root
+        or staging_path == output_path
+        or staging_path.parent != output_path.parent
+        or not staging_path.name.startswith(".exact-five-public-")
+        or overlaps(baseline_path, output_path)
+        or overlaps(baseline_path, staging_path)
+    ):
+        _fail("exact-five final report paths do not bind the published root")
+
+    expected_invocation = {
+        "environment": ["PYTHONHASHSEED=0"],
+        "argv": [
+            exact_five.LAUNCHER_ROLE,
+            "--baseline-root",
+            str(baseline_path),
+            "--output",
+            str(output_path),
+        ],
+    }
+    if report["literal_invocation"] != expected_invocation:
+        _fail("exact-five final report invocation differs")
+
+    if (
+        type(report["started_utc"]) is not str
+        or type(report["finished_utc"]) is not str
+        or UTC_TIMESTAMP.fullmatch(report["started_utc"]) is None
+        or UTC_TIMESTAMP.fullmatch(report["finished_utc"]) is None
+        or report["finished_utc"] < report["started_utc"]
+    ):
+        _fail("exact-five final report timestamps differ")
+    timings = report["timings"]
+    if not isinstance(timings, list) or [
+        item.get("phase") if isinstance(item, dict) else None for item in timings
+    ] != list(FINAL_TIMING_PHASES):
+        _fail("exact-five final report timing phases differ")
+    for index, item in enumerate(timings):
+        _closed_keys(item, {"phase", "seconds"}, f"exact-five timing {index}")
+        if type(item["seconds"]) is not float or not math.isfinite(item["seconds"]) or item["seconds"] < 0.0:
+            _fail(f"exact-five timing {index} is invalid")
+    if timings[-1]["seconds"] != sum(item["seconds"] for item in timings[:-1]):
+        _fail("exact-five final report total timing differs")
+    return baseline_path
+
+
 PROFILE_EVIDENCE_KEYS = {
     "schema", "outcome", "activation_contract", "design_contract", "source", "profile_table",
     "existing_dependencies", "additive_implementation_files", "runtime",
@@ -153,9 +229,9 @@ def _validate_profile_evidence(
     identity: dict[str, Any],
     table: list[dict[str, Any]],
     public_records: dict[str, dict[str, Any]],
-    frozen_thresholds: list[dict[str, Any]] | None,
-    frozen_gate_ids: dict[str, list[str]] | None,
-) -> tuple[list[dict[str, Any]], dict[str, list[str]], dict[str, dict[str, Any]], bytes]:
+    neutral_thresholds: list[dict[str, Any]],
+    neutral_gate_ids: dict[str, list[str]],
+) -> tuple[dict[str, Any], bytes]:
     profile_id = exact_five.PROFILES[index]
     _closed_keys(
         profile,
@@ -261,19 +337,21 @@ def _validate_profile_evidence(
                 _fail(f"profile {profile_id} public PLY geometry digest differs")
 
     thresholds = nested["thresholds"]
-    if frozen_thresholds is None:
-        _publisher_check(exact_five._threshold_shape, thresholds, "profile thresholds")
-        frozen_thresholds = thresholds
-    else:
-        _publisher_check(exact_five._thresholds, thresholds, frozen_thresholds, "profile thresholds")
+    _publisher_check(exact_five._thresholds, thresholds, neutral_thresholds, "profile thresholds")
     gates = _closed_keys(nested["gates"], set(GATE_CARDINALITIES), f"profile {profile_id} gates")
     gate_ids = {group: [item.get("gate_id") if isinstance(item, dict) else None for item in gates[group]] for group in GATE_CARDINALITIES}
     if any(len(gates[group]) != count for group, count in GATE_CARDINALITIES.items()):
         _fail(f"profile {profile_id} gate cardinality differs")
-    if frozen_gate_ids is not None and gate_ids != frozen_gate_ids:
+    if gate_ids != neutral_gate_ids:
         _fail(f"profile {profile_id} gate inventory differs from neutral")
     for group in GATE_CARDINALITIES:
-        _publisher_check(exact_five._gate_rows, gates[group], gate_ids[group], thresholds, f"profile {profile_id} {group}")
+        _publisher_check(
+            exact_five._gate_rows,
+            gates[group],
+            neutral_gate_ids[group],
+            neutral_thresholds,
+            f"profile {profile_id} {group}",
+        )
 
     causality = nested["causality"]
     expected_parameters = sorted(exact_five.CAUSAL_COMPONENTS, key=str.encode)
@@ -336,7 +414,7 @@ def _validate_profile_evidence(
         _fail(f"profile {profile_id} stable comparison inventory differs")
     if stable != [expected_stable[role] for role in exact_five.BUNDLE_STABLE_ROLES]:
         _fail(f"profile {profile_id} stable comparisons are not bound to seed evidence")
-    return frozen_thresholds, gate_ids, payload_map, nested_raw
+    return payload_map, nested_raw
 
 
 def _read_json(path: Path, where: str, *, max_bytes: int = MAX_JSON_BYTES) -> tuple[dict[str, Any], bytes]:
@@ -358,11 +436,15 @@ def _validate_png(path: Path, role: str) -> bytes:
     if not data.startswith(PNG_SIGNATURE):
         _fail(f"{role} is not a PNG")
     offset = len(PNG_SIGNATURE)
-    chunk_names: list[bytes] = []
     idat = bytearray()
+    seen_ihdr = False
+    seen_idat = False
+    seen_iend = False
     while offset < len(data):
         if len(data) - offset < 12:
             _fail(f"{role} has a truncated PNG chunk")
+        if seen_iend:
+            _fail(f"{role} has data after IEND")
         length = struct.unpack(">I", data[offset : offset + 4])[0]
         chunk_type = data[offset + 4 : offset + 8]
         end = offset + 12 + length
@@ -372,8 +454,9 @@ def _validate_png(path: Path, role: str) -> bytes:
         expected_crc = struct.unpack(">I", data[offset + 8 + length : end])[0]
         if zlib.crc32(chunk_type + payload) & 0xFFFFFFFF != expected_crc:
             _fail(f"{role} has an invalid PNG CRC")
-        chunk_names.append(chunk_type)
         if chunk_type == b"IHDR":
+            if seen_ihdr or seen_idat:
+                _fail(f"{role} has a non-contiguous or duplicate IHDR")
             if len(payload) != 13:
                 _fail(f"{role} has an invalid IHDR")
             width, height, depth, colour, compression, filtering, interlace = struct.unpack(
@@ -389,17 +472,22 @@ def _validate_png(path: Path, role: str) -> bytes:
                 0,
             ):
                 _fail(f"{role} PNG dimensions or colour format differ")
+            seen_ihdr = True
         elif chunk_type == b"IDAT":
+            if not seen_ihdr or seen_iend:
+                _fail(f"{role} has an out-of-order IDAT")
             idat.extend(payload)
+            seen_idat = True
         elif chunk_type == b"IEND":
-            if length != 0 or end != len(data):
+            if not seen_ihdr or not seen_idat or seen_iend or length != 0 or end != len(data):
                 _fail(f"{role} has trailing or malformed IEND data")
+            seen_iend = True
         else:
             _fail(f"{role} contains unexpected PNG chunk {chunk_type!r}")
         offset = end
         if chunk_type == b"IEND":
             break
-    if chunk_names != [b"IHDR", b"IDAT", b"IEND"] or not idat:
+    if not (seen_ihdr and seen_idat and seen_iend) or not idat:
         _fail(f"{role} has an incomplete PNG structure")
     try:
         decompressor = zlib.decompressobj()
@@ -503,6 +591,23 @@ def validate_exact_five_root(root: Path) -> tuple[dict[str, Any], dict[str, Any]
         and report["runtime_fingerprint_sha256"] == identity["runtime_sha"]
     ):
         _fail("exact-five run report is not successful")
+    baseline_path = _validate_final_report(report, root)
+    baseline = _publisher_check(exact_five._baseline, baseline_path, identity)
+    if neutral["comparison_report"] != baseline["comparison_record"]:
+        _fail("neutral baseline comparison report is not bound to the admitted baseline")
+    if any(
+        baseline["records"][f"seed-{seed}/stable-manifest.json"]["sha256"]
+        != neutral["stable_manifest_sha256"]
+        for seed in exact_five.SEEDS
+    ):
+        _fail("neutral baseline stable manifest is not bound to the admitted baseline")
+    baseline_payload_comparisons = [
+        row
+        for row in baseline["report"]["stable_comparisons"]
+        if row["role_path"] in exact_five.PAYLOAD_ROLES
+    ]
+    if neutral_comparisons != baseline_payload_comparisons:
+        _fail("neutral baseline payload comparisons are not bound to the admitted baseline")
     evidence_record = by_role["exact-five-evidence.json"]
     evidence_ref = {**evidence_record, "schema": evidence["schema"]}
     if (
@@ -524,16 +629,19 @@ def validate_exact_five_root(root: Path) -> tuple[dict[str, Any], dict[str, Any]
     if not isinstance(profiles, list) or len(profiles) != len(exact_five.PROFILES):
         _fail("exact-five evidence does not contain five profiles")
     png_records: dict[str, dict[str, Any]] = {}
-    frozen_thresholds: list[dict[str, Any]] | None = None
-    frozen_gate_ids: dict[str, list[str]] | None = None
     nested_raw_by_profile: dict[str, bytes] = {}
     for index, profile in enumerate(profiles):
         profile_id = exact_five.PROFILES[index]
-        frozen_thresholds, admitted_gate_ids, payload_map, nested_raw = _validate_profile_evidence(
-            root, profile, index, identity, table, by_role, frozen_thresholds, frozen_gate_ids
+        payload_map, nested_raw = _validate_profile_evidence(
+            root,
+            profile,
+            index,
+            identity,
+            table,
+            by_role,
+            baseline["thresholds"],
+            baseline["gate_ids"],
         )
-        if frozen_gate_ids is None:
-            frozen_gate_ids = admitted_gate_ids
         nested_raw_by_profile[profile_id] = nested_raw
         neutral_rows = profile["neutral_payload_comparisons"]
         if index == 0:

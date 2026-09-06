@@ -460,13 +460,21 @@ class ExactFiveActivationTests(unittest.TestCase):
                 neutral["payload_comparisons"],
                 [{"role_path": role, **{key: value for key, value in artifacts.regular_file_record(baseline / f"seed-17/{role}", role).items() if key != "role_path"}} for role in PAYLOAD_ROLES],
             )
+            expected_stable_roles = tuple(sorted(
+                (*PAYLOAD_ROLES, "profile-seed-evidence.json", "profile-seed-evidence.sha256"),
+                key=lambda value: value.encode("utf-8"),
+            ))
+            self.assertEqual(expected_stable_roles, tuple(runner.STABLE_ROLES))
+            self.assertEqual(len(expected_stable_roles), 40)
+            self.assertNotIn("run-report.json", expected_stable_roles)
+            self.assertNotIn("run-report.sha256", expected_stable_roles)
             self.assertEqual(len(evidence["profiles"]), 5)
             for index, (profile_id, profile) in enumerate(zip(PROFILE_IDS, evidence["profiles"])):
                 with self.subTest(profile=profile_id):
                     self.assertEqual(set(profile), {"profile_id", "profile_index", "evidence", "stable_cross_seed_comparisons", "neutral_payload_comparisons"})
                     self.assertEqual((profile["profile_id"], profile["profile_index"]), (profile_id, index))
                     self.assertEqual(len(profile["stable_cross_seed_comparisons"]), 40)
-                    self.assertEqual([row["role_path"] for row in profile["stable_cross_seed_comparisons"]], list(BUNDLE_ROLES[:-2]))
+                    self.assertEqual([row["role_path"] for row in profile["stable_cross_seed_comparisons"]], list(expected_stable_roles))
                     self.assertEqual(len(profile["neutral_payload_comparisons"]), 38 if index == 0 else 0)
                     self.assertNotIn(b"run-report.json", artifacts.canonical_json_bytes(profile["evidence"]))
             self.assertEqual(set(report), {
