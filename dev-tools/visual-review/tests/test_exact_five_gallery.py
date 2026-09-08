@@ -411,8 +411,10 @@ class ExactFiveGalleryTests(unittest.TestCase):
                 report = json.loads(json.dumps(original))
                 mutate(report)
                 self._reseal_report(report)
+                review_id = f"unbound-{label.replace(' ', '-')}"
                 with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "final report"):
-                    self._publish(f"unbound-{label.replace(' ', '-')}")
+                    self._publish(review_id)
+                self.assertFalse((self.reviews_root / review_id).exists())
 
 
 if __name__ == "__main__":

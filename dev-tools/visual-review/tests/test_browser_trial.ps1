@@ -89,6 +89,11 @@ if ($state.argument_line -ne $receipt.argument_line -or
     $state.argument_line -notmatch '"--user-data-dir=C:\\Temp\\pr127 gallery plan-001"') {
     throw 'the mocked launch did not receive the exact quoted plan argument line'
 }
+if ($state.argument_line -notmatch '(^|\s)--headless=new(\s|$)' -or
+    $state.argument_line -notmatch '(^|\s)--remote-debugging-address=127\.0\.0\.1(\s|$)' -or
+    $state.argument_line -notmatch '(^|\s)--remote-debugging-port=9234(\s|$)') {
+    throw 'the mocked launch did not receive the complete isolated browser arguments'
+}
 
 Write-Output 'browser trial validation and mocked launch checks passed'
 '@
