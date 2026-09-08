@@ -36,9 +36,12 @@ not permanently prohibited, but any future coverage must be provably hidden and
 profile-isolated and create no visible Windows desktop windows, tabs, consoles,
 focus changes, or popups. Real Windows launch and nonintrusion remain
 unverified. No additional broad waiver is granted. Previous source/CLI gallery
-hash-based validation remains retained evidence. This status grants no merge
-authorization; PR #127's concrete control-plane gate remains with Ben. The
-paused snapshot is preserved as historical record in the [current
+hash-based validation remains retained evidence. Ben explicitly authorizes
+closure after the current fixes and checks, subject to Overseer assessment.
+Under Ben's authorization, the Overseer owns merge assessment and execution;
+Main has no merge authority, and retained-human boundaries remain with Ben. The
+paused snapshot is preserved as
+historical record in the [current
 handover](current-handover.md#historical-pause-snapshot--2026-09-07).
 
 This section is the sole current continuation source for the repository. Later

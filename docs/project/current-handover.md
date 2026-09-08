@@ -28,9 +28,14 @@ not permanently prohibited, but any future coverage must be provably hidden and
 profile-isolated and create no visible Windows desktop windows, tabs, consoles,
 focus changes, or popups. Real Windows launch and nonintrusion remain
 unverified. No additional broad waiver is granted. Previous source/CLI gallery
-hash-based validation remains retained evidence. PR #127's concrete
-control-plane gate remains with Ben; this handover grants no merge
-authorization. The pause record below is historical.
+hash-based validation remains retained evidence. Current merge responsibility is
+assigned exclusively to the Overseer: Main prepares and pushes PRs, implements,
+reviews, fixes, validates, and reports concise readiness, but never merges or
+enables auto-merge, including after readiness acknowledgment. The Overseer
+alone assesses agreed gates and decides and executes merge; Ben retains product,
+direction, and consequential boundaries. Ben explicitly authorizes closure after
+the current fixes and checks, subject to Overseer assessment. The pause record
+below is historical.
 
 ## Historical pause snapshot — 2026-09-07
 

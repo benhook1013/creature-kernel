@@ -22,20 +22,23 @@ The Main Worker role owns:
 - assignment and integration of delegated work;
 - direct visual inspection;
 - consolidated validation;
-- Git, branch, commit, pull-request, and merge operations under Runway and
+- Git, branch, commit, push, and pull-request preparation under Runway and
   merge control;
 - CI and review orchestration;
-- external effects; and
-- final repository decisions and recommendations.
+- external effects other than merge or auto-merge execution; and
+- technical repository decisions and readiness recommendations.
 
 The explicitly assigned Overseer role provides concise prioritization and
 coordination, reviews consequential evidence, and makes direction
-recommendations. Ben's retained boundaries in `AGENTS.md` remain unchanged.
+recommendations. Ben assigns final merge decisions and execution exclusively
+to the Overseer. The Main Worker never merges or enables auto-merge, including
+after an Overseer readiness acknowledgment. Ben's retained boundaries in
+`AGENTS.md` remain unchanged.
 Main Worker and Overseer are roles rather than model identities. Persistent
 Astra use applies only to Ben's explicitly recorded task/role assignment and
 its authorized scope and duration; it grants no permission for other or new
-tasks or extensions. There is no serial permission gate between them, and this
-split adds no merge or descendant authority; the separately scoped
+tasks or extensions. There is no serial permission gate for routine work, and
+this split adds no descendant authority; the separately scoped
 instruction-maintenance exception remains governed below.
 
 At an already applicable merge or checkpoint gate, the Overseer may cheaply
@@ -45,12 +48,22 @@ lightweight coordination check does not repeat technical audits or tests,
 create new ledgers or proof machinery, or open a routine permission round.
 Existing consequential strategic and visual oversight remains unchanged.
 
+The Main Worker proactively reports concise high-level progress and recommends
+closure when useful review returns have diminished to minor improvements. It
+does not wait for Ben to ask or chase perfect or zero-finding reviews. The
+handoff summarizes the recent review trend and significance, current fixes,
+and consequential remaining gaps, using existing evidence. The Overseer
+assesses that recommendation promptly and decides whether to merge, request a
+specific necessary fix, or raise a retained-human decision. This creates no
+new ledger or acknowledgment loop; independent authorized work continues.
+
 The Main Worker and Overseer delegate routine reading, writing, and tests by
 default; they retain technical reasoning, decisive evidence inspection, and
 narrow source-ambiguity review, and do not duplicate bulk investigations.
 Executors and independent reviewers do not make product or architecture
 decisions. Reviewers recommend; Ben accepts, rejects, or changes a direction.
-The Main Worker owns integration and final disposition.
+The Main Worker owns integration and disposition of delegated work; the
+Overseer owns final merge decisions and execution.
 
 The recorded `Active runway` in `docs/project/status.md` is the destination
 for autonomous progress. The main thread may advance direct, internal,
@@ -320,6 +333,9 @@ rerun CI; wait for or poll external systems; or perform destructive actions.
 The main thread repeats this boundary in every delegation prompt. An exact
 delegated action does not remove a required human approval.
 
+Merge and auto-merge execution cannot be delegated to the Main Worker or any
+subagent; they remain exclusively with the assigned Overseer.
+
 When JavaScript tool-runner source composes a prompt, it uses an array of
 ordinary quoted strings joined with newlines or structured text items. It does
 not put delegation prose in a JavaScript template literal, because Markdown
@@ -419,8 +435,8 @@ correctness work when their interactions matter, while preserving disjoint
 reversible prerequisites where separation improves safety. It does not create
 small slice churn merely to manufacture review events.
 
-Autonomous merging is limited to the recorded active runway. The main thread
-may merge an internal, reversible preparatory PR only after its required local
+Autonomous merging is limited to the recorded active runway. The assigned
+Overseer may merge an internal, reversible preparatory PR only after its required local
 checks, hands-on trial or integration exercise when applicable, independent
 review, CI gates, external-review gates, and finding dispositions are
 complete, and only before the named human checkpoint is reached. The first
@@ -435,8 +451,8 @@ his explicit, recorded authorization before merge. Routine auto-merge,
 unattended merge loops, administrator bypass, and an unrecorded runway are not
 merge authority.
 
-Ben has explicitly authorized the assigned Overseer to originate, create, push,
-review, and auto-merge only small future instruction-maintenance PRs. An
+Ben has separately authorized the assigned Overseer to originate, create, push,
+review, and auto-merge small future instruction-maintenance PRs. An
 eligible PR changes only `AGENTS.md` and/or this workflow, and only to update
 reusable AI working instructions, links, or routing clarifications; it contains
 no runtime code or feature work and does not change product purpose or scope,
@@ -451,7 +467,8 @@ integrate through its owner or defer; do not create a competing PR. This
 standing authorization is Ben's explicit control-plane approval and merge
 authorization only for that future class; it grants no broader authority and
 waives no check. A mixed-scope or otherwise ineligible PR remains outside this
-class; the Main Worker reports that gate.
+class; the Main Worker reports that gate. This maintenance permission does not
+restrict separately authorized Overseer merges of implementation PRs.
 
 ## CodeRabbit and external review
 
@@ -510,8 +527,9 @@ merely to prove that review occurred.
 
 If hosted CodeRabbit is unavailable or rate-limited, the main thread reports
 that outcome honestly and waits for availability while doing safe,
-non-conflicting work, or stops for an explicit Ben waiver. It does not merge
-without the required hosted review or an explicit Ben waiver. Keep the
+non-conflicting work, or reports the need for an explicit Ben waiver to the
+Overseer. The Overseer does not merge without the required hosted review or an
+explicit Ben waiver. Keep the
 immutable-head restriction until the hosted pass reaches a terminal state. After
 one bounded wait and one status recheck,
 recognize a service-declared failure or cancellation as unavailable. If a stale

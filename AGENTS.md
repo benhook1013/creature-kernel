@@ -74,16 +74,21 @@ Ben retains decisions about:
 
 The Main Worker role owns routine planning and decomposition, implementation
 and integration, direct visual inspection, consolidated validation, Git and
-review operations, external effects, and final repository judgment within the
-recorded runway. The explicitly assigned Overseer role provides concise
+review operations, external effects other than merges, and technical judgment
+within the recorded runway. It proactively reports high-level progress and
+recommends PR readiness to the Overseer when useful review returns diminish.
+The Main Worker never merges or enables auto-merge. The assigned Overseer alone
+decides and executes authorized merges after checking the applicable gates.
+The explicitly assigned Overseer role provides concise
 prioritization and coordination, reviews consequential evidence, and makes
 direction recommendations; it does not replace Ben's decision authority.
 These are roles rather than model identities. Persistent Astra use applies
 only to Ben's explicitly recorded task/role assignment and its authorized
 scope and duration; it grants no permission for other or new tasks or
 extensions. Ben's retained boundaries above remain unchanged; this split adds
-no serial permission gate or merge/descendant authority. The separately scoped
-instruction-maintenance exception remains governed by the conditional workflow.
+no serial permission gate for routine work or descendant authority. The
+separately scoped instruction-maintenance exception remains governed by the
+conditional workflow.
 
 Routine, reversible technical implementation may proceed autonomously within a
 recorded runway. This includes implementation details, defect resolution,
@@ -104,8 +109,9 @@ workflow defines the exception and routing response.
 
 ## Runway and merge control
 
-Autonomous merge authority exists only inside a recorded Active runway and
-after all applicable checks, reviews, evidence, and repository gates pass. Stop
+Only the assigned Overseer may exercise autonomous merge authority, inside a
+recorded Active runway and after all applicable checks, reviews, evidence, and
+repository gates pass. Stop
 before the first actual human-visible checkpoint, a user-visible CLI/viewer/API
 checkpoint explicitly named for Ben's appraisal, or a retained-human boundary,
 and present that candidate with the judgment Ben is being asked to make. That
@@ -167,8 +173,9 @@ captures, videos, or datasets without an accepted artifact-storage decision.
 Use a reviewed file for a GitHub pull-request body, then read the PR back and
 verify its title, body, head, base, and state. Keep destructive cleanup bounded
 to exact, verified targets; never use broad recursive cleanup for convenience.
-Keep external side effects under the main thread's ownership and the applicable
-workflow.
+Keep external side effects under the responsible persistent role's ownership
+and the applicable workflow; merge and auto-merge execution belong exclusively
+to the assigned Overseer and cannot be delegated to the Main Worker or subagents.
 
 ## Conditional workflow routing
 
