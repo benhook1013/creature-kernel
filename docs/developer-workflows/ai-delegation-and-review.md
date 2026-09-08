@@ -120,6 +120,11 @@ approval gates. “Main Worker” and “Overseer” are roles, not model names;
 existing model authorization, routing, and human boundaries remain unchanged,
 and this does not grant global Astra orchestration.
 
+The responsible Main Worker or Overseer may read a short, cohesive instruction
+document in full when judging a change. This semantic review is not duplication
+of bulk fact gathering: delegate mechanical work, but a summary or isolated
+diff cannot replace responsible whole-document assessment.
+
 ## Batches and research passes
 
 The main thread groups related product, direction-setting, architecture-boundary,
@@ -565,12 +570,7 @@ summary as proof, reconciles interactions, and performs consolidated
 validation against the integrated result. It does not create an external
 effect merely because a worker reports completion.
 
-The final handoff is brief and auditable. Use one line per subagent:
-
-`Subagent: <bounded role>; model: <model>; reasoning effort: <effort>; <edited files: <paths> | evidence only>`
-
-Then provide one validation line covering subagent-scoped and main
-consolidated checks, including explicit `deferred` or `unavailable` states.
-State the number of subagents used, any explicitly authorized routing
-deviation, and any incomplete review coverage. Do not substitute a prose
-summary for these auditable lines.
+The final handoff is concise and truthful: state the actual changes or evidence,
+meaningful validation, unresolved blockers or limitations, and any routing
+deviation when relevant. Actual outputs plus concise reporting are sufficient;
+no fixed per-agent template or agent count is required.
