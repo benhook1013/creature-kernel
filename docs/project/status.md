@@ -114,9 +114,10 @@ historical full-suite failure baseline or establish a new geometry result.
 Ben stopped browser trials after the setup method caused visible Chrome
 errors and failed tabs. One launch passed an empty profile and debug port zero,
 so it may have handed tabs to the ordinary session. No task browser process or
-debug listener remained at the final cleanup check; ordinary Chrome was not
-modified because such tabs could not be safely attributed. Popup text was not
-captured. Setup and cleanup evidence remains at
+debug listener remained at the final cleanup check. Cleanup did not intentionally
+modify ordinary Chrome, but earlier launch changes to ordinary Chrome could not
+be attributed or ruled out. Popup text was not captured. Setup and cleanup
+evidence remains at
 `/tmp/pr127-gallery-fixture-001`. Browser rendering, real focus/viewport
 behavior, and intermediate-width layout are unverified. This coverage gap is
 not a waived review or merge gate. Further browser launches are stopped while

@@ -637,4 +637,11 @@ checkout. The next Ben checkpoint is a coherent recognizable whole character
 at rest and in restrained combined poses for both calibrated contexts, with
 source, frame, and binding-driven movement. This Layer 1 package performs
 captured regression checks without changing construction or publishing a new
-candidate, and does not reactivate this experiment.
+candidate, and does not reactivate this experiment. The frozen historical
+activation contract and sidecar remain unchanged; current maintenance has
+different builder bytes and dependency anchors. The focused captured checks
+are current-maintenance regression evidence only: they do not prove
+frozen-contract-bound reproduction or establish a new accepted binding. No
+historical contract or sidecar rewrite is made. Any future reuse or readmission
+requires the existing explicit review and authorization trigger; nothing here
+automatically refreezes or reactivates the experiment.
