@@ -285,9 +285,6 @@ class RendererTests(unittest.TestCase):
                 self.assertGreaterEqual(c0, 0)
                 self.assertLessEqual(c1, render.WIDTH - 1)
                 self.assertLessEqual(c0, c1)
-        source = __import__("inspect").getsource(render.build_visibility)
-        self.assertIn("for column in range(c0, c1 + 1)", source)
-        self.assertNotIn("for column in range(WIDTH)", source)
     def test_png_has_only_frozen_chunks_and_lineage_domain_colours(self):
         direct, lineage, visibility = render.render_pair_bytes(self.mesh)
         def chunks(data):

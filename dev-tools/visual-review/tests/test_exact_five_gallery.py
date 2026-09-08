@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import shutil
@@ -32,6 +33,7 @@ def _chunk(kind: bytes, payload: bytes) -> bytes:
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
 
 
+@functools.lru_cache(maxsize=32)
 def _png(colour: tuple[int, int, int], *, split_idat: bool = False, separator: bool = False) -> bytes:
     raw = b"".join(b"\x00" + bytes(colour) * adapter.PNG_WIDTH for _ in range(adapter.PNG_HEIGHT))
     header = struct.pack(">IIBBBBB", adapter.PNG_WIDTH, adapter.PNG_HEIGHT, 8, 2, 0, 0, 0)
@@ -261,6 +263,19 @@ class ExactFiveGalleryTests(unittest.TestCase):
         self.assertIn("merge checkpoint", review["description"])
         for profile_id, group in zip(exact_five.PROFILES, review["groups"]):
             self.assertEqual([item["id"] for item in group["items"]], [f"{profile_id}__direct", f"{profile_id}__lineage"])
+
+    def test_manifest_metadata_matches_same_view_across_groups_with_unique_identities(self) -> None:
+        self._publish("comparison-metadata")
+        review = json.loads((self.reviews_root / "comparison-metadata" / "review.json").read_text())
+        items = [item for group in review["groups"] for item in group["items"]]
+        identities = [item["metadata"]["comparison_identity"] for item in items]
+        self.assertEqual(len(identities), len(set(identities)))
+        self.assertEqual(identities, [item["id"] for item in items])
+        for render_kind in ("direct", "lineage"):
+            for group in review["groups"]:
+                matches = [item for item in group["items"] if item["metadata"]["comparison_key"] == render_kind]
+                self.assertEqual(len(matches), 1)
+                self.assertEqual(matches[0]["metadata"]["render_kind"], render_kind)
 
     def test_rejects_self_consistently_resealed_tampered_provenance(self) -> None:
         evidence = json.loads((self.exact_root / "exact-five-evidence.json").read_text())

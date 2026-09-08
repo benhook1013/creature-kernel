@@ -70,8 +70,7 @@ def _chart_owners(mesh, summary):
     if summary is None: return tuple(mesh.face_owners)
     rows = [row for row in summary["chart_records"] if row["level"] == mesh.level]; owners = {}
     for row in rows:
-        if row["face_id"] in owners: _fail(f"duplicate chart face ownership at L{mesh.level}")
-        owners[row["face_id"]] = row["construction_owner"]
+        _need(row["face_id"] not in owners, f"duplicate chart face ownership at L{mesh.level}"); owners[row["face_id"]] = row["construction_owner"]
     _need(len(rows) == len(mesh.face_ids) and set(owners) == set(mesh.face_ids), f"chart face incidence is incomplete at L{mesh.level}"); return tuple(owners[face_id] for face_id in mesh.face_ids)
 def _junction_cycles(mesh, owners, domains):
     uses = {}
@@ -187,8 +186,7 @@ def _geometry(surface, mesh_api, chart, anatomy, geometry_input):
 def _support_hash(indices):
     values = tuple(indices)
     if tuple(sorted(set(values))) != values or any(type(index) is not int or not 0 <= index < 1737 for index in values): _fail("support indices are not ascending level-2 indices")
-    payload = b"CKSUPPORTv1\0\2" + struct.pack("<I", len(values)) + b"".join(struct.pack("<I", index) for index in values)
-    return artifacts.sha256_bytes(payload)
+    payload = b"CKSUPPORTv1\0\2" + struct.pack("<I", len(values)) + b"".join(struct.pack("<I", index) for index in values); return artifacts.sha256_bytes(payload)
 def _causality(surface, render, mesh_api, prepared_api, prepared, geometry):
     geometry_input = prepared_api.project_geometry(prepared)
     baseline = geometry["evaluation"].levels[1]; baseline_shape = (baseline.control_ids, baseline.quads, baseline.formula_ids, baseline.dependencies, baseline.boundary_loops, baseline.face_ids, baseline.face_owners, baseline.vertex_records, baseline.source_stencils); baseline_ply, perturbations, payloads = render.ply_bytes(baseline), [], {}; minimum = float.fromhex("0x1.d14e3bcd35a85p-11")
@@ -219,8 +217,7 @@ def _limits(stage, admission):
     for record in records:
         limit = 8 * 1024 * 1024 if record["role_path"] == "causality-manifest.json" else 2 * 1024 * 1024
         if record["bytes"] > limit: _fail(f"artifact resource cap exceeded: {record['role_path']}")
-    production = sum(artifacts.read_regular_file(ROOT / record["role_path"]).count(b"\n") for record in admission["implementation_files"] if "/tests/" not in record["role_path"])
-    tests = sum(artifacts.read_regular_file(ROOT / record["role_path"]).count(b"\n") for record in admission["implementation_files"] if "/tests/" in record["role_path"])
+    production = sum(artifacts.read_regular_file(ROOT / record["role_path"]).count(b"\n") for record in admission["implementation_files"] if "/tests/" not in record["role_path"]); tests = sum(artifacts.read_regular_file(ROOT / record["role_path"]).count(b"\n") for record in admission["implementation_files"] if "/tests/" in record["role_path"])
     if production > 3400 or tests > 2600: _fail(f"implementation LOC cap exceeded: production={production}, tests={tests}")
     return records
 def _now(): return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -391,8 +388,7 @@ def run_managed_tests(receipt_path):
     try:
         suite = unittest.TestLoader().discover(str(TESTS), pattern="test_*.py")
         def flatten(value):
-            for item in value:
-                yield from flatten(item) if isinstance(item, unittest.TestSuite) else (item,)
+            for item in value: yield from flatten(item) if isinstance(item, unittest.TestSuite) else (item,)
         tests = tuple(flatten(suite)); ids = tuple(test.id() for test in tests); _need(bool(ids) and len(ids) == len(set(ids)) and all(ids.count(required) == 1 for required in REQUIRED_TEST_IDS), "managed discovery did not produce the exact required fixture IDs"); result = unittest.TestResult(); suite.run(result)
     finally:
         if sys.path and sys.path[0] == str(PACKAGE): sys.path.pop(0)
@@ -421,7 +417,11 @@ def build_seed(output_path):
         report = {"schema": "owned-root-assembly-successor-run-report.v1", "outcome": "success", "seed": int(os.environ["PYTHONHASHSEED"]), "literal_invocation": {"environment": [f"PYTHONHASHSEED={os.environ['PYTHONHASHSEED']}"], "argv": ["experiments/owned-root-assembly-successor/build_owned_root.py", "--output", str(output)]}, "output_path": str(output), "staging_path": str(stage), "python_executable_path": str(Path(sys.executable).absolute()), "started_utc": started, "finished_utc": _now(), "timings": timings + [{"phase": "total-before-seal", "seconds": float(time.perf_counter() - clock)}], "runtime_fingerprint_sha256": admission["runtime_fingerprint_sha256"], "stable_manifest": _manifest_ref(stable_record, stable_manifest["schema"]), "gates": [{"gate_id": gate, "outcome": "pass", "sample_count": 1, "observed_min": 1, "observed_max": 1, "threshold_id": "gate.boolean-pass"} for gate in RUN_REPORT_GATES]}
         report_bytes = artifacts.canonical_json_bytes(report); _write(stage / "report.json", report_bytes); _write(stage / "report.sha256", f"{artifacts.sha256_bytes(report_bytes)}  report.json\n".encode("ascii")); inventory = _limits(stage, admission); artifacts.publish_no_replace(stage, output, inventory, max_file_bytes=8 * 1024 * 1024); stage = None; return output
     except Exception:
-        if stage is not None and stage.exists(): shutil.rmtree(stage)
+        if stage is not None:
+            try:
+                if stage.exists() and not stage.is_symlink(): shutil.rmtree(stage)
+            except Exception:
+                pass
         raise
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)

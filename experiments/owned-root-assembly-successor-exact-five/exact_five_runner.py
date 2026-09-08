@@ -49,6 +49,7 @@ EXPECTED_ACTIVATION_SHA256 = "a5c38645c810efb24e79297fb7c8049f0f59529f37a67c18a5
 EXPECTED_DESIGN_SHA256 = "3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490"
 EXPECTED_SOURCE_SHA256 = "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
 EXPECTED_PROFILE_SHA256 = "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+EXPECTED_PROFILE_BYTES = 29970
 RUNTIME_SHA256 = "c19ca9c0b8268504f93513d55f90a0eb63777e566aba06e376b503c5e648f085"
 PROFILE_IDS = (
     "standard_neutral_reference", "compact_broad_short_limb_large_head",
@@ -98,7 +99,7 @@ ADDITIVE_ROLES = tuple(sorted((
 DEPENDENCIES = tuple(sorted((
     ("experiments/owned-root-assembly-successor/anatomy_gates.py", 25674, "0c4b5f7812141a4cd7c7107655e578044355dfef5dbda6574bbb63bc359a2ff4"),
     ("experiments/owned-root-assembly-successor/artifact_serialization.py", 27977, "3837928e4b987c65fd773e540f7db502f5d9a0b4c5940b95c923953754fdf7d4"),
-    ("experiments/owned-root-assembly-successor/build_owned_root.py", 78268, "713cbf967bf2e0e233bae0c3506199fdc9a6ed71418edbd8dbf9b75beeee4045"),
+    ("experiments/owned-root-assembly-successor/build_owned_root.py", 78351, "23433a397c87fef2736c37aee4ea15a41b194fabed581341bb49f367cb22d2c5"),
     ("experiments/owned-root-assembly-successor/chart_lineage.py", 18263, "01fdd09e8e0bb6d31851f0c7af711d90b313e36a012dbe3d71415a0468c31efc"),
     ("experiments/owned-root-assembly-successor/mesh_correctness.py", 51035, "4104b70e70e958a469125d1fff544e20fee44b784bf7915d8e724e63d4f39db1"),
     ("experiments/owned-root-assembly-successor/owned_root_surface.py", 58732, "c982d889fee30e2efea881b5725170740bc8afa2a883aa3dc4623941cd3e2a22"),
@@ -188,7 +189,7 @@ def static_admission() -> dict[str, Any]:
     _need(artifacts.read_regular_file(ROOT / ACTIVATION_SIDECAR_ROLE, max_bytes=256) == expected_sidecar, "activation sidecar mismatch")
     design = _record(DESIGN_ROLE, 173184, EXPECTED_DESIGN_SHA256)
     source = _record(SOURCE_ROLE, 56984, EXPECTED_SOURCE_SHA256)
-    table = _record(PROFILE_ROLE, 29970, EXPECTED_PROFILE_SHA256)
+    table = _record(PROFILE_ROLE, EXPECTED_PROFILE_BYTES, EXPECTED_PROFILE_SHA256)
     dependencies = tuple(_record(*row) for row in DEPENDENCIES)
     package = ROOT / "experiments/owned-root-assembly-successor-exact-five"
     found = []
@@ -286,11 +287,13 @@ def validate_profile_table(table: dict[str, Any]) -> dict[str, Any]:
 
 def admit_profile_table(raw: bytes) -> dict[str, Any]:
     """Admit only the exact fixed canonical profile-table bytes."""
-    _need(type(raw) is bytes and len(raw) == 29970 and artifacts.sha256_bytes(raw) == EXPECTED_PROFILE_SHA256, "profile table identity mismatch")
+    _need(type(raw) is bytes and len(raw) == EXPECTED_PROFILE_BYTES and artifacts.sha256_bytes(raw) == EXPECTED_PROFILE_SHA256, "profile table identity mismatch")
     def pairs(items):
         value = dict(items); _need(len(value) == len(items), "profile table contains a duplicate key"); return value
     try:
         table = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs, parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+    except ExactFiveError:
+        raise
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, TypeError, ValueError) as exc:
         raise ExactFiveError("profile table is not strict finite UTF-8 JSON") from exc
     _need(type(table) is dict, "profile table is not an object")
@@ -568,7 +571,8 @@ def run_causality(components: surface.GeometryComponents, geometry: dict[str, An
         observed_shape = (observed.control_ids, observed.quads, observed.formula_ids, observed.dependencies, observed.boundary_loops, observed.face_ids, observed.face_owners, observed.vertex_records, observed.source_stencils)
         _need(observed_shape == baseline_shape, f"topology/lineage changed for {parameter}")
         movement = tuple(math.sqrt(sum((observed.vertices[vertex][axis] - baseline.vertices[vertex][axis]) ** 2 for axis in range(3))) for vertex in range(1737)); actual = tuple(vertex for vertex, value in enumerate(movement) if value > mesh_api.T); maximum = max(movement)
-        _need(predicted and actual == predicted and maximum >= float.fromhex("0x1.d14e3bcd35a85p-11") and all(movement[vertex] <= mesh_api.T for vertex in range(1737) if vertex not in predicted), f"support/movement gate failed for {parameter}")
+        predicted_set = set(predicted)
+        _need(predicted and actual == predicted and maximum >= float.fromhex("0x1.d14e3bcd35a85p-11") and all(movement[vertex] <= mesh_api.T for vertex in range(1737) if vertex not in predicted_set), f"support/movement gate failed for {parameter}")
         _need(parameter not in ("left.thigh_start_x", "right.thigh_start_x") or len(predicted) == 436, "thigh-x support cardinality drift")
         role = f"perturb-{parameter.replace('.', '-')}.ply"; payload = render.ply_bytes(observed); _need(payload != baseline_ply and len(payload) <= 2 * 1024 * 1024, "perturbation PLY gate failed"); payloads[role] = payload
         records.append({"parameter_id": parameter, "prepared_component": component, "delta_m": delta, "support_level": 2, "predicted_support_count": len(predicted), "observed_support_count": len(actual), "predicted_support_sha256": _support_hash(predicted), "observed_support_sha256": _support_hash(actual), "maximum_movement_m": maximum, "artifact": None})
@@ -625,8 +629,12 @@ def build_profile_seed(profile_id: str, output_path: str | os.PathLike[str]) -> 
         artifacts.publish_no_replace(stage, output, inventory, max_file_bytes=16 * 1024 * 1024); stage = None
         return output
     except Exception:
-        if stage is not None and stage.exists() and not stage.is_symlink():
-            shutil.rmtree(stage)
+        if stage is not None:
+            try:
+                if stage.exists() and not stage.is_symlink():
+                    shutil.rmtree(stage)
+            except Exception:
+                pass
         raise
 
 

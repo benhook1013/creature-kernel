@@ -51,6 +51,9 @@ the table are local checkout deltas and sum to all 180 eligible paths.
 
 The Layer 1 digest is marked with `*` because the ledger is counted as a
 changed file but omitted from its own digest to avoid a self-referential hash.
+The Layer 2/3 rows and manifest hashes above are the timestamped local inventory
+snapshot; the source-only relocation audit below is current planning evidence
+and does not replace those historical measurements.
 
 Layer 1's 16 pre-existing eligible modified tracked paths are
 `dev-tools/visual-review/{static/app.js,static/style.css,tests/test_visual_review.py}`
@@ -104,12 +107,13 @@ required by the pelvis foundation. In particular, body configs and
 `body_assembly.py` remain above the lower runner layer; no config is treated as
 active merely because it is present.
 
-The lower and foundation follow-ups may each need roughly four repeated
-documentation paths (`connected-leg-assembly/README.md`, project
-status/handover/index material, and related experiment indexes). Budgeting
-those overlays gives planning totals of about 87 for Layer 2 and 84 for Layer
-3. Do not copy a later final README/status wholesale into an earlier layer;
-materialize stage-specific overlays only after their referenced paths exist.
+Before the source-only relocation audit, the lower and foundation follow-ups
+were provisionally budgeted at about 87 for Layer 2 and 84 for Layer 3 with
+roughly four repeated documentation paths (`connected-leg-assembly/README.md`,
+project status/handover/index material, and related experiment indexes). The
+audit below supersedes those derived planning estimates. Do not copy a later
+final README/status wholesale into an earlier layer; materialize stage-specific
+overlays only after their referenced paths exist.
 
 ## Source-only relocation audit — 2026-09-08
 
@@ -129,19 +133,20 @@ does not assert a new measured inventory.
 All 180 eligible local paths are assigned above; there are no omissions or
 deletions. The prior 22-path foot/tail/calf set is deliberately included in
 Layer 2 because the body configuration and anthropomorphic path depend on it.
-The five body-only shared paths moved above the lower layer are
-`body_assembly.py`, `tests/test_body_assembly.py`, `body-config.json`,
-`body-junction-integration-config.json`, and
-`body-refinement-internal-config.json`; the remaining body configs stay with
-Layer 3 as well because they select foundation and refinement inputs.
+The four body-only shared paths remaining above the lower layer are
+`body_assembly.py`, `tests/test_body_assembly.py`, `body-config.json`, and
+`body-refinement-internal-config.json`; `body-junction-integration-config.json`
+is included in the Layer 2 relocation audit above. The remaining body configs
+stay with Layer 3 because they select foundation and refinement inputs.
 
-Layer 3's 80-file local delta leaves ten files before the nominal alert and
-about six after its recurring documentation overlay. Layer 2 leaves seven
-before the alert and about three after its overlay. Alert the Main Worker if
-dependency closure or overlays exceed that space; consolidate only with an
-approved retention decision that preserves causal records and provenance.
-These counts are local-delta packaging estimates, not summed PR changed-file
-counts.
+The current source-only placement estimate is 88 paths for Layer 2 and 75 for
+Layer 3; with four repeated documentation paths, the planning totals are about
+92 and 79. Layer 2 therefore exceeds the nominal 90-path alert by about two
+paths; Main is aware, and both estimates remain below the hard 100-path limit.
+Alert the Main Worker if later dependency closure or overlays increase either
+total; consolidate only with an approved retention decision that preserves
+causal records and provenance. These are local-delta packaging estimates, not
+summed PR changed-file counts or a new measured inventory.
 
 ## Conditional packaging priority
 
@@ -154,9 +159,10 @@ the gallery README, browser preflight script and mocked test, gallery CSS,
 project index, and this ledger. The existing CLI import correction overlaps
 the published path set. Protected inbox contents remain excluded. This
 materialization count supersedes the earlier 54-path estimate for Layer 1;
-the timestamped upper-layer inventory and approximately 87/84 follow-up
-budgets remain planning evidence. Browser repair validation is non-launching,
-and real-browser coverage remains incomplete.
+the timestamped upper-layer inventory remains historical planning evidence; the
+current source-only follow-up estimates are approximately 92/79. Browser
+repair validation is non-launching, and real-browser coverage remains
+incomplete.
 
 When the lowest layer is clean and final-review-ready, the recorded priority is
 one hosted CodeRabbit cycle together with the committed CLI cycle on the same
@@ -165,6 +171,6 @@ upper-layer work may continue, with rebasing or retargeting only after the
 lower layer merges and applicable gates are satisfied. This is a conditional
 future priority, not an immediate external action or a new authority grant.
 
-Validation for this documentation change is run after the index link is added:
-`python3 dev-tools/validation/validate_docs.py` and
-`dev-tools/validation/check_worktree_whitespace.sh`.
+For this documentation candidate, `python3 dev-tools/validation/validate_docs.py`
+and `dev-tools/validation/check_worktree_whitespace.sh` were already run and
+passed.

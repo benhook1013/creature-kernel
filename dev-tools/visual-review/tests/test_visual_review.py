@@ -1037,11 +1037,11 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             "openImage(imageItems, itemIndex);",
             'event.key === "ArrowLeft"',
             'event.key === "ArrowRight"',
-            "function showItem(index, focusImage)",
+            "function showItem(index, focusImage, targetItems, targetGroup, targetPack)",
             "function restoreViewport(viewportState)",
             "function captureViewport()",
-            "activatePackButton(older);",
-            "activatePackButton(newer);",
+            "if (activatePackButton(older))",
+            "if (activatePackButton(newer))",
             "showItem(requestedIndex + 1, true);",
             "showItem(requestedIndex - 1, false);",
             "showItem(requestedIndex + 1, false);",
@@ -1079,6 +1079,130 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             self.assertIn(contract, js)
         for selector in (".image-navigation-control", ".image-position", ".image-dialog-instructions", ".image-dialog img:focus-visible"):
             self.assertIn(selector, css)
+
+    def test_pack_arrows_preserve_native_disabled_behavior_and_activate_when_enabled(self):
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+source = source.replace(entrypoint, "  globalThis.__openImage = openImage;\n}());");
+
+function Element(tagName) {
+  this.tagName = tagName.toUpperCase();
+  this.children = [];
+  this.parentNode = null;
+  this.style = {};
+  this.attributes = {};
+  this.listeners = {};
+  this.className = "";
+  this.classList = {add: function () {}, remove: function () {}};
+  this.clientWidth = 800;
+  this.clientHeight = 600;
+  this.scrollLeft = 0;
+  this.scrollTop = 0;
+  this.naturalWidth = 400;
+  this.naturalHeight = 300;
+  this.open = false;
+  this.disabled = false;
+}
+Object.defineProperty(Element.prototype, "firstChild", {get: function () { return this.children[0] || null; }});
+Element.prototype.appendChild = function (child) {
+  if (child.parentNode) { child.parentNode.removeChild(child); }
+  this.children.push(child); child.parentNode = this; return child;
+};
+Element.prototype.removeChild = function (child) {
+  const index = this.children.indexOf(child);
+  if (index >= 0) { this.children.splice(index, 1); child.parentNode = null; }
+  return child;
+};
+Element.prototype.replaceChild = function (replacement, child) {
+  const index = this.children.indexOf(child);
+  if (index < 0) { throw new Error("replacement child not found"); }
+  if (replacement.parentNode) { replacement.parentNode.removeChild(replacement); }
+  this.children[index] = replacement; replacement.parentNode = this; child.parentNode = null; return child;
+};
+Element.prototype.remove = function () { if (this.parentNode) { this.parentNode.removeChild(this); } };
+Element.prototype.setAttribute = function (name, value) { this.attributes[name] = String(value); };
+Element.prototype.addEventListener = function (type, listener) { (this.listeners[type] || (this.listeners[type] = [])).push(listener); };
+Element.prototype.removeEventListener = function (type, listener) { this.listeners[type] = (this.listeners[type] || []).filter(function (entry) { return entry !== listener; }); };
+Element.prototype.dispatchEvent = function (event) {
+  event.target = this; event.currentTarget = this;
+  event.preventDefault = event.preventDefault || function () { event.defaultPrevented = true; };
+  event.stopPropagation = event.stopPropagation || function () { event.propagationStopped = true; };
+  (this.listeners[event.type] || []).slice().forEach(function (listener) { listener(event); });
+  return !event.defaultPrevented;
+};
+Element.prototype.click = function () { this.dispatchEvent({type: "click"}); };
+Element.prototype.focus = function () { document.activeElement = this; };
+Element.prototype.getBoundingClientRect = function () { return {left: 0, top: 0}; };
+Element.prototype.showModal = function () { this.open = true; };
+Element.prototype.close = function () { this.open = false; this.dispatchEvent({type: "close"}); };
+
+const created = [];
+const app = new Element("main");
+const document = {
+  activeElement: app,
+  body: new Element("body"),
+  documentElement: {contains: function () { return true; }},
+  getElementById: function () { return app; },
+  createElement: function (tagName) { const element = new Element(tagName); created.push(element); return element; },
+};
+document.body.appendChild(app);
+const requests = [];
+const window = {addEventListener: function () {}, removeEventListener: function () {}, requestAnimationFrame: function (callback) { callback(); return 1; }, cancelAnimationFrame: function () {}};
+const context = {
+  document: document,
+  window: window,
+  fetch: function (path) {
+    requests.push(path);
+    return Promise.resolve({ok: true, json: function () { return Promise.resolve({review: {id: "older-pack", groups: [{id: "current", items: [{title: "Older", image: "assets/older.png", metadata: {comparison_identity: "identity-1", comparison_key: "pose"}}]}]}}); }});
+  },
+};
+vm.runInNewContext(source, context, {filename: appPath});
+function images() { return created.filter(function (element) { return element.tagName === "IMG"; }); }
+function button(label) { return created.filter(function (element) { return element.tagName === "BUTTON" && element.textContent === label && element.parentNode !== null; }).slice(-1)[0]; }
+function dialog() { return document.body.children.filter(function (element) { return element.tagName === "DIALOG" && element.open; }).slice(-1)[0]; }
+function review() { return {id: "current-pack", groups: [{id: "current", items: [{title: "Current", image: "assets/current.png", metadata: {comparison_identity: "identity-1", comparison_key: "pose"}}]}]}; }
+function open(items) {
+  context.__openImage(items, 0);
+  images().slice(-1)[0].dispatchEvent({type: "load"});
+}
+function items(sessions) {
+  const value = [{title: "Current", source: "current", metadata: {comparison_identity: "identity-1", comparison_key: "pose"}}];
+  value.initialGroupId = "current";
+  value.comparisonResolver = function () { return [{groupId: "current", items: value, itemIndex: 0}]; };
+  value.packNavigation = {sessions: sessions};
+  value.packContext = {id: "current-pack", title: "Current Pack", review: review()};
+  return value;
+}
+const disabledItems = items([{id: "current-pack", kind: "image"}]);
+open(disabledItems);
+const disabledOlder = button("Older");
+if (!disabledOlder.disabled) { throw new Error("older control unexpectedly enabled"); }
+const disabledEvent = {type: "keydown", key: "ArrowLeft"};
+dialog().dispatchEvent(disabledEvent);
+if (disabledEvent.defaultPrevented || requests.length !== 0) { throw new Error("disabled ArrowLeft was consumed or activated a request"); }
+button("Close").click();
+
+const enabledItems = items([{id: "current-pack", kind: "image"}, {id: "older-pack", kind: "image"}]);
+open(enabledItems);
+const enabledOlder = button("Older");
+if (enabledOlder.disabled) { throw new Error("older control unexpectedly disabled"); }
+const enabledEvent = {type: "keydown", key: "ArrowLeft"};
+dialog().dispatchEvent(enabledEvent);
+if (!enabledEvent.defaultPrevented || requests.length !== 1) { throw new Error("enabled ArrowLeft did not prevent default and activate request"); }
+process.stdout.write("pack arrow enabled/disabled behavior preserved");
+'''
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout, "pack arrow enabled/disabled behavior preserved")
 
     def test_cross_pack_matching_requires_explicit_identity_and_rejects_ambiguity(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")

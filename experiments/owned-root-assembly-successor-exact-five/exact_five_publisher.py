@@ -10,11 +10,13 @@ import math
 import os
 import platform
 import re
+import shutil
 import struct
 import sys
 import sysconfig
 import time
 import datetime
+import stat
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,7 +58,7 @@ PRE_REPORT_ROLES = tuple(sorted((*PUBLIC_PAYLOAD_ROLES, "exact-five-evidence.jso
 BASELINE_ROLES = tuple(sorted((*[f"seed-{seed}/{role}" for seed in SEEDS for role in neutral.ARTIFACT_ROLES], "comparison/comparison-report.json", "comparison/comparison-report.sha256"), key=str.encode))
 COMPONENT_IDS = tuple(sorted(tuple(f"stations.{station}.{field}" for station in ("lower_pelvis", "upper_pelvis", "lower_abdomen", "waist_abdomen", "upper_abdomen", "lower_ribcage", "upper_ribcage_shoulder", "neck_collar", "neck_upper") for field in ("C.x", "C.y", "C.z", "rL", "rA", "rP")) + tuple(f"shoulders.{side}.{field}" for side in ("left", "right") for field in ("axilla.x", "axilla.y", "axilla.z", "peak.x", "peak.y", "peak.z", "arm_origin.x", "arm_origin.y", "arm_origin.z", "start_lateral", "start_up", "start_forward", "shoulder_depth")) + tuple(f"hips.{side}.{field}" for side in ("left", "right") for field in ("P_s.x", "P_s.y", "P_s.z", "r_x", "r_y", "r_z")), key=str.encode))
 CAUSAL_COMPONENTS = {"left.r_y": "hips.left.r_y", "right.r_y": "hips.right.r_y", "lower_pelvis.L_y": "stations.lower_pelvis.C.y", "lower_pelvis.C_z": "stations.lower_pelvis.C.z", "left.r_x": "hips.left.r_x", "right.r_x": "hips.right.r_x", "lower_pelvis.R_x": "stations.lower_pelvis.rL", "left.r_z": "hips.left.r_z", "right.r_z": "hips.right.r_z", "lower_pelvis.R_f": "stations.lower_pelvis.rA", "lower_pelvis.R_b": "stations.lower_pelvis.rP", "left.thigh_start_x": "hips.left.P_s.x", "left.thigh_start_y": "hips.left.P_s.y", "left.thigh_start_z": "hips.left.P_s.z", "right.thigh_start_x": "hips.right.P_s.x", "right.thigh_start_y": "hips.right.P_s.y", "right.thigh_start_z": "hips.right.P_s.z", "neck_collar.C_y": "stations.neck_collar.C.y", "neck_collar.rL": "stations.neck_collar.rL", "neck_upper.C_y": "stations.neck_upper.C.y", "neck_upper.rL": "stations.neck_upper.rL", "left.axilla_x": "shoulders.left.axilla.x", "left.axilla_y": "shoulders.left.axilla.y", "right.axilla_x": "shoulders.right.axilla.x", "right.axilla_y": "shoulders.right.axilla.y", "left.peak_y": "shoulders.left.peak.y", "right.peak_y": "shoulders.right.peak.y", "left.start_lateral": "shoulders.left.start_lateral", "right.start_lateral": "shoulders.right.start_lateral", "left.start_up": "shoulders.left.start_up", "right.start_up": "shoulders.right.start_up", "left.shoulder_depth": "shoulders.left.shoulder_depth", "right.shoulder_depth": "shoulders.right.shoulder_depth"}
-EXPECTED_DEPS = {"experiments/owned-root-assembly-successor/anatomy_gates.py": (25674, "0c4b5f7812141a4cd7c7107655e578044355dfef5dbda6574bbb63bc359a2ff4"), "experiments/owned-root-assembly-successor/artifact_serialization.py": (27977, "3837928e4b987c65fd773e540f7db502f5d9a0b4c5940b95c923953754fdf7d4"), "experiments/owned-root-assembly-successor/build_owned_root.py": (78268, "713cbf967bf2e0e233bae0c3506199fdc9a6ed71418edbd8dbf9b75beeee4045"), "experiments/owned-root-assembly-successor/chart_lineage.py": (18263, "01fdd09e8e0bb6d31851f0c7af711d90b313e36a012dbe3d71415a0468c31efc"), "experiments/owned-root-assembly-successor/mesh_correctness.py": (51035, "4104b70e70e958a469125d1fff544e20fee44b784bf7915d8e724e63d4f39db1"), "experiments/owned-root-assembly-successor/owned_root_surface.py": (58732, "c982d889fee30e2efea881b5725170740bc8afa2a883aa3dc4623941cd3e2a22"), "experiments/owned-root-assembly-successor/prepared_projection.py": (39646, "58637097a350332db40368a027347ec395192880aa6ba4782c7d523e5b288190"), "experiments/owned-root-assembly-successor/render_export.py": (15933, "bc251ea3f3f3cb1aa5ea66bfc4f79a82f86191e76bacb9a3c4f58e64883c4780"), "experiments/current-form-surface-preview/generate_structural_profile_sources.py": (54437, "009be817cd2ec2db663b668fb5c9bdfa7296936283322e59d7a145e3d3cfec62"), "experiments/current-form-surface-preview/structural_atomic_publish.py": (10489, "5e648b3a1a3519afdf0fc1f2f1ecfe6fe7f1c58130f71fd2c8ee4317e2f282b5"), "experiments/current-form-surface-preview/surface_preview_launcher.sh": (6582, "3e18da2d361029a16558757d9727150d54c4d691b35c6a2a21b5b51cb7785190"), "experiments/current-form-surface-preview/requirements.txt": (49, "69a3ce10b1f993d7913f02ca187eabb8d367abf214662ffa2132feacbdeedbec")}
+EXPECTED_DEPS = {"experiments/owned-root-assembly-successor/anatomy_gates.py": (25674, "0c4b5f7812141a4cd7c7107655e578044355dfef5dbda6574bbb63bc359a2ff4"), "experiments/owned-root-assembly-successor/artifact_serialization.py": (27977, "3837928e4b987c65fd773e540f7db502f5d9a0b4c5940b95c923953754fdf7d4"), "experiments/owned-root-assembly-successor/build_owned_root.py": (78351, "23433a397c87fef2736c37aee4ea15a41b194fabed581341bb49f367cb22d2c5"), "experiments/owned-root-assembly-successor/chart_lineage.py": (18263, "01fdd09e8e0bb6d31851f0c7af711d90b313e36a012dbe3d71415a0468c31efc"), "experiments/owned-root-assembly-successor/mesh_correctness.py": (51035, "4104b70e70e958a469125d1fff544e20fee44b784bf7915d8e724e63d4f39db1"), "experiments/owned-root-assembly-successor/owned_root_surface.py": (58732, "c982d889fee30e2efea881b5725170740bc8afa2a883aa3dc4623941cd3e2a22"), "experiments/owned-root-assembly-successor/prepared_projection.py": (39646, "58637097a350332db40368a027347ec395192880aa6ba4782c7d523e5b288190"), "experiments/owned-root-assembly-successor/render_export.py": (15933, "bc251ea3f3f3cb1aa5ea66bfc4f79a82f86191e76bacb9a3c4f58e64883c4780"), "experiments/current-form-surface-preview/generate_structural_profile_sources.py": (54437, "009be817cd2ec2db663b668fb5c9bdfa7296936283322e59d7a145e3d3cfec62"), "experiments/current-form-surface-preview/structural_atomic_publish.py": (10489, "5e648b3a1a3519afdf0fc1f2f1ecfe6fe7f1c58130f71fd2c8ee4317e2f282b5"), "experiments/current-form-surface-preview/surface_preview_launcher.sh": (6582, "3e18da2d361029a16558757d9727150d54c4d691b35c6a2a21b5b51cb7785190"), "experiments/current-form-surface-preview/requirements.txt": (49, "69a3ce10b1f993d7913f02ca187eabb8d367abf214662ffa2132feacbdeedbec")}
 OLD_REQUIRED = ("test_mesh_correctness.ProductionIntersectionFixtureTests.test_contract_fixture_matrix", "test_owned_root_surface.ProductionAxillaryFixtureTests.test_contract_fixture_matrix")
 NEW_REQUIRED = ("test_exact_five_activation.ExactFiveActivationTests.test_all_33_selectors_copy_one_component", "test_exact_five_activation.ExactFiveActivationTests.test_atomic_failure_has_no_partial_publication", "test_exact_five_activation.ExactFiveActivationTests.test_decimal_half_even_boundaries", "test_exact_five_activation.ExactFiveActivationTests.test_final_evidence_schema_and_19_file_closure", "test_exact_five_activation.ExactFiveActivationTests.test_geometry_receives_only_components", "test_exact_five_activation.ExactFiveActivationTests.test_neutral_projection_preserves_38_payloads", "test_exact_five_activation.ExactFiveActivationTests.test_profile_seed_bundle_schema_and_closure", "test_exact_five_activation.ExactFiveActivationTests.test_profile_table_closed_and_exact_order", "test_exact_five_activation.ExactFiveActivationTests.test_profile_table_rejects_duplicate_keys_and_signatures", "test_exact_five_activation.ExactFiveActivationTests.test_projection_has_exact_92_bindings", "test_exact_five_activation.ExactFiveActivationTests.test_seed_dispatch_is_exact", "test_exact_five_activation.ExactFiveActivationTests.test_static_identity_and_allowlist")
 SHA = re.compile(r"[0-9a-f]{64}\Z")
@@ -70,6 +72,25 @@ class PublisherError(ValueError):
 def _need(condition, message):
     if not condition:
         raise PublisherError(message)
+
+
+def _cleanup_owned_stage(stage, identity):
+    """Remove only the directory this invocation created, preserving failures."""
+    if identity is None:
+        return
+    try:
+        current = os.lstat(stage)
+        if not stat.S_ISDIR(current.st_mode) or (current.st_dev, current.st_ino) != identity:
+            return
+        shutil.rmtree(stage)
+    except Exception:
+        pass
+
+
+def _create_owned_stage(stage, owner):
+    os.mkdir(stage)
+    current = os.lstat(stage)
+    owner["identity"] = (current.st_dev, current.st_ino)
 
 
 def _keys(value, expected, label):
@@ -519,7 +540,7 @@ def _new_receipt(value, raw, path, identity):
     return value
 
 
-def publish(baseline_root, bundle_paths, receipt_path, context_path, staging_path):
+def _publish_impl(baseline_root, bundle_paths, receipt_path, context_path, staging_path, stage_owner):
     identity = _static()
     baseline = _abs(str(baseline_root), "baseline root")
     stage = _abs(str(staging_path), "publication staging")
@@ -551,7 +572,7 @@ def publish(baseline_root, bundle_paths, receipt_path, context_path, staging_pat
     for role, expected in zip(PAYLOAD_ROLES, neutral_comparisons):
         left = bundle_values[0]["records"][role]
         _need(left == expected, f"standard-neutral payload differs: {role}")
-    os.mkdir(stage)
+    _create_owned_stage(stage, stage_owner)
     public_payloads = []
     for profile, bundle in zip(PROFILES, bundle_values[::2]):
         os.mkdir(stage / profile)
@@ -594,6 +615,18 @@ def publish(baseline_root, bundle_paths, receipt_path, context_path, staging_pat
     _artifact_caps(final_records, evidence_role="exact-five-evidence.json", total_limit=32 * 1024 * 1024)
     _need(len(final_records) == 19, "final staging closure is not exactly 19 files")
     return stage
+
+
+def publish(baseline_root, bundle_paths, receipt_path, context_path, staging_path):
+    stage = None
+    owner = {}
+    try:
+        stage = _abs(str(staging_path), "publication staging")
+        return _publish_impl(baseline_root, bundle_paths, receipt_path, context_path, stage, owner)
+    except Exception:
+        if stage is not None:
+            _cleanup_owned_stage(stage, owner.get("identity"))
+        raise
 
 
 def main(argv=None):

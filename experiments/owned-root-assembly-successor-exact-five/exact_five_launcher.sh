@@ -37,7 +37,7 @@ FIXED=(
   "experiments/current-form-surface-preview/structural_profile_candidates.json|29970|$PROFILE_SHA256"
   "experiments/owned-root-assembly-successor/anatomy_gates.py|25674|0c4b5f7812141a4cd7c7107655e578044355dfef5dbda6574bbb63bc359a2ff4"
   "experiments/owned-root-assembly-successor/artifact_serialization.py|27977|3837928e4b987c65fd773e540f7db502f5d9a0b4c5940b95c923953754fdf7d4"
-  "experiments/owned-root-assembly-successor/build_owned_root.py|78268|713cbf967bf2e0e233bae0c3506199fdc9a6ed71418edbd8dbf9b75beeee4045"
+  "experiments/owned-root-assembly-successor/build_owned_root.py|78351|23433a397c87fef2736c37aee4ea15a41b194fabed581341bb49f367cb22d2c5"
   "experiments/owned-root-assembly-successor/chart_lineage.py|18263|01fdd09e8e0bb6d31851f0c7af711d90b313e36a012dbe3d71415a0468c31efc"
   "experiments/owned-root-assembly-successor/mesh_correctness.py|51035|4104b70e70e958a469125d1fff544e20fee44b784bf7915d8e724e63d4f39db1"
   "experiments/owned-root-assembly-successor/owned_root_surface.py|58732|c982d889fee30e2efea881b5725170740bc8afa2a883aa3dc4623941cd3e2a22"
@@ -127,7 +127,7 @@ PY
 }
 
 cd -- "$REPO_ROOT"; IDENTITY_START="$(now_ns)"; pinned 0 runtime "$REPO_ROOT"; IDENTITY_END="$(now_ns)"
-TOKEN="$(tr -d '-' < /proc/sys/kernel/random/uuid 2>/dev/null || true)"; [[ -n "$TOKEN" ]] || TOKEN="$RANDOM$RANDOM"; INVOCATION_ROOT="$OUTPUT_PARENT/.exact-five-$TOKEN"; PUBLIC_STAGE="$OUTPUT_PARENT/.exact-five-public-$TOKEN"; RECEIPT="$INVOCATION_ROOT/managed-test-receipt.json"; CONTEXT="$INVOCATION_ROOT/launcher-context.json"; [[ ! -e "$INVOCATION_ROOT" && ! -L "$INVOCATION_ROOT" && ! -e "$PUBLIC_STAGE" && ! -L "$PUBLIC_STAGE" ]] || error 'selected staging path is occupied'; BUNDLES=()
+TOKEN="$(tr -d '-' < /proc/sys/kernel/random/uuid 2>/dev/null || true)"; [[ -n "$TOKEN" ]] || TOKEN="$RANDOM$RANDOM"; INVOCATION_ROOT="$OUTPUT_PARENT/.exact-five-$TOKEN"; PUBLIC_STAGE="$OUTPUT_PARENT/.exact-five-public-$TOKEN"; RECEIPT="$INVOCATION_ROOT/managed-test-receipt.json"; CONTEXT="$INVOCATION_ROOT/launcher-context.json"; [[ ! -e "$INVOCATION_ROOT" && ! -L "$INVOCATION_ROOT" && ! -e "$PUBLIC_STAGE" && ! -L "$PUBLIC_STAGE" ]] || error 'selected staging path is occupied'; mkdir -m 700 -- "$INVOCATION_ROOT" || error 'could not create invocation staging root'; BUNDLES=()
 MANAGED_START="$(now_ns)"; CK_EXACT_FIVE_BASELINE_ROOT="$BASELINE_ROOT" PYTHONHASHSEED=0 "$CURRENT_LAUNCHER" "$REPO_ROOT/$RUNNER_ROLE" --internal-managed-tests --receipt "$RECEIPT"; MANAGED_END="$(now_ns)"; [[ -f "$RECEIPT" && ! -L "$RECEIPT" && -d "$INVOCATION_ROOT" ]] || error 'managed tests did not seal their receipt'
 BASELINE_START="$(now_ns)"; pinned 0 baseline "$REPO_ROOT" "$BASELINE_ROOT" "$BASELINE_REPORT_SHA256" "$BASELINE_REPORT_SIDECAR_SHA256" "$BASELINE_MANIFEST_SHA256" "$RUNTIME_SHA256"; BASELINE_END="$(now_ns)"
 PROFILES=(standard_neutral_reference compact_broad_short_limb_large_head tall_narrow_long_legged slender_long_limb stocky_broad_chested); PROFILE_START="$(now_ns)"

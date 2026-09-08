@@ -39,7 +39,7 @@ unverified. No additional broad waiver is granted. Previous source/CLI gallery
 hash-based validation remains retained evidence. This status grants no merge
 authorization; PR #127's concrete control-plane gate remains with Ben. The
 paused snapshot is preserved as historical record in the [current
-handover](current-handover.md#historical-pause-snapshot-2026-09-07).
+handover](current-handover.md#historical-pause-snapshot--2026-09-07).
 
 This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may

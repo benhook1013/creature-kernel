@@ -1028,14 +1028,17 @@ fn canonical_metres_to_display_permille(value: NormalizedBinary64) -> Result<u32
         return Err("value is outside the provisional display range");
     }
 
-    // The source remains a canonical metre value.  Compare its admitted
-    // binary64 identity with each exact decimal thousandth encoding instead
-    // of rounding an arbitrary source value onto the display grid.
-    for display_value_permille in 1..=MAX_PROVISIONAL_PERMILLE {
-        let grid_metres = f64::from(display_value_permille) / 1_000.0;
-        if value.to_bits() == grid_metres.to_bits() {
-            return Ok(display_value_permille);
-        }
+    // Round only to select the in-range display candidate.  Admission still
+    // requires the source binary64 value to equal that candidate's exact
+    // metre encoding, so arbitrary values are not snapped onto the grid.
+    let candidate = (metres * 1_000.0).round();
+    if !(1.0..=f64::from(MAX_PROVISIONAL_PERMILLE)).contains(&candidate) {
+        return Err("value is not exactly representable on the provisional thousandth grid");
+    }
+    let display_value_permille = candidate as u32;
+    let grid_metres = f64::from(display_value_permille) / 1_000.0;
+    if value.to_bits() == grid_metres.to_bits() {
+        return Ok(display_value_permille);
     }
 
     Err("value is not exactly representable on the provisional thousandth grid")

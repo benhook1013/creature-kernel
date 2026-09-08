@@ -695,7 +695,6 @@ def _build_review_manifest(
     exact_root: Path,
     review_id: str,
     evidence: dict[str, Any],
-    report: dict[str, Any],
     png_records: dict[str, dict[str, Any]],
     evidence_raw: bytes,
     report_raw: bytes,
@@ -716,6 +715,8 @@ def _build_review_manifest(
                 "metadata": {
                     "profile_id": profile_id,
                     "render_kind": render_kind,
+                    "comparison_key": render_kind,
+                    "comparison_identity": item_id,
                     "artifact": {**artifact, "width": PNG_WIDTH, "height": PNG_HEIGHT, "mode": "RGB"},
                     "exact_five_evidence_sha256": artifacts.sha256_bytes(evidence_raw),
                     "exact_five_run_report_sha256": artifacts.sha256_bytes(report_raw),
@@ -780,7 +781,7 @@ def publish_exact_five_gallery(
     exact_root = exact_root.absolute()
     evidence, report, png_records, evidence_raw, report_raw = validate_exact_five_root(exact_root)
     review, expected_sources = _build_review_manifest(
-        exact_root, review_id, evidence, report, png_records, evidence_raw, report_raw
+        exact_root, review_id, evidence, png_records, evidence_raw, report_raw
     )
     try:
         with tempfile.TemporaryDirectory(prefix="ck-exact-five-gallery-") as temporary:

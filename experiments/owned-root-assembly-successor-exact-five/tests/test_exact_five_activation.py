@@ -398,6 +398,70 @@ class ExactFiveActivationTests(unittest.TestCase):
                 artifacts.publish_no_replace(stage, output, inventory, max_file_bytes=64)
             self.assertFalse(output.exists() or output.is_symlink())
 
+            occupied = root / "occupied-stage"
+            occupied.mkdir()
+            occupied_marker = occupied / "marker"
+            occupied_marker.write_bytes(b"occupied")
+            occupied_error = publisher.PublisherError("publication or final output already exists")
+
+            def reject_occupied(_baseline, _bundles, _receipt, _context, stage_path, _stage_owner):
+                self.assertTrue(os.path.lexists(stage_path))
+                raise occupied_error
+
+            with patch.object(publisher, "_publish_impl", side_effect=reject_occupied):
+                with self.assertRaises(publisher.PublisherError) as raised:
+                    publisher.publish(None, (), None, None, occupied)
+            self.assertIs(raised.exception, occupied_error)
+            self.assertEqual(occupied_marker.read_bytes(), b"occupied")
+
+            def failed_publication(label, replacement):
+                case = root / label
+                case.mkdir()
+                staging = case / "stage"
+                sentinel = RuntimeError(f"publisher {label} sentinel")
+                replacement_target = None
+
+                def fail_after_stage(_baseline, _bundles, _receipt, _context, stage_path, stage_owner):
+                    nonlocal replacement_target
+                    stage_path = Path(stage_path)
+                    publisher._create_owned_stage(stage_path, stage_owner)
+                    (stage_path / "synthetic-owned.txt").write_bytes(b"owned")
+                    replacement_target = replacement(stage_path, case)
+                    raise sentinel
+
+                with patch.object(publisher, "_publish_impl", side_effect=fail_after_stage):
+                    with self.assertRaises(RuntimeError) as raised:
+                        publisher.publish(None, (), None, None, staging)
+                self.assertIs(raised.exception, sentinel)
+                return staging, replacement_target
+
+            owned_stage, _ = failed_publication("owned-failure", lambda _stage, _case: None)
+            self.assertFalse(owned_stage.exists() or owned_stage.is_symlink())
+
+            def replace_with_symlink(stage_path, case):
+                target = case / "symlink-target"
+                target.write_bytes(b"preserve")
+                shutil.rmtree(stage_path)
+                stage_path.symlink_to(target)
+                return target
+
+            symlink_stage, symlink_target = failed_publication("symlink-failure", replace_with_symlink)
+            self.assertTrue(symlink_stage.is_symlink())
+            self.assertEqual(symlink_target.read_bytes(), b"preserve")
+
+            def replace_with_directory(stage_path, _case):
+                replacement = stage_path.parent / "replacement-directory"
+                replacement.mkdir()
+                marker_path = replacement / "replacement-marker"
+                marker_path.write_bytes(b"preserve")
+                shutil.rmtree(stage_path)
+                replacement.rename(stage_path)
+                return stage_path / "replacement-marker"
+
+            replacement_stage, replacement_marker = failed_publication("directory-failure", replace_with_directory)
+            self.assertTrue(replacement_stage.is_dir() and not replacement_stage.is_symlink())
+            self.assertEqual(replacement_marker.read_bytes(), b"preserve")
+
             invalid_baseline = root / "missing-baseline"
             public_output = root / "public-output"
             environment = os.environ.copy()
@@ -652,9 +716,11 @@ class ExactFiveActivationTests(unittest.TestCase):
 
     def test_profile_table_rejects_duplicate_keys_and_signatures(self):
         raw = PROFILE_TABLE.read_bytes()
-        duplicate = raw[:-1] + b',"profiles":[]}'
-        with self.assertRaises(ValueError):
-            self._admit_table(duplicate)
+        duplicate = raw.rstrip()[:-1] + b',"profiles":[]}\n'
+        self.assertTrue(duplicate.endswith(b"}\n"))
+        with patch.object(runner, "EXPECTED_PROFILE_BYTES", len(duplicate)), patch.object(runner, "EXPECTED_PROFILE_SHA256", hashlib.sha256(duplicate).hexdigest()):
+            with self.assertRaisesRegex(ValueError, "duplicate key"):
+                self._admit_table(duplicate)
 
         table = self._admit_table(raw)
         forged = copy.deepcopy(table)

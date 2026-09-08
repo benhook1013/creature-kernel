@@ -4029,9 +4029,10 @@
 
     function activatePackButton(button) {
       if (button.disabled) {
-        return;
+        return false;
       }
       button.click();
+      return true;
     }
 
     function isEditableKeyTarget(target) {
@@ -4050,14 +4051,16 @@
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || isEditableKeyTarget(event.target)) {
           return;
         }
-        event.preventDefault();
-        activatePackButton(older);
+        if (activatePackButton(older)) {
+          event.preventDefault();
+        }
       } else if (event.key === "ArrowRight") {
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || isEditableKeyTarget(event.target)) {
           return;
         }
-        event.preventDefault();
-        activatePackButton(newer);
+        if (activatePackButton(newer)) {
+          event.preventDefault();
+        }
       } else if (event.key === "+" || event.key === "=" || event.key === "Add") {
         event.preventDefault();
         zoomBy(ZOOM_FACTOR);
@@ -4198,10 +4201,10 @@
       newer.disabled = navigationBlocked || !hasIdentity || hasPackNavigationStop("newer", currentPack ? currentPack.identity : "") || packCandidates("newer").length === 0;
     }
 
-    function showItem(index, focusImage) {
-      var targetItems = arguments[2] || items;
-      var targetGroup = arguments[3] || null;
-      var targetPack = arguments[4] || null;
+    function showItem(index, focusImage, targetItems, targetGroup, targetPack) {
+      targetItems = targetItems || items;
+      targetGroup = targetGroup || null;
+      targetPack = targetPack || null;
       var isPackTransition = targetPack !== null && targetItems !== items;
       var isGroupTransition = !isPackTransition && targetGroup !== null && targetItems !== items;
       if (!isGroupTransition && !isPackTransition && imageNavigationBlocked()) {
@@ -4229,7 +4232,7 @@
       var navigationBlocked = imageNavigationBlocked();
       previous.disabled = navigationBlocked || targetItems.length < 2;
       next.disabled = navigationBlocked || targetItems.length < 2;
-      if (!isGroupTransition && image && displayedItem === item) {
+      if (!isGroupTransition && !isPackTransition && image && displayedItem === item) {
         updateDisplayedState("");
         if (focusImage) {
           focusPreservingViewport(image);
