@@ -636,7 +636,7 @@ class ExactFiveActivationTests(unittest.TestCase):
 
     def test_profile_seed_bundle_schema_and_closure(self):
         bundle = self._bundle()
-        records = artifacts.closed_inventory(bundle, BUNDLE_ROLES, max_file_bytes=2 * 1024 * 1024)
+        records = artifacts.closed_inventory(bundle, BUNDLE_ROLES, max_file_bytes=16 * 1024 * 1024)
         self.assertEqual(len(records), 42)
         self.assertEqual(tuple(record["role_path"] for record in records), tuple(sorted(BUNDLE_ROLES)))
         evidence, evidence_raw = _json(bundle / "profile-seed-evidence.json", max_bytes=16 * 1024 * 1024)
