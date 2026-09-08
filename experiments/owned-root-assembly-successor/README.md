@@ -1,7 +1,7 @@
 # Owned root assembly successor
 
-Status: standard-neutral execution complete; exact-five attempt fail-closed;
-frozen, SHA-256-bound, non-normative
+Status: stopped and superseded historical candidate; exact-five attempt
+fail-closed; frozen, SHA-256-bound, non-normative
 
 Experiment lifecycle: finished
 
@@ -26,20 +26,18 @@ returned `FREEZE` with zero blockers
 
 Design contract SHA-256: `3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`
 
-`correction_round=0`: the initial implementation phase is complete. A separate
-budget of at most two shared correction rounds remains available; none has been
-consumed.
+`correction_round=0`: the initial implementation phase is complete. The
+separate budget of at most two shared correction rounds is closed unused.
 
 ## Status and authority
 
-This is the frozen candidate contract and bounded implementation phase for one
-new, standard-neutral experiment. It is the successor direction authorized
-after the seven-ring candidate in PR #125 reached its three-round stop rule.
-It remains an unaccepted experiment-local candidate: the neutral result
-unlocked the unchanged exact-five gate, but the exact-five attempt is
-fail-closed and does not establish a production schema, architecture,
-topology, supported morphology promise, or permanent technology choice. It
-does not reactivate a parked workstream or satisfy the DR-0013 Stage 1 proof.
+This is the historical closeout for one frozen, standard-neutral experiment.
+The bounded budget is closed unused after the candidate was stopped and
+superseded. Its neutral result and fail-closed exact-five attempt remain
+experiment-local evidence; they do not establish a production schema,
+architecture, topology, supported morphology promise, or permanent technology
+choice, and do not satisfy the DR-0013 Stage 1 proof. No readmission or parked
+experiment reactivation follows from this record.
 
 The previous candidate is evidence, not a foundation to transplant. Its
 seven-ring topology, projection, formulas, macros, IDs, thresholds, and
@@ -78,21 +76,21 @@ focused non-success-path tests pass, but publication remains fail-closed:
 four non-neutral profiles fail the unchanged gates. The canonical trigger
 evidence is
 `experiments/owned-root-assembly-successor/results/correction-round-1-preflight-trigger.json`
-(21,714 bytes; SHA-256
-`6ab89cc92b87e9c549d864b2e5162f653d892ef6fc68faf46bc9ce57780ef62b`), with
+(22,161 bytes; SHA-256
+`e7e272f24653e53164ba82b7bc8651cce51f72406ad157205b894bc957bc9d62`), with
 39 observed failure records and ten profile/seed reproductions.
 
 The semantics-preserving numeric-only geometry seam and change batch fit the
 frozen LOC caps and pass 134 managed tests, both seed gates, and cross-seed
 comparison. This is not a correction round under [Correction stop](#correction-stop):
 it changes no shared construction formula or tunable, and all 38 published
-roles remain byte-identical, so the two-round budget remains unused. The
-current 96-file publication is in logical local cache
+roles remain byte-identical, so the two-round budget is closed unused. The
+retained 96-file publication is in logical local cache
 `artifact-cache/owned-root-assembly-successor/correction-batch-20260905-4`;
 all 38 geometry/perturbation/render roles in each seed are byte-identical to
-both the seam and pre-seam baselines. The current comparison report SHA-256 is
+both the seam and pre-seam baselines. The retained comparison report SHA-256 is
 `fe450e9047275c517de297f50b9ed7881c969fd2c315e9714334dcb8d9e68f2a`
-and the current stable-manifest SHA-256 is
+and the retained stable-manifest SHA-256 is
 `1b4aaed96671a55ae65dc163fd80db45288daf1b9dc9c91745bf19e414fa7ffa`.
 
 The exact-five activation contract is frozen at SHA-256
@@ -282,7 +280,7 @@ builder must require that identity, hash the file before admitting source
 inputs, and reject a missing file or mismatch without producing an artifact.
 The bounded implementation phase is complete under this frozen contract at
 `correction_round=0`. The separate budget of at most two shared correction
-rounds remains available and unused.
+rounds is closed unused.
 
 The frozen design contract fixes all details needed to make the candidate
 reproducible without inventing them during coding:
@@ -594,7 +592,7 @@ does not authorize promotion into production code or canonical architecture.
 
 ## Results, limitations, and conclusion
 
-The standard-neutral execution completed at `correction_round=0`. The current
+The standard-neutral execution completed at `correction_round=0`. The retained
 post-seam correction-batch publication identified above contains 96 files,
 passes 134 managed tests, both seed gates, and cross-seed comparison, and keeps
 all 38 payload roles byte-identical to the retained pre-seam baseline. This is
@@ -606,8 +604,8 @@ five profiles is exact. Focused non-success-path tests pass. No successful
 exact-five publication is claimed: four non-neutral profiles fail the
 unchanged gates, so publication remains fail-closed. The canonical trigger
 evidence is
-`results/correction-round-1-preflight-trigger.json` (21,714 bytes; SHA-256
-`6ab89cc92b87e9c549d864b2e5162f653d892ef6fc68faf46bc9ce57780ef62b`), with
+`results/correction-round-1-preflight-trigger.json` (22,161 bytes; SHA-256
+`e7e272f24653e53164ba82b7bc8651cce51f72406ad157205b894bc957bc9d62`), with
 39 observed failure records and ten profile/seed reproductions.
 
 The initial trial was limited to one standard-neutral root assembly. The
@@ -617,18 +615,26 @@ distal anatomy, posing, skeleton runtime, deformation, simulation, engine
 adapters, or production packaging. The exact-five result is fail-closed and
 does not approve production use.
 
+The canonical trigger identity is the historical
+`results/correction-round-1-preflight-trigger.json` file at 22,161 bytes with
+SHA-256
+`e7e272f24653e53164ba82b7bc8651cce51f72406ad157205b894bc957bc9d62`. It has
+39 observed failure records and ten profile/seed reproductions, but it does
+not establish an identical failure set across seeds. Public execution stopped
+at managed tests before baseline admission. An undocumented publisher
+readmission attempt is retained only as an unverified orchestration limitation,
+not as positive evidence. Valid neutral evidence and these proof limits remain
+historical; no claims about tails, distal anatomy, optional modules, posing,
+runtime, or production packaging are added here.
+
 ## Recommended follow-up
 
-The semantics-preserving numeric-only geometry seam is implemented and
-revalidated against the historical baseline above. Ben has authorized exactly
-one bounded dimension-driven shared shoulder/hip correction within the existing
-welded representation, preceded by feasibility. Shoulder feasibility found a
-candidate that passes exact five and coherent diagnostics. Hip feasibility found
-the frozen formula/support restriction insufficient; Astra-high's recommendation
-is advisory evidence for exactly one bounded deterministic fixed-topology
-pre-filter trial using already-admitted adjacent station inputs, not accepted
-architecture. If that trial requires profile fitting, clamps, overshoot,
-topology or ownership change, cap excess, or still fails required cases, stop
-rather than refreeze. No formula has been accepted or implemented. The human
-checkpoint remains Ben's exact-five gallery appraisal, and any PR must remain
-unmerged until his explicit approval.
+This experiment is stopped and superseded historical evidence. The current
+continuation is the integrated coarse-to-anatomical whole-character runway in
+the [Active runway](../../docs/project/status.md#active-runway); lower/body
+experiments are follow-up stack material and are not present in this Layer 1
+checkout. The next Ben checkpoint is a coherent recognizable whole character
+at rest and in restrained combined poses for both calibrated contexts, with
+source, frame, and binding-driven movement. This Layer 1 package performs
+captured regression checks without changing construction or publishing a new
+candidate, and does not reactivate this experiment.

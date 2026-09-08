@@ -145,7 +145,7 @@ class PreparedProjectionTests(unittest.TestCase):
         for value, message in cases:
             with self.subTest(value=value):
                 self.assert_rejected(rf"body\.dimensions\[\d+\]\.value: {message}", lambda source, value=value: source["body"]["dimensions"][self.record_index(source, "dimensions", pelvis, role)].__setitem__("value", value))
-        for index in range(153):
+        for index in range(len(self.source["body"]["dimensions"])):
             with self.subTest(index=index):
                 self.assert_rejected(rf"body\.dimensions\[{index}\]\.value: expected positive number", lambda source, index=index: source["body"]["dimensions"][index].__setitem__("value", 0))
     def test_canonical_metre_dimensions_and_non_dimension_routes(self):

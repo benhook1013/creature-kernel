@@ -225,7 +225,7 @@ class PrimitiveTests(unittest.TestCase):
         self.assertEqual(calls, [1.0, 2.0])
 
     def test_shared_one_classifier_is_exact_and_swap_invariant(self):
-        for name, b0, b1, expected in _fixture_shared_one()[:7]:
+        for name, b0, b1, expected in _fixture_shared_one():
             with self.subTest(name=name):
                 first, second = _shared_base(b0, b1)
                 shared, a0, a1 = first

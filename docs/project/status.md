@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-09-05 (NZST; repository activity is recorded in NZST while
+Status date: 2026-09-08 (NZST; repository activity is recorded in NZST while
 GitHub timestamps are UTC)
 
 ## Phase
@@ -14,111 +14,113 @@ governs what resumes next.
 
 ## Active runway
 
+**RESUMED on 2026-09-08 at Ben's explicit request relayed by the Overseer.**
+Resume the exact paused runway. The fail-closed PowerShell/stdin invocation
+repair has now passed parser, mocks, and both non-launching stdin sentinels
+(empty-profile and nonnumeric-port), with both rejected-input child processes exiting nonzero and no trailing sentinel;
+quoted-argument preview and fake handoff match, and no execution-policy
+mutation occurred. Main's follow-up changed only cleanup-receipt guidance to
+require current-PID, executable, and profile verification; no algorithm changed.
+Revalidate this pause snapshot and the current handover before continuing the
+lowest integration lane:
+PR #127 currently has 57 prospective paths; its two planned follow-ups are
+approximately 87 and 84 paths, each below 100 changed files. Packaging and review remain primary, and
+upper-work must not delay that lower lane. A genuine final-review-ready clean
+immutable head is required before the hosted and committed-diff CLI review cycle
+runs together. Current real-browser coverage is deferred; no browser repair or
+setup lane remains active. No local native Chromium or Playwright was available;
+the setup attempt installed only npm Playwright 1.63.0 packages at
+`/home/ben/.cache/pr127-native-browser-IFXwYI`, with no browser download or
+launch and no new infrastructure or launcher project. Windows-side execution is
+not permanently prohibited, but any future coverage must be provably hidden and
+profile-isolated and create no visible Windows desktop windows, tabs, consoles,
+focus changes, or popups. Real Windows launch and nonintrusion remain
+unverified. No additional broad waiver is granted. Previous source/CLI gallery
+hash-based validation remains retained evidence. This status grants no merge
+authorization; PR #127's concrete control-plane gate remains with Ben. The
+paused snapshot is preserved as historical record in the [current
+handover](current-handover.md#historical-pause-snapshot-2026-09-07).
+
 This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may
 preserve evidence but do not redefine current continuation.
 
-### Owned root assembly successor
+### Integrated coarse-to-anatomical whole-character runway
 
-The Ben-authorized, experiment-local successor is the bounded [owned root
-assembly investigation](../research/owned-root-assembly-investigation.md).
-It tests one welded standard-neutral root surface using exactly eight named,
-nonempty domain interiors under the hard `<=8` cap, five open ports, at most
-128 controls and 120 base quads, two subdivision levels, and at most two shared
-correction rounds. Construction ownership, semantic causality, and
-evaluated-surface contributor/chart lineage remain separate; every output must
-be owned or have a declared junction or contributor record.
+The current runway is active under Ben's authorization relayed through the
+Overseer on 2026-09-06. Main and Overseer may progress through an integrated
+coarse whole character and the first integrated anatomical refinement for both
+calibrated human and anthropomorphic contexts. The next named Ben checkpoint is
+a coherent, recognizable simplified whole character at rest and in restrained
+combined poses, with useful proportions and major masses plus displayed
+movement driven by real source, frame, and binding data. Internal milestones,
+individual limbs, trials, and poses do not substitute for that checkpoint, and
+this remains experimental evidence rather than a product, specification, or
+architecture adoption.
 
-The successor uses the authored `neck_upper` and `upper_abdomen` controls; its
-oriented interfaces, patch layout, port orientation, extraordinary
-placement/valence, continuity, normal/fold bounds, subdivision support,
-causality matrix, and locality perturbations are frozen before rendering. It
-replaces the old port-span anatomy gates with candidate-specific checks for
-neck exposure, shoulder descent, axillary concavity, pelvic wrap, and
-downward thigh-root orientation. Direct skin and ownership diagnostics must
-be renders of the same evaluated surface, and categorical colour cannot stand
-in for causality.
+This Layer 1 integration checkout packages and tests the historical owned-root
+and gallery fixes from PR #127. Main supplied the current draft head
+`4ae0a5c8176c60791248ad6eb5e52dc657a2dd34` against base
+`db5f11efff124d500d875f7839c53fee9a75f395`; CI, independent review, hosted and
+CLI checks, and human control-plane gates remain pending. This status records no
+merge authorization. The stage ledger is
+[stacked-integration-ledger.md](stacked-integration-ledger.md).
 
-The required
-`experiments/owned-root-assembly-successor/design-contract.md` freeze artifact
-is now frozen and SHA-256-bound at
-`3122f0db2235754ed782bd38a88c4d7ad7cc7edbf635d147194f1e93f8556490`, recorded
-by its sidecar. Two independent Sol reviews returned `FREEZE` with zero
-blockers. The bounded implementation phase completed at
-`correction_round=0`; the builder must reject a missing or mismatched
-design-contract identity.
+The owned-root assembly and exact-five attempt below are stopped, superseded
+historical evidence. Lower/body experiments and the active pelvis source work
+are follow-up stack material; those directories are not present in this Layer 1
+checkout. Pelvis development continues in
+`/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor` on
+`codex/owned-root-assembly-successor`. This integration layer runs captured
+regression checks without changing construction or publishing a new candidate;
+no parked experiment is reactivated.
 
-Historical round-0 neutral evidence is retained at commit
-`2efd0b28c492423630b2fed3930da23f1b69bd9b`. The main public evidence is the
-96-file publication in logical local cache
-`artifact-cache/owned-root-assembly-successor/2efd0b28-main-1`. That historical
-publication records 121
-tests with zero failures, errors, or skips; the seed gates and cross-seed
-comparison passed. The exact `comparison-report.json` SHA-256, obtainable from
-the exact sidecar, is
-`f87afb2ac517e4fd42ffb04248d97045df016f59d9f6d344d4a45659340b7ab7`. The
-direct PNG is
-`b98d9cf219cad3c60ce43921fc86be7817529fd93448386860738b60110075ed`, the
-lineage PNG is
-`19a006f8f237857d94821894016364dcc446caece3358e9c6da0794a75bf74d2`, the
-stable manifest is
-`3a8c87da8a297fb19f6f07b6ea669bde196e5a43b5609525f639e07fc168235e`, and
-the runtime fingerprint is
-`c19ca9c0b8268504f93513d55f90a0eb63777e566aba06e376b503c5e648f085`.
+## Layer 1 integration evidence (2026-09-07)
 
-Main-thread visual appraisal found the neutral neck, shoulder/axilla,
-pelvic-wrap, and thigh-root cues credible. Two independent Sol vision checks
-agreed and found no material blocker. The exact-five gate was therefore
-unlocked. The local exact-five runner, publisher, launcher, focused tests, and
-gallery adapter now exist. Projection across all five profiles is exact, and
-focused non-success-path tests pass, but publication remains fail-closed:
-four non-neutral profiles fail the unchanged gates. The canonical trigger
-evidence is
-`experiments/owned-root-assembly-successor/results/correction-round-1-preflight-trigger.json`
-(21,714 bytes; SHA-256
-`6ab89cc92b87e9c549d864b2e5162f653d892ef6fc68faf46bc9ce57780ef62b`), with
-39 observed failure records and ten profile/seed reproductions.
+The local gallery correction passed 58 focused tests, including delayed group
+transition and Tab/Escape propagation checks. A fresh independent first-use
+CLI trial confirmed the documented success, canonical-metre off-grid
+rejection, missing-file diagnostics, and help. Its pretty-printed test copy
+hit the existing source byte limit; a compact copy reached the intended
+dimension rejection. This is source-inspection evidence, not creature quality.
 
-The semantics-preserving numeric-only geometry seam and change batch fit the
-frozen LOC caps and pass 134 managed tests, both seed gates, and cross-seed
-comparison. The batch changes no shared formula or tunable and all 38 payloads
-remain byte-identical, so it consumes no correction round. The current 96-file
-publication is in logical local cache
-`artifact-cache/owned-root-assembly-successor/correction-batch-20260905-4`;
-all 38 geometry/perturbation/render roles in each seed are byte-identical to
-both the seam and pre-seam baselines. The current comparison report SHA-256 is
-`fe450e9047275c517de297f50b9ed7881c969fd2c315e9714334dcb8d9e68f2a`
-and the current stable-manifest SHA-256 is
-`1b4aaed96671a55ae65dc163fd80db45288daf1b9dc9c91745bf19e414fa7ffa`.
+A separate fresh non-browser adversarial trial exercised the production
+comparator through a temporary Node VM/fake-DOM harness. All six bounded
+scenarios passed: cross-pack identity/context, missing-match skipping,
+ambiguity stops, delayed group activation, image/pack failure preservation,
+and Tab/Escape plus stale-result handling. The harness and result are retained
+at `/tmp/pr127-nonbrowser-trial-itKBKF`; the reviewed application SHA-256 is
+`a1f525d04d806142512d90f2de99e525bf6a5020c3f389a7a459484c021cb864`.
+Fake-DOM results do not establish real event propagation, focus, or rendering.
 
-The exact-five activation contract is frozen at SHA-256
-`a5c38645c810efb24e79297fb7c8049f0f59529f37a67c18a5a728a7119f0d49`;
-two independent Sol reviews returned `FREEZE` with no blockers. The exact-five
-execution surface is present locally, but its fail-closed publication is not a
-success result. Outside the bounded correction authorized below, do not add a
-private-internal wrapper, duplicate geometry, profile-aware branching,
-geometry correction, or a new representation.
+Captured Python validation is retained outside Git under
+`/home/ben/.cache/pr127-lower-validation-56kvdu76`. The 111-file source
+manifest was recorded before imports and stayed unchanged after execution.
+The structural source check passed; 44 predecessor checks passed; 118 of 119
+owned-root checks passed initially. The failure exposed the frozen production
+line cap; after a formatting-only repair, the test line cap also failed.
+Both failures remain in the original logs. The final affected 27-check
+selection passed from the fresh capture
+`/home/ben/.cache/pr127-lower-validation-49ndbc5u`, with production/test
+counts of 3,400/2,600 and no changed cap or gate. The intermediate capture is
+`/home/ben/.cache/pr127-lower-validation-bw37o9xt`. Each capture contains its
+command manifest and logs. No public experiment builder was invoked.
 
-Ben explicitly authorized one bounded dimension-driven shared shoulder/hip
-correction within the existing welded representation, preceded by feasibility.
-No profile exceptions, clamps, gate or threshold relaxation, topology,
-ownership, renderer, subdivision, or representation change is authorized.
-Shoulder feasibility found a dimension-driven candidate that passes exact five
-and coherent diagnostics. Hip feasibility found the frozen formula/support
-restriction insufficient; Astra-high recommended exactly one bounded
-deterministic fixed-topology pre-filter trial using already-admitted adjacent
-station inputs. That advice is advisory evidence, not accepted architecture.
-If the trial requires profile fitting, clamps, overshoot, topology or ownership
-change, cap excess, or still fails required cases, stop rather than refreeze.
-No formula has been accepted or implemented.
+CLI formatting, Clippy with warnings denied, and 76 tests passed after moving
+a test-only import out of production scope. Repository-search checks and both
+CLI source-inspection commands passed. These focused checks do not upgrade the
+historical full-suite failure baseline or establish a new geometry result.
 
-The named human checkpoint remains Ben's exact-five gallery appraisal of the
-owned-root assembly, but the fail-closed publication must first produce the
-appraisable gallery evidence. The checkpoint uses fixed front, side, and
-three-quarter final-surface renders. Internal metrics and model reviews do not
-substitute for Ben's visual judgment. The [terminal
-seven-ring outcome](../research/programmatic-root-complex-surface-investigation.md#terminal-outcome-2026-09-03)
-remains historical evidence and is not reactivated.
+Ben stopped browser trials after the setup method caused visible Chrome
+errors and failed tabs. One launch passed an empty profile and debug port zero,
+so it may have handed tabs to the ordinary session. No task browser process or
+debug listener remained at the final cleanup check; ordinary Chrome was not
+modified because such tabs could not be safely attributed. Popup text was not
+captured. Setup and cleanup evidence remains at
+`/tmp/pr127-gallery-fixture-001`. Browser rendering, real focus/viewport
+behavior, and intermediate-width layout are unverified. This coverage gap is
+not a waived review or merge gate. Further browser launches are stopped while
+the bounded invocation is repaired and checked without launching a browser.
 
 ## Historical failed-candidate runway (2026-09-01)
 

@@ -33,12 +33,9 @@ sys.path.insert(0, str(PACKAGE))
 import artifact_serialization as artifacts
 import prepared_projection as projection
 from prepared_projection import (
-    MUST_AFFECT_COMPONENTS,
-    MUST_AFFECT_PARAMETER_IDS,
-    PERTURBATION_DELTA_M,
-    PreparedProjectionError,
-    GeometryComponents,
-    _admit_profile_bytes,
+    MUST_AFFECT_COMPONENTS, MUST_AFFECT_PARAMETER_IDS,
+    PERTURBATION_DELTA_M, PreparedProjectionError,
+    GeometryComponents, _admit_profile_bytes,
     _admit_source_bytes,
     _validate_binding_records,
     _validate_profile_table,
@@ -201,6 +198,12 @@ class PreparedProjectionTests(unittest.TestCase):
         for bad in ("unknown", "left.r_y.extra", 1):
             with self.subTest(parameter=bad), self.assertRaises(PreparedProjectionError): project_perturbed_geometry(self.prepared, bad)
         with self.assertRaises(PreparedProjectionError): project_perturbed_geometry(self.geometry, MUST_AFFECT_PARAMETER_IDS[0])
+    def test_perturbation_scope_uses_committed_json_operation(self):
+        parameter = MUST_AFFECT_PARAMETER_IDS[0]
+        index = projection._GEOMETRY_COMPONENT_IDS.index(MUST_AFFECT_COMPONENTS[parameter])
+        expected = list(self.geometry.values); expected[index] = float(expected[index] + PERTURBATION_DELTA_M)
+        with patch.object(projection, "_JSON_BYTES", side_effect=AssertionError("mutable serializer used")):
+            self.assertEqual(project_perturbed_geometry(self.prepared, parameter).values, tuple(expected))
     def test_complete_prepared_schema_values_and_runtime_types(self):
         prepared = self.prepared
         self.assertEqual(set(prepared), {
@@ -305,21 +308,19 @@ class PreparedProjectionTests(unittest.TestCase):
             self.assertIs(validate(self.prepared), self.prepared)
             self.assertIs(validate(self.prepared), self.prepared)
         self.assertEqual(build_prepared.call_count, 1)
-    def test_validator_rebuilds_for_changed_digest_and_rejects_fixed_input_drift(self):
+    def test_validator_rejects_changed_digest_before_cache_insertion_and_fixed_input_drift(self):
         fixed_inputs = projection._fixed_inputs(SOURCE, CONTRACT, PROFILE_TABLE)
         changed_digest = "f" * 64
         changed_inputs = (*fixed_inputs[:4], changed_digest)
-        changed = copy.deepcopy(self.prepared)
-        changed["profile_selection"]["profile_table_sha256"] = changed_digest
-        changed["provenance"]["source_files"][1]["sha256"] = changed_digest
         with patch.object(projection, "_fixed_inputs",
                           side_effect=[fixed_inputs, changed_inputs]):
             with patch.object(projection, "_build_prepared",
                               wraps=projection._build_prepared) as build_prepared:
                 validate = projection._prepared_apis(projection._COMMITMENTS)[0]
                 self.assertIs(validate(self.prepared), self.prepared)
-                self.assertIs(validate(changed), changed)
-            self.assertEqual(build_prepared.call_count, 2)
+                with self.assertRaisesRegex(PreparedProjectionError, "fixed input identity"):
+                    validate(self.prepared)
+            self.assertEqual(build_prepared.call_count, 1)
         drifted = SOURCE.read_bytes().replace(b'"forward": "+z"', b'"forward": "-z"', 1)
         calls = [0]
         def inputs_with_drift(*args):

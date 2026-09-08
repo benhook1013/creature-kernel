@@ -143,8 +143,8 @@ def _panel_candidates(screen: tuple[tuple[float, float, float], ...], triangles)
             records.append(None)
             degenerate += 1
             continue
-        c0, c1 = max(0, math.floor(min(ax, bx, cx) - 0.5) - 1), min(511, math.ceil(max(ax, bx, cx) - 0.5) + 1)
-        r0, r1 = max(0, math.floor(min(ay, by, cy) - 0.5) - 1), min(511, math.ceil(max(ay, by, cy) - 0.5) + 1)
+        c0, c1 = max(0, math.floor(min(ax, bx, cx) - 0.5) - 1), min(WIDTH - 1, math.ceil(max(ax, bx, cx) - 0.5) + 1)
+        r0, r1 = max(0, math.floor(min(ay, by, cy) - 0.5) - 1), min(HEIGHT - 1, math.ceil(max(ay, by, cy) - 0.5) + 1)
         records.append((ax, ay, za, bx, by, zb, cx, cy, zc, d0, d2, _fl(cy - ay), _fl(ax - cx), denominator, c0, c1))
         for row in range(r0, r1 + 1):
             rows[row].append((triangle_index, c0, c1))

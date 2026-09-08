@@ -1033,15 +1033,15 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
         for contract in (
             "function openImage(items, selectedIndex)",
-            "var imageItems = group.items.map",
+            "function imageItemsByGroupForReview(review)",
             "openImage(imageItems, itemIndex);",
             'event.key === "ArrowLeft"',
             'event.key === "ArrowRight"',
             "function showItem(index, focusImage)",
             "function restoreViewport(viewportState)",
             "function captureViewport()",
-            "showItem(requestedIndex - 1, image !== null && document.activeElement === image);",
-            "showItem(requestedIndex + 1, image !== null && document.activeElement === image);",
+            "activatePackButton(older);",
+            "activatePackButton(newer);",
             "showItem(requestedIndex + 1, true);",
             "showItem(requestedIndex - 1, false);",
             "showItem(requestedIndex + 1, false);",
@@ -1054,8 +1054,13 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
             "focusPreservingViewport(image);",
             'node("button", "Previous"',
             'node("button", "Next"',
+            'older.setAttribute("aria-keyshortcuts", "ArrowLeft");',
+            'newer.setAttribute("aria-keyshortcuts", "ArrowRight");',
+            'Use Previous/Next buttons for items within this pack. Left/Right arrow keys switch to the older/newer matching pack image.',
+            "function activatePackButton(button)",
+            "function isEditableKeyTarget(target)",
+            "event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || isEditableKeyTarget(event.target)",
             "positionLabel.textContent = displayedPositionText()",
-            'Use Previous/Next, the Left/Right arrow keys',
             'nextImage.addEventListener("click"',
             'nextImage.addEventListener("load"',
             'nextImage.addEventListener("error"',
@@ -1075,14 +1080,307 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         for selector in (".image-navigation-control", ".image-position", ".image-dialog-instructions", ".image-dialog img:focus-visible"):
             self.assertIn(selector, css)
 
-    def test_image_comparator_keeps_desktop_header_height_stable(self):
+    def test_cross_pack_matching_requires_explicit_identity_and_rejects_ambiguity(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+source = source.replace(entrypoint, "globalThis.__findPackImage = findPackImage; globalThis.__identity = imageComparisonIdentity;\n}());");
+const context = { document: { getElementById: function () { return null; } }, window: {} };
+vm.runInNewContext(source, context, { filename: appPath });
+const review = JSON.parse(fs.readFileSync(0, "utf8"));
+process.stdout.write(JSON.stringify([
+  context.__findPackImage(review, "model-v1:human:rest:front-side-rear-three-quarter"),
+  context.__findPackImage(review, "model-v1:human:missing:front-side-rear-three-quarter"),
+  context.__findPackImage(review, "model-v1:human:ambiguous:front-side-rear-three-quarter"),
+  context.__findPackImage(review, "rest"),
+  context.__identity({metadata: {comparison_identity: " model-v1:human:rest:front-side-rear-three-quarter"}}),
+  context.__identity({metadata: {comparison_identity: "model-v1:human:rest:front-side-rear-three-quarter"}})
+]));
+'''
+        review = {
+            "groups": [
+                {"id": "human", "items": [{"metadata": {"comparison_identity": "model-v1:human:rest:front-side-rear-three-quarter"}}]},
+                {"id": "anthropomorphic", "items": [
+                    {"metadata": {"comparison_identity": "model-v1:human:ambiguous:front-side-rear-three-quarter"}},
+                    {"metadata": {"comparison_identity": "model-v1:human:ambiguous:front-side-rear-three-quarter"}},
+                ]},
+            ]
+        }
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            input=json.dumps(review), capture_output=True, text=True, check=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), [
+            {"status": "match", "groupId": "human", "itemIndex": 0},
+            {"status": "missing"},
+            {"status": "ambiguous"},
+            {"status": "missing"},
+            None,
+            "model-v1:human:rest:front-side-rear-three-quarter",
+        ])
+        self.assertIn("metadata.comparison_identity", js)
+        self.assertIn("function findPackImage(review, identity)", js)
+
+    def test_cross_pack_navigation_is_modal_atomic_and_uses_displayed_pack_context(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        for contract in (
+            'node("button", "Older"',
+            'node("button", "Newer"',
+            'api("/api/sessions")',
+            'api("/api/reviews/" + encodeURIComponent(session.id))',
+            "function loadPackDirection(direction)",
+            "function packContextLabel(pack)",
+            "var packNavigation = items.packNavigation || null;",
+            "var pendingPackTransition = null;",
+            "var pendingPackSearch = false;",
+            "var packNavigationStops = {};",
+            "function displayedPackMatch()",
+            "function rememberPackNavigationStop(direction, identity, status)",
+            "function hasPackNavigationStop(direction, identity)",
+            "rememberPackNavigationStop(direction, identity, \"missing\");",
+            "rememberPackNavigationStop(direction, identity, \"ambiguous\");",
+            "pendingGroupTransition !== null || pendingPackSearch || pendingPackTransition !== null",
+            "packContext.review",
+            "if (isPackTransition && pendingPackTransition !== packTransition)",
+            "if (isPackTransition) {\n          items = targetItems;",
+            "packContext = packTransition.pack.packContext;",
+            'targetItems.packContext = { id: review.id, title: review.title, published_at: session.published_at, review: review };',
+            'updateDisplayedState("Ambiguous matching image; navigation stopped");',
+            'updateDisplayedState("No matching image in available packs");',
+            'data.session_index = Array.isArray(index.sessions) ? index.sessions : [];',
+            "var packContextLine = node(\"div\", null, \"image-pack-context\");",
+            "packContextLine.appendChild(packLabel);",
+            "dialog.appendChild(packContextLine);",
+        ):
+            self.assertIn(contract, js)
+        self.assertIn("var viewportState = image ? captureViewport() : null;", js)
+        self.assertIn("restoreViewport(viewportState);", js)
+        self.assertIn("var returnFocus = document.activeElement", js)
         css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
-        self.assertIn("flex-wrap: nowrap", css)
+        self.assertIn(".image-pack-context", css)
+        self.assertIn("overflow-wrap: anywhere", css)
+        self.assertIn("white-space: normal", css)
+
+    def test_pending_group_transition_blocks_within_pack_activation_until_load(self):
+        js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const appPath = process.argv[1];
+let source = fs.readFileSync(appPath, "utf8");
+const entrypoint = "  load();\n}());";
+if (source.split(entrypoint).length !== 2) {
+  throw new Error("unexpected browser app entrypoint");
+}
+source = source.replace(entrypoint, "  globalThis.__openImage = openImage;\n}());");
+
+function Element(tagName) {
+  this.tagName = tagName.toUpperCase();
+  this.children = [];
+  this.parentNode = null;
+  this.style = {};
+  this.attributes = {};
+  this.listeners = {};
+  this.className = "";
+  this.classList = {add: function () {}, remove: function () {}};
+  this.clientWidth = 800;
+  this.clientHeight = 600;
+  this.scrollLeft = 0;
+  this.scrollTop = 0;
+  this.naturalWidth = 400;
+  this.naturalHeight = 300;
+  this.open = false;
+}
+Element.prototype.appendChild = function (child) {
+  if (child.parentNode) {
+    child.parentNode.removeChild(child);
+  }
+  this.children.push(child);
+  child.parentNode = this;
+  return child;
+};
+Element.prototype.removeChild = function (child) {
+  const index = this.children.indexOf(child);
+  if (index >= 0) {
+    this.children.splice(index, 1);
+    child.parentNode = null;
+  }
+  return child;
+};
+Element.prototype.replaceChild = function (replacement, child) {
+  const index = this.children.indexOf(child);
+  if (index < 0) {
+    throw new Error("replacement child not found");
+  }
+  if (replacement.parentNode) {
+    replacement.parentNode.removeChild(replacement);
+  }
+  this.children[index] = replacement;
+  replacement.parentNode = this;
+  child.parentNode = null;
+  return child;
+};
+Element.prototype.remove = function () {
+  if (this.parentNode) {
+    this.parentNode.removeChild(this);
+  }
+};
+Element.prototype.setAttribute = function (name, value) {
+  this.attributes[name] = String(value);
+};
+Element.prototype.getAttribute = function (name) {
+  return this.attributes[name] || null;
+};
+Element.prototype.addEventListener = function (type, listener) {
+  (this.listeners[type] || (this.listeners[type] = [])).push(listener);
+};
+Element.prototype.removeEventListener = function (type, listener) {
+  this.listeners[type] = (this.listeners[type] || []).filter(function (entry) { return entry !== listener; });
+};
+Element.prototype.dispatchEvent = function (event) {
+  event.target = this;
+  event.currentTarget = this;
+  event.preventDefault = event.preventDefault || function () { event.defaultPrevented = true; };
+  event.stopPropagation = event.stopPropagation || function () { event.propagationStopped = true; };
+  (this.listeners[event.type] || []).slice().forEach(function (listener) { listener(event); });
+  return !event.defaultPrevented;
+};
+Element.prototype.click = function () {
+  this.dispatchEvent({type: "click"});
+};
+Element.prototype.focus = function () {
+  document.activeElement = this;
+};
+Element.prototype.getBoundingClientRect = function () {
+  return {left: 0, top: 0};
+};
+Element.prototype.showModal = function () {
+  this.open = true;
+};
+Element.prototype.close = function () {
+  this.open = false;
+  this.dispatchEvent({type: "close"});
+};
+
+const created = [];
+const app = new Element("main");
+const document = {
+  activeElement: app,
+  body: new Element("body"),
+  documentElement: {contains: function () { return true; }},
+  getElementById: function () { return app; },
+  createElement: function (tagName) {
+    const element = new Element(tagName);
+    created.push(element);
+    return element;
+  },
+};
+document.body.appendChild(app);
+const window = {
+  addEventListener: function () {},
+  removeEventListener: function () {},
+  requestAnimationFrame: function (callback) { callback(); return 1; },
+  cancelAnimationFrame: function () {},
+};
+const context = {document: document, window: window};
+vm.runInNewContext(source, context, {filename: appPath});
+
+const current = [
+  {title: "Current first", source: "current-first", metadata: {comparison_key: "pose"}},
+  {title: "Current second", source: "current-second", metadata: {comparison_key: "other"}},
+];
+const other = [
+  {title: "Other first", source: "other-first", metadata: {comparison_key: "other"}},
+  {title: "Other second", source: "other-second", metadata: {comparison_key: "other-2"}},
+  {title: "Other match", source: "other-match", metadata: {comparison_key: "pose"}},
+];
+const items = current.slice();
+items.initialGroupId = "current";
+items.comparisonResolver = function () {
+  return [
+    {groupId: "current", items: current, itemIndex: 0},
+    {groupId: "other", items: other, itemIndex: 2},
+  ];
+};
+context.__openImage(items, 0);
+const images = function () {
+  return created.filter(function (element) { return element.tagName === "IMG"; });
+};
+images()[0].dispatchEvent({type: "load"});
+const buttons = function (label) {
+  return created.find(function (element) { return element.tagName === "BUTTON" && element.textContent === label; });
+};
+const switchGroup = buttons("Switch model group");
+const previous = buttons("Previous");
+const next = buttons("Next");
+switchGroup.click();
+if (!previous.disabled || !next.disabled) {
+  throw new Error("within-pack controls remained enabled during group transition");
+}
+const pendingImage = images()[1];
+if (!pendingImage || pendingImage.src !== "other-match") {
+  throw new Error("group transition did not create the expected pending image");
+}
+const imageCount = images().length;
+const activationEvents = [
+  {type: "click"},
+  {type: "keydown", key: "Enter"},
+  {type: "keydown", key: " "},
+];
+activationEvents.forEach(function (event) {
+  images()[0].dispatchEvent(event);
+  if (!event.defaultPrevented || !event.propagationStopped) {
+    throw new Error("within-pack activation was not blocked during group transition");
+  }
+});
+[
+  {type: "keydown", key: "Tab"},
+  {type: "keydown", key: "Escape"},
+].forEach(function (event) {
+  images()[0].dispatchEvent(event);
+  if (event.defaultPrevented || event.propagationStopped) {
+    throw new Error("non-activation key was blocked during group transition");
+  }
+});
+previous.click();
+next.click();
+if (images().length !== imageCount) {
+  throw new Error("within-pack activation replaced the pending group transition");
+}
+pendingImage.dispatchEvent({type: "load"});
+if (pendingImage.parentNode === null || pendingImage.src !== "other-match" || previous.disabled || next.disabled) {
+  throw new Error("group transition did not commit atomically after the winning load");
+}
+process.stdout.write("pending group transition remained atomic");
+'''
+        completed = subprocess.run(
+            ["node", "-e", script, str(HERE / "static" / "app.js")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout, "pending group transition remained atomic")
+        for contract in (
+            "function imageNavigationBlocked()",
+            "if (!isGroupTransition && !isPackTransition && imageNavigationBlocked())",
+            "var navigationBlocked = imageNavigationBlocked();",
+            "if (imageNavigationBlocked()) {",
+        ):
+            self.assertIn(contract, js)
+
+    def test_image_comparator_wraps_controls_at_intrinsic_widths(self):
+        css = (HERE / "static" / "style.css").read_text(encoding="utf-8")
+        self.assertIn("flex-wrap: wrap", css)
+        self.assertIn("flex: 1 1 40rem", css)
         self.assertIn("flex: 1 1 auto", css)
         self.assertIn("text-overflow: ellipsis", css)
-        self.assertIn("white-space: nowrap", css)
+        self.assertIn("white-space: normal", css)
         self.assertIn("@media (max-width: 52rem)", css)
-        self.assertIn("flex-wrap: wrap", css)
 
     def test_image_comparator_names_requested_item_during_initial_load(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")
@@ -1224,7 +1522,7 @@ process.stdout.write(JSON.stringify(items.map(context.__imageAccessibleLabel)));
         self.assertIn("cursor: grabbing", css)
         self.assertIn("touch-action: none", css)
         self.assertIn("-webkit-user-drag: none", css)
-        self.assertIn("click the displayed image, or drag it", js)
+        self.assertIn("Click the displayed image or drag it", js)
 
     def test_image_click_restores_pointerdown_viewport_before_switch(self):
         js = (HERE / "static" / "app.js").read_text(encoding="utf-8")

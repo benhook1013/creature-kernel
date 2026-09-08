@@ -328,6 +328,7 @@ def _prepared_apis(_c):
         value = shape(prepared)
         contract_digest, admission, profile, profile_raw, profile_digest = inputs(fixed["paths"][2], fixed["paths"][0], fixed["paths"][3])
         digest_triple = (contract_digest, admission["sha256"], profile_digest)
+        need(digest_triple == fixed["hashes"], "prepared", "fixed input identity changed")
         expected_bytes = expected_bytes_cache.get(digest_triple)
         if expected_bytes is None:
             expected_bytes = operations["json_bytes"](
@@ -464,9 +465,8 @@ def _selector_path(component):
 def _path_get(value, path):
     for field in path: value = value[field]
     return value
-def _geometry_apis(_ids=_GEOMETRY_COMPONENT_IDS, _carrier=GeometryComponents,
-                   _validate=validate_prepared, _bindings=source_binding_records,
-                   _read=_geometry_value, _required=_need):
+def _geometry_apis(_ids=_GEOMETRY_COMPONENT_IDS, _carrier=GeometryComponents, _validate=validate_prepared,
+                   _bindings=source_binding_records, _read=_geometry_value, _required=_need, _json_bytes=_COMMITMENTS["operations"]["json_bytes"]):
     ids, carrier, validate, bindings, read, required = tuple(_ids), _carrier, _validate, _bindings, _read, _required
     selectors = tuple((parameter, component, _selector_path(component)) for parameter, component in _MUST_AFFECT)
     delta = _PERTURBATION_DELTA
@@ -491,7 +491,7 @@ def _geometry_apis(_ids=_GEOMETRY_COMPONENT_IDS, _carrier=GeometryComponents,
         changed = float(baseline + delta); _path_get(candidate, path[:-1])[path[-1]] = changed
         if _path_get(candidate, path) != changed: raise PreparedProjectionError("perturbation did not change its selected component")
         restored = copy.deepcopy(candidate); _path_get(restored, path[:-1])[path[-1]] = baseline
-        if _JSON_BYTES(restored) != _JSON_BYTES(value): raise PreparedProjectionError("perturbation changed more than its selected component")
+        if _json_bytes(restored) != _json_bytes(value): raise PreparedProjectionError("perturbation changed more than its selected component")
         return project_value(candidate)
     return project_geometry, project_perturbed_geometry
 project_geometry, project_perturbed_geometry = _geometry_apis()

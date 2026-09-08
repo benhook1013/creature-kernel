@@ -9,7 +9,7 @@
 
 use creature_kernel_core::body_document::{ResourceProfile, Status as AdmissionStatus};
 use creature_kernel_core::frame::RigidTransform;
-use creature_kernel_core::numeric::{NormalizedBinary64, decimal_to_binary64};
+use creature_kernel_core::numeric::NormalizedBinary64;
 use creature_kernel_core::provisional_form_preview::{
     MAX_PROVISIONAL_PERMILLE, ProvisionalFormPreview, ProvisionalFormPreviewError,
     ProvisionalPlacementFailureKind, ProvisionalShape, ProvisionalSourceFailureKind,
@@ -3271,6 +3271,7 @@ fn cli_diagnostic(code: &str, message: impl Into<String>) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use creature_kernel_core::numeric::decimal_to_binary64;
     use creature_kernel_core::provisional_json::{Value, json};
 
     fn example() -> Vec<u8> {
