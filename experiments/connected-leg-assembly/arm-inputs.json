@@ -1,0 +1,76 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-arm-inputs.v1",
+  "status": "initial-candidate-inputs-frozen",
+  "coordinate_convention": "metres; global X lateral, +Y up, +Z front",
+  "source_ownership": "J is shoulders.{side}.arm_origin in the original calibrated source case; it is not an arm-input field",
+  "budget": {
+    "initial_candidate_count": 1,
+    "shared_correction_max": 1,
+    "correction_condition": "only an evidence-justified shared correction after first actual-surface evidence",
+    "per_case_repairs": false,
+    "input_retuning_before_first_surface": false,
+    "alternative_constructions": false
+  },
+  "cases": [
+    {
+      "case_id": "calibrated_ordinary_human",
+      "sides": {
+        "left": {
+          "E": [-0.485, 0.365, 0.0],
+          "W": [-0.705, 0.285, 0.010],
+          "radii": {
+            "upper": [0.052, 0.054],
+            "elbow": [0.040, 0.043],
+            "forearm": [0.045, 0.048],
+            "wrist": [0.030, 0.034],
+            "palm": [0.043, 0.033]
+          },
+          "hand_length": 0.120
+        },
+        "right": {
+          "E": [0.485, 0.365, 0.0],
+          "W": [0.705, 0.285, 0.010],
+          "radii": {
+            "upper": [0.052, 0.054],
+            "elbow": [0.040, 0.043],
+            "forearm": [0.045, 0.048],
+            "wrist": [0.030, 0.034],
+            "palm": [0.043, 0.033]
+          },
+          "hand_length": 0.120
+        }
+      },
+      "status_note": "bounded masculine-direction coarse staging hypothesis; not anthropometry"
+    },
+    {
+      "case_id": "calibrated_upright_anthropomorphic",
+      "sides": {
+        "left": {
+          "E": [-0.500, 0.355, -0.005],
+          "W": [-0.735, 0.265, 0.015],
+          "radii": {
+            "upper": [0.055, 0.058],
+            "elbow": [0.042, 0.045],
+            "forearm": [0.048, 0.052],
+            "wrist": [0.032, 0.036],
+            "palm": [0.046, 0.036]
+          },
+          "hand_length": 0.130
+        },
+        "right": {
+          "E": [0.500, 0.355, -0.005],
+          "W": [0.735, 0.265, 0.015],
+          "radii": {
+            "upper": [0.055, 0.058],
+            "elbow": [0.042, 0.045],
+            "forearm": [0.048, 0.052],
+            "wrist": [0.032, 0.036],
+            "palm": [0.046, 0.036]
+          },
+          "hand_length": 0.130
+        }
+      },
+      "status_note": "same generic construction with provisional loose wolf-like proportions; no species branch"
+    }
+  ]
+}

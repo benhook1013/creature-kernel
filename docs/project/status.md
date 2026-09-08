@@ -61,7 +61,7 @@ individual limbs, trials, and poses do not substitute for that checkpoint, and
 this remains experimental evidence rather than a product, specification, or
 architecture adoption.
 
-This Layer 1 integration checkout packages and tests the historical owned-root
+The Layer 1 integration record packages and tests the historical owned-root
 and gallery fixes from PR #127. Main supplied the current draft head
 `4ae0a5c8176c60791248ad6eb5e52dc657a2dd34` against base
 `db5f11efff124d500d875f7839c53fee9a75f395`; CI, independent review, hosted and
@@ -69,14 +69,18 @@ CLI checks, and human control-plane gates remain pending. This status records no
 merge authorization. The stage ledger is
 [stacked-integration-ledger.md](stacked-integration-ledger.md).
 
-The owned-root assembly and exact-five attempt below are stopped, superseded
-historical evidence. Lower/body experiments and the active pelvis source work
-are follow-up stack material; those directories are not present in this Layer 1
-checkout. Pelvis development continues in
+The current checkout is the Layer 2 lower integration at base `e8c6516`. It
+contains exactly 88 copied source/evidence paths from the agreed manifest; it
+does not execute experiments or validate geometry. The owned-root assembly and
+exact-five attempt below are stopped, superseded historical evidence. Later
+body/foundation paths remain deferred to the upper layer, while the copied
+lower experiment records remain exploratory or historical prerequisites only.
+Pelvis development continues in
 `/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor` on
-`codex/owned-root-assembly-successor`. This integration layer runs captured
-regression checks without changing construction or publishing a new candidate;
-no parked experiment is reactivated.
+`codex/owned-root-assembly-successor`. No experiment is reactivated here. The
+current whole-character human checkpoint remains the coherent, recognizable
+simplified whole character at rest and in restrained combined poses, driven by
+real source, frame, and binding data.
 
 ## Layer 1 integration evidence (2026-09-07)
 

@@ -1,0 +1,3899 @@
+{
+  "cases": [
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            -1.0,
+            -2.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.32,
+        "hips.left.r_y": 0.28,
+        "hips.left.r_z": 0.3,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.32,
+        "hips.right.r_y": 0.28,
+        "hips.right.r_z": 0.3,
+        "shoulders.left.arm_origin.x": -1.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -1.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -1.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.35,
+        "shoulders.left.start_forward": 0.32,
+        "shoulders.left.start_lateral": 0.35,
+        "shoulders.left.start_up": 0.3,
+        "shoulders.right.arm_origin.x": 1.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 1.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 1.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.35,
+        "shoulders.right.start_forward": 0.32,
+        "shoulders.right.start_lateral": 0.35,
+        "shoulders.right.start_up": 0.3,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 1.125,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.5,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.45,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.4,
+        "stations.neck_collar.rL": 0.42,
+        "stations.neck_collar.rP": 0.4,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.33,
+        "stations.neck_upper.rL": 0.34,
+        "stations.neck_upper.rP": 0.33,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.225,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.35,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.5,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.875,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "standard_neutral_reference",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "unchanged exact-five profile projection; no geometry executed",
+        "profile": {
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "profile_id": "standard_neutral_reference",
+          "profile_index": 0,
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "exactfive_unchanged_profileprojection"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            -1.0,
+            -2.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.336,
+        "hips.left.r_y": 0.294,
+        "hips.left.r_z": 0.315,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.336,
+        "hips.right.r_y": 0.294,
+        "hips.right.r_z": 0.315,
+        "shoulders.left.arm_origin.x": -3.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -3.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -3.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.392,
+        "shoulders.left.start_forward": 0.336,
+        "shoulders.left.start_lateral": 0.368,
+        "shoulders.left.start_up": 0.315,
+        "shoulders.right.arm_origin.x": 3.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 3.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 3.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.392,
+        "shoulders.right.start_forward": 0.336,
+        "shoulders.right.start_lateral": 0.368,
+        "shoulders.right.start_up": 0.315,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.707,
+        "stations.lower_abdomen.rL": 1.328,
+        "stations.lower_abdomen.rP": 0.562,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.884,
+        "stations.lower_pelvis.rL": 1.77,
+        "stations.lower_pelvis.rP": 0.624,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.91,
+        "stations.lower_ribcage.rL": 1.711,
+        "stations.lower_ribcage.rP": 0.702,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.42,
+        "stations.neck_collar.rL": 0.441,
+        "stations.neck_collar.rP": 0.42,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.346,
+        "stations.neck_upper.rL": 0.357,
+        "stations.neck_upper.rP": 0.346,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.754,
+        "stations.upper_abdomen.rL": 1.446,
+        "stations.upper_abdomen.rP": 0.582,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.811,
+        "stations.upper_pelvis.rL": 1.593,
+        "stations.upper_pelvis.rP": 0.582,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.936,
+        "stations.upper_ribcage_shoulder.rL": 1.77,
+        "stations.upper_ribcage_shoulder.rP": 0.728,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.52,
+        "stations.waist_abdomen.rL": 1.032,
+        "stations.waist_abdomen.rP": 0.416
+      },
+      "id": "compact_broad_short_limb_large_head",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/1/part_placements/main|part||pelvis/0",
+                "/profiles/1/part_placements/main|part||pelvis/1",
+                "/profiles/1/part_placements/main|part||pelvis/2",
+                "/profiles/1/part_placements/main|part|left|thigh/0",
+                "/profiles/1/part_placements/main|part|left|thigh/1",
+                "/profiles/1/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/1/part_placements/main|part||pelvis/0",
+                "/profiles/1/part_placements/main|part||pelvis/1",
+                "/profiles/1/part_placements/main|part||pelvis/2",
+                "/profiles/1/part_placements/main|part|left|thigh/0",
+                "/profiles/1/part_placements/main|part|left|thigh/1",
+                "/profiles/1/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/1/part_placements/main|part||pelvis/0",
+                "/profiles/1/part_placements/main|part||pelvis/1",
+                "/profiles/1/part_placements/main|part||pelvis/2",
+                "/profiles/1/part_placements/main|part|right|thigh/0",
+                "/profiles/1/part_placements/main|part|right|thigh/1",
+                "/profiles/1/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/1/part_placements/main|part||pelvis/0",
+                "/profiles/1/part_placements/main|part||pelvis/1",
+                "/profiles/1/part_placements/main|part||pelvis/2",
+                "/profiles/1/part_placements/main|part|right|thigh/0",
+                "/profiles/1/part_placements/main|part|right|thigh/1",
+                "/profiles/1/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "unchanged exact-five profile projection; no geometry executed",
+        "profile": {
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "profile_id": "compact_broad_short_limb_large_head",
+          "profile_index": 1,
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "exactfive_unchanged_profileprojection"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -2.0,
+            0.0
+          ],
+          "knee": [
+            -1.0,
+            -3.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -2.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -3.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -2.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.272,
+        "hips.left.r_y": 0.238,
+        "hips.left.r_z": 0.255,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -2.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.272,
+        "hips.right.r_y": 0.238,
+        "hips.right.r_z": 0.255,
+        "shoulders.left.arm_origin.x": -2.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -2.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -2.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.315,
+        "shoulders.left.start_forward": 0.272,
+        "shoulders.left.start_lateral": 0.298,
+        "shoulders.left.start_up": 0.255,
+        "shoulders.right.arm_origin.x": 2.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 2.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 2.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.315,
+        "shoulders.right.start_forward": 0.272,
+        "shoulders.right.start_lateral": 0.298,
+        "shoulders.right.start_up": 0.255,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 0.956,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.275,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.232,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.38,
+        "stations.neck_collar.rL": 0.399,
+        "stations.neck_collar.rP": 0.38,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.314,
+        "stations.neck_upper.rL": 0.323,
+        "stations.neck_upper.rP": 0.314,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.041,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.148,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.275,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.744,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "tall_narrow_long_legged",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/2/part_placements/main|part||pelvis/0",
+                "/profiles/2/part_placements/main|part||pelvis/1",
+                "/profiles/2/part_placements/main|part||pelvis/2",
+                "/profiles/2/part_placements/main|part|left|thigh/0",
+                "/profiles/2/part_placements/main|part|left|thigh/1",
+                "/profiles/2/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/2/part_placements/main|part||pelvis/0",
+                "/profiles/2/part_placements/main|part||pelvis/1",
+                "/profiles/2/part_placements/main|part||pelvis/2",
+                "/profiles/2/part_placements/main|part|left|thigh/0",
+                "/profiles/2/part_placements/main|part|left|thigh/1",
+                "/profiles/2/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/2/part_placements/main|part||pelvis/0",
+                "/profiles/2/part_placements/main|part||pelvis/1",
+                "/profiles/2/part_placements/main|part||pelvis/2",
+                "/profiles/2/part_placements/main|part|right|thigh/0",
+                "/profiles/2/part_placements/main|part|right|thigh/1",
+                "/profiles/2/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/2/part_placements/main|part||pelvis/0",
+                "/profiles/2/part_placements/main|part||pelvis/1",
+                "/profiles/2/part_placements/main|part||pelvis/2",
+                "/profiles/2/part_placements/main|part|right|thigh/0",
+                "/profiles/2/part_placements/main|part|right|thigh/1",
+                "/profiles/2/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "unchanged exact-five profile projection; no geometry executed",
+        "profile": {
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "profile_id": "tall_narrow_long_legged",
+          "profile_index": 2,
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "exactfive_unchanged_profileprojection"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -2.0,
+            0.0
+          ],
+          "knee": [
+            -1.0,
+            -3.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -2.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -3.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -2.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.25,
+        "hips.left.r_y": 0.218,
+        "hips.left.r_z": 0.234,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -2.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.25,
+        "hips.right.r_y": 0.218,
+        "hips.right.r_z": 0.234,
+        "shoulders.left.arm_origin.x": -2.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -2.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -2.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.28,
+        "shoulders.left.start_forward": 0.25,
+        "shoulders.left.start_lateral": 0.273,
+        "shoulders.left.start_up": 0.234,
+        "shoulders.right.arm_origin.x": 2.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 2.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 2.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.28,
+        "shoulders.right.start_forward": 0.25,
+        "shoulders.right.start_lateral": 0.273,
+        "shoulders.right.start_up": 0.234,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.612,
+        "stations.lower_abdomen.rL": 0.9,
+        "stations.lower_abdomen.rP": 0.486,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.765,
+        "stations.lower_pelvis.rL": 1.2,
+        "stations.lower_pelvis.rP": 0.54,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.788,
+        "stations.lower_ribcage.rL": 1.16,
+        "stations.lower_ribcage.rP": 0.608,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.34,
+        "stations.neck_collar.rL": 0.357,
+        "stations.neck_collar.rP": 0.34,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.28,
+        "stations.neck_upper.rL": 0.289,
+        "stations.neck_upper.rP": 0.28,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.652,
+        "stations.upper_abdomen.rL": 0.98,
+        "stations.upper_abdomen.rP": 0.504,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.702,
+        "stations.upper_pelvis.rL": 1.08,
+        "stations.upper_pelvis.rP": 0.504,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.81,
+        "stations.upper_ribcage_shoulder.rL": 1.2,
+        "stations.upper_ribcage_shoulder.rP": 0.63,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.45,
+        "stations.waist_abdomen.rL": 0.7,
+        "stations.waist_abdomen.rP": 0.36
+      },
+      "id": "slender_long_limb",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/3/part_placements/main|part||pelvis/0",
+                "/profiles/3/part_placements/main|part||pelvis/1",
+                "/profiles/3/part_placements/main|part||pelvis/2",
+                "/profiles/3/part_placements/main|part|left|thigh/0",
+                "/profiles/3/part_placements/main|part|left|thigh/1",
+                "/profiles/3/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/3/part_placements/main|part||pelvis/0",
+                "/profiles/3/part_placements/main|part||pelvis/1",
+                "/profiles/3/part_placements/main|part||pelvis/2",
+                "/profiles/3/part_placements/main|part|left|thigh/0",
+                "/profiles/3/part_placements/main|part|left|thigh/1",
+                "/profiles/3/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/3/part_placements/main|part||pelvis/0",
+                "/profiles/3/part_placements/main|part||pelvis/1",
+                "/profiles/3/part_placements/main|part||pelvis/2",
+                "/profiles/3/part_placements/main|part|right|thigh/0",
+                "/profiles/3/part_placements/main|part|right|thigh/1",
+                "/profiles/3/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/3/part_placements/main|part||pelvis/0",
+                "/profiles/3/part_placements/main|part||pelvis/1",
+                "/profiles/3/part_placements/main|part||pelvis/2",
+                "/profiles/3/part_placements/main|part|right|thigh/0",
+                "/profiles/3/part_placements/main|part|right|thigh/1",
+                "/profiles/3/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "unchanged exact-five profile projection; no geometry executed",
+        "profile": {
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "profile_id": "slender_long_limb",
+          "profile_index": 3,
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "exactfive_unchanged_profileprojection"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            -1.0,
+            -2.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.358,
+        "hips.left.r_y": 0.314,
+        "hips.left.r_z": 0.336,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.358,
+        "hips.right.r_y": 0.314,
+        "hips.right.r_z": 0.336,
+        "shoulders.left.arm_origin.x": -3.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -3.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -3.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.42,
+        "shoulders.left.start_forward": 0.368,
+        "shoulders.left.start_lateral": 0.402,
+        "shoulders.left.start_up": 0.345,
+        "shoulders.right.arm_origin.x": 3.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 3.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 3.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.42,
+        "shoulders.right.start_forward": 0.368,
+        "shoulders.right.start_lateral": 0.402,
+        "shoulders.right.start_up": 0.345,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.762,
+        "stations.lower_abdomen.rL": 1.462,
+        "stations.lower_abdomen.rP": 0.605,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.952,
+        "stations.lower_pelvis.rL": 1.95,
+        "stations.lower_pelvis.rP": 0.672,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.98,
+        "stations.lower_ribcage.rL": 1.885,
+        "stations.lower_ribcage.rP": 0.756,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.46,
+        "stations.neck_collar.rL": 0.483,
+        "stations.neck_collar.rP": 0.46,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.38,
+        "stations.neck_upper.rL": 0.391,
+        "stations.neck_upper.rP": 0.38,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.812,
+        "stations.upper_abdomen.rL": 1.592,
+        "stations.upper_abdomen.rP": 0.627,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.874,
+        "stations.upper_pelvis.rL": 1.755,
+        "stations.upper_pelvis.rP": 0.627,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 1.008,
+        "stations.upper_ribcage_shoulder.rL": 1.95,
+        "stations.upper_ribcage_shoulder.rP": 0.784,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.56,
+        "stations.waist_abdomen.rL": 1.138,
+        "stations.waist_abdomen.rP": 0.448
+      },
+      "id": "stocky_broad_chested",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/4/part_placements/main|part||pelvis/0",
+                "/profiles/4/part_placements/main|part||pelvis/1",
+                "/profiles/4/part_placements/main|part||pelvis/2",
+                "/profiles/4/part_placements/main|part|left|thigh/0",
+                "/profiles/4/part_placements/main|part|left|thigh/1",
+                "/profiles/4/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/4/part_placements/main|part||pelvis/0",
+                "/profiles/4/part_placements/main|part||pelvis/1",
+                "/profiles/4/part_placements/main|part||pelvis/2",
+                "/profiles/4/part_placements/main|part|left|thigh/0",
+                "/profiles/4/part_placements/main|part|left|thigh/1",
+                "/profiles/4/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/4/part_placements/main|part||pelvis/0",
+                "/profiles/4/part_placements/main|part||pelvis/1",
+                "/profiles/4/part_placements/main|part||pelvis/2",
+                "/profiles/4/part_placements/main|part|right|thigh/0",
+                "/profiles/4/part_placements/main|part|right|thigh/1",
+                "/profiles/4/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/4/part_placements/main|part||pelvis/0",
+                "/profiles/4/part_placements/main|part||pelvis/1",
+                "/profiles/4/part_placements/main|part||pelvis/2",
+                "/profiles/4/part_placements/main|part|right|thigh/0",
+                "/profiles/4/part_placements/main|part|right|thigh/1",
+                "/profiles/4/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "unchanged exact-five profile projection; no geometry executed",
+        "profile": {
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "profile_id": "stocky_broad_chested",
+          "profile_index": 4,
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "exactfive_unchanged_profileprojection"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -0.105,
+            -0.16,
+            0.0
+          ],
+          "knee": [
+            -0.105,
+            -0.59,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            0.105,
+            -0.16,
+            0.0
+          ],
+          "knee": [
+            0.105,
+            -0.59,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -0.105,
+        "hips.left.P_s.y": -0.16,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.085,
+        "hips.left.r_y": 0.085,
+        "hips.left.r_z": 0.09,
+        "hips.right.P_s.x": 0.105,
+        "hips.right.P_s.y": -0.16,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.085,
+        "hips.right.r_y": 0.085,
+        "hips.right.r_z": 0.09,
+        "shoulders.left.arm_origin.x": -0.16,
+        "shoulders.left.arm_origin.y": 0.32,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -0.17600000000000002,
+        "shoulders.left.axilla.y": 0.272,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -0.17600000000000002,
+        "shoulders.left.peak.y": 0.344,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.055999999999999994,
+        "shoulders.left.start_forward": 0.0512,
+        "shoulders.left.start_lateral": 0.055999999999999994,
+        "shoulders.left.start_up": 0.048,
+        "shoulders.right.arm_origin.x": 0.16,
+        "shoulders.right.arm_origin.y": 0.32,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 0.17600000000000002,
+        "shoulders.right.axilla.y": 0.272,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 0.17600000000000002,
+        "shoulders.right.peak.y": 0.344,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.055999999999999994,
+        "shoulders.right.start_forward": 0.0512,
+        "shoulders.right.start_lateral": 0.055999999999999994,
+        "shoulders.right.start_up": 0.048,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.04,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.09,
+        "stations.lower_abdomen.rL": 0.135,
+        "stations.lower_abdomen.rP": 0.09,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.072,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.105,
+        "stations.lower_pelvis.rL": 0.18,
+        "stations.lower_pelvis.rP": 0.12,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 0.168,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.14,
+        "stations.lower_ribcage.rL": 0.23199999999999998,
+        "stations.lower_ribcage.rP": 0.10800000000000001,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 0.344,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.064,
+        "stations.neck_collar.rL": 0.0672,
+        "stations.neck_collar.rP": 0.064,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 0.408,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.05280000000000001,
+        "stations.neck_upper.rL": 0.054400000000000004,
+        "stations.neck_upper.rP": 0.05280000000000001,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.128,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.11599999999999999,
+        "stations.upper_abdomen.rL": 0.196,
+        "stations.upper_abdomen.rP": 0.08960000000000001,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.032,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.1,
+        "stations.upper_pelvis.rL": 0.16,
+        "stations.upper_pelvis.rP": 0.105,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 0.312,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.14400000000000002,
+        "stations.upper_ribcage_shoulder.rL": 0.24,
+        "stations.upper_ribcage_shoulder.rP": 0.11199999999999999,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.08,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.08,
+        "stations.waist_abdomen.rL": 0.12,
+        "stations.waist_abdomen.rP": 0.075
+      },
+      "id": "ordinary_human_reference",
+      "provenance": {
+        "authoritative_input_path": "experiments/pelvis-thigh-transition/inputs.json",
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "inputs.json.case-override.v1",
+              "profile_pointers": [],
+              "source_pointers": [
+                "/cases/5/attachments/left/centre"
+              ]
+            },
+            "knee": {
+              "derivation": "inputs.json.case-override.v1",
+              "profile_pointers": [],
+              "source_pointers": [
+                "/cases/5/attachments/left/knee"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "inputs.json.case-override.v1",
+              "profile_pointers": [],
+              "source_pointers": [
+                "/cases/5/attachments/right/centre"
+              ]
+            },
+            "knee": {
+              "derivation": "inputs.json.case-override.v1",
+              "profile_pointers": [],
+              "source_pointers": [
+                "/cases/5/attachments/right/knee"
+              ]
+            }
+          }
+        },
+        "claim": "synthetic adult coarse pelvic proportions; not anatomical measured truth or a whole-body fixture",
+        "frame": {
+          "interpretation": "identity local pelvis frame; no rig or joint resolution",
+          "rotation_xyzw": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "override_authority": "literal /cases/5/attachments/* pointers and numeric component overrides in this file; source/profile are only uniformly scaled base context",
+        "profile": {
+          "base_case": "standard_neutral_reference",
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640",
+          "uniform_scale": 0.16
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "executable_cross_family_challenge"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            -1.0,
+            -2.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.32,
+        "hips.left.r_y": 0.28,
+        "hips.left.r_z": 0.3,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.32,
+        "hips.right.r_y": 0.28,
+        "hips.right.r_z": 0.3,
+        "shoulders.left.arm_origin.x": -1.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -1.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -1.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.35,
+        "shoulders.left.start_forward": 0.32,
+        "shoulders.left.start_lateral": 0.35,
+        "shoulders.left.start_up": 0.3,
+        "shoulders.right.arm_origin.x": 1.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 1.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 1.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.35,
+        "shoulders.right.start_forward": 0.32,
+        "shoulders.right.start_lateral": 0.35,
+        "shoulders.right.start_up": 0.3,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 1.125,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.6500000000000001,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.45,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.4,
+        "stations.neck_collar.rL": 0.42,
+        "stations.neck_collar.rP": 0.4,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.33,
+        "stations.neck_upper.rL": 0.34,
+        "stations.neck_upper.rP": 0.33,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.225,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.4850000000000003,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.5,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.875,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "neutral_pelvis_width_plus_10pct",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "numeric perturbation declaration only; no geometry executed",
+        "expected_change": {
+          "direction": "pelvic lower/upper lateral radii increase"
+        },
+        "profile": {
+          "base_case": "standard_neutral_reference",
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "predeclared_neutral_perturbation"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.05,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            -1.05,
+            -2.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.05,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.32,
+        "hips.left.r_y": 0.28,
+        "hips.left.r_z": 0.3,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.32,
+        "hips.right.r_y": 0.28,
+        "hips.right.r_z": 0.3,
+        "shoulders.left.arm_origin.x": -1.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -1.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -1.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.35,
+        "shoulders.left.start_forward": 0.32,
+        "shoulders.left.start_lateral": 0.35,
+        "shoulders.left.start_up": 0.3,
+        "shoulders.right.arm_origin.x": 1.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 1.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 1.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.35,
+        "shoulders.right.start_forward": 0.32,
+        "shoulders.right.start_lateral": 0.35,
+        "shoulders.right.start_up": 0.3,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 1.125,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.5,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.45,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.4,
+        "stations.neck_collar.rL": 0.42,
+        "stations.neck_collar.rP": 0.4,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.33,
+        "stations.neck_upper.rL": 0.34,
+        "stations.neck_upper.rP": 0.33,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.225,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.35,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.5,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.875,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "neutral_left_spacing_minus_005",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "numeric perturbation declaration only; no geometry executed",
+        "expected_change": {
+          "direction": "left hip, knee and thigh start translate -x by 0.05"
+        },
+        "profile": {
+          "base_case": "standard_neutral_reference",
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "predeclared_neutral_perturbation"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            -0.9128442573,
+            -1.9961946981,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.32,
+        "hips.left.r_y": 0.28,
+        "hips.left.r_z": 0.3,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.32,
+        "hips.right.r_y": 0.28,
+        "hips.right.r_z": 0.3,
+        "shoulders.left.arm_origin.x": -1.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -1.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -1.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.35,
+        "shoulders.left.start_forward": 0.32,
+        "shoulders.left.start_lateral": 0.35,
+        "shoulders.left.start_up": 0.3,
+        "shoulders.right.arm_origin.x": 1.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 1.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 1.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.35,
+        "shoulders.right.start_forward": 0.32,
+        "shoulders.right.start_lateral": 0.35,
+        "shoulders.right.start_up": 0.3,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 1.125,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.5,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.45,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.4,
+        "stations.neck_collar.rL": 0.42,
+        "stations.neck_collar.rP": 0.4,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.33,
+        "stations.neck_upper.rL": 0.34,
+        "stations.neck_upper.rP": 0.33,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.225,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.35,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.5,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.875,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "neutral_left_direction_tilt_5deg",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "numeric perturbation declaration only; no geometry executed",
+        "expected_change": {
+          "direction": "left thigh direction tilts 5 degrees inward",
+          "original_leg_length": 1.0
+        },
+        "profile": {
+          "base_case": "standard_neutral_reference",
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "predeclared_neutral_perturbation"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.0,
+            -1.0,
+            0.05
+          ],
+          "knee": [
+            -1.0,
+            -2.0,
+            0.05
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.0,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.05,
+        "hips.left.r_x": 0.32,
+        "hips.left.r_y": 0.28,
+        "hips.left.r_z": 0.3,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.32,
+        "hips.right.r_y": 0.28,
+        "hips.right.r_z": 0.3,
+        "shoulders.left.arm_origin.x": -1.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -1.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -1.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.35,
+        "shoulders.left.start_forward": 0.32,
+        "shoulders.left.start_lateral": 0.35,
+        "shoulders.left.start_up": 0.3,
+        "shoulders.right.arm_origin.x": 1.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 1.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 1.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.35,
+        "shoulders.right.start_forward": 0.32,
+        "shoulders.right.start_lateral": 0.35,
+        "shoulders.right.start_up": 0.3,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 1.125,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.5,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.45,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.4,
+        "stations.neck_collar.rL": 0.42,
+        "stations.neck_collar.rP": 0.4,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.33,
+        "stations.neck_upper.rL": 0.34,
+        "stations.neck_upper.rP": 0.33,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.225,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.35,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.5,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.875,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "neutral_left_front_offset_plus_005",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "numeric perturbation declaration only; no geometry executed",
+        "expected_change": {
+          "direction": "left hip, knee and thigh start translate +z by 0.05"
+        },
+        "profile": {
+          "base_case": "standard_neutral_reference",
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "predeclared_neutral_perturbation"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -1.05,
+            -1.0,
+            0.05
+          ],
+          "knee": [
+            -1.05,
+            -2.0,
+            0.05
+          ]
+        },
+        "right": {
+          "centre": [
+            1.0,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            1.0,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -1.05,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.05,
+        "hips.left.r_x": 0.336,
+        "hips.left.r_y": 0.28,
+        "hips.left.r_z": 0.3,
+        "hips.right.P_s.x": 1.0,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.32,
+        "hips.right.r_y": 0.28,
+        "hips.right.r_z": 0.3,
+        "shoulders.left.arm_origin.x": -1.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -1.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -1.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.35,
+        "shoulders.left.start_forward": 0.32,
+        "shoulders.left.start_lateral": 0.35,
+        "shoulders.left.start_up": 0.3,
+        "shoulders.right.arm_origin.x": 1.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 1.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 1.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.35,
+        "shoulders.right.start_forward": 0.32,
+        "shoulders.right.start_lateral": 0.35,
+        "shoulders.right.start_up": 0.3,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 1.125,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.5,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.45,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.4,
+        "stations.neck_collar.rL": 0.42,
+        "stations.neck_collar.rP": 0.4,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.33,
+        "stations.neck_upper.rL": 0.34,
+        "stations.neck_upper.rP": 0.33,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.225,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.35,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.5,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.875,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "neutral_left_asymmetric_xz_and_radius",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "numeric perturbation declaration only; no geometry executed",
+        "expected_change": {
+          "direction": "left x spacing -0.05, z offset +0.05, left lateral start radius +5%"
+        },
+        "profile": {
+          "base_case": "standard_neutral_reference",
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "predeclared_neutral_perturbation"
+    },
+    {
+      "attachments": {
+        "left": {
+          "centre": [
+            -0.2,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            -0.2,
+            -2.0,
+            0.0
+          ]
+        },
+        "right": {
+          "centre": [
+            0.2,
+            -1.0,
+            0.0
+          ],
+          "knee": [
+            0.2,
+            -2.0,
+            0.0
+          ]
+        }
+      },
+      "components": {
+        "hips.left.P_s.x": -0.2,
+        "hips.left.P_s.y": -1.0,
+        "hips.left.P_s.z": 0.0,
+        "hips.left.r_x": 0.35,
+        "hips.left.r_y": 0.28,
+        "hips.left.r_z": 0.3,
+        "hips.right.P_s.x": 0.2,
+        "hips.right.P_s.y": -1.0,
+        "hips.right.P_s.z": 0.0,
+        "hips.right.r_x": 0.35,
+        "hips.right.r_y": 0.28,
+        "hips.right.r_z": 0.3,
+        "shoulders.left.arm_origin.x": -1.0,
+        "shoulders.left.arm_origin.y": 2.0,
+        "shoulders.left.arm_origin.z": 0.0,
+        "shoulders.left.axilla.x": -1.1,
+        "shoulders.left.axilla.y": 1.7,
+        "shoulders.left.axilla.z": 0.0,
+        "shoulders.left.peak.x": -1.1,
+        "shoulders.left.peak.y": 2.15,
+        "shoulders.left.peak.z": 0.0,
+        "shoulders.left.shoulder_depth": 0.35,
+        "shoulders.left.start_forward": 0.32,
+        "shoulders.left.start_lateral": 0.35,
+        "shoulders.left.start_up": 0.3,
+        "shoulders.right.arm_origin.x": 1.0,
+        "shoulders.right.arm_origin.y": 2.0,
+        "shoulders.right.arm_origin.z": 0.0,
+        "shoulders.right.axilla.x": 1.1,
+        "shoulders.right.axilla.y": 1.7,
+        "shoulders.right.axilla.z": 0.0,
+        "shoulders.right.peak.x": 1.1,
+        "shoulders.right.peak.y": 2.15,
+        "shoulders.right.peak.z": 0.0,
+        "shoulders.right.shoulder_depth": 0.35,
+        "shoulders.right.start_forward": 0.32,
+        "shoulders.right.start_lateral": 0.35,
+        "shoulders.right.start_up": 0.3,
+        "stations.lower_abdomen.C.x": 0.0,
+        "stations.lower_abdomen.C.y": 0.25,
+        "stations.lower_abdomen.C.z": 0.0,
+        "stations.lower_abdomen.rA": 0.68,
+        "stations.lower_abdomen.rL": 1.125,
+        "stations.lower_abdomen.rP": 0.54,
+        "stations.lower_pelvis.C.x": 0.0,
+        "stations.lower_pelvis.C.y": -0.45,
+        "stations.lower_pelvis.C.z": 0.0,
+        "stations.lower_pelvis.rA": 0.85,
+        "stations.lower_pelvis.rL": 1.5,
+        "stations.lower_pelvis.rP": 0.6,
+        "stations.lower_ribcage.C.x": 0.0,
+        "stations.lower_ribcage.C.y": 1.05,
+        "stations.lower_ribcage.C.z": 0.0,
+        "stations.lower_ribcage.rA": 0.875,
+        "stations.lower_ribcage.rL": 1.45,
+        "stations.lower_ribcage.rP": 0.675,
+        "stations.neck_collar.C.x": 0.0,
+        "stations.neck_collar.C.y": 2.15,
+        "stations.neck_collar.C.z": 0.0,
+        "stations.neck_collar.rA": 0.4,
+        "stations.neck_collar.rL": 0.42,
+        "stations.neck_collar.rP": 0.4,
+        "stations.neck_upper.C.x": 0.0,
+        "stations.neck_upper.C.y": 2.55,
+        "stations.neck_upper.C.z": 0.0,
+        "stations.neck_upper.rA": 0.33,
+        "stations.neck_upper.rL": 0.34,
+        "stations.neck_upper.rP": 0.33,
+        "stations.upper_abdomen.C.x": 0.0,
+        "stations.upper_abdomen.C.y": 0.8,
+        "stations.upper_abdomen.C.z": 0.0,
+        "stations.upper_abdomen.rA": 0.725,
+        "stations.upper_abdomen.rL": 1.225,
+        "stations.upper_abdomen.rP": 0.56,
+        "stations.upper_pelvis.C.x": 0.0,
+        "stations.upper_pelvis.C.y": -0.2,
+        "stations.upper_pelvis.C.z": 0.0,
+        "stations.upper_pelvis.rA": 0.78,
+        "stations.upper_pelvis.rL": 1.35,
+        "stations.upper_pelvis.rP": 0.56,
+        "stations.upper_ribcage_shoulder.C.x": 0.0,
+        "stations.upper_ribcage_shoulder.C.y": 1.95,
+        "stations.upper_ribcage_shoulder.C.z": 0.0,
+        "stations.upper_ribcage_shoulder.rA": 0.9,
+        "stations.upper_ribcage_shoulder.rL": 1.5,
+        "stations.upper_ribcage_shoulder.rP": 0.7,
+        "stations.waist_abdomen.C.x": 0.0,
+        "stations.waist_abdomen.C.y": 0.5,
+        "stations.waist_abdomen.C.z": 0.0,
+        "stations.waist_abdomen.rA": 0.5,
+        "stations.waist_abdomen.rL": 0.875,
+        "stations.waist_abdomen.rP": 0.4
+      },
+      "id": "neutral_invalid_close_thick",
+      "provenance": {
+        "bindings": {
+          "left": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/14/position/0",
+                "/body/landmarks/14/position/1",
+                "/body/landmarks/14/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/8/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/9"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|left|thigh/0",
+                "/profiles/0/part_placements/main|part|left|thigh/1",
+                "/profiles/0/part_placements/main|part|left|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/10/placement/translation/0",
+                "/body/parts/10/placement/translation/1",
+                "/body/parts/10/placement/translation/2",
+                "/body/landmarks/16/position/0",
+                "/body/landmarks/16/position/1",
+                "/body/landmarks/16/position/2"
+              ]
+            }
+          },
+          "right": {
+            "centre": {
+              "derivation": "profile.world-part-plus-thigh-start.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/19/position/0",
+                "/body/landmarks/19/position/1",
+                "/body/landmarks/19/position/2"
+              ]
+            },
+            "frame": {
+              "interpretation": "identity frame admitted; no rig or joint resolution",
+              "rotation_xyzw": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "source_pointers": [
+                "/body/frames/10/transform"
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            },
+            "joint_hint": {
+              "distal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "interpretation": "source hint retained for provenance; not interpreted as a solved skeleton",
+              "proximal_frame": {
+                "rotation_xyzw": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "translation": [
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "source_pointer": "/body/joints/12"
+            },
+            "knee": {
+              "derivation": "profile.world-part-plus-source-knee.v1",
+              "profile_pointers": [
+                "/profiles/0/part_placements/main|part||pelvis/0",
+                "/profiles/0/part_placements/main|part||pelvis/1",
+                "/profiles/0/part_placements/main|part||pelvis/2",
+                "/profiles/0/part_placements/main|part|right|thigh/0",
+                "/profiles/0/part_placements/main|part|right|thigh/1",
+                "/profiles/0/part_placements/main|part|right|thigh/2"
+              ],
+              "source_pointers": [
+                "/body/parts/0/placement/translation/0",
+                "/body/parts/0/placement/translation/1",
+                "/body/parts/0/placement/translation/2",
+                "/body/parts/13/placement/translation/0",
+                "/body/parts/13/placement/translation/1",
+                "/body/parts/13/placement/translation/2",
+                "/body/landmarks/21/position/0",
+                "/body/landmarks/21/position/1",
+                "/body/landmarks/21/position/2"
+              ]
+            }
+          }
+        },
+        "claim": "numeric perturbation declaration only; no geometry executed",
+        "expected_change": {
+          "direction": "deliberately incompatible medial overlap; expected rejection"
+        },
+        "profile": {
+          "base_case": "standard_neutral_reference",
+          "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+          "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+        },
+        "source": {
+          "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+          "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+        }
+      },
+      "role": "predeclared_neutral_perturbation"
+    }
+  ],
+  "component_ids": [
+    "hips.left.P_s.x",
+    "hips.left.P_s.y",
+    "hips.left.P_s.z",
+    "hips.left.r_x",
+    "hips.left.r_y",
+    "hips.left.r_z",
+    "hips.right.P_s.x",
+    "hips.right.P_s.y",
+    "hips.right.P_s.z",
+    "hips.right.r_x",
+    "hips.right.r_y",
+    "hips.right.r_z",
+    "shoulders.left.arm_origin.x",
+    "shoulders.left.arm_origin.y",
+    "shoulders.left.arm_origin.z",
+    "shoulders.left.axilla.x",
+    "shoulders.left.axilla.y",
+    "shoulders.left.axilla.z",
+    "shoulders.left.peak.x",
+    "shoulders.left.peak.y",
+    "shoulders.left.peak.z",
+    "shoulders.left.shoulder_depth",
+    "shoulders.left.start_forward",
+    "shoulders.left.start_lateral",
+    "shoulders.left.start_up",
+    "shoulders.right.arm_origin.x",
+    "shoulders.right.arm_origin.y",
+    "shoulders.right.arm_origin.z",
+    "shoulders.right.axilla.x",
+    "shoulders.right.axilla.y",
+    "shoulders.right.axilla.z",
+    "shoulders.right.peak.x",
+    "shoulders.right.peak.y",
+    "shoulders.right.peak.z",
+    "shoulders.right.shoulder_depth",
+    "shoulders.right.start_forward",
+    "shoulders.right.start_lateral",
+    "shoulders.right.start_up",
+    "stations.lower_abdomen.C.x",
+    "stations.lower_abdomen.C.y",
+    "stations.lower_abdomen.C.z",
+    "stations.lower_abdomen.rA",
+    "stations.lower_abdomen.rL",
+    "stations.lower_abdomen.rP",
+    "stations.lower_pelvis.C.x",
+    "stations.lower_pelvis.C.y",
+    "stations.lower_pelvis.C.z",
+    "stations.lower_pelvis.rA",
+    "stations.lower_pelvis.rL",
+    "stations.lower_pelvis.rP",
+    "stations.lower_ribcage.C.x",
+    "stations.lower_ribcage.C.y",
+    "stations.lower_ribcage.C.z",
+    "stations.lower_ribcage.rA",
+    "stations.lower_ribcage.rL",
+    "stations.lower_ribcage.rP",
+    "stations.neck_collar.C.x",
+    "stations.neck_collar.C.y",
+    "stations.neck_collar.C.z",
+    "stations.neck_collar.rA",
+    "stations.neck_collar.rL",
+    "stations.neck_collar.rP",
+    "stations.neck_upper.C.x",
+    "stations.neck_upper.C.y",
+    "stations.neck_upper.C.z",
+    "stations.neck_upper.rA",
+    "stations.neck_upper.rL",
+    "stations.neck_upper.rP",
+    "stations.upper_abdomen.C.x",
+    "stations.upper_abdomen.C.y",
+    "stations.upper_abdomen.C.z",
+    "stations.upper_abdomen.rA",
+    "stations.upper_abdomen.rL",
+    "stations.upper_abdomen.rP",
+    "stations.upper_pelvis.C.x",
+    "stations.upper_pelvis.C.y",
+    "stations.upper_pelvis.C.z",
+    "stations.upper_pelvis.rA",
+    "stations.upper_pelvis.rL",
+    "stations.upper_pelvis.rP",
+    "stations.upper_ribcage_shoulder.C.x",
+    "stations.upper_ribcage_shoulder.C.y",
+    "stations.upper_ribcage_shoulder.C.z",
+    "stations.upper_ribcage_shoulder.rA",
+    "stations.upper_ribcage_shoulder.rL",
+    "stations.upper_ribcage_shoulder.rP",
+    "stations.waist_abdomen.C.x",
+    "stations.waist_abdomen.C.y",
+    "stations.waist_abdomen.C.z",
+    "stations.waist_abdomen.rA",
+    "stations.waist_abdomen.rL",
+    "stations.waist_abdomen.rP"
+  ],
+  "immutability": "mandatory fixtures and perturbations are fixed once this file is written",
+  "mandatory_case_ids": [
+    "standard_neutral_reference",
+    "compact_broad_short_limb_large_head",
+    "tall_narrow_long_legged",
+    "slender_long_limb",
+    "stocky_broad_chested",
+    "ordinary_human_reference"
+  ],
+  "perturbation_case_ids": [
+    "neutral_pelvis_width_plus_10pct",
+    "neutral_left_spacing_minus_005",
+    "neutral_left_direction_tilt_5deg",
+    "neutral_left_front_offset_plus_005",
+    "neutral_left_asymmetric_xz_and_radius",
+    "neutral_invalid_close_thick"
+  ],
+  "profile_table": {
+    "path": "experiments/current-form-surface-preview/structural_profile_candidates.json",
+    "sha256": "a5fba6643d0031bac83c08e9093e11fd7945806963509fa939865866112d9640"
+  },
+  "schema": "creature-kernel.pelvis-thigh-transition-inputs.v1",
+  "source": {
+    "path": "examples/body-documents/stylized-digitigrade-biped-authored-form.json",
+    "sha256": "82269e843555ff1aad3c66399e3fcaeb11bbee81d72b69d15765ea9c4e7aff14"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-foot-form-inputs.v1",
+  "status": "FOOT-004-source-form-candidate-frozen-for-preflight",
+  "coordinate_convention": "local foot frame; origin actual leg A; X actual leg X; U projected global +Y; F=X cross U; radii are local-normal",
+  "source_semantics": {
+    "H": "rear heel surface-centre control",
+    "R": "ankle-body surface-centre control; not a joint",
+    "M": "forefoot-start surface-centre control",
+    "B": "forefoot-body surface-centre control",
+    "T": "terminal surface-centre control",
+    "reference_y": "contact-plane measurement only; no floor projection",
+    "x_local": "zero for every source centre; lateral placement comes from the actual frame"
+  },
+  "budget": {
+    "initial_candidate_count": 1,
+    "shared_correction_max": 1,
+    "correction_condition": "only one evidence-justified shared construction correction after the initial candidate",
+    "input_retuning": false,
+    "alternative_constructions": false
+  },
+  "cases": [
+    {
+      "case_id": "calibrated_ordinary_human",
+      "construction": {
+        "midpoint_fraction": 0.5,
+        "rise_row_fractions": [0.25, 0.625],
+        "rise_width_exponent": 2.0,
+        "cross_section_rounding": 0.94,
+        "collar_fraction": 0.20
+      },
+      "sides": {
+        "left": {
+          "reference_y": -0.900,
+          "H": {"local_y": -0.045, "local_z": -0.055, "rL": 0.030, "rD": 0.030, "rP": 0.030},
+          "R": {"local_y": -0.047, "local_z": 0.000, "rL": 0.032, "rD": 0.045, "rP": 0.028},
+          "M": {"local_y": -0.045, "local_z": 0.075, "rL": 0.042, "rD": 0.034, "rP": 0.030},
+          "B": {"local_y": -0.052, "local_z": 0.135, "rL": 0.052, "rD": 0.030, "rP": 0.025},
+          "T": {"local_y": -0.057, "local_z": 0.210, "rL": 0.039, "rD": 0.020, "rP": 0.018}
+        },
+        "right": {
+          "reference_y": -0.900,
+          "H": {"local_y": -0.045, "local_z": -0.055, "rL": 0.030, "rD": 0.030, "rP": 0.030},
+          "R": {"local_y": -0.047, "local_z": 0.000, "rL": 0.032, "rD": 0.045, "rP": 0.028},
+          "M": {"local_y": -0.045, "local_z": 0.075, "rL": 0.042, "rD": 0.034, "rP": 0.030},
+          "B": {"local_y": -0.052, "local_z": 0.135, "rL": 0.052, "rD": 0.030, "rP": 0.025},
+          "T": {"local_y": -0.057, "local_z": 0.210, "rL": 0.039, "rD": 0.020, "rP": 0.018}
+        }
+      }
+    },
+    {
+      "case_id": "calibrated_upright_anthropomorphic",
+      "construction": {
+        "midpoint_fraction": 0.5,
+        "rise_row_fractions": [0.25, 0.625],
+        "rise_width_exponent": 2.0,
+        "cross_section_rounding": 0.94,
+        "collar_fraction": 0.20
+      },
+      "sides": {
+        "left": {
+          "reference_y": -0.880,
+          "H": {"local_y": -0.035, "local_z": -0.030, "rL": 0.027, "rD": 0.023, "rP": 0.025},
+          "R": {"local_y": -0.040, "local_z": 0.0125, "rL": 0.026, "rD": 0.035, "rP": 0.026},
+          "M": {"local_y": -0.207, "local_z": 0.130, "rL": 0.045, "rD": 0.030, "rP": 0.028},
+          "B": {"local_y": -0.207, "local_z": 0.185, "rL": 0.057, "rD": 0.034, "rP": 0.028},
+          "T": {"local_y": -0.213, "local_z": 0.260, "rL": 0.043, "rD": 0.022, "rP": 0.020}
+        },
+        "right": {
+          "reference_y": -0.880,
+          "H": {"local_y": -0.035, "local_z": -0.030, "rL": 0.027, "rD": 0.023, "rP": 0.025},
+          "R": {"local_y": -0.040, "local_z": 0.0125, "rL": 0.026, "rD": 0.035, "rP": 0.026},
+          "M": {"local_y": -0.207, "local_z": 0.130, "rL": 0.045, "rD": 0.030, "rP": 0.028},
+          "B": {"local_y": -0.207, "local_z": 0.185, "rL": 0.057, "rD": 0.034, "rP": 0.028},
+          "T": {"local_y": -0.213, "local_z": 0.260, "rL": 0.043, "rD": 0.022, "rP": 0.020}
+        }
+      }
+    }
+  ]
+}

@@ -37,6 +37,19 @@ direction, and consequential boundaries. Ben explicitly authorizes closure after
 the current fixes and checks, subject to Overseer assessment. The pause record
 below is historical.
 
+## Current Layer 2 lower integration
+
+This handover now points at the lower integration checkout
+`/home/ben/src/creature-kernel-worktrees/lower-connected-leg-integration` on
+`codex/lower-connected-leg-integration`, based at `e8c6516`. It contains exactly
+88 copied source/evidence paths from the agreed manifest. This checkout performs
+no experiment execution or geometry validation; later body/foundation paths
+remain deferred to the upper layer. The four copied experiment directories are
+exploratory or historical prerequisites whose own READMEs retain lifecycle and
+evidence authority. The current whole-character human checkpoint is unchanged:
+a coherent, recognizable simplified whole character at rest and in restrained
+combined poses, with movement driven by real source, frame, and binding data.
+
 ## Historical pause snapshot — 2026-09-07
 
 Ben explicitly requested a pause at the next safe boundary. All delegates have
@@ -90,7 +103,7 @@ the draft integration package, refresh exact PR head/file count, and consider
 the pending immutable-head review cycle. Real-browser evidence and whole-PR
 human merge authority remain unsatisfied; no browser retry is implicit.
 
-## Last-known context
+## Historical Layer 1 last-known context
 
 The following values are expected last-known context for this Layer 1
 integration checkout and are explicitly untrusted until verified live:
@@ -112,22 +125,21 @@ The original active development checkout remains
 `codex/owned-root-assembly-successor`; pelvis source work continues there and
 was not edited by this integration layer.
 
-## Layer 1 integration destination
+## Layer 2 lower integration destination
 
-This checkout packages and tests the historical owned-root and gallery fixes
-under the three-PR stack. The four stage-specific documentation overlays record
-historical closeout and navigation only; captured regression checks change no
-construction and publish no candidate. No parked experiment is reactivated.
-The current continuation is the integrated
-coarse-to-anatomical whole-character Active runway. Later lower/body paths are
-follow-up stack material and remain prose-only until their files arrive here.
+This checkout carries the lower Layer 2 source/evidence package under the
+three-layer stack. The four stage-specific documentation overlays record
+historical closeout and lower-layer navigation only; no experiment execution or
+geometry validation occurs here, and no parked experiment is reactivated. The
+current continuation is the integrated coarse-to-anatomical whole-character
+Active runway. Later body/foundation paths remain deferred to the upper layer.
 
 PR #127 and the supplied head remain pending CI, independent review, hosted and
 CLI checks, and human control-plane gates. This handover grants no merge
 authorization. The current integration checks and consolidated review remain
 pending.
 
-Focused integration results and their capture paths are recorded in
+Historical Layer 1 integration results and their capture paths are recorded in
 [Layer 1 integration evidence](status.md#layer-1-integration-evidence-2026-09-07).
 Ben stopped browser launches after the trial method caused visible Chrome
 errors and failed tabs. Browser coverage remains incomplete; continuation

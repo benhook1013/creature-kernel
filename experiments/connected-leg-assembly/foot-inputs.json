@@ -1,0 +1,57 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-foot-inputs.v1",
+  "status": "candidate-inputs-frozen",
+  "coordinate_convention": "metres; global X lateral, +Y up, +Z front",
+  "source_semantics": {
+    "H": "heel source anchor behind the ankle entry",
+    "B": "ball/metatarsal source anchor ahead of the ankle entry",
+    "T": "forefoot/toe source anchor ahead of the ball",
+    "lateral_center": "leg_inputs[side].A[0]; not an authored foot x coordinate"
+  },
+  "budget": {
+    "initial_candidate_count": 1,
+    "shared_correction_max": 1,
+    "correction_condition": "only an evidence-justified shared correction after the initial candidate",
+    "per_case_corrections": false,
+    "input_retuning": false,
+    "alternative_constructions": false
+  },
+  "cases": [
+    {
+      "case_id": "calibrated_ordinary_human",
+      "sides": {
+        "left": {
+          "H": {"z": -0.060, "plantar_y": -0.900, "halfwidth": 0.032, "dorsalthickness": 0.040},
+          "B": {"z": 0.120, "plantar_y": -0.900, "halfwidth": 0.050, "dorsalthickness": 0.040},
+          "T": {"z": 0.190, "plantar_y": -0.900, "halfwidth": 0.043, "dorsalthickness": 0.028},
+          "collar_fraction": 0.20
+        },
+        "right": {
+          "H": {"z": -0.060, "plantar_y": -0.900, "halfwidth": 0.032, "dorsalthickness": 0.040},
+          "B": {"z": 0.120, "plantar_y": -0.900, "halfwidth": 0.050, "dorsalthickness": 0.040},
+          "T": {"z": 0.190, "plantar_y": -0.900, "halfwidth": 0.043, "dorsalthickness": 0.028},
+          "collar_fraction": 0.20
+        }
+      },
+      "status_note": "bounded coarse staging hypothesis; not anthropometry"
+    },
+    {
+      "case_id": "calibrated_upright_anthropomorphic",
+      "sides": {
+        "left": {
+          "H": {"z": -0.120, "plantar_y": -0.705, "halfwidth": 0.030, "dorsalthickness": 0.030},
+          "B": {"z": 0.060, "plantar_y": -0.880, "halfwidth": 0.060, "dorsalthickness": 0.045},
+          "T": {"z": 0.130, "plantar_y": -0.880, "halfwidth": 0.055, "dorsalthickness": 0.028},
+          "collar_fraction": 0.20
+        },
+        "right": {
+          "H": {"z": -0.120, "plantar_y": -0.705, "halfwidth": 0.030, "dorsalthickness": 0.030},
+          "B": {"z": 0.060, "plantar_y": -0.880, "halfwidth": 0.060, "dorsalthickness": 0.045},
+          "T": {"z": 0.130, "plantar_y": -0.880, "halfwidth": 0.055, "dorsalthickness": 0.028},
+          "collar_fraction": 0.20
+        }
+      },
+      "status_note": "bounded coarse staging hypothesis; heel raised relative to common ball/toe plane; not anthropometry"
+    }
+  ]
+}

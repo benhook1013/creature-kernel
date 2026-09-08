@@ -1,0 +1,88 @@
+{
+  "version": "pelvis-source-calibration.single-set.v1",
+  "declared_before_generation": "2026-09-05",
+  "budget": {"calibration_sets": 1, "input_refinements": 0, "geometry_changes": 0},
+  "construction_sha256": "7fd457e2206165eb5e404ce81732f4157234a2e13a64008d96ae75d6abcf5cdb",
+  "frozen_dependency_root": "/home/ben/.cache/creature-kernel/pelvis-thigh-transition/attempt-2-snapshot",
+  "historical_controls": 5,
+  "base_transform": {"scale": 0.16, "translation": [0.0, 0.16, 0.0], "reason": "Normalize legacy neutral dimensions into metres and place the comparison origin at the intended joint-centre height; a display/input frame convention, not an anatomical inference about the old source."},
+  "view_bounds": [[-0.32, -0.27, -0.22], [0.32, 0.34, 0.22]],
+  "historical_display_transform": {"scale": 0.16, "translation": [0.0, 0.16, 0.0]},
+  "section_samples": 41,
+  "section_y_limits": [-0.24, 0.16],
+  "joint_to_thigh_segment_samples": [0.0, 0.25, 0.5, 0.75, 1.0],
+  "thigh_axis_segment_samples": [0.0, 0.15, 0.30, 0.45],
+  "reference_sources": [
+    {"url": "https://openstax.org/books/anatomy-and-physiology-2e/pages/8-3-the-pelvic-girdle-and-pelvis", "role": "Skeletal landmark relationships, not numerical population measurements."},
+    {"url": "https://www.proko.com/course-lesson/how-to-draw-legs-bone-anatomy-for-artists", "role": "Artist proportion guide: roughly quarter-height femur; femoral head is distinct from lateral trochanter/shaft; inward thigh direction. Approximate guide, not anthropometry."},
+    {"url": "https://www.disneyanimation.com/publications/flesh-flab-and-fascia-simulation-on-zootopia/", "role": "Professional stylized upright animal-body reference: animal character and stylized anatomy coexist. No numerical coordinates are extracted; the experimental proportions below are our explicit design hypothesis, not Disney measurements or an architecture adoption."}
+  ],
+  "cases": [
+    {
+      "id": "calibrated_ordinary_human",
+      "role": "Ordinary-adult lower-body structural calibration, not a full human fixture or population coverage.",
+      "nominal_stature_m": 1.75,
+      "reason": "Adult-like pelvis and femur proportions; separate medial/proximal hip joint from lateral/subtrochanteric thigh-start proxy. Preserve inherited upper context after the declared frame normalization; it is not newly calibrated anatomy.",
+      "uncertainty": "Hand-estimated reference interpretation: joint position about +/-0.02 m; thigh/pelvic landmarks about +/-0.025 m; skin dimensions about +/-0.03 m. Not measured-subject or clinical data, and no post-render adjustment is allowed.",
+      "stations": {
+        "lower_pelvis": {"centre": [0.0, 0.01, 0.0], "radii": [0.17, 0.115, 0.125]},
+        "upper_pelvis": {"centre": [0.0, 0.10, 0.0], "radii": [0.145, 0.105, 0.11]},
+        "lower_abdomen": {"centre": [0.0, 0.17, 0.0], "radii": [0.135, 0.095, 0.095]},
+        "waist_abdomen": {"centre": [0.0, 0.24, 0.0], "radii": [0.12, 0.09, 0.09]}
+      },
+      "station_reason": "Pelvic envelope is centred near the acetabular region, widest below the iliac crest; abdomen ascends above it. These remain envelope stations, not newly renamed bone landmarks. Depth includes posterior soft-tissue allowance. Values are one approximate adult-like calibration hypothesis.",
+      "hip_radii": [0.075, 0.06, 0.085],
+      "hip_radii_reason": "Approximate proximal-thigh skin half-width/depth and vertical support scale; r_y remains a construction influence scale, not a bone length or hip-joint radius.",
+      "attachments": {
+        "left": {"centre": [-0.12, -0.05, 0.0], "knee": [-0.08, -0.43, 0.0]},
+        "right": {"centre": [0.12, -0.05, 0.0], "knee": [0.08, -0.43, 0.0]}
+      },
+      "attachment_reason": "Thigh start is a proximal shaft/profile-start proxy, lateral and inferior to joint centre; knees are modestly medial. Joint-to-knee distance about 0.43 m is close to a quarter of nominal stature. T-to-knee is deliberately shorter and is not substituted for femur length.",
+      "reference_landmarks": {
+        "joint_left": [-0.085, 0.0, 0.0], "joint_right": [0.085, 0.0, 0.0],
+        "crest_left": [-0.135, 0.14, 0.0], "crest_right": [0.135, 0.14, 0.0],
+        "asis_left": [-0.115, 0.105, 0.075], "asis_right": [0.115, 0.105, 0.075],
+        "psis_left": [-0.045, 0.115, -0.09], "psis_right": [0.045, 0.115, -0.09],
+        "pubic_symphysis": [0.0, -0.07, 0.075],
+        "trochanter_left": [-0.16, -0.04, 0.0], "trochanter_right": [0.16, -0.04, 0.0]
+      },
+      "expected_skin_bifurcation_y_interval": [-0.12, -0.04]
+    },
+    {
+      "id": "calibrated_upright_anthropomorphic",
+      "role": "Stylized upright mammal lower-body calibration with broader pelvis and shorter femur relative to stature; no species-universal anatomy claim.",
+      "nominal_stature_m": 1.8,
+      "reason": "Equally important intended body family, tested through the SAME construction. Retain coherent upright pelvic support while allowing a broader/shorter proximal-leg design. Distal stance, animal head, fur and tail are absent, not claimed tested.",
+      "uncertainty": "Artist-design hypothesis rather than biological anthropometry: landmark positions about +/-0.03 m; proportional design allowances about +/-20%. It is not a numeric reconstruction of any named film character.",
+      "stations": {
+        "lower_pelvis": {"centre": [0.0, 0.02, 0.0], "radii": [0.19, 0.125, 0.14]},
+        "upper_pelvis": {"centre": [0.0, 0.11, 0.0], "radii": [0.165, 0.115, 0.12]},
+        "lower_abdomen": {"centre": [0.0, 0.185, 0.0], "radii": [0.15, 0.105, 0.105]},
+        "waist_abdomen": {"centre": [0.0, 0.25, 0.0], "radii": [0.135, 0.10, 0.10]}
+      },
+      "station_reason": "Deliberately broader and deeper upright pelvic envelope than the human case, while preserving the crest/joint/thigh ordering; stations remain skin-envelope controls, not skeletal landmarks.",
+      "hip_radii": [0.085, 0.065, 0.095],
+      "hip_radii_reason": "Broader proximal soft-tissue envelope for this stylized case, paired with a shorter thigh; no local mesh repair or species branch.",
+      "attachments": {
+        "left": {"centre": [-0.135, -0.045, 0.0], "knee": [-0.10, -0.355, 0.025]},
+        "right": {"centre": [0.135, -0.045, 0.0], "knee": [0.10, -0.355, 0.025]}
+      },
+      "attachment_reason": "Distinct lateral/inferior thigh start, modest inward and forward knee direction, joint-to-knee about 0.356 m. A stylized shorter femur is intentional; future distal anatomy must not be inferred from this local experiment.",
+      "reference_landmarks": {
+        "joint_left": [-0.095, 0.0, -0.005], "joint_right": [0.095, 0.0, -0.005],
+        "crest_left": [-0.15, 0.15, 0.0], "crest_right": [0.15, 0.15, 0.0],
+        "asis_left": [-0.13, 0.115, 0.08], "asis_right": [0.13, 0.115, 0.08],
+        "psis_left": [-0.05, 0.125, -0.10], "psis_right": [0.05, 0.125, -0.10],
+        "pubic_symphysis": [0.0, -0.065, 0.085],
+        "trochanter_left": [-0.18, -0.035, 0.0], "trochanter_right": [0.18, -0.035, 0.0]
+      },
+      "expected_skin_bifurcation_y_interval": [-0.115, -0.035]
+    }
+  ],
+  "interpretation": {
+    "reference_landmarks": "Diagnostic targets only. J is NOT executable in this frozen generator; do not smuggle J into centre or claim J-to-skin causality.",
+    "skin_bifurcation": "Observed connected-section transition to two disjoint thigh contours, not a hip centre, source landmark, or exact universal crotch plane.",
+    "old_containment": "Original individual-side ray gate and rejected verdict are preserved. New joined-surface cross-sections diagnose placement only; they do not retroactively pass the old candidate.",
+    "stop": "Stop after one set and comparison even if proportions improve. No tuning or shape repair. If independent executable joint/landmark relations require code changes, report that obstruction explicitly."
+  }
+}

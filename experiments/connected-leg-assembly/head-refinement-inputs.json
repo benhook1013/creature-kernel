@@ -1,0 +1,56 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-head-refinement-inputs.v1",
+  "status": "prospective-first-wholebody-refinement-batch",
+  "derivation": {
+    "vertical": "neck_support.up + 1.12 * (old_value - neck_support.up)",
+    "cranial_radii": "lateral * 1.15; anterior and posterior * 1.10",
+    "jaw_lateral": "the cranial lateral result * 1.10",
+    "preserved": ["neck_support", "source neck port", "source pivot", "base geometry", "topology", "ear phase"],
+    "note": "Prospective shared visual-calibration recipe, not an anatomy fact. Both cases use the same generic construction."
+  },
+  "cases": [
+    {
+      "case_id": "calibrated_ordinary_human",
+      "head": {
+        "stations": {
+          "neck_support": {"up": 0.027, "radii": [0.052, 0.05, 0.05]},
+          "jaw": {"up": 0.0606, "radii": [0.09108, 0.0792, 0.0693]},
+          "cheek": {"up": 0.1222, "radii": [0.10925, 0.0902, 0.0858]},
+          "brow": {"up": 0.1838, "radii": [0.10465, 0.0825, 0.088]},
+          "crown": {"up": 0.2286, "radii": [0.0805, 0.066, 0.0682]}
+        },
+        "crown_centre_up": 0.2566,
+        "muzzle": null,
+        "ears": null
+      }
+    },
+    {
+      "case_id": "calibrated_upright_anthropomorphic",
+      "head": {
+        "stations": {
+          "neck_support": {"up": 0.027, "radii": [0.052, 0.05, 0.05]},
+          "jaw": {"up": 0.0606, "radii": [0.094875, 0.088, 0.0748]},
+          "cheek": {"up": 0.1222, "radii": [0.115, 0.099, 0.0902]},
+          "brow": {"up": 0.1838, "radii": [0.10925, 0.088, 0.0935]},
+          "crown": {"up": 0.2286, "radii": [0.08625, 0.0682, 0.0715]}
+        },
+        "crown_centre_up": 0.251,
+        "muzzle": {
+          "length": 0.09,
+          "tip_halfwidth": 0.058,
+          "tip_halfheight": 0.035,
+          "tip_up_offset": 0.0,
+          "support_halfwidth": 0.065,
+          "support_halfheight": 0.042
+        },
+        "ears": {
+          "tip_up": 0.11,
+          "lateral_outset": 0.025,
+          "base_halfwidth_x": 0.05,
+          "base_halfdepth_z": 0.012,
+          "tip_scale": 0.15
+        }
+      }
+    }
+  ]
+}

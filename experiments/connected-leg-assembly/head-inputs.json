@@ -1,0 +1,59 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-head-inputs.v1",
+  "status": "initial-candidate-inputs-frozen",
+  "coordinate_convention": "metres; global X lateral, +Y up, +Z front",
+  "source_ownership": "neck origin and incoming radii come from stations.neck_upper in the original calibrated source case",
+  "budget": {
+    "initial_candidate_count": 1,
+    "shared_correction_max": 1,
+    "correction_condition": "only an evidence-justified shared correction after first execution",
+    "per_case_repairs": false,
+    "input_retuning_before_first_surface": false,
+    "alternative_constructions": false
+  },
+  "cases": [
+    {
+      "case_id": "calibrated_ordinary_human",
+      "head": {
+        "stations": {
+          "neck_support": {"up": 0.027, "radii": [0.052, 0.050, 0.050]},
+          "jaw": {"up": 0.057, "radii": [0.072, 0.072, 0.063]},
+          "cheek": {"up": 0.112, "radii": [0.095, 0.082, 0.078]},
+          "brow": {"up": 0.167, "radii": [0.091, 0.075, 0.080]},
+          "crown": {"up": 0.207, "radii": [0.070, 0.060, 0.062]}
+        },
+        "crown_centre_up": 0.232,
+        "muzzle": null,
+        "ears": null
+      },
+      "status_note": "bounded coarse human-like head hypothesis; not anthropometry"
+    },
+    {
+      "case_id": "calibrated_upright_anthropomorphic",
+      "head": {
+        "stations": {
+          "neck_support": {"up": 0.027, "radii": [0.052, 0.050, 0.050]},
+          "jaw": {"up": 0.057, "radii": [0.075, 0.080, 0.068]},
+          "cheek": {"up": 0.112, "radii": [0.100, 0.090, 0.082]},
+          "brow": {"up": 0.167, "radii": [0.095, 0.080, 0.085]},
+          "crown": {"up": 0.207, "radii": [0.075, 0.062, 0.065]}
+        },
+        "crown_centre_up": 0.227,
+        "muzzle": {
+          "length": 0.105,
+          "tip_halfwidth": 0.052,
+          "tip_halfheight": 0.026,
+          "tip_up_offset": 0.000
+        },
+        "ears": {
+          "tip_up": 0.140,
+          "lateral_outset": 0.018,
+          "base_halfwidth_x": 0.030,
+          "base_halfdepth_z": 0.010,
+          "tip_scale": 0.220
+        }
+      },
+      "status_note": "same generic construction with optional muzzle and upright pinnae; no species branch"
+    }
+  ]
+}

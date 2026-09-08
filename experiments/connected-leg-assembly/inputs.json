@@ -1,0 +1,184 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-inputs.v1",
+  "experiment_id": "EXP-0003",
+  "status": "prepared_not_executed",
+  "authorization": {
+    "scope": "internal connected-leg staging under the integrated coarse-to-anatomical runway",
+    "relayed_by": "Overseer",
+    "date": "2026-09-06",
+    "targets": ["ordinary human", "loose wolf-like humanoid anthropomorphic"],
+    "species_contract": false,
+    "note": "The anthropomorphic coarse digitigrade appearance target is approved for this experiment-local stage. Species and gait-specific paw/hock design remains provisional; the raised heel and foot are not implemented here."
+  },
+  "provenance": {
+    "frozen_calibration_inputs": {
+      "path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/source/experiments/pelvis-source-calibration/inputs.json",
+      "sha256": "3c0cbe9a3ae81def226f91f3d5eddcff6e07f118360abc88670069fe9b010a8c"
+    },
+    "frozen_calibration_manifest": {
+      "path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/run/artifact-sha-manifest-after.json",
+      "sha256": "f0152de5b6b82a60c35599b0b82af746704d1917446d8fceb88b2ca016275871"
+    },
+    "frozen_hip_snapshot_manifest": {
+      "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-snapshot/manifest.json",
+      "sha256": "e97406f487569b072c1885667a0fd49084a017b30f03cecb04562b81241bef54"
+    },
+    "frozen_hip_artifact_manifest": {
+      "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-run/artifact-sha-manifest.json",
+      "sha256": "c6733a75cbd0f7496e71256bc2ed56adb2b924b4e3136339efbe25c6b89fd9c3"
+    },
+    "immutable_source_note": "Original calibration inputs, root meshes, prior rest meshes, and prior hip bindings are read-only evidence. New distal values below are explicit approximate artist design hypotheses, not measurements."
+  },
+  "common_pipeline": {
+    "operation": "extend_saved_calibrated_l0_root_from_existing_thigh_exit_through_knee_and_shank_to_open_ankle_ports",
+    "common_for_cases": true,
+    "stage_ends_at": "open ankle ports",
+    "foot_or_sole": "not represented",
+    "preserve": ["J", "T", "K", "original root inputs", "original root meshes", "prior hip evidence"],
+    "former_thigh_exit": {
+      "new_role": "interior welded transition",
+      "prior_boundary_invariance_claim": false,
+      "note": "The former thigh exit becomes interior when the extension is attached; only regions unreachable by new subdivision may be asserted exactly unchanged."
+    },
+    "section_coordinate_convention": "radii arrays are [lateral, anterior, posterior] and may be asymmetric; loop centroid is therefore not required to equal its source joint or endpoint."
+  },
+  "cases": [
+    {
+      "id": "calibrated_ordinary_human",
+      "design_intent": "upright human-like interim leg; plantigrade baseline is a reasonable staging hypothesis only, not an anthropometric claim",
+      "root_mesh": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/run/cases/case-05-calibrated_ordinary_human/mesh-L0.json",
+        "sha256": "1fb72cd3057bce3e0cf162ce8fd907feb289b182eb8014275719a514e5716eb4",
+        "level": "L0",
+        "immutable": true
+      },
+      "prior_rest_mesh": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/run/cases/case-05-calibrated_ordinary_human/mesh-L2.json",
+        "sha256": "b4622902c4c7f8713a7a8679b511ca471ebea06cf5006900cbe0a88f8268f4b6",
+        "level": "L2",
+        "immutable": true
+      },
+      "original_case": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-run/cases/calibrated_ordinary_human/case.json",
+        "sha256": "7d5ac5da5fe1631351a45a679f36d7aaedaf56136dc66edf325adb45fe84152f",
+        "calibration_source_path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/source/experiments/pelvis-source-calibration/inputs.json#/cases/5",
+        "calibration_source_sha256": "3c0cbe9a3ae81def226f91f3d5eddcff6e07f118360abc88670069fe9b010a8c"
+      },
+      "original_ref": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-run/cases/calibrated_ordinary_human/landmarks.json",
+        "sha256": "56437705205dd27cd7a8aeb27661356258cf58cb9773e7edecef31d2c7b3a9f2",
+        "meaning": "preserved hip reference metadata; J is an independent pose input"
+      },
+      "prior_hip_binding": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-run/cases/calibrated_ordinary_human/binding.json",
+        "sha256": "b0d60642460ead3ca5f53d26ac87a7f080cea69727d59f1bf2184bf6f7fe14a0"
+      },
+      "leg_inputs": {
+        "left": {
+          "J": [-0.085, 0.0, 0.0],
+          "T": [-0.12, -0.05, 0.0],
+          "K": [-0.08, -0.43, 0.0],
+          "A": [-0.08, -0.82, 0.0],
+          "radii": {
+            "knee": [0.045, 0.045, 0.04],
+            "calf": [0.05, 0.043, 0.063],
+            "ankle": [0.028, 0.028, 0.03]
+          },
+          "mid_thigh_factor": 0.85,
+          "support_fraction": 0.1,
+          "J_role": "preserve_independent_pose_input",
+          "TK_source_role": "preserve_original_thigh_source_points",
+          "distal_design_status": "approximate_artist hypothesis; uncertainty about 20 percent"
+        },
+        "right": {
+          "J": [0.085, 0.0, 0.0],
+          "T": [0.12, -0.05, 0.0],
+          "K": [0.08, -0.43, 0.0],
+          "A": [0.08, -0.82, 0.0],
+          "radii": {
+            "knee": [0.045, 0.045, 0.04],
+            "calf": [0.05, 0.043, 0.063],
+            "ankle": [0.028, 0.028, 0.03]
+          },
+          "mid_thigh_factor": 0.85,
+          "support_fraction": 0.1,
+          "J_role": "preserve_independent_pose_input",
+          "TK_source_role": "preserve_original_thigh_source_points",
+          "distal_design_status": "mirrored approximate artist hypothesis; uncertainty about 20 percent"
+        }
+      }
+    },
+    {
+      "id": "calibrated_upright_anthropomorphic",
+      "design_intent": "loose wolf-like humanoid coarse digitigrade target; artistic hypothesis, not a canid specimen or gait contract",
+      "root_mesh": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/run/cases/case-06-calibrated_upright_anthropomorphic/mesh-L0.json",
+        "sha256": "6237cc7940e1559fbf05d18ab20d87b444c3dd3dd7238a41ffe17f3c6b881e2e",
+        "level": "L0",
+        "immutable": true
+      },
+      "prior_rest_mesh": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/run/cases/case-06-calibrated_upright_anthropomorphic/mesh-L2.json",
+        "sha256": "59e4ee377c28451b36ebb821199ecc386bf01ee2421db86d9ada18da9c9bf761",
+        "level": "L2",
+        "immutable": true
+      },
+      "original_case": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-run/cases/calibrated_upright_anthropomorphic/case.json",
+        "sha256": "0f3a9bd29d33f8a9ca5f6b116084209c539eb37120d93d9973c00613358d8c91",
+        "calibration_source_path": "/home/ben/.cache/creature-kernel/pelvis-source-calibration-set-1/source/experiments/pelvis-source-calibration/inputs.json#/cases/6",
+        "calibration_source_sha256": "3c0cbe9a3ae81def226f91f3d5eddcff6e07f118360abc88670069fe9b010a8c"
+      },
+      "original_ref": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-run/cases/calibrated_upright_anthropomorphic/landmarks.json",
+        "sha256": "4cd4ca7f973a5f9953818446c7cd7252dae4065bcb4aba8e7b9f423e31c991fb",
+        "meaning": "preserved hip reference metadata; J is an independent pose input"
+      },
+      "prior_hip_binding": {
+        "path": "/home/ben/.cache/creature-kernel/pelvis-hip-articulation-harmonic-lbs-001-run/cases/calibrated_upright_anthropomorphic/binding.json",
+        "sha256": "91e85077e88ea3c503a593755449bb7cce36fac5bd8ac71743fee6449a2c9aa2"
+      },
+      "leg_inputs": {
+        "left": {
+          "J": [-0.095, 0.0, -0.005],
+          "T": [-0.135, -0.045, 0.0],
+          "K": [-0.1, -0.355, 0.025],
+          "A": [-0.1, -0.645, -0.075],
+          "radii": {
+            "knee": [0.05, 0.05, 0.045],
+            "calf": [0.055, 0.045, 0.065],
+            "ankle": [0.032, 0.03, 0.034]
+          },
+          "mid_thigh_factor": 0.85,
+          "support_fraction": 0.1,
+          "J_role": "preserve_independent_pose_input",
+          "TK_source_role": "preserve_original_thigh_source_points",
+          "distal_design_status": "approximate artist hypothesis; uncertainty about 20 percent; A is posterior to K"
+        },
+        "right": {
+          "J": [0.095, 0.0, -0.005],
+          "T": [0.135, -0.045, 0.0],
+          "K": [0.1, -0.355, 0.025],
+          "A": [0.1, -0.645, -0.075],
+          "radii": {
+            "knee": [0.05, 0.05, 0.045],
+            "calf": [0.055, 0.045, 0.065],
+            "ankle": [0.032, 0.03, 0.034]
+          },
+          "mid_thigh_factor": 0.85,
+          "support_fraction": 0.1,
+          "J_role": "preserve_independent_pose_input",
+          "TK_source_role": "preserve_original_thigh_source_points",
+          "distal_design_status": "mirrored approximate artist hypothesis; uncertainty about 20 percent; A is posterior to K"
+        }
+      }
+    }
+  ],
+  "known_uncertainties": [
+    "All new distal coordinates and radii are pre-run design hypotheses with approximately 20 percent uncertainty.",
+    "Ankle A is an open ankle-port endpoint, not a heel or sole endpoint; foot and raised-heel design remain future inputs.",
+    "No actual whole-character stature or final leg-to-body proportion has been established.",
+    "Human values are rough procedural proportions, not anthropometric truth; anthropomorphic values are an artistic hypothesis, not canid anatomy.",
+    "The source filename and appearance label do not infer gait or digitigrade geometry; only the current Overseer authorization permits this coarse anthropomorphic target."
+  ]
+}

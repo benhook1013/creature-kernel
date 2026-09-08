@@ -1,0 +1,55 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-foot-junction-policy.v1",
+  "candidate": "JUNCTION-001",
+  "status": "prospective-static-only",
+  "source": {
+    "bulk_origin": "FOOT-004",
+    "pure_helpers": [
+      "foot_form_construction._source_frame",
+      "foot_form_construction._grid_points"
+    ],
+    "forbidden_builders": [
+      "foot_form_construction.build",
+      "foot_attachment_construction.build"
+    ]
+  },
+  "graph": {
+    "local_vertex_count": 79,
+    "body_quad_count": 74,
+    "row_names": [
+      "rear_heel",
+      "heel_ankle_midpoint",
+      "ankle_body",
+      "ankle_body_quarter",
+      "ankle_body_five_eighths",
+      "forefoot_start",
+      "forefoot_body",
+      "terminal"
+    ],
+    "columns": 5,
+    "frontier_row": 5,
+    "frontier_source": "M",
+    "hole_positions": [[1, 1], [2, 1], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [1, 2]],
+    "omitted_position": [2, 2]
+  },
+  "constraints": {
+    "basis_order": ["X", "U", "F"],
+    "edge_weight": "uniform_quad_edge",
+    "fixed_rows": [0, 5, 6, 7],
+    "plantar_u_rows": [1, 2, 3, 4],
+    "solver": "coordinatewise_dirichlet_harmonic_no_regularizer",
+    "residual_tolerance": 1.0e-10
+  },
+  "output": {
+    "omit_old_hole_vertices": true,
+    "use_existing_actual_A_indices": true,
+    "connector_rings": false,
+    "post_l2_correction": false
+  },
+  "budget": {
+    "initial_candidate_count": 1,
+    "shared_correction_max": 1,
+    "parameter_search": false,
+    "input_retuning": false
+  }
+}

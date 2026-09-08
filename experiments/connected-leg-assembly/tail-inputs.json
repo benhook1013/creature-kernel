@@ -1,0 +1,62 @@
+{
+  "schema": "creature-kernel.connected-tail-assembly-inputs.v1",
+  "status": "candidate-inputs-frozen-before-geometry-execution",
+  "provenance": {
+    "source_mesh": "current source-built connected-leg L0 from construction.build",
+    "host_adapter_scope": "explicit local pelvis host adapter; not recovered universal anatomy",
+    "geometry_changes": "tail constructor only; no source retuning, binder, or tail articulation"
+  },
+  "candidate_policy": {
+    "initial_candidate_count": 1,
+    "shared_geometry_correction_budget": 1,
+    "correction_count_before_execution": 0,
+    "per_case_repairs": false,
+    "preserve_rejected_payloads": true
+  },
+  "host_identity": {
+    "face_index": 58,
+    "vertex_indices": [41, 44, 66, 63],
+    "owner": "domain.pelvis",
+    "identity_source": "current source-built mesh; coordinates and normal derived at build time"
+  },
+  "common_shape": {
+    "inset_fraction": 0.4,
+    "collar_distance_m": 0.012,
+    "station_fractions": [0.0, 0.25, 0.5, 0.75, 1.0],
+    "ring_count": 5,
+    "centreline": "cubic Bezier with control distances 0, 1/3, 2/3, 1 of declared length",
+    "frame_rule": "project global +X onto each path tangent plane; V=X cross tangent; retain source host phase and winding"
+  },
+  "cases": [
+    {
+      "case_id": "calibrated_ordinary_human",
+      "enabled": false,
+      "host_identity": {
+        "face_index": 58,
+        "vertex_indices": [41, 44, 66, 63],
+        "owner": "domain.pelvis"
+      },
+      "length": 0.45,
+      "terminal_direction": [0.0, -0.25, -1.0],
+      "radii": {"base": 0.035, "middle": 0.045, "tip": 0.008},
+      "station_fractions": [0.0, 0.25, 0.5, 0.75, 1.0],
+      "collar_distance": 0.012,
+      "binding_controls": {"collar_blend_strength": 0.5}
+    },
+    {
+      "case_id": "calibrated_upright_anthropomorphic",
+      "enabled": true,
+      "host_identity": {
+        "face_index": 58,
+        "vertex_indices": [41, 44, 66, 63],
+        "owner": "domain.pelvis"
+      },
+      "length": 0.45,
+      "terminal_direction": [0.0, -0.25, -1.0],
+      "radii": {"base": 0.035, "middle": 0.045, "tip": 0.008},
+      "station_fractions": [0.0, 0.25, 0.5, 0.75, 1.0],
+      "collar_distance": 0.012,
+      "binding_controls": {"collar_blend_strength": 0.5}
+    }
+  ]
+}

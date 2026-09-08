@@ -1,0 +1,284 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-protocol.v1",
+  "experiment_id": "EXP-0003",
+  "experiment_lifecycle": "planned",
+  "evidence_closure": "open",
+  "technology_outcome": "none",
+  "execution_state": "not_started",
+  "question": "Does one source-driven welded knee/shank extension from the saved calibrated L0 roots retain prior hip quality, preserve the connected surface, and follow explicit T/K/A source points and radii on actual L2 evaluated surfaces for both cases?",
+  "scope": {
+    "included": [
+      "experiment-local connected root extension from the former thigh exits through knee and shank",
+      "open ankle boundary ports",
+      "common source, frame, subdivision, and hierarchical automatic-binding pipeline",
+      "ordinary-human and approved loose wolf-like humanoid anthropomorphic coarse cases",
+      "rest and restrained combined poses"
+    ],
+    "excluded": [
+      "complete foot, heel, sole, paw, or whole-body completion",
+      "species or gait-specific production geometry contract",
+      "detailed fingers, facial animation, fur/render polish, advanced physics, engine integration",
+      "publication, push, merge, or production architecture"
+    ],
+    "case_symmetry": "Use the same construction and binding formulas for both cases; side mirroring is input data, not a case-specific repair.",
+    "anatomy_boundary": "A is the anthropomorphic case's provisional posterior ankle endpoint. It does not establish the future raised-heel/foot design."
+  },
+  "method": {
+    "source_and_shape": {
+      "root": "Load each immutable calibrated L0 root and its matching immutable prior L2 rest mesh from inputs.json.",
+      "preserve": ["J", "T", "K", "original root inputs", "original root mesh", "prior hip binding evidence"],
+      "source_driven_skin": true,
+      "shared_formulas": true,
+      "painted_case_repairs": false,
+      "disconnected_display_meshes": false,
+      "former_thigh_exit": "Weld into the extension and treat as interior; do not assert prior boundary invariance at the former exit."
+    },
+    "source_stations": [
+      {"id": "0.70TK", "point": "T + 0.70 * (K - T)"},
+      {"id": "0.90TK", "point": "T + 0.90 * (K - T)"},
+      {"id": "K", "point": "K"},
+      {"id": "K+0.12KA", "point": "K + 0.12 * (A - K)"},
+      {"id": "K+0.35KA", "point": "K + 0.35 * (A - K)"},
+      {"id": "K+0.72KA", "point": "K + 0.72 * (A - K)"},
+      {"id": "A", "point": "A"}
+    ],
+    "section_and_knee_construction": {
+      "radii_order": ["lateral", "anterior", "posterior"],
+      "radii_source": "Use each side's explicit knee, calf, and ankle radii from inputs.json; do not force anterior/posterior equality.",
+      "knee_blend": {
+        "operator": "one explicit shared source-station knee blend",
+        "source_stations": ["T", "K", "A"],
+        "harmonic_knee": false,
+        "formula_policy": "Derive station centers, frames, and cross-sections from T/K/A and declared radii with the same formula on both cases; no harmonic solve and no painted replacement at K."
+      },
+      "mid_thigh_factor": 0.85,
+      "support_fraction": 0.1,
+      "support_fraction_semantics": {
+        "value": 0.1,
+        "incoming_station": "1-s at nominal station 0.90TK",
+        "outgoing_station": "1.2s at nominal station K+0.12KA",
+        "meaning": "Support fraction governs the incoming and outgoing station influence; it is not an ignored field."
+      },
+      "nominal_station_names": "Labels for the declared stations only; formulas use the source-point expressions and the support-fraction semantics above.",
+      "anthro_segment_frame": "Build the K-to-A rest frame from the actual angled K-A vector; do not assume a vertical shank."
+    },
+    "binding": {
+      "prior_root_base_weights": {
+        "shape": [152, 3],
+        "columns": ["pelvis", "leftthigh", "rightthigh"],
+        "preserve_exact": true,
+        "mapping_to_new_columns": {
+          "new_columns": ["pelvis", "leftthigh", "leftshank", "rightthigh", "rightshank"],
+          "row_formula": "[pelvis, leftthigh, rightthigh] -> [pelvis, leftthigh, 0, rightthigh, 0]"
+        }
+      },
+      "new_ring_weights": {
+        "station_order": ["0.70TK", "0.90TK", "K", "K+0.12KA", "K+0.35KA", "K+0.72KA", "A"],
+        "left_shank": [0, 0, 0.5, 1, 1, 1, 1],
+        "left_complementary_thigh": [1, 1, 0.5, 0, 0, 0, 0],
+        "right_shank": [0, 0, 0.5, 1, 1, 1, 1],
+        "right_complementary_thigh": [1, 1, 0.5, 0, 0, 0, 0],
+        "all_nonlocal_columns": 0,
+        "interpretation": "Apply the corresponding side's thigh/shank columns; each pair sums to one at every new ring."
+      },
+      "stencils": "Propagate actual expanded L0-to-L2 subdivision stencils, never dominant-owner labels or a synthetic rest mesh.",
+      "hierarchy": {
+        "parent_order": ["pelvis", "hip", "thigh", "knee", "shank", "ankle_port"],
+        "rest_frames": "Use independent J as hip pose input, J-to-K for the hip/thigh rest frame, and K-to-A for the knee/shank rest frame.",
+        "pose_transform": "Apply inverse-bind then posed-global transforms in the parent/rest hierarchy.",
+        "positive_rotation_convention": {
+          "hip": "Rx(-angle)",
+          "knee": "Rx(+angle)",
+          "ankle": "Rx(0) staging"
+        },
+        "cross_influences": "Hip movement must carry the hierarchical descendants; knee movement must affect the shank/ankle descendants while the explicit source-station transition remains observable."
+      }
+    }
+  },
+  "baseline_poses": [
+    {
+      "id": "rest",
+      "left": {"hip": 0, "knee": 0, "ankle": 0},
+      "right": {"hip": 0, "knee": 0, "ankle": 0}
+    },
+    {
+      "id": "Lhip15_knee0",
+      "left": {"hip": 15, "knee": 0, "ankle": 0},
+      "right": {"hip": 0, "knee": 0, "ankle": 0}
+    },
+    {
+      "id": "Lhip30_knee30",
+      "left": {"hip": 30, "knee": 30, "ankle": 0},
+      "right": {"hip": 0, "knee": 0, "ankle": 0}
+    },
+    {
+      "id": "mirrored15_15",
+      "label": "mirrored 15/15",
+      "left": {"hip": 0, "knee": 0, "ankle": 0},
+      "right": {"hip": 15, "knee": 15, "ankle": 0},
+      "meaning": "mirrored unilateral right-leg local sagittal pose; both20 supplies the symmetric bilateral case"
+    },
+    {
+      "id": "bothhip20_knee20",
+      "left": {"hip": 20, "knee": 20, "ankle": 0},
+      "right": {"hip": 20, "knee": 20, "ankle": 0}
+    }
+  ],
+  "input_perturbations": [
+    {
+      "id": "left_A_y_minus_0.02",
+      "case_scope": "both",
+      "change": {"path": "cases[*].leg_inputs.left.A[1]", "operation": "add", "value": -0.02},
+      "rest_geometry": "reconstruct the affected left distal source-driven extension; keep J/T/K and the right side unchanged",
+      "expected": "left distal station centers, K-A frame, final loop mean, and ankle-port placement respond in the negative-y direction; no centroid-equals-A assertion and no unrelated hip movement",
+      "evaluation": "compare against the analytic construction response and predicted loop mean, not merely changed vertex coordinates"
+    },
+    {
+      "id": "left_calf_posterior_radius_times_1.10",
+      "case_scope": "both",
+      "change": {"path": "cases[*].leg_inputs.left.radii.calf[2]", "operation": "multiply", "value": 1.1},
+      "rest_geometry": "reconstruct only the internal calf station through the shared source/radius formula; keep centerline J/T/K/A unchanged and leave the open ankle boundary/loop mean unchanged",
+      "expected": "actual L2 calf posterior envelope expands in -localF; centerline, ankle boundary, ankle loop mean, hip, and contralateral body remain unchanged",
+      "evaluation": "verify signed sectional-envelope response and analytical L2 displacement using fixed source frames and propagated stencils, not merely changed vertex coordinates"
+    },
+    {
+      "id": "left_J_y_plus_0.01_at_hip15",
+      "case_scope": "both",
+      "change": {"path": "cases[*].leg_inputs.left.J[1]", "operation": "add", "value": 0.01},
+      "pose": "Lhip15_knee0",
+      "rest_geometry": "identical to the unperturbed rest geometry; alter only the independent hip pose input and its rest-frame/pivot calculation",
+      "expected": "left hip-pivot pose displacement follows the analytic J change, with hierarchical descendants responding through the hip; rest vertices, source radii, and weights remain unchanged",
+      "evaluation": "compare analytic pose response and locality, not merely vertexchanged"
+    }
+  ],
+  "diagnostic_distinctions": {
+    "asymmetric_section_radii": {
+      "centroid_equals_joint_gate": false,
+      "reason": "Different anterior and posterior radii translate the section loop centroid away from its source centerline point.",
+      "required_gates": [
+        "final ankle boundary is coplanar with its source section/frame",
+        "translated loop mean matches the analytic L0 placement plus the existing Catmull-Clark open-boundary rule",
+        "declared A is meaningful as the source endpoint and lies within the endpoint radial envelope"
+      ],
+      "anatomy_plausibility": "Keep visual anatomy judgment separate from the geometric section/centroid gates."
+    },
+    "hip_regression": {
+      "comparison": "Compare prior/current hip-region surfaces by stencil-support mapping.",
+      "original_prefix": "Original L0 vertices/faces are preserved as a prefix.",
+      "correspondence": "Deterministic child-face/corner correspondence maps the old patch to the new patch for actual displacement; old/new vertex IDs are not direct correspondence.",
+      "exact_invariance": "Identical full stencils identify the far unchanged subset only.",
+      "near_exit": "Report drift around the now-interior former thigh exit; do not invent a universal tolerance.",
+      "inherited_upper": "Keep inherited upper-region failures separate from new lower-leg failures."
+    }
+  },
+  "checks": {
+    "topology_and_geometry": {
+      "finite_vertices": true,
+      "valid_quad_indices": true,
+      "one_connected_component": true,
+      "boundary_ports": {
+        "exact_count": 5,
+        "retain": ["port.neck", "port.left_arm", "port.right_arm"],
+        "replace_former_thigh_ports": ["port.left_thigh", "port.right_thigh"],
+        "add_open_ports": ["port.left_ankle", "port.right_ankle"]
+      },
+      "nonmanifold_edges": 0,
+      "winding_consistency": "required",
+      "positive_edges_and_areas": {
+        "scale": 1.0,
+        "minimum_edge_over_scale": 1e-08,
+        "minimum_triangle_area_over_scale_squared": 1e-10
+      },
+      "full_L0_stencil_coverage": "mandatory for every expanded L0 vertex used by L2"
+    },
+    "binding_and_pose": {
+      "rest_identity_max_abs_error": 1e-09,
+      "weight_sum_max_abs_error": 1e-09,
+      "rest_transform_max_abs_error": 1e-09,
+      "hierarchical_K_A_response_max_abs_error": 1e-08,
+      "source_effect_response_max_abs_error": 1e-08,
+      "actual_expanded_stencils": "mandatory",
+      "independent_J": "must remain observable as a pose input without changing rest geometry in the J perturbation"
+    },
+    "intersections": {
+      "lower_nonadjacent": {
+        "availability_required": true,
+        "complete_coverage_required": true,
+        "pass_required": true
+      },
+      "inherited_upper": {
+        "report_separately": true,
+        "not_substituted_for_lower_pass": true
+      }
+    },
+    "strain_and_collapse_diagnostics": {
+      "edge_ratio_report_range": [0.5, 2.0],
+      "edge_ratio_outside_range": "flag, not silently discard",
+      "triangle_area_ratio_report_range": [0.4, 2.5],
+      "triangle_area_ratio_outside_range": "flag, not silently discard",
+      "corresponding_triangle_dot_less_or_equal_zero": "diagnostic gross collapse flag",
+      "threshold_status": "new coarse safeguards for this staging protocol; not inherited acceptance thresholds from the old experiments"
+    }
+  },
+  "visual_review": {
+    "views": ["front", "side", "rear_three_quarter"],
+    "fixtures": "matched camera, scale, lighting, and framing across prior/current rest and pose outputs",
+    "overlays": true,
+    "initial_geometry_before_binding": "may be rendered as a diagnostic, but is not a posed result",
+    "final_candidate": "Main Worker personally reviews actual images for every declared case/pose before any result is reported",
+    "direct_rejects": ["seam", "tear", "collapse", "knee bulbs", "sideways shank", "hip regression"],
+    "volume_claims": false,
+    "open_surface_note": "Open surfaces and inner walls must not be interpreted as capped solids or global volume evidence."
+  },
+  "budget_and_failure_policy": {
+    "initial_candidate_count": 1,
+    "shared_construction_or_binding_correction_max": 1,
+    "correction_condition": "only one evidence-justified shared correction after the initial candidate",
+    "per_case_fixes": false,
+    "automatic_alternative": false,
+    "failure_hiding": false,
+    "retain_initial_failures": true,
+    "escalate_if_unconvincing_after_budget": "report to Overseer before any further work",
+    "internal_milestone_only": true
+  },
+  "execution_boundary": {
+    "preparation_pass": {
+      "execution": false,
+      "body_generation": false,
+      "geometry_execution": false,
+      "candidate_capture": false,
+      "reason": "This pass only prepares and reviews the bounded inputs/protocol."
+    },
+    "future_authorized_captured_run": {
+      "may_execute": true,
+      "authorization": "Only after Main review and within the declared experiment budget; no automatic trigger or automatic run.",
+      "pre_body_capture_required": {
+        "source_code_allowlist_and_sha256": true,
+        "inputs_and_protocol_sha256": true,
+        "frozen_root_and_prior_mesh_identities": true,
+        "managed_runtime_path_and_version": true
+      },
+      "manual_main_capture_required": true,
+      "body_generation": "permitted only in that captured run and only for this bounded stage",
+      "geometry_execution": "permitted only in that captured run and only for this bounded stage"
+    },
+    "managed_runtime_reference": "/home/ben/.cache/creature-kernel/pelvis-thigh-transition/attempt-2-snapshot/runtime/bin/python",
+    "managed_launcher_reference": "/home/ben/.cache/creature-kernel/pelvis-thigh-transition/attempt-2-snapshot/source/experiments/current-form-surface-preview/surface_preview_launcher.sh",
+    "current_code_capture": "No connected-leg implementation artifact is captured or executed by this preparation; a future run must first capture the exact directly referenced source and runtime."
+  },
+  "research_references": [
+    {
+      "url": "https://www.proko.com/course-lesson/how-to-draw-legs-bone-anatomy-for-artists",
+      "use": "femur inward tendency, more vertical tibia, and non-uniform calf; qualitative source context only"
+    },
+    {
+      "url": "https://www.proko.com/course-lesson/how-to-draw-feet-with-structure-foot-bone-anatomy",
+      "use": "ankle above heel; supports leaving foot/heel design future and outside this stage"
+    },
+    {
+      "url": "https://openstax.org/books/anatomy-and-physiology-2e/pages/8-4-bones-of-the-lower-limb",
+      "use": "general lower-limb terminology/context; not a measurement source for these inputs"
+    }
+  ],
+  "reproduction_status": "No launcher, body generation, geometry run, or test suite is authorized in this preparation pass."
+}
