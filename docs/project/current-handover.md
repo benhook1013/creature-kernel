@@ -16,7 +16,7 @@ executable, and profile verification; no algorithm changed. Revalidate the
 pause snapshot and these status pointers before continuing the lowest
 integration lane: PR #127 plus up to two dependent follow-ups, with each layer
 below 100 changed files. PR #127 currently has 57 prospective paths; the two
-planned follow-ups are approximately 87 and 84 paths. Packaging and review remain primary, and upper-work must not
+planned follow-ups are approximately 92 and 79 paths. Packaging and review remain primary, and upper-work must not
 delay the lower lane. A genuine final-review-ready clean immutable head may then
 receive the hosted and committed-diff CLI review cycle together. Current
 real-browser coverage is deferred; no browser repair or setup lane remains

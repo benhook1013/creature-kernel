@@ -1,13 +1,17 @@
 # Owned root assembly investigation
 
-Status: Frozen candidate implementation phase; Ben-authorized bounded
-investigation; experiment-local and non-normative
+Status: Historical; stopped and superseded candidate plan; experiment-local and
+non-normative
 
 This is the settled successor plan after the terminal seven-ring candidate in
 the [programmatic root-complex investigation](programmatic-root-complex-surface-investigation.md).
 It does not define product behaviour, a production surface contract, canonical
 Regions or Sockets, a permanent topology, or a backend. It cannot satisfy or
 replace the DR-0013 Stage 1 proof. DR-0009 and DR-0010 remain parked.
+This entire investigation is retained as historical plan and evidence context.
+Its frozen implementation phase, exact-five attempt, and named human
+checkpoint are superseded and do not authorize further work. Current
+continuation is governed solely by the [Active runway](../project/status.md#active-runway).
 
 ## Canonical metre repair evidence and boundary
 
@@ -30,7 +34,8 @@ with SHA-256
 paragraph records only the source/hash metadata rebaseline: standard-neutral
 geometry was expected, and is now proven, to remain unchanged. Historical
 source and evidence remain untouched. The successor-neutral implementation is
-complete; exact-five activation and its later human checkpoint remain active.
+complete; the exact-five attempt and its later human checkpoint are superseded
+historical material and do not authorize continuation.
 
 ## Research-question mapping
 

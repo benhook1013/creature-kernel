@@ -111,6 +111,19 @@ those overlays gives planning totals of about 87 for Layer 2 and 84 for Layer
 3. Do not copy a later final README/status wholesale into an earlier layer;
 materialize stage-specific overlays only after their referenced paths exist.
 
+## Source-only relocation audit — 2026-09-08
+
+Main's lower test-read audit identifies five JSON files currently planned in
+Layer 3 that belong with Layer 2: `arm-inputs.json`, `head-inputs.json`,
+`head-refinement-inputs.json`, `body-junction-integration-config.json`, and
+`body-chest-envelope-config.json`. Moving these planned paths changes the
+current local Layer 2/3 planning counts from 83/80 to 88/75; with four repeated
+documentation paths, the planning totals are about 92/79. This is source-only
+planning evidence: no execution, import, or geometry work occurred, and
+external snapshot dependencies remain required and unverified. The original
+timestamped inventory and manifest hashes above remain historical; this note
+does not assert a new measured inventory.
+
 ## Placement and retention decisions
 
 All 180 eligible local paths are assigned above; there are no omissions or
