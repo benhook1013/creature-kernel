@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$trialPath = Join-Path (Get-Location) 'dev-tools\visual-review\browser_trial.ps1'
+$trialPath = Join-Path $PSScriptRoot '..\browser_trial.ps1'
 if (-not (Test-Path -LiteralPath $trialPath -PathType Leaf)) {
     throw "browser_trial.ps1 was not found at $trialPath"
 }
@@ -37,13 +37,14 @@ function Assert-RejectedWithoutLaunch {
     param(
         [string]$Label,
         [string]$Profile,
-        [int]$Port
+        [int]$Port,
+        [string]$BrowserPath = $browser
     )
 
     $before = $state.launch_calls
     $rejected = $false
     try {
-        Invoke-BrowserTrial -BrowserPath $browser -ProfilePath $Profile -DebugPort $Port -Mode Launch `
+        Invoke-BrowserTrial -BrowserPath $BrowserPath -ProfilePath $Profile -DebugPort $Port -Mode Launch `
             -ProcessStarter $fakeStarter -ProfileExists $profileExists -ExecutableExists $executableExists | Out-Null
     }
     catch {
@@ -61,6 +62,10 @@ Assert-RejectedWithoutLaunch -Label 'empty profile' -Profile '' -Port 9234
 Assert-RejectedWithoutLaunch -Label 'port zero' -Profile $freshProfile -Port 0
 Assert-RejectedWithoutLaunch -Label 'UNC profile' -Profile '\\wsl.localhost\Ubuntu-22.04\tmp\pr127-gallery-unc' -Port 9234
 Assert-RejectedWithoutLaunch -Label 'existing profile' -Profile 'C:\Temp\pr127-gallery-existing' -Port 9234
+Assert-RejectedWithoutLaunch -Label 'browser without .exe' -BrowserPath 'C:\Program Files\Google\Chrome\Application\chrome' -Profile $freshProfile -Port 9234
+Assert-RejectedWithoutLaunch -Label 'relative browser path' -BrowserPath 'chrome.exe' -Profile $freshProfile -Port 9234
+Assert-RejectedWithoutLaunch -Label 'wildcard browser path' -BrowserPath 'C:\Program Files\Google\Chrome\Application\chrome*.exe' -Profile $freshProfile -Port 9234
+Assert-RejectedWithoutLaunch -Label 'dot-relative browser path' -BrowserPath 'C:\Program Files\Google\Chrome\Application\.\chrome.exe' -Profile $freshProfile -Port 9234
 
 $planProfile = 'C:\Temp\pr127 gallery plan-001'
 $plan = Invoke-BrowserTrial -BrowserPath $browser -ProfilePath $planProfile -DebugPort 9234 `

@@ -328,6 +328,7 @@ class PreparedProjectionTests(unittest.TestCase):
                 calls[0] += 1
                 return fixed_inputs
             projection._admit_source_bytes(drifted)
+            raise AssertionError("drifted source bytes were unexpectedly admitted")
         with patch.object(projection, "_fixed_inputs", side_effect=inputs_with_drift):
             validate = projection._prepared_apis(projection._COMMITMENTS)[0]
         self.assertIs(validate(self.prepared), self.prepared)

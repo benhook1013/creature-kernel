@@ -66,27 +66,6 @@ BUNDLE_ROLES = (*PAYLOAD_ROLES, "profile-seed-evidence.json", "profile-seed-evid
 STABLE_ROLES = tuple(sorted((*PAYLOAD_ROLES, "profile-seed-evidence.json", "profile-seed-evidence.sha256")))
 PUBLIC_ROLES = tuple(f"{profile}/{role}" for profile in PROFILE_IDS for role in ("surface-level-2.ply", "direct.png", "lineage.png")) + ("exact-five-evidence.json", "exact-five-evidence.sha256", "run-report.json", "run-report.sha256")
 PINNED_LAUNCHER_ROLE = "experiments/current-form-surface-preview/surface_preview_launcher.sh"
-FINAL_GATE_IDS = tuple("""exact-five.run.01.identity
-exact-five.run.02.managed-tests
-exact-five.run.03.publisher-baseline-admission
-exact-five.run.04.profile.standard_neutral_reference.seed-17
-exact-five.run.05.profile.standard_neutral_reference.seed-29
-exact-five.run.06.profile.compact_broad_short_limb_large_head.seed-17
-exact-five.run.07.profile.compact_broad_short_limb_large_head.seed-29
-exact-five.run.08.profile.tall_narrow_long_legged.seed-17
-exact-five.run.09.profile.tall_narrow_long_legged.seed-29
-exact-five.run.10.profile.slender_long_limb.seed-17
-exact-five.run.11.profile.slender_long_limb.seed-29
-exact-five.run.12.profile.stocky_broad_chested.seed-17
-exact-five.run.13.profile.stocky_broad_chested.seed-29
-exact-five.run.14.profile.standard_neutral_reference.cross-seed
-exact-five.run.15.profile.compact_broad_short_limb_large_head.cross-seed
-exact-five.run.16.profile.tall_narrow_long_legged.cross-seed
-exact-five.run.17.profile.slender_long_limb.cross-seed
-exact-five.run.18.profile.stocky_broad_chested.cross-seed
-exact-five.run.19.standard-neutral-payload-equality
-exact-five.run.20.evidence-graph
-exact-five.run.21.pre-report-closure""".splitlines())
 LEVEL_COUNTS = ((120, 227, 104, 208, 38), (451, 870, 416, 832, 76), (1737, 3404, 1664, 3328, 152))
 PHASES = ("identity", "selection-projection", "catalogs", "geometry-gates", "causality", "serialization", "total-before-seal")
 RUN_GATES = tuple(f"seed.{index}.{name}" for index, name in enumerate(("identity", "prepared-input", "catalogs", "geometry-gates", "causality", "serialization"), 1))

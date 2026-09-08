@@ -158,6 +158,7 @@ class PreparedProjectionTests(unittest.TestCase):
             prepared = prepare_standard_neutral(path)
         self.assertEqual(prepared["stations"]["lower_pelvis"]["lateral_radius"], 1.2345)
         self.assertEqual(prepared["stations"]["lower_pelvis"]["front_extent"], 2)
+        self.assertIs(type(prepared["stations"]["lower_pelvis"]["front_extent"]), int)
         self.assertEqual(prepared["basis"], self.prepared["basis"])
         self.assertEqual(prepared["frames"], self.prepared["frames"])
         self.assertEqual(prepared["landmarks"], self.prepared["landmarks"])

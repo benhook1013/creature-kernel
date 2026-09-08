@@ -306,6 +306,13 @@ class StructuralProfileSourcesTests(unittest.TestCase):
             generator.generate_sources(copy.deepcopy(self.candidate), float_source)
 
     def test_generated_dimensions_remain_positive_finite_canonical_metres(self) -> None:
+        expected_crown_forward_radius = {
+            "standard_neutral_reference": 0.65,
+            "compact_broad_short_limb_large_head": 0.812,
+            "tall_narrow_long_legged": 0.585,
+            "slender_long_limb": 0.598,
+            "stocky_broad_chested": 0.682,
+        }
         for profile_id, document in self.sources.items():
             with self.subTest(profile=profile_id):
                 self.assertEqual(document["basis"]["length_unit"], "metre")  # type: ignore[index]
@@ -327,7 +334,9 @@ class StructuralProfileSourcesTests(unittest.TestCase):
                         for value in values
                     )
                 )
-                self.assertTrue(any(isinstance(value, float) for value in values))
+                crown_radius = self.dimension(document, "head", "form_head_neck_profile_cranium_crown_forward_radius")
+                self.assertIs(type(crown_radius), float)
+                self.assertEqual(crown_radius, expected_crown_forward_radius[profile_id])
 
     def test_freezes_exactly_five_canonical_sources_with_lineage(self) -> None:
         self.assertEqual(len(PROFILE_IDS), 5)

@@ -306,6 +306,32 @@ class ExactFiveGalleryTests(unittest.TestCase):
         with self.assertRaises(adapter.ExactFiveGalleryError):
             self._publish("extra-file")
 
+    def test_rejects_existing_destination_directory_without_overwrite(self) -> None:
+        review_id = "existing-destination-directory"
+        destination = self.reviews_root / review_id
+        destination.mkdir()
+        sentinel = destination / "sentinel.txt"
+        sentinel.write_bytes(b"preserve-directory")
+        with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "existing destination"):
+            self._publish(review_id)
+        self.assertTrue(destination.is_dir())
+        self.assertFalse(destination.is_symlink())
+        self.assertEqual(sentinel.read_bytes(), b"preserve-directory")
+
+    def test_rejects_existing_destination_symlink_without_replacement(self) -> None:
+        review_id = "existing-destination-symlink"
+        destination = self.reviews_root / review_id
+        target = self.root / "symlink-target"
+        target.mkdir()
+        sentinel = target / "sentinel.txt"
+        sentinel.write_bytes(b"preserve-symlink-target")
+        destination.symlink_to(target, target_is_directory=True)
+        with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "existing destination symlink"):
+            self._publish(review_id)
+        self.assertTrue(destination.is_symlink())
+        self.assertEqual(destination.resolve(), target)
+        self.assertEqual(sentinel.read_bytes(), b"preserve-symlink-target")
+
     def test_rejects_none_entries_in_inventory_lists_without_publishing(self) -> None:
         original = json.loads((self.exact_root / "exact-five-evidence.json").read_text())
         mutations = {
