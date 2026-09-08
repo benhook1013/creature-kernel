@@ -428,6 +428,13 @@ def _read_json(path: Path, where: str, *, max_bytes: int = MAX_JSON_BYTES) -> tu
     return value, raw
 
 
+def _read_sidecar(path: Path, where: str) -> bytes:
+    try:
+        return artifacts.read_regular_file(path, max_bytes=256)
+    except Exception as exc:
+        raise ExactFiveGalleryError(f"{where} sidecar cannot be read: {path}") from exc
+
+
 def _validate_png(path: Path, role: str) -> bytes:
     try:
         data = artifacts.read_regular_file(path, max_bytes=MAX_PNG_BYTES)
@@ -528,12 +535,12 @@ def validate_exact_five_root(root: Path) -> tuple[dict[str, Any], dict[str, Any]
         raise ExactFiveGalleryError(f"exact-five root is not the closed public layout: {exc}") from exc
     by_role = {item["role_path"]: item for item in inventory}
     evidence, evidence_raw = _read_json(root / "exact-five-evidence.json", "exact-five evidence")
-    sidecar = artifacts.read_regular_file(root / "exact-five-evidence.sha256", max_bytes=256)
+    sidecar = _read_sidecar(root / "exact-five-evidence.sha256", "exact-five evidence")
     expected_sidecar = f"{artifacts.sha256_bytes(evidence_raw)}  exact-five-evidence.json\n".encode("ascii")
     if sidecar != expected_sidecar:
         _fail("exact-five evidence sidecar does not bind the evidence bytes")
     report, report_raw = _read_json(root / "run-report.json", "exact-five run report", max_bytes=2 * 1024 * 1024)
-    report_sidecar = artifacts.read_regular_file(root / "run-report.sha256", max_bytes=256)
+    report_sidecar = _read_sidecar(root / "run-report.sha256", "exact-five run report")
     if report_sidecar != f"{artifacts.sha256_bytes(report_raw)}  run-report.json\n".encode("ascii"):
         _fail("exact-five run-report sidecar does not bind the report bytes")
 

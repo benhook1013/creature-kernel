@@ -8,6 +8,11 @@ search_script=$repo_root/dev-tools/repo_search.sh
 bash -n "$search_script"
 bash -n "$0"
 
+if ! command -v rg >/dev/null 2>&1; then
+    printf '%s\n' 'test_repo_search.sh: required tool rg was not found on PATH' >&2
+    exit 127
+fi
+
 tmp_dir=$(mktemp -d -t repo-search-test.XXXXXX)
 trap 'rm -rf -- "$tmp_dir"' EXIT
 
@@ -19,16 +24,28 @@ printf 'needle with spaces\n' >"$test_root/space dir/result.txt"
 printf 'default-marker\n' >"$test_root/default.txt"
 
 dash_output=$(cd -- "$test_root" && "$search_script" '-dash-leading')
-[[ $dash_output == *'dash.txt:2:-dash-leading'* ]]
+[[ $dash_output == *'dash.txt:2:-dash-leading'* ]] || {
+    printf '%s\n' 'dash-leading search output did not identify dash.txt line 2' >&2
+    exit 1
+}
 
 normal_output=$("$search_script" 'normal needle' "$test_root/normal.txt")
-[[ $normal_output == *'2:normal needle'* ]]
+[[ $normal_output == *'2:normal needle'* ]] || {
+    printf '%s\n' 'normal search output did not identify line 2' >&2
+    exit 1
+}
 
 default_output=$(cd -- "$test_root" && "$search_script" 'default-marker')
-[[ $default_output == *'default.txt:1:default-marker'* ]]
+[[ $default_output == *'default.txt:1:default-marker'* ]] || {
+    printf '%s\n' 'default-path search output did not identify default.txt line 1' >&2
+    exit 1
+}
 
 spaces_output=$("$search_script" 'needle with spaces' "$test_root/space dir")
-[[ $spaces_output == *"$test_root/space dir/result.txt:1:needle with spaces"* ]]
+[[ $spaces_output == *"$test_root/space dir/result.txt:1:needle with spaces"* ]] || {
+    printf '%s\n' 'space-containing path search output did not identify result.txt line 1' >&2
+    exit 1
+}
 
 fake_bin=$tmp_dir/fake-bin
 rg_called=$tmp_dir/rg-called
@@ -41,14 +58,23 @@ set +e
 PATH="$fake_bin:$PATH" "$search_script" needle '--glob=*.txt' 2>"$option_error"
 option_status=$?
 set -e
-[[ $option_status -eq 64 ]]
-[[ ! -e $rg_called ]]
+[[ $option_status -eq 64 ]] || {
+    printf 'option-shaped path rejection returned status %s, expected 64\n' "$option_status" >&2
+    exit 1
+}
+[[ ! -e $rg_called ]] || {
+    printf '%s\n' 'option-shaped path rejection unexpectedly invoked rg' >&2
+    exit 1
+}
 rg -F -- 'option-shaped path is not allowed' "$option_error" >/dev/null
 
 set +e
 "$search_script" 'does-not-match' "$test_root/normal.txt" >/dev/null
 no_match_status=$?
 set -e
-[[ $no_match_status -eq 1 ]]
+[[ $no_match_status -eq 1 ]] || {
+    printf 'no-match search returned status %s, expected 1\n' "$no_match_status" >&2
+    exit 1
+}
 
 printf '%s\n' 'repo_search.sh tests passed'

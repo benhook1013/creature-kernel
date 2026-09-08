@@ -306,6 +306,18 @@ class ExactFiveGalleryTests(unittest.TestCase):
         with self.assertRaises(adapter.ExactFiveGalleryError):
             self._publish("extra-file")
 
+    def test_rejects_oversized_evidence_sidecar_without_publishing(self) -> None:
+        (self.exact_root / "exact-five-evidence.sha256").write_bytes(b"x" * 257)
+        with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "exact-five evidence sidecar"):
+            self._publish("oversized-evidence-sidecar")
+        self.assertFalse((self.reviews_root / "oversized-evidence-sidecar").exists())
+
+    def test_rejects_oversized_report_sidecar_without_publishing(self) -> None:
+        (self.exact_root / "run-report.sha256").write_bytes(b"x" * 257)
+        with self.assertRaisesRegex(adapter.ExactFiveGalleryError, "exact-five run report sidecar"):
+            self._publish("oversized-report-sidecar")
+        self.assertFalse((self.reviews_root / "oversized-report-sidecar").exists())
+
     def test_rejects_existing_destination_directory_without_overwrite(self) -> None:
         review_id = "existing-destination-directory"
         destination = self.reviews_root / review_id

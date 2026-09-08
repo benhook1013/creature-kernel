@@ -202,7 +202,7 @@ def _causality(surface, render, mesh_api, prepared_api, prepared, geometry):
         if observed_shape != baseline_shape: _fail(f"topology or lineage changed for {parameter}")
         movement = tuple(math.sqrt(sum((observed.vertices[index][axis] - baseline.vertices[index][axis]) ** 2 for axis in range(3))) for index in range(1737))
         actual = tuple(index for index, value in enumerate(movement) if value > mesh_api.T); maximum = max(movement)
-        if not predicted or actual != predicted or maximum < minimum or any(movement[index] > mesh_api.T for index in range(1737) if index not in predicted): _fail(f"support/movement gate failed for {parameter}")
+        if not predicted or actual != predicted or maximum < minimum: _fail(f"support/movement gate failed for {parameter}")
         if parameter in ("left.thigh_start_x", "right.thigh_start_x") and len(predicted) != 436: _fail(f"hip support cardinality changed for {parameter}")
         role = f"perturb-{parameter.replace('.', '-')}.ply"
         payloads[role] = render.ply_bytes(observed)
