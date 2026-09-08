@@ -125,9 +125,11 @@ pending.
 Focused integration results and their capture paths are recorded in
 [Layer 1 integration evidence](status.md#layer-1-integration-evidence-2026-09-07).
 Ben stopped browser launches after the trial method caused visible Chrome
-errors and failed tabs. Browser coverage remains incomplete; continue with
-non-browser checks and the bounded invocation repair. Do not resume the old
-launch scripts or a GUI fallback. No task browser processes/debug listeners
+errors and failed tabs. Browser coverage remains incomplete; continuation
+follows the existing Active runway and non-browser validation. The new positive
+stdin control and hidden-child helper remain unverified natively after the
+validation attempt failed at WSL transport. Do not resume the old launch scripts or a GUI
+fallback. No task browser processes/debug listeners
 remained at cleanup, and the disposable trial gallery server was stopped.
 
 ## Live verification checklist
