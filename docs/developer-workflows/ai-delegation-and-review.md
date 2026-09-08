@@ -12,24 +12,58 @@ merge gates, observation escalation, and subagent handoff. `AGENTS.md` remains
 the always-on repository safety and authority kernel; this document supplies
 the conditional procedure when its trigger applies.
 
-## Main-thread ownership
+## Main Worker and Overseer ownership
 
-The main `gpt-5.6-sol` thread owns:
+The Main Worker role owns:
 
 - discussion with the human project owner;
-- planning and decomposition into bounded steps;
+- routine planning and decomposition into bounded steps;
 - synthesis of product, architecture, research, and review evidence;
 - assignment and integration of delegated work;
+- direct visual inspection;
 - consolidated validation;
-- Git, branch, commit, pull-request, and merge operations;
+- Git, branch, commit, push, and pull-request preparation under Runway and
+  merge control;
 - CI and review orchestration;
-- external effects; and
-- final repository decisions and recommendations.
+- external effects other than merge or auto-merge execution; and
+- technical repository decisions and readiness recommendations.
 
-Subagents are bounded executors, evidence gatherers, hands-on operators, or
-independent reviewers; they do not make product or architecture decisions.
-Reviewers recommend; the human decision owner accepts, rejects, or changes a
-direction. The main thread owns integration and final disposition.
+The explicitly assigned Overseer role provides concise prioritization and
+coordination, reviews consequential evidence, and makes direction
+recommendations. Ben assigns final merge decisions and execution exclusively
+to the Overseer. The Main Worker never merges or enables auto-merge, including
+after an Overseer readiness acknowledgment. Ben's retained boundaries in
+`AGENTS.md` remain unchanged.
+Main Worker and Overseer are roles rather than model identities. Persistent
+Astra use applies only to Ben's explicitly recorded task/role assignment and
+its authorized scope and duration; it grants no permission for other or new
+tasks or extensions. There is no serial permission gate for routine work, and
+this split adds no descendant authority; the separately scoped
+instruction-maintenance exception remains governed below.
+
+At an already applicable merge or checkpoint gate, the Overseer may cheaply
+inspect actual review outcomes and check status, verify the agreed taper and
+standing user preferences, and catch omitted or forgotten instructions. This
+lightweight coordination check does not repeat technical audits or tests,
+create new ledgers or proof machinery, or open a routine permission round.
+Existing consequential strategic and visual oversight remains unchanged.
+
+The Main Worker proactively reports concise high-level progress and recommends
+closure when useful review returns have diminished to minor improvements. It
+does not wait for Ben to ask or chase perfect or zero-finding reviews. The
+handoff summarizes the recent review trend and significance, current fixes,
+and consequential remaining gaps, using existing evidence. The Overseer
+assesses that recommendation promptly and decides whether to merge, request a
+specific necessary fix, or raise a retained-human decision. This creates no
+new ledger or acknowledgment loop; independent authorized work continues.
+
+The Main Worker and Overseer delegate routine reading, writing, and tests by
+default; they retain technical reasoning, decisive evidence inspection, and
+narrow source-ambiguity review, and do not duplicate bulk investigations.
+Executors and independent reviewers do not make product or architecture
+decisions. Reviewers recommend; Ben accepts, rejects, or changes a direction.
+The Main Worker owns integration and disposition of delegated work; the
+Overseer owns final merge decisions and execution.
 
 The recorded `Active runway` in `docs/project/status.md` is the destination
 for autonomous progress. The main thread may advance direct, internal,
@@ -39,9 +73,10 @@ checkpoint with an internal tooling, evidence, governance, or infrastructure
 milestone.
 
 Routine technical choices inside an accepted boundary may be settled by the
-main thread, including implementation details, deterministic or numeric
-algorithms, diagnostics, status plumbing, build integrity, code and test
-organization, and reversible dependencies or tools. The main thread records
+Main Worker within the active runway, including implementation details,
+deterministic or numeric algorithms, diagnostics, status plumbing, build
+integrity, code and test organization, and reversible dependencies or tools.
+The Main Worker records
 reasoning in the appropriate durable document when the choice warrants it.
 It classifies findings as follows:
 
@@ -50,12 +85,58 @@ It classifies findings as follows:
 - implementation- or evidence-dependent: record the trigger and defer; and
 - speculative hardening without a present need: do not build it now.
 
+### Coordination, status, and yields
+
+Status and feedback replies steer the active mandate; they do not by
+themselves pause or terminate it. Reports are nonblocking and do not require
+an acknowledgement loop. A real yield states the scoped reason, continuation
+owner, and actual continuation mechanism. Sending a message does not guarantee
+that it wakes the recipient. Explicit pauses and named human checkpoints
+remain authoritative.
+
+The Main Worker continues independent authorized work while a scoped
+consequential decision is pending unless Ben explicitly pauses that work. The
+Overseer may select and direct bounded experimental next steps already within
+Ben's recorded runway. Ben retains product and architecture acceptance and all
+retained boundaries; routine technical progress does not require human
+permission at every step or an obligatory extra review.
+
 Detailed decision-record states, acceptance prerequisites, review records, and
 the acceptance operation remain owned by `docs/decisions/README.md`. This
 workflow does not accept a DR, change a canonical product or architecture
 contract, or grant a subagent authority that the canonical owner does not
 have. Unaccepted material remains labelled `Candidate`, `Proposed`, `Under
 Review`, or `provisional`, as appropriate to its state.
+
+## Cost-aware Main Worker orchestration
+
+Before beginning a multi-step execution task, the Main Worker delegates a
+bounded step when it is independently runnable. Settled implementation, test
+writing, tool operation, monitoring, and evidence collection—including
+inventories and hashes—belong to Luna by default, especially while the Main
+Worker is an explicitly authorized Astra run. The Main Worker keeps technical
+reasoning, scope and test selection, integration decisions, and direct
+consequential geometry/vision inspection; it need not perform a worker's bulk
+operations itself.
+
+The Main Worker must not drift into a worker's job because tools are available
+or because the work can be labelled verification. Review is targeted inspection
+of decisive diffs and evidence, not repeated scans or execution. Delegated
+validation execution may satisfy consolidated checks when the Main Worker
+inspects and accepts the result. While useful independent work remains,
+dispatch it before long local reading or polling; do not create slot quotas,
+makework, or fill idle lanes. Exceptions are limited to trivial
+latency-sensitive reads/edits or reasoning genuinely inseparable from Main
+work, not broad loopholes. Do not duplicate worker scans or tests, or
+repeatedly poll without a concrete need. This adds no rigid command budgets or
+approval gates. “Main Worker” and “Overseer” are roles, not model names;
+existing model authorization, routing, and human boundaries remain unchanged,
+and this does not grant global Astra orchestration.
+
+The responsible Main Worker or Overseer may read a short, cohesive instruction
+document in full when judging a change. This semantic review is not duplication
+of bulk fact gathering: delegate mechanical work, but a summary or isolated
+diff cannot replace responsible whole-document assessment.
 
 ## Batches and research passes
 
@@ -112,8 +193,27 @@ lane is not activated, these passes are not required.
   when its breadth and authority boundaries require it. Use Luna-xhigh for
   narrow convergence, implementation, or bounded technical review when that
   better fits the corpus.
-- `gpt-5.6-sol` at `high` requires explicit human approval and is the absolute
-  subagent ceiling. Sol above medium is never implicit.
+- `gpt-5.6-sol` at `high` or above requires explicit human approval. Sol above
+  medium is never implicit.
+- Astra-high is an exceptional advisory route for direction adjudication,
+  difficult 3D or visual reasoning, or a high-consequence technical impasse
+  when Astra can materially improve the path. Astra advises; the main thread
+  still synthesizes and integrates, and Ben retains all product, architecture,
+  quality, and other human decisions.
+- Before every Astra call, the main thread announces the purpose and bounded
+  scope to Ben. For one major checkpoint or decision batch, one primary Astra
+  call plus at most one adversarial follow-up is allowed without another
+  permission round. Additional calls require Ben's explicit approval. The
+  main thread reports Astra use and its material recommendations in the
+  handoff so Ben can see what informed the path. These announcement and
+  separate-call cap rules apply to advisory Astra invocations, not every turn
+  of a Ben-authorized persistent Astra Main Worker or Overseer; they do not
+  authorize a global Astra orchestrator.
+- Astra-max/ultra, Astra as an orchestrator, and routine Astra use are
+  explicit-approval-only. Astra is not used for mechanical patches, ordinary
+  tests or CI, CodeRabbit, bookkeeping, or as a throughput substitute for
+  Luna. Promotional or reset capacity is temporary availability, not durable
+  policy or authority.
 - Terra is not a normal routing tier.
 
 ### Luna max admission gate
@@ -174,6 +274,10 @@ focused investigation or research, mechanical edits, settled implementation,
 focused tests, hands-on trials, and fresh review. Keep a trivial single-read
 local when delegation overhead costs more than it saves. Delegate one bounded
 step at a time; the main thread chooses the next step after inspecting it.
+For capture-before-geometry work, tests or helpers that calculate candidate
+vertices or faces (for example `_append_ear`) are geometry and remain blocked
+until the executor has captured the source; implementation-only delegates may
+run syntax or static checks, but not those helper tests.
 
 A bounded subagent must not spawn descendants unless the main thread explicitly
 authorizes a specifically bounded nested delegation. If a Luna task appears
@@ -215,10 +319,11 @@ write permission by implication.
 
 Validation is a closed allowlist. A worker runs only commands named in its
 prompt; when none are named, it reports validation as `deferred`. The main
-thread performs consolidated validation after integration. A worker stops when
-its deliverable and named checks are complete. It does not add cleanup,
-unrequested wording or structural audits, substitute different validation, or
-start a continuation or retry loop.
+thread owns consolidated validation after integration: it may delegate
+execution or collection of named checks, then inspects and accepts the results.
+A worker stops when its deliverable and named checks are complete. It does not
+add cleanup, unrequested wording or structural audits, substitute different
+validation, or start a continuation or retry loop.
 
 Unless an exact action is delegated with any required human authorization, a
 worker does not inspect or alter Git, pull-request, CI, review, deployment, or
@@ -227,6 +332,9 @@ service; commit, stage, push, open, merge, close, or retarget a PR; trigger or
 rerun CI; wait for or poll external systems; or perform destructive actions.
 The main thread repeats this boundary in every delegation prompt. An exact
 delegated action does not remove a required human approval.
+
+Merge and auto-merge execution cannot be delegated to the Main Worker or any
+subagent; they remain exclusively with the assigned Overseer.
 
 When JavaScript tool-runner source composes a prompt, it uses an array of
 ordinary quoted strings joined with newlines or structured text items. It does
@@ -298,7 +406,13 @@ The risk-scaled levels are:
   fresh passes with distinct named lenses, normally Sol at `medium` for
   foundational work.
 
-More than `Double`, or Sol above `medium`, requires explicit human approval.
+More than `Double` still requires explicit human approval, and Sol above
+`medium` remains explicit-approval-only. Astra-high follows its separate
+exceptional-use limit in [Model routing](#model-routing): at most one primary
+call and one adversarial follow-up per major checkpoint or decision batch
+without further permission. An Astra recommendation is advisory and cannot
+accept a direction, DR, contract, or human checkpoint.
+
 A material change to a proposal, constraints, alternatives, or consequences
 makes older reviews stale. When `Double` remains justified, the current
 revision normally receives two new passes. `Double` is one pass per reviewer
@@ -321,8 +435,8 @@ correctness work when their interactions matter, while preserving disjoint
 reversible prerequisites where separation improves safety. It does not create
 small slice churn merely to manufacture review events.
 
-Autonomous merging is limited to the recorded active runway. The main thread
-may merge an internal, reversible preparatory PR only after its required local
+Autonomous merging is limited to the recorded active runway. The assigned
+Overseer may merge an internal, reversible preparatory PR only after its required local
 checks, hands-on trial or integration exercise when applicable, independent
 review, CI gates, external-review gates, and finding dispositions are
 complete, and only before the named human checkpoint is reached. The first
@@ -337,54 +451,91 @@ his explicit, recorded authorization before merge. Routine auto-merge,
 unattended merge loops, administrator bypass, and an unrecorded runway are not
 merge authority.
 
+Ben has separately authorized the assigned Overseer to originate, create, push,
+review, and auto-merge small future instruction-maintenance PRs. An
+eligible PR changes only `AGENTS.md` and/or this workflow, and only to update
+reusable AI working instructions, links, or routing clarifications; it contains
+no runtime code or feature work and does not change product purpose or scope,
+product/specification/architecture contracts, the Active runway, retained-human
+decisions, morphology or runtime promises, platform, licensing, cost, privacy,
+or feature-PR merge authority. A bounded subagent prepares the change under the
+normal delegation contract and must not spawn descendants. The Overseer
+personally inspects the exact small diff and runs applicable documentation
+validation and CI before merging; all ordinary review gates still apply. If an
+active PR already owns either file,
+integrate through its owner or defer; do not create a competing PR. This
+standing authorization is Ben's explicit control-plane approval and merge
+authorization only for that future class; it grants no broader authority and
+waives no check. A mixed-scope or otherwise ineligible PR remains outside this
+class; the Main Worker reports that gate. This maintenance permission does not
+restrict separately authorized Overseer merges of implementation PRs.
+
 ## CodeRabbit and external review
 
-For a substantial PR that is final-review-ready, the main thread launches the
-hosted CodeRabbit pass and the committed-diff CLI pass in parallel as one
-deliberate cycle. Both review the same clean, immutable pushed OID. Before
-launching, the main thread fetches the PR branch, requires a clean worktree,
-verifies local `HEAD` equals the remote PR-head OID, and records that OID with
-both results.
+For a substantial PR, the main thread pushes its first coherent, review-useful
+head early enough for external review to run in parallel with later disjoint
+work in the same PR. It does not wait for every planned addition to be complete
+before starting the review clock. For each review-useful pushed head, launch the
+hosted CodeRabbit pass on the current pushed head and a committed-diff CLI pass
+in parallel as one cycle. Keep the remote head immutable while hosted review
+runs. Every CLI pass reviews the entire current PR against the actual fetched
+PR base; for a stacked PR, use its immediate lower branch as the base. Fetch
+that exact base before each pass so the command targets the current whole-PR
+diff. A partial, latest-commit-only, selected-path, or previous-delta review is
+not a review cycle.
 
-The CLI pass supports the hosted pass but cannot satisfy the hosted taper gate.
-Every changed pushed head receives a fresh hosted-plus-CLI cycle; findings
-from an earlier OID do not cover a later head. While the hosted pass runs, the
-main thread does not push or mutate the remote PR head. It may prepare local
-fixes without presenting them as reviewed.
+While hosted review runs, the main thread may continue useful whole-PR CLI
+cycles on evolving local commits without waiting for hosted review. Each cycle
+has a deliberate, finite purpose; unattended or purposeless repeats are not
+allowed. A deliberate second hosted confirmation pass on an unchanged remote
+head is allowed to establish consecutive convergence and needs no fake code
+edit. Fix validated useful findings and rerun the affected whole-PR review.
+Stop when the candidate and review findings are ready, or when another existing
+gate applies. Do not push a local candidate until hosted review of the current
+pushed head reaches a terminal state.
 
-After both results complete, the main thread verifies each finding, fixes or
-explicitly dispositions it, runs the required local and CI checks, and pushes
-the next head only when the result is ready for a new cycle. Hosted taper is
-reached when a fresh hosted pass produces no new material findings, or only
-repeats, non-actionable findings, disproportionate suggestions, or
-out-of-scope items; remaining items have recorded dispositions. After
-implementation is complete, three consecutive hosted passes with at most two
-new actionable findings each create a presumption that taper has been
-reached. Continuing beyond that presumption requires a main-thread-validated
-material correctness, contract, evidence-integrity, security, or safety issue.
-Formatting/readability, minor test cleanup, speculative hardening,
-already-dispositioned repeats, and disproportionate suggestions do not reset
-the streak or justify another cycle. The main thread does not fix nonmaterial
-suggestions merely to manufacture another review head. After fixing a material
-issue, it performs one final exact-head hosted-plus-CLI cycle and repeats only
-if that cycle finds another validated material issue. Zero findings is never
-the target.
+Practical taper is reached only when hosted CodeRabbit has stopped finding
+meaningful or useful improvements on the actual final candidate. Usually this
+means two consecutive hosted passes for that candidate, each producing roughly
+0–2 findings, with every finding judged not to be a meaningful or useful
+improvement (normally a false positive or tiny wording issue). This is a normal
+stopping signal, not an arbitrary mandatory count of clean rounds. A substantive
+change makes earlier review stale and requires review of the actual final
+candidate. Meaningful or useful improvements include worthwhile correctness
+fixes, tests, and maintainability improvements even when nonblocking. The Main
+Worker judges usefulness and may reject false, disproportionate, non-actionable,
+or out-of-scope suggestions without expanding scope. A raw zero-finding or
+“zero material blockers” result, or a large count of prior passes, does not
+establish taper by itself.
 
-When warranted, the committed-diff command is
-`coderabbit review --agent --committed --base <remote>/<base-ref>` against a
-fetched remote-tracking base. This supporting command does not replace the
-hosted pass, internal review, tests, hands-on trials, CI, or human gates.
+The whole-PR CLI runs independently on evolving local commits during the hosted
+remote freeze and must also cease yielding accepted useful findings before the
+final candidate is ready. This supports the hosted significance judgment
+without creating a second mandatory clean-round or zero-finding gate; CLI
+convergence cannot replace hosted convergence. Ordinary validation and CI,
+finding disposition, independent review, external-review, checkpoint, and
+human merge gates still apply. The committed-diff command is
+`coderabbit review --agent --committed --base <remote>/<base-ref>` with the
+actual fetched PR base; it supports but does not replace hosted review, internal
+review, tests, hands-on trials, CI, or human gates.
+GitHub checks and actual review outputs suffice as operational evidence. Keep
+only transient base/head context needed to target running reviews; do not create
+ledgers, review evidence documents, or routine PR disposition comments beyond
+the count-only checkpoint comments specified in PR reports after each distinct
+adjudicated completed hosted or CLI round, or persistent OID/command records
+merely to prove that review occurred.
 
-If hosted CodeRabbit is unavailable or rate-limited, the main thread records
+If hosted CodeRabbit is unavailable or rate-limited, the main thread reports
 that outcome honestly and waits for availability while doing safe,
-non-conflicting work, or stops for an explicit Ben waiver. It does not merge
-without the waiver. Keep the immutable-head restriction until the hosted pass
-reaches a terminal state. After one bounded wait and one status recheck,
-record a service-declared failure or cancellation as terminal. If a stale run
-exposes neither a terminal state nor a cancellation route, abandon that pass
-as unavailable, record its reviewed OID and outcome, release the restriction,
-and treat later output as stale. No unattended polling, automatic retry loop,
-or timer continues the cycle.
+non-conflicting work, or reports the need for an explicit Ben waiver to the
+Overseer. The Overseer does not merge without the required hosted review or an
+explicit Ben waiver. Keep the
+immutable-head restriction until the hosted pass reaches a terminal state. After
+one bounded wait and one status recheck,
+recognize a service-declared failure or cancellation as unavailable. If a stale
+run exposes neither a terminal state nor a cancellation route, treat that pass
+as unavailable, release the restriction, and treat later output as stale. No
+unattended polling, automatic retry loop, or timer continues the cycle.
 
 Automatic initial and incremental reviews and automatic review/chat responses
 remain disabled. The main thread may invoke CodeRabbit autonomously under this
@@ -395,27 +546,74 @@ submission of repository content. Review allowances, projects, and external
 systems are not coordinated or coupled across repositories; the main thread
 does not mutate another project.
 
+### PR reports
+
+The PR is the shared reporting record; do not create a separately maintained
+review chain. When reporting, read existing PR hosted summaries or threads and
+the hosted and CLI count-only checkpoint comments, then present the actual
+completion order including late posts,
+ask the owner only for meaningful missing or ambiguous counts, and mark missing
+evidence. Order PRs by merge priority while respecting dependencies, and state
+the purpose, owner, and base, the review chain, and fix status separately from
+gaps and readiness. Show each hosted round as `hosted (R/A)` and each CLI round
+as `CLI R/A`, where R is raw findings and A is accepted useful findings.
+Accepted means judged useful, whether or not blocking; it does not mean fixed.
+Distinct completed rounds on the same SHA each count; exclude failed or
+rate-limited rounds and include zero-finding rounds.
+
+After each distinct adjudicated completed hosted or CLI round, check whether its
+count snapshot is already present and, if absent, promptly post exactly one
+short count-only PR comment. Use `**Hosted: 8 found / 6 accepted**` for hosted
+rounds and `**CLI: 8 found / 6 accepted**` for CLI rounds; optionally include
+the actual review time in Pacific/Auckland and an abbreviated SHA. Do not
+include finding lists, explanations, validation inventories, or fix-tracking
+promises in either comment. A read-only PR report does not trigger reviews,
+resume work, merge, or routine chat reconstruction.
+
 ## Operational observations
 
-Every worker reports unexpected operational friction that forces a retry,
+Every executor reports unexpected operational friction that forces a retry,
 workaround, or changed tool path. The report includes the command or tool
 category, exact error, attempt count, workaround, and what is known versus
 inferred about the cause. Qualifying friction is unexpected, evidenced, and
 recurring, reusable, or likely to save future retries or work rounds.
 
-When qualifying friction occurs, the main thread searches
-`docs/project/ai-observations.md` narrowly for a matching pattern, deduplicates
-against existing entries, and records only a recurring or reusable evidenced
-pattern before the round closes. A matching entry is reported as a recurrence,
-not duplicated or silently bypassed. A subagent returns a concise `AI
-observation candidate` unless it has explicitly exclusive inbox ownership;
-the main thread is the default writer so parallel write scopes remain disjoint.
+The protected `docs/project/ai-observations.md` is the durable-record owner.
+The Main Worker is the default durable-record writer and deduplication owner
+when access is authorized, subject to this workflow's explicit inbox
+restrictions. The Overseer adjudicates escalated recurring coordination and
+instruction patterns and commissions bounded fixes. Neither role grants access
+to the protected inbox, and the inbox is not authority over this workflow.
+Severe blockers may escalate immediately. Executors return concise, evidenced
+`AI observation candidate` reports; a matching candidate is reported as a
+recurrence rather than duplicated or silently bypassed. Ordinary work does not
+read the inbox, and no second backlog, inbox-zero obligation, or always-on
+reading is created. Existing-entry changes remain limited to the intentional
+tooling or instruction-maintenance round and its explicit access restrictions.
+Future cleanup is explicitly authorized maintenance only; it addresses entries
+whose evidence is resolved, obsolete, or disproved, preserves unrelated and
+concurrent entries, and does not create an inbox-zero obligation.
 
-Ordinary work does not read the inbox. Existing entries are changed only in an
-intentional tooling or instruction-maintenance round. That round resolves,
-promotes, or removes entries deliberately. A repeated issue closes through a
-concrete bounded fix to a repository wrapper, preflight, active instruction,
-or other available tool path; restating the observation is not closure.
+### Selective process-improvement stewardship
+
+At meaningful existing oversight or checkpoint boundaries, the explicitly
+assigned Overseer considers reported, evidenced candidates for reusable
+process, tooling, evidence, validation, or context-efficiency improvements.
+The Overseer may delegate bounded fact gathering and evidence checks, then
+personally judge usefulness, priority, and scope before commissioning the Main
+Worker or an executor.
+
+Recurrence is not required for an obvious, evidenced, low-cost improvement;
+same-task bugs remain immediate implementation work. Prefer existing tools and
+weigh benefit against implementation and maintenance cost. Existing authorized
+reversible fixes may proceed; retained-human decisions go to Ben. This
+stewardship uses reported or separately access-authorized material, preserves
+protected-inbox access restrictions and human boundaries, and creates no fixed
+cadence, whole-inbox scan, second backlog, or new suite.
+
+A repeated issue closes through a concrete bounded fix to a repository wrapper,
+preflight, active instruction, or other available tool path; restating the
+observation is not closure.
 
 ## Subagent handoff
 
@@ -433,12 +631,7 @@ summary as proof, reconciles interactions, and performs consolidated
 validation against the integrated result. It does not create an external
 effect merely because a worker reports completion.
 
-The final handoff is brief and auditable. Use one line per subagent:
-
-`Subagent: <bounded role>; model: <model>; reasoning effort: <effort>; <edited files: <paths> | evidence only>`
-
-Then provide one validation line covering subagent-scoped and main
-consolidated checks, including explicit `deferred` or `unavailable` states.
-State the number of subagents used, any explicitly authorized routing
-deviation, and any incomplete review coverage. Do not substitute a prose
-summary for these auditable lines.
+The final handoff is concise and truthful: state the actual changes or evidence,
+meaningful validation, unresolved blockers or limitations, and any routing
+deviation when relevant. Actual outputs plus concise reporting are sufficient;
+no fixed per-agent template or agent count is required.

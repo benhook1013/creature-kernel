@@ -20,6 +20,9 @@ not define product or architecture contracts.
 - [AI observations](ai-observations.md) – conditional short-lived inbox for
   reusable AI tooling, harness, and operational-friction lessons; not ordinary
   work guidance.
+- [Provisional stacked integration ledger](stacked-integration-ledger.md) –
+  current local packaging inventory and three-layer candidate stack; it owns
+  packaging status only.
 
 Roadmap horizons are planning tools, not promises. Concrete activation triggers
 are preferred over dates while research uncertainty is high.

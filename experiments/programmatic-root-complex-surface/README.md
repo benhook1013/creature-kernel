@@ -58,6 +58,9 @@ protocol](../../docs/research/visual-quality-evaluation.md).
 The admission gate accepts only source-derived scalar dimensions or
 measurements, rigid frames, individually named landmarks, section stations
 with scalar width/depth/offset/taper/squareness, module state, and provenance.
+Dimension values are finite, strictly positive canonical metre values and are
+admitted exactly as authored; this consumer does not interpret integers as
+thousandths or apply a `/1000` scale.
 The prepared input is capped at 8 frames, 24 landmarks, 10 stations, and 6
 scalars per station. Every numeric value carries source provenance or a
 deterministic derivation. The four scalar records emitted by the frozen

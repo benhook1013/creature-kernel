@@ -7,19 +7,16 @@ from types import SimpleNamespace; from unittest.mock import patch
 import numpy as np
 from PIL import Image
 
-
 ROOT = Path(__file__).resolve().parents[1]; REPOSITORY = ROOT.parents[1]
 SOURCE = REPOSITORY / "examples/body-documents/stylized-digitigrade-biped-authored-form.json"; LAUNCHER = ROOT / "root_complex_launcher.sh"; BUILD_SCRIPT = ROOT / "build_root_complex.py"; ARTIFACTS = ("prepared.json", "skin.ply", "skin.png", "cage.png", "metrics.json", "manifest.json")
 sys.path.insert(0, str(ROOT))
 import build_root_complex as builder  # noqa: E402
 import render_export  # noqa: E402
 
-
 VERTICES = np.asarray(((-1.0, -1.0, -1.0), (1.0, -1.0, -1.0), (1.0, 1.0, -1.0), (-1.0, 1.0, -1.0), (-1.0, -1.0, 1.0), (1.0, -1.0, 1.0), (1.0, 1.0, 1.0), (-1.0, 1.0, 1.0)), dtype=np.float64)
 QUADS = np.asarray(((0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (4, 0, 3, 7)), dtype=np.int64)
 DEPTH_VERTICES = np.asarray(((-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (1.0, 1.0, 3.0), (-1.0, 1.0, 3.0), (-1.0, -1.0, 1.6), (1.0, -1.0, 1.6), (1.0, 1.0, 1.6), (-1.0, 1.0, 1.6)), dtype=np.float64)
 DEPTH_QUADS = np.asarray(((0, 1, 2, 3), (4, 5, 6, 7)), dtype=np.int64); EXTREME_VERTICES = VERTICES * (np.finfo(np.float64).max / 2.0)
-
 
 def png_chunk_types(data: bytes) -> list[bytes]:
     offset, result = 8, []
@@ -28,7 +25,6 @@ def png_chunk_types(data: bytes) -> list[bytes]:
         result.append(data[offset + 4 : offset + 8])
         offset += 12 + length
     return result
-
 
 class RenderExportTests(unittest.TestCase):
     def test_ply_has_counts_and_stable_quad_triangle_order(self) -> None:
@@ -52,42 +48,35 @@ class RenderExportTests(unittest.TestCase):
             with Image.open(root / "forward.png") as image: pixel = image.getpixel(sample)
         normal = np.cross(DEPTH_VERTICES[1] - DEPTH_VERTICES[0], DEPTH_VERTICES[2] - DEPTH_VERTICES[0]); brightness = 0.38 + 0.62 * max(0.0, float(np.dot(normal / np.linalg.norm(normal), render_export._LIGHT)))
         self.assertEqual(pixel, tuple(int(round(channel * brightness)) for channel in render_export._BASE_COLOUR))
-
     def test_png_is_rgb_fixed_size_and_has_no_metadata_chunks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-render-") as d:
             path = Path(d) / "skin.png"; render_export.render_skin_png(path, VERTICES, QUADS); data = path.read_bytes()
             with Image.open(path) as image: self.assertEqual((image.mode, image.size, image.info), ("RGB", render_export.CANVAS_SIZE, {})); self.assertEqual(png_chunk_types(data), [b"IHDR", b"IDAT", b"IEND"])
-
     def test_cage_diagnostic_is_rgb_and_has_visible_edges(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-render-") as d:
             path = Path(d) / "cage.png"; render_export.render_cage_png(path, VERTICES, QUADS); data = path.read_bytes()
             with Image.open(path) as image: self.assertEqual((image.mode, image.size), ("RGB", render_export.CANVAS_SIZE)); self.assertIn((237, 188, 86), set(image.getdata())); self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
-
     def test_existing_outputs_are_not_replaced(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-render-") as d:
             root = Path(d)
             for name, writer in (("skin.ply", render_export.write_skin_ply), ("skin.png", render_export.render_skin_png), ("cage.png", render_export.render_cage_png)):
                 path = root / name; path.write_bytes(b"keep me"); self.assertRaises(FileExistsError, writer, path, VERTICES, QUADS); self.assertEqual(path.read_bytes(), b"keep me")
-
     def test_changing_a_supplied_vertex_changes_ply_and_skin_png(self) -> None:
         changed = VERTICES.copy(); changed[6, 0] += 0.35
         with tempfile.TemporaryDirectory(prefix="root-complex-render-") as d:
             root = Path(d)
             for suffix, writer in (("ply", render_export.write_skin_ply), ("png", render_export.render_skin_png)):
                 writer(root / f"original.{suffix}", VERTICES, QUADS); writer(root / f"changed.{suffix}", changed, QUADS); self.assertNotEqual((root / f"original.{suffix}").read_bytes(), (root / f"changed.{suffix}").read_bytes())
-
     def test_nonfinite_and_invalid_indices_are_rejected(self) -> None:
         bad_vertices = VERTICES.copy(); bad_vertices[0, 0] = np.nan; self.assertRaises(ValueError, render_export.triangulate_quads, bad_vertices, QUADS)
         for value, dtype in ((np.inf, np.float64), (0.5, np.float64), (-1, np.int64), (len(VERTICES), np.int64)):
             bad_indices = QUADS.astype(dtype); bad_indices[0, 0] = value; self.assertRaises(ValueError, render_export.triangulate_quads, VERTICES, bad_indices)
-
     def test_extreme_finite_coordinates_keep_frame_projection_finite(self) -> None:
         cameras, centres, scale = render_export._frames(EXTREME_VERTICES)
         self.assertTrue(np.isfinite(np.asarray(cameras)).all()); self.assertTrue(np.isfinite(np.asarray(centres)).all()); self.assertTrue(np.isfinite(scale) and scale > 0.0)
         with tempfile.TemporaryDirectory(prefix="root-complex-render-extreme-") as d:
             path = Path(d) / "skin.png"; render_export.render_skin_png(path, EXTREME_VERTICES, QUADS)
             with Image.open(path) as image: self.assertEqual((image.mode, image.size), ("RGB", render_export.CANVAS_SIZE))
-
     def test_builder_rejects_nonzero_intersections_before_publication(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-intersection-") as d:
             root = Path(d); target = root / "standard-neutral"; evaluated = SimpleNamespace(intersection_counts=(0, 1))
@@ -96,22 +85,18 @@ class RenderExportTests(unittest.TestCase):
             publish.assert_not_called()
             self.assertFalse(target.exists())
             self.assertEqual(list(root.glob(f".{target.name}.staging-*")), [])
-
     def test_builder_publishes_complete_metrics_and_manifest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-build-") as d:
             target = Path(d) / "standard-neutral"; self.assertEqual(builder.build(SOURCE, target), target); self.assertEqual({p.name for p in target.iterdir()}, set(ARTIFACTS))
             metrics = json.loads((target / "metrics.json").read_text(encoding="utf-8")); manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8")); self.assertEqual(metrics["intersection_status"], "zero"); self.assertEqual(metrics["intersection_counts_by_level"], [0, 0]); self.assertNotIn("metrics.json", metrics["files"]); self.assertEqual(set(manifest["files"]), set(ARTIFACTS) - {"manifest.json"}); self.assertEqual(manifest["files"]["metrics.json"], hashlib.sha256((target / "metrics.json").read_bytes()).hexdigest())
-
     def test_atomic_publication_refuses_existing_target_without_overwrite(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-publish-") as d:
             root = Path(d); stage, target = root / "stage", root / "target"; stage.mkdir(); (stage / "payload").write_bytes(b"new"); target.mkdir(); (target / "payload").write_bytes(b"keep"); self.assertRaises(FileExistsError, builder._publish_no_replace, stage, target)
             self.assertEqual((stage / "payload").read_bytes(), b"new"); self.assertEqual((target / "payload").read_bytes(), b"keep")
-
     def test_builder_cleans_staging_after_generation_failure(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-failure-") as d:
             root = Path(d); target = root / "standard-neutral"; self.assertRaises(ValueError, builder.build, root / "missing-source.json", target)
             self.assertFalse(target.exists()); self.assertEqual(list(root.glob(f".{target.name}.staging-*")), [])
-
     def test_launcher_fresh_processes_are_byte_identical(self) -> None:
         with tempfile.TemporaryDirectory(prefix="root-complex-determinism-") as d:
             root = Path(d); targets = (root / "seed-one", root / "seed-two")
@@ -123,7 +108,6 @@ class RenderExportTests(unittest.TestCase):
                     description = f"could not start: {exc}" if isinstance(exc, OSError) else ("timed out after 120 seconds" if isinstance(exc, subprocess.TimeoutExpired) else f"failed with exit code {exc.returncode}")
                     self.fail(f"launcher {description}\nstdout:\n{getattr(exc, 'stdout', '')}\nstderr:\n{getattr(exc, 'stderr', '')}")
             for name in ARTIFACTS: self.assertEqual((targets[0] / name).read_bytes(), (targets[1] / name).read_bytes(), name)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -58,9 +58,10 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .error { color: #ffadb7; background: #351820; }
 .image-dialog { display: flex; flex-direction: column; gap: 0.55rem; width: 96vw; height: 94vh; max-width: 96vw; max-height: 94vh; padding: 0.7rem; overflow: hidden; border: 0; border-radius: 0.5rem; background: #101820; }
 .image-dialog::backdrop { background: #081018c9; }
-.image-dialog-header { display: flex; flex: 0 0 auto; align-items: center; flex-wrap: nowrap; gap: 0.7rem; min-width: 0; }
+.image-dialog-header { display: flex; flex: 0 0 auto; align-items: center; flex-wrap: wrap; gap: 0.7rem; min-width: 0; }
 .image-dialog-title { min-width: 0; flex: 1 1 auto; margin: 0; overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; white-space: nowrap; }
-.image-dialog-controls { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; flex-wrap: nowrap; gap: 0.45rem; margin-left: auto; white-space: nowrap; }
+.image-dialog-controls { display: flex; flex: 1 1 40rem; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 0.45rem; min-width: 0; margin-left: auto; white-space: normal; }
+.image-pack-context { flex: 0 0 auto; width: 100%; min-width: 0; padding: 0.15rem 0.35rem 0.25rem; color: #d2e3f3; font-size: 0.82rem; line-height: 1.35; overflow-wrap: anywhere; white-space: normal; }
 .image-control { padding: 0.4rem 0.6rem; font-size: 0.86rem; }
 .image-navigation-control { border-color: #4b86b6; background: #183149; }
 .image-scale { min-width: 5.5rem; color: #b7c8d9; font-size: 0.82rem; text-align: center; white-space: nowrap; }
@@ -75,9 +76,9 @@ button.primary { border-color: #3387d5; background: #1768ad; color: #fff; }
 .close-dialog { display: block; margin-left: auto; }
 
 @media (max-width: 52rem) {
-  .image-dialog-header { align-items: flex-start; flex-wrap: wrap; }
+  .image-dialog-header { align-items: flex-start; }
   .image-dialog-title { flex-basis: calc(100% - 3rem); }
-  .image-dialog-controls { order: 3; width: 100%; flex-wrap: wrap; justify-content: flex-start; margin-left: 0; white-space: normal; }
+  .image-dialog-controls { order: 3; width: 100%; flex-basis: auto; margin-left: 0; }
 }
 
 /* Structural inspection is intentionally read-only and text-only. */

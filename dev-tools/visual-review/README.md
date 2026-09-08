@@ -36,11 +36,17 @@ listener; OS, WSL, container, and firewall forwarding are outside its scope
 and may still be required for another device to connect. Do not enable this
 mode on an untrusted network.
 
-Within one expanded image comparison, switching between that group's items by
-click, Previous/Next, or Left/Right preserves the current zoom and pan so paired
-images remain directly comparable. Closing the comparison and opening a
-different group starts from its own fitted view; viewport state does not cross
-group boundaries.
+Within one expanded image comparison, the Switch model group control uses a
+non-empty `metadata.comparison_key` and changes to the unique matching item in
+the next eligible group. Previous/Next stays within the current published pack;
+Left/Right switches to the older/newer published pack containing the unique
+item with the exact non-empty `metadata.comparison_identity`. Missing identities
+are skipped and ambiguous matches stop with an explanation. Successful group
+and pack image replacements preserve the current zoom and pan; a failed image
+or pack load leaves the displayed image, pack context, viewport, and focus in
+place. Pending group or pack transitions disable within-pack controls and image
+activation until the replacement commits atomically. Closing the comparison and
+opening another group starts from that group's fitted view.
 
 For a structural-only review, build the checked-in CLI and publish the
 checked-in biped example through the bounded wrapper:
@@ -192,31 +198,49 @@ refuses to overwrite an existing session.
 
 ## Windows browser/CDP fallback
 
-Use the T3 collaborative preview first for browser navigation, inspection,
-interaction, screenshots, and recordings. If it is unavailable and a Windows
-Chrome/CDP fallback is required, send a readable PowerShell script through the
-stdin-only launcher:
+Browser navigation, interaction, screenshots, and recordings for the current
+comparison-gallery trial are stopped. The direct invocation incident supplied
+an empty profile and debug port `0` to Chrome (recorded PID `8932`) because the
+WSL environment variables were absent; later UNC-profile attempts on ports
+`9230`, `9231`, and `9232` also exited. Main found no matching task processes
+or listeners, and did not touch an ordinary Chrome process or tab because its
+provenance was unknown. Popup text was not captured.
 
-```bash
-dev-tools/visual-review/powershell-stdin.sh <<'POWERSHELL'
-$ErrorActionPreference = 'Stop'
-Invoke-RestMethod -Uri 'http://127.0.0.1:9222/json/version' |
-  ConvertTo-Json -Depth 4
-POWERSHELL
+The supported fallback now begins with a readable, non-launching preflight:
+
+```powershell
+& .\dev-tools\visual-review\browser_trial.ps1 `
+  -BrowserPath 'C:\Program Files\Google\Chrome\Application\chrome.exe' `
+  -ProfilePath 'C:\Temp\pr127-gallery-task-001' `
+  -DebugPort 9234
 ```
 
-The launcher accepts no arguments and invokes `powershell.exe` with exactly
-`-NoProfile -NonInteractive -File -`; stdin is forwarded unchanged. Do not use
-`-EncodedCommand`, Base64, or another obfuscated payload. Opaque automation can
-be blocked or misclassified and then surface as a misleading launch error.
-Keeping the script readable preserves inspection and diagnosis.
+The default `Plan` mode validates an explicit native Windows `.exe` path, a
+fresh non-empty absolute profile directory, and a debug port from `1` through
+`65535`, then prints the exact isolated command without starting a process.
+It does not read WSL environment variables, search for an executable, use an
+ordinary profile, or accept UNC/WSL paths. `-Mode Launch` is the explicit launch
+path; it requires the same validation, uses `--headless=new`, `--noerrdialogs`,
+`--user-data-dir`, and loopback-only remote debugging, and emits a command/PID/
+ownership receipt for cleanup. Keep the complete invocation in one PowerShell
+script scope so a validation error exits before any later stdin statement can
+run. The launch path was not exercised in this repair.
+
+The stdin-only launcher accepts no arguments and invokes `powershell.exe` with
+exactly `-NoProfile -NonInteractive -File -`; stdin is forwarded unchanged.
+Do not use `-EncodedCommand`, Base64, or an obfuscated payload. The Windows
+non-intrusion property is not proven by this preflight. A future real trial
+needs separate evidence and an explicit cleanup receipt.
 
 Do not rediscover or depend on a host-local `ck-playwright-node` installation:
 it is not repository-owned and its CommonJS/ESM resolution behavior is not a
-supported workflow. Use T3, or the readable PowerShell/CDP fallback above. If
-the browser route rejects a native WSL `file:///home/...` workspace URI before
-launch, report that failure once and switch to the fallback; retrying the same
-route supplies no new evidence.
+supported workflow. Prefer an already-available isolated route. A native WSL
+`file:///home/...` workspace rejection stops that route; it does not authorize
+an automatic Windows fallback or retry. Automated testing must create no visible
+desktop windows, tabs, consoles, focus changes, prompts, or popups. Establish
+that property and fresh-profile isolation before a real invocation. If no
+small, reliable method is available, defer real-browser coverage and report
+the limitation rather than building new launcher infrastructure.
 
 For automated comparison-gallery trials, use the control's exact accessible
 name (for example `Show next image`) when roles overlap. Before a coordinate

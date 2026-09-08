@@ -79,7 +79,7 @@
       card.appendChild(node("code", session.id, "stable-id"));
       if (session.published_at) {
         var published = new Date(session.published_at);
-        var publishedText = Number.isNaN(published.getTime()) ? session.published_at : published.toLocaleString();
+        var publishedText = Number.isNaN(published.getTime()) ? session.published_at : published.toLocaleString("en-NZ");
         var publishedNode = node("time", "Published " + publishedText, "session-published");
         publishedNode.dateTime = session.published_at;
         card.appendChild(publishedNode);
@@ -121,6 +121,91 @@
     var title = item && item.title !== undefined && item.title !== null ? String(item.title) : "";
     var description = imageDescription(item);
     return description ? title + " — " + description : title;
+  }
+
+  function imageComparisonKey(item) {
+    if (!isObject(item) || !isObject(item.metadata) || typeof item.metadata.comparison_key !== "string") {
+      return null;
+    }
+    var key = item.metadata.comparison_key.trim();
+    return key ? key : null;
+  }
+
+  function imageComparisonIdentity(item) {
+    if (!isObject(item) || !isObject(item.metadata) || typeof item.metadata.comparison_identity !== "string") {
+      return null;
+    }
+    var identity = item.metadata.comparison_identity;
+    if (!identity || identity.trim() !== identity) {
+      return null;
+    }
+    return identity;
+  }
+
+  function packContextLabel(pack) {
+    if (!pack) {
+      return "";
+    }
+    var label = pack.title || pack.id || "Current review";
+    if (pack.published_at) {
+      var published = new Date(pack.published_at);
+      label += " · Published " + (Number.isNaN(published.getTime()) ? pack.published_at : published.toLocaleString("en-NZ"));
+    }
+    return label;
+  }
+
+  function findPackImage(review, identity) {
+    if (!review || !Array.isArray(review.groups) || identity === null) {
+      return { status: "missing" };
+    }
+    var matches = [];
+    review.groups.forEach(function (group) {
+      (group.items || []).forEach(function (item, itemIndex) {
+        if (imageComparisonIdentity(item) === identity) {
+          matches.push({ groupId: group.id, itemIndex: itemIndex });
+        }
+      });
+    });
+    if (matches.length === 0) {
+      return { status: "missing" };
+    }
+    if (matches.length !== 1) {
+      return { status: "ambiguous" };
+    }
+    return { status: "match", groupId: matches[0].groupId, itemIndex: matches[0].itemIndex };
+  }
+
+  function imageItemsByGroupForReview(review) {
+    var imageItemsByGroup = {};
+    review.groups.forEach(function (group) {
+      imageItemsByGroup[group.id] = group.items.map(function (groupItem) {
+        var imageItem = {};
+        Object.keys(groupItem).forEach(function (key) { imageItem[key] = groupItem[key]; });
+        imageItem.source = "/api/reviews/" + encodeURIComponent(review.id) + "/assets/" + groupItem.image.substring("assets/".length).split("/").map(encodeURIComponent).join("/");
+        return imageItem;
+      });
+    });
+    return imageItemsByGroup;
+  }
+
+  function comparisonGroupsFor(review, key, imageItemsByGroup) {
+    if (key === null) {
+      return [];
+    }
+    return review.groups.map(function (group) {
+      var items = imageItemsByGroup[group.id] || [];
+      var matchingIndexes = [];
+      items.forEach(function (item, index) {
+        if (imageComparisonKey(item) === key) {
+          matchingIndexes.push(index);
+        }
+      });
+      return matchingIndexes.length !== 1 ? null : {
+        groupId: group.id,
+        items: items,
+        itemIndex: matchingIndexes[0]
+      };
+    }).filter(function (group) { return group !== null; });
   }
 
   function subjectContextBlock(context) {
@@ -3764,6 +3849,12 @@
   }
 
   function openImage(items, selectedIndex) {
+    var comparisonResolver = items.comparisonResolver;
+    var packNavigation = items.packNavigation || null;
+    var packContext = items.packContext || null;
+    var initialGroupId = items.initialGroupId;
+    var activeGroupId = initialGroupId || null;
+    var comparisonGroups = [];
     var returnFocus = document.activeElement;
     var initialIndex = Math.max(0, Math.min(items.length - 1, selectedIndex || 0));
     var dialog = node("dialog", null, "image-dialog");
@@ -3772,6 +3863,11 @@
     dialog.setAttribute("aria-labelledby", "image-dialog-title");
     var header = node("header", null, "image-dialog-header");
     header.appendChild(heading);
+    var packContextLine = node("div", null, "image-pack-context");
+    var packLabel = node("span", "", "image-pack-context-label");
+    packLabel.setAttribute("aria-live", "polite");
+    packLabel.setAttribute("aria-label", "Current published pack");
+    packContextLine.appendChild(packLabel);
 
     var controls = node("div", null, "image-dialog-controls");
     var previous = node("button", "Previous", "image-control image-navigation-control");
@@ -3780,6 +3876,17 @@
     var next = node("button", "Next", "image-control image-navigation-control");
     next.type = "button";
     next.setAttribute("aria-label", "Show next image");
+    var switchGroup = node("button", "Switch model group", "image-control image-navigation-control");
+    switchGroup.type = "button";
+    switchGroup.setAttribute("aria-label", "Switch to the same pose or view in another model group");
+    var older = node("button", "Older", "image-control image-navigation-control");
+    older.type = "button";
+    older.setAttribute("aria-label", "Show the same image in an older published pack");
+    older.setAttribute("aria-keyshortcuts", "ArrowLeft");
+    var newer = node("button", "Newer", "image-control image-navigation-control");
+    newer.type = "button";
+    newer.setAttribute("aria-label", "Show the same image in a newer published pack");
+    newer.setAttribute("aria-keyshortcuts", "ArrowRight");
     var zoomOut = node("button", "Zoom out", "image-control");
     zoomOut.type = "button";
     zoomOut.setAttribute("aria-label", "Zoom out of image");
@@ -3796,6 +3903,9 @@
     positionLabel.setAttribute("role", "status");
     controls.appendChild(previous);
     controls.appendChild(next);
+    controls.appendChild(switchGroup);
+    controls.appendChild(older);
+    controls.appendChild(newer);
     controls.appendChild(zoomOut);
     controls.appendChild(zoomIn);
     controls.appendChild(fit);
@@ -3808,6 +3918,7 @@
     header.appendChild(controls);
     header.appendChild(close);
     dialog.appendChild(header);
+    dialog.appendChild(packContextLine);
 
     var viewport = node("div", null, "image-viewport");
     viewport.tabIndex = 0;
@@ -3817,7 +3928,7 @@
     var image = null;
     viewport.appendChild(canvas);
     dialog.appendChild(viewport);
-    dialog.appendChild(node("p", "Use Previous/Next, the Left/Right arrow keys, click the displayed image, or drag it to compare and pan items. Escape closes the viewer.", "image-dialog-instructions"));
+    dialog.appendChild(node("p", "Use Previous/Next buttons for items within this pack. Left/Right arrow keys switch to the older/newer matching pack image. Click the displayed image or drag it to compare and pan items. Escape closes the viewer.", "image-dialog-instructions"));
 
     var MIN_SCALE = 0.1;
     var MAX_SCALE = 8;
@@ -3827,6 +3938,12 @@
     var cleaned = false;
     var requestedIndex = initialIndex;
     var displayedIndex = -1;
+    var displayedItem = null;
+    var pendingGroupTransition = null;
+    var pendingPackTransition = null;
+    var pendingPackSearch = false;
+    var packSearchToken = 0;
+    var packNavigationStops = {};
     var imageLoadToken = 0;
     var focusRestoreFrame = null;
     var suppressNextImageClick = false;
@@ -3910,16 +4027,40 @@
       zoomTo(scale * (event.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR), anchorX, anchorY);
     }
 
+    function activatePackButton(button) {
+      if (button.disabled) {
+        return false;
+      }
+      button.click();
+      return true;
+    }
+
+    function isEditableKeyTarget(target) {
+      if (!target) {
+        return false;
+      }
+      var tagName = target.tagName ? target.tagName.toLowerCase() : "";
+      return tagName === "input" || tagName === "textarea" || tagName === "select" || target.isContentEditable;
+    }
+
     function onKeyDown(event) {
       if (event.key === "Escape") {
         event.preventDefault();
         closeImageDialog();
       } else if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        showItem(requestedIndex - 1, image !== null && document.activeElement === image);
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || isEditableKeyTarget(event.target)) {
+          return;
+        }
+        if (activatePackButton(older)) {
+          event.preventDefault();
+        }
       } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        showItem(requestedIndex + 1, image !== null && document.activeElement === image);
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || isEditableKeyTarget(event.target)) {
+          return;
+        }
+        if (activatePackButton(newer)) {
+          event.preventDefault();
+        }
       } else if (event.key === "+" || event.key === "=" || event.key === "Add") {
         event.preventDefault();
         zoomBy(ZOOM_FACTOR);
@@ -3973,8 +4114,15 @@
       });
     }
 
+    function imageNavigationBlocked() {
+      return pendingGroupTransition !== null || pendingPackSearch || pendingPackTransition !== null;
+    }
+
     function updateImageControls() {
       var disabled = image === null;
+      var navigationBlocked = imageNavigationBlocked();
+      previous.disabled = navigationBlocked || items.length < 2;
+      next.disabled = navigationBlocked || items.length < 2;
       zoomOut.disabled = disabled;
       zoomIn.disabled = disabled;
       fit.disabled = disabled;
@@ -3984,27 +4132,107 @@
       if (displayedIndex < 0) {
         return "No image displayed";
       }
-      var displayedItem = items[displayedIndex];
-      return "Item " + (displayedIndex + 1) + " of " + items.length + ": " + displayedItem.title;
+      var item = displayedItem || items[displayedIndex];
+      return "Item " + (displayedIndex + 1) + " of " + items.length + ": " + item.title;
     }
 
     function updateDisplayedState(statusText) {
       var headingIndex = displayedIndex >= 0 ? displayedIndex : requestedIndex;
       heading.textContent = headingIndex >= 0 && headingIndex < items.length ? items[headingIndex].title : "Image comparison";
+      packLabel.textContent = packContextLabel(packContext);
       positionLabel.textContent = displayedPositionText() + (statusText ? " · " + statusText : "");
     }
 
-    function showItem(index, focusImage) {
-      if (!items.length) {
+    function displayedPackMatch() {
+      var identity = imageComparisonIdentity(displayedItem);
+      if (!packContext || !packContext.review || identity === null) {
+        return null;
+      }
+      var match = findPackImage(packContext.review, identity);
+      if (match.status !== "match" || match.groupId !== activeGroupId || match.itemIndex !== displayedIndex) {
+        return null;
+      }
+      return { identity: identity, match: match };
+    }
+
+    function packNavigationStopKey(direction, identity) {
+      return packContext.id + "\u0000" + identity + "\u0000" + direction;
+    }
+
+    function rememberPackNavigationStop(direction, identity, status) {
+      packNavigationStops[packNavigationStopKey(direction, identity)] = status;
+    }
+
+    function hasPackNavigationStop(direction, identity) {
+      return Object.prototype.hasOwnProperty.call(packNavigationStops, packNavigationStopKey(direction, identity));
+    }
+
+    function packCandidates(direction) {
+      if (!packNavigation || !Array.isArray(packNavigation.sessions) || !packContext) {
+        return [];
+      }
+      var currentIndex = packNavigation.sessions.findIndex(function (session) {
+        return session.id === packContext.id;
+      });
+      if (currentIndex < 0) {
+        return [];
+      }
+      var step = direction === "older" ? 1 : -1;
+      var candidates = [];
+      for (var index = currentIndex + step; index >= 0 && index < packNavigation.sessions.length; index += step) {
+        var session = packNavigation.sessions[index];
+        if (!session.kind || session.kind === "image") {
+          candidates.push(session);
+        }
+      }
+      return candidates;
+    }
+
+    function refreshComparisonNavigation() {
+      comparisonGroups = typeof comparisonResolver === "function" && displayedItem ? comparisonResolver(displayedItem) : [];
+      var activeGroupEligible = comparisonGroups.some(function (group) {
+        return group.groupId === activeGroupId;
+      });
+      var navigationBlocked = imageNavigationBlocked();
+      switchGroup.disabled = navigationBlocked || pendingGroupTransition !== null || comparisonGroups.length < 2 || !activeGroupEligible;
+      var currentPack = displayedPackMatch();
+      var hasIdentity = currentPack !== null;
+      older.disabled = navigationBlocked || !hasIdentity || hasPackNavigationStop("older", currentPack ? currentPack.identity : "") || packCandidates("older").length === 0;
+      newer.disabled = navigationBlocked || !hasIdentity || hasPackNavigationStop("newer", currentPack ? currentPack.identity : "") || packCandidates("newer").length === 0;
+    }
+
+    function showItem(index, focusImage, targetItems, targetGroup, targetPack) {
+      targetItems = targetItems || items;
+      targetGroup = targetGroup || null;
+      targetPack = targetPack || null;
+      var isPackTransition = targetPack !== null && targetItems !== items;
+      var isGroupTransition = !isPackTransition && targetGroup !== null && targetItems !== items;
+      if (!isGroupTransition && !isPackTransition && imageNavigationBlocked()) {
         return;
       }
-      requestedIndex = (index + items.length) % items.length;
+      if (!targetItems.length) {
+        return;
+      }
+      requestedIndex = (index + targetItems.length) % targetItems.length;
       var targetIndex = requestedIndex;
-      var item = items[targetIndex];
+      var item = targetItems[targetIndex];
+      var groupTransition = isGroupTransition ? { groupId: targetGroup.groupId, items: targetItems } : null;
+      var packTransition = isPackTransition ? { groupId: targetGroup.groupId, items: targetItems, pack: targetPack } : null;
+      if (groupTransition) {
+        pendingGroupTransition = groupTransition;
+        switchGroup.disabled = true;
+      }
+      if (packTransition) {
+        pendingPackTransition = packTransition;
+      }
+      if (groupTransition || packTransition) {
+        refreshComparisonNavigation();
+      }
       var loadToken = ++imageLoadToken;
-      previous.disabled = items.length < 2;
-      next.disabled = items.length < 2;
-      if (image && targetIndex === displayedIndex) {
+      var navigationBlocked = imageNavigationBlocked();
+      previous.disabled = navigationBlocked || targetItems.length < 2;
+      next.disabled = navigationBlocked || targetItems.length < 2;
+      if (!isGroupTransition && !isPackTransition && image && displayedItem === item) {
         updateDisplayedState("");
         if (focusImage) {
           focusPreservingViewport(image);
@@ -4077,14 +4305,21 @@
         releasePointerCapture(event);
       }
       function showNextImage(event) {
-        if (event.type === "click" && suppressNextImageClick) {
+        if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
+          return;
+        }
+        if (imageNavigationBlocked()) {
           suppressNextImageClick = false;
           pendingClickViewportState = null;
           event.preventDefault();
           event.stopPropagation();
           return;
         }
-        if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
+        if (event.type === "click" && suppressNextImageClick) {
+          suppressNextImageClick = false;
+          pendingClickViewportState = null;
+          event.preventDefault();
+          event.stopPropagation();
           return;
         }
         if (event.type === "keydown") {
@@ -4109,15 +4344,35 @@
         if (cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex) {
           return;
         }
+        if (isGroupTransition && pendingGroupTransition !== groupTransition) {
+          return;
+        }
+        if (isPackTransition && pendingPackTransition !== packTransition) {
+          return;
+        }
         var viewportState = image ? captureViewport() : null;
         if (image) {
           canvas.replaceChild(nextImage, image);
         } else {
           canvas.appendChild(nextImage);
         }
+        if (isGroupTransition) {
+          items = targetItems;
+          activeGroupId = groupTransition.groupId;
+          pendingGroupTransition = null;
+        }
+        if (isPackTransition) {
+          items = targetItems;
+          activeGroupId = packTransition.groupId;
+          comparisonResolver = packTransition.pack.comparisonResolver;
+          packNavigation = packTransition.pack.packNavigation;
+          packContext = packTransition.pack.packContext;
+          pendingPackTransition = null;
+        }
         image = nextImage;
         displayedIndex = targetIndex;
         requestedIndex = targetIndex;
+        displayedItem = item;
         updateDisplayedState("");
         updateImageControls();
         if (viewportState) {
@@ -4128,18 +4383,113 @@
         if (focusImage) {
           focusPreservingViewport(image);
         }
+        refreshComparisonNavigation();
       });
       nextImage.addEventListener("error", function () {
         if (cleaned || loadToken !== imageLoadToken || requestedIndex !== targetIndex) {
           return;
+        }
+        if (isGroupTransition && pendingGroupTransition !== groupTransition) {
+          return;
+        }
+        if (isPackTransition && pendingPackTransition !== packTransition) {
+          return;
+        }
+        if (isGroupTransition) {
+          pendingGroupTransition = null;
+        }
+        if (isPackTransition) {
+          pendingPackTransition = null;
         }
         if (displayedIndex >= 0) {
           requestedIndex = displayedIndex;
         }
         updateDisplayedState("Could not load item " + (targetIndex + 1) + ": " + item.title);
         updateImageControls();
+        refreshComparisonNavigation();
       });
       nextImage.src = item.source;
+    }
+
+    function loadPackDirection(direction) {
+      var currentPack = displayedPackMatch();
+      if (pendingPackSearch || !packNavigation || !packContext || currentPack === null) {
+        return;
+      }
+      var identity = currentPack.identity;
+      if (hasPackNavigationStop(direction, identity)) {
+        return;
+      }
+      var candidates = packCandidates(direction);
+      if (!candidates.length) {
+        return;
+      }
+      var token = ++packSearchToken;
+      pendingPackSearch = true;
+      updateImageControls();
+      refreshComparisonNavigation();
+
+      function inspectCandidate(index) {
+        if (cleaned || token !== packSearchToken) {
+          return;
+        }
+        if (index >= candidates.length) {
+          rememberPackNavigationStop(direction, identity, "missing");
+          pendingPackSearch = false;
+          updateDisplayedState("No matching image in available packs");
+          updateImageControls();
+          refreshComparisonNavigation();
+          return;
+        }
+        var session = candidates[index];
+        api("/api/reviews/" + encodeURIComponent(session.id)).then(function (data) {
+          if (cleaned || token !== packSearchToken) {
+            return;
+          }
+          var review = data && data.review ? data.review : data;
+          var match = findPackImage(review, identity);
+          if (match.status === "missing") {
+            inspectCandidate(index + 1);
+            return;
+          }
+          if (match.status === "ambiguous") {
+            rememberPackNavigationStop(direction, identity, "ambiguous");
+            pendingPackSearch = false;
+            updateDisplayedState("Ambiguous matching image; navigation stopped");
+            updateImageControls();
+            refreshComparisonNavigation();
+            return;
+          }
+          var targetGroups = imageItemsByGroupForReview(review);
+          var targetItems = targetGroups[match.groupId].slice();
+          targetItems.comparisonResolver = function (item) {
+            return comparisonGroupsFor(review, imageComparisonKey(item), targetGroups);
+          };
+          targetItems.packNavigation = packNavigation;
+          targetItems.packContext = { id: review.id, title: review.title, published_at: session.published_at, review: review };
+          pendingPackSearch = false;
+          showItem(
+            match.itemIndex,
+            true,
+            targetItems,
+            { groupId: match.groupId },
+            {
+              comparisonResolver: targetItems.comparisonResolver,
+              packNavigation: packNavigation,
+              packContext: targetItems.packContext,
+            },
+          );
+        }).catch(function (error) {
+          if (cleaned || token !== packSearchToken) {
+            return;
+          }
+          pendingPackSearch = false;
+          updateDisplayedState("Could not load pack: " + error.message);
+          updateImageControls();
+          refreshComparisonNavigation();
+        });
+      }
+      inspectCandidate(0);
     }
 
     function cleanup() {
@@ -4172,8 +4522,33 @@
     }
 
     close.addEventListener("click", closeImageDialog);
-    previous.addEventListener("click", function () { showItem(requestedIndex - 1, false); });
-    next.addEventListener("click", function () { showItem(requestedIndex + 1, false); });
+    previous.addEventListener("click", function () {
+      if (imageNavigationBlocked()) {
+        return;
+      }
+      showItem(requestedIndex - 1, false);
+    });
+    next.addEventListener("click", function () {
+      if (imageNavigationBlocked()) {
+        return;
+      }
+      showItem(requestedIndex + 1, false);
+    });
+    older.addEventListener("click", function () { loadPackDirection("older"); });
+    newer.addEventListener("click", function () { loadPackDirection("newer"); });
+    switchGroup.addEventListener("click", function () {
+      if (comparisonGroups.length < 2) {
+        return;
+      }
+      var currentGroupIndex = comparisonGroups.findIndex(function (group) {
+        return group.groupId === activeGroupId;
+      });
+      if (currentGroupIndex < 0) {
+        return;
+      }
+      var target = comparisonGroups[(currentGroupIndex + 1) % comparisonGroups.length];
+      showItem(target.itemIndex, true, target.items, target);
+    });
     zoomOut.addEventListener("click", function () { zoomBy(1 / ZOOM_FACTOR); });
     zoomIn.addEventListener("click", function () { zoomBy(ZOOM_FACTOR); });
     fit.addEventListener("click", fitToViewport);
@@ -4193,6 +4568,7 @@
     }
     window.addEventListener("resize", onResize);
     updateImageControls();
+    refreshComparisonNavigation();
     showItem(requestedIndex, false);
   }
 
@@ -4237,6 +4613,16 @@
     }
     var form = node("form");
     form.addEventListener("submit", function (event) { event.preventDefault(); saveReview(review, form); });
+    var imageItemsByGroup = imageItemsByGroupForReview(review);
+    var sessionIndex = Array.isArray(data.session_index) ? data.session_index : [];
+    var currentSession = sessionIndex.find(function (session) { return session.id === review.id; });
+    var packNavigation = { sessions: sessionIndex };
+    var packContext = {
+      id: review.id,
+      title: review.title,
+      published_at: currentSession ? currentSession.published_at : null,
+      review: review,
+    };
     review.groups.forEach(function (group) {
       var section = node("section", null, "review-group");
       section.dataset.groupId = group.id;
@@ -4247,12 +4633,7 @@
         section.appendChild(node("p", group.description));
       }
       var cards = node("div", null, "option-grid");
-      var imageItems = group.items.map(function (groupItem) {
-        var imageItem = {};
-        Object.keys(groupItem).forEach(function (key) { imageItem[key] = groupItem[key]; });
-        imageItem.source = "/api/reviews/" + encodeURIComponent(review.id) + "/assets/" + groupItem.image.substring("assets/".length).split("/").map(encodeURIComponent).join("/");
-        return imageItem;
-      });
+      var imageItems = imageItemsByGroup[group.id];
       var selected = (oldResponse && oldResponse.selections[group.id]) || [];
       group.items.forEach(function (item, itemIndex) {
         var card = node("article", null, "option-card");
@@ -4265,7 +4646,16 @@
         image.alt = imageLabel;
         image.loading = "lazy";
         imageButton.appendChild(image);
-        imageButton.addEventListener("click", function () { openImage(imageItems, itemIndex); });
+        imageButton.addEventListener("click", function () {
+          imageItems = imageItems.slice();
+          imageItems.comparisonResolver = function (item) {
+            return comparisonGroupsFor(review, imageComparisonKey(item), imageItemsByGroup);
+          };
+          imageItems.packNavigation = packNavigation;
+          imageItems.packContext = packContext;
+          imageItems.initialGroupId = group.id;
+          openImage(imageItems, itemIndex);
+        });
         card.appendChild(imageButton);
         var body = node("div", null, "option-body");
         var itemTitle = node("h3", item.title);
@@ -4397,7 +4787,16 @@
       addNotice(app, "Not found", "error");
       return;
     }
-    api("/api/reviews/" + encodeURIComponent(decodeURIComponent(match[1]))).then(renderReview).catch(function (error) { clear(app); addNotice(app, error.message, "error"); });
+    api("/api/reviews/" + encodeURIComponent(decodeURIComponent(match[1]))).then(function (data) {
+      var loadedReview = data && data.review ? data.review : data;
+      if (!loadedReview || loadedReview.kind === "structure" || loadedReview.kind === "provisional-form") {
+        return renderReview(data);
+      }
+      return api("/api/sessions").catch(function () { return { sessions: [] }; }).then(function (index) {
+        data.session_index = Array.isArray(index.sessions) ? index.sessions : [];
+        return renderReview(data);
+      });
+    }).catch(function (error) { clear(app); addNotice(app, error.message, "error"); });
   }
 
   load();

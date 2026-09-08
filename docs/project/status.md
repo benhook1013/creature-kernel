@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-09-03 (NZST; repository activity is recorded in NZST while
+Status date: 2026-09-08 (NZST; repository activity is recorded in NZST while
 GitHub timestamps are UTC)
 
 ## Phase
@@ -14,51 +14,117 @@ governs what resumes next.
 
 ## Active runway
 
+**RESUMED on 2026-09-08 at Ben's explicit request relayed by the Overseer.**
+Resume the exact paused runway. The fail-closed PowerShell/stdin invocation
+repair has now passed parser, mocks, and both non-launching stdin sentinels
+(empty-profile and nonnumeric-port), with both rejected-input child processes exiting nonzero and no trailing sentinel;
+quoted-argument preview and fake handoff match, and no execution-policy
+mutation occurred. Main's follow-up changed only cleanup-receipt guidance to
+require current-PID, executable, and profile verification; no algorithm changed.
+Revalidate this pause snapshot and the current handover before continuing the
+lowest integration lane:
+PR #127 currently has 57 prospective paths; its two planned follow-ups are
+approximately 92 and 79 paths, each below 100 changed files. Packaging and review remain primary, and
+upper-work must not delay that lower lane. A genuine final-review-ready clean
+immutable head is required before the hosted and committed-diff CLI review cycle
+runs together. Current real-browser coverage is deferred; no browser repair or
+setup lane remains active. No local native Chromium or Playwright was available;
+the setup attempt installed only npm Playwright 1.63.0 packages at
+`/home/ben/.cache/pr127-native-browser-IFXwYI`, with no browser download or
+launch and no new infrastructure or launcher project. Windows-side execution is
+not permanently prohibited, but any future coverage must be provably hidden and
+profile-isolated and create no visible Windows desktop windows, tabs, consoles,
+focus changes, or popups. Real Windows launch and nonintrusion remain
+unverified. No additional broad waiver is granted. Previous source/CLI gallery
+hash-based validation remains retained evidence. Ben explicitly authorizes
+closure after the current fixes and checks, subject to Overseer assessment.
+Under Ben's authorization, the Overseer owns merge assessment and execution;
+Main has no merge authority, and retained-human boundaries remain with Ben. The
+paused snapshot is preserved as
+historical record in the [current
+handover](current-handover.md#historical-pause-snapshot--2026-09-07).
+
 This section is the sole current continuation source for the repository. Later
 status sections are reference history or task-specific state only; they may
 preserve evidence but do not redefine current continuation.
 
-### Terminal investigation outcome
+### Integrated coarse-to-anatomical whole-character runway
 
-The Ben-authorized, experiment-local, pre-Readiness-4 investigation of a
-programmatic surface-domain/subdivision-cage representation is terminal for
-its seven-ring candidate. Its bounded question was whether that
-representation could produce a credible ribcage-waist-pelvis assembly with
-readable neck, axilla, and hip/thigh-root boundaries, sufficient to justify
-extending the representation. The recorded plan and outcome are in the
-[programmatic root-complex surface investigation](../research/programmatic-root-complex-surface-investigation.md).
+The current runway is active under Ben's authorization relayed through the
+Overseer on 2026-09-06. Main and Overseer may progress through an integrated
+coarse whole character and the first integrated anatomical refinement for both
+calibrated human and anthropomorphic contexts. The next named Ben checkpoint is
+a coherent, recognizable simplified whole character at rest and in restrained
+combined poses, with useful proportions and major masses plus displayed
+movement driven by real source, frame, and binding data. Internal milestones,
+individual limbs, trials, and poses do not substitute for that checkpoint, and
+this remains experimental evidence rather than a product, specification, or
+architecture adoption.
 
-The investigation consumes explicitly identified authored/prepared input only.
-It introduces no production `GeometryRequest`/`GeometryResult` contract, no
-production-core dependency, no claimed resolved graph, and no durable
-domain/chart/cage identity. It cannot satisfy or replace the DR-0013 Stage 1
-proof. DR-0009 and DR-0010 remain parked; any promotion stops for the
-appropriate decision record/canonical architecture work and Ben's approval.
+This Layer 1 integration checkout packages and tests the historical owned-root
+and gallery fixes from PR #127. Main supplied the current draft head
+`4ae0a5c8176c60791248ad6eb5e52dc657a2dd34` against base
+`db5f11efff124d500d875f7839c53fee9a75f395`; CI, independent review, hosted and
+CLI checks, and human control-plane gates remain pending. This status records no
+merge authorization. The stage ledger is
+[stacked-integration-ledger.md](stacked-integration-ledger.md).
 
-The scoped standard-neutral evidence exhausted exactly three frozen shared
-correction rounds: round 1 fixed measured shoulder intersections, round 2
-improved axial taper and thigh seating, and round 3 applied a superior axial
-saddle. Main-thread direct vision of the fixed front, side, and three-quarter
-round-3 evidence found neck emergence and downward shoulder departure still
-too weak; the arm ports continued to read in a broad superior shelf. Neutral
-credibility failed, so exact-five, tail, and gallery expansion are blocked and
-no fourth correction is allowed.
+The owned-root assembly and exact-five attempt below are stopped, superseded
+historical evidence. Lower/body experiments and the active pelvis source work
+are follow-up stack material; those directories are not present in this Layer 1
+checkout. Pelvis development continues in
+`/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor` on
+`codex/owned-root-assembly-successor`. This integration layer runs captured
+regression checks without changing construction or publishing a new candidate;
+no parked experiment is reactivated.
 
-Structural evidence nevertheless passed: 72 cage vertices and 63 quads,
-1,053 level-2 vertices and 1,008 level-2 quads, level-1/level-2 intersection
-counts `0/0`, and all five reported clearance labels passed. Those labels
-represent only four distinct clearance measurements: `groin = min(right) -
-max(left)` and pairwise `medial_thigh = min(right - left)` are algebraically
-the same scalar, tested at `0.020 S` and `0.025 S`, respectively. This is a
-known terminal-candidate measurement limitation; it does not overturn the
-pass at the stricter `0.025 S` threshold and is not reused by the owned-root
-successor. This is a scoped rejection of the seven-ring candidate, not formal
-Stage 1, not a global rejection of programmatic or hybrid surfaces, and not
-authority to reactivate DR-0009, DR-0010, or another parked workstream.
+## Layer 1 integration evidence (2026-09-07)
 
-The next retained-human action is Ben's disposition or a newly authorized
-direction. There is no autonomous substitute checkpoint, exact-five
-continuation, or parked-work reactivation under this runway.
+The local gallery correction passed 58 focused tests, including delayed group
+transition and Tab/Escape propagation checks. A fresh independent first-use
+CLI trial confirmed the documented success, canonical-metre off-grid
+rejection, missing-file diagnostics, and help. Its pretty-printed test copy
+hit the existing source byte limit; a compact copy reached the intended
+dimension rejection. This is source-inspection evidence, not creature quality.
+
+A separate fresh non-browser adversarial trial exercised the production
+comparator through a temporary Node VM/fake-DOM harness. All six bounded
+scenarios passed: cross-pack identity/context, missing-match skipping,
+ambiguity stops, delayed group activation, image/pack failure preservation,
+and Tab/Escape plus stale-result handling. The harness and result are retained
+at `/tmp/pr127-nonbrowser-trial-itKBKF`; the reviewed application SHA-256 is
+`a1f525d04d806142512d90f2de99e525bf6a5020c3f389a7a459484c021cb864`.
+Fake-DOM results do not establish real event propagation, focus, or rendering.
+
+Captured Python validation is retained outside Git under
+`/home/ben/.cache/pr127-lower-validation-56kvdu76`. The 111-file source
+manifest was recorded before imports and stayed unchanged after execution.
+The structural source check passed; 44 predecessor checks passed; 118 of 119
+owned-root checks passed initially. The failure exposed the frozen production
+line cap; after a formatting-only repair, the test line cap also failed.
+Both failures remain in the original logs. The final affected 27-check
+selection passed from the fresh capture
+`/home/ben/.cache/pr127-lower-validation-49ndbc5u`, with production/test
+counts of 3,400/2,600 and no changed cap or gate. The intermediate capture is
+`/home/ben/.cache/pr127-lower-validation-bw37o9xt`. Each capture contains its
+command manifest and logs. No public experiment builder was invoked.
+
+CLI formatting, Clippy with warnings denied, and 76 tests passed after moving
+a test-only import out of production scope. Repository-search checks and both
+CLI source-inspection commands passed. These focused checks do not upgrade the
+historical full-suite failure baseline or establish a new geometry result.
+
+Ben stopped browser trials after the setup method caused visible Chrome
+errors and failed tabs. One launch passed an empty profile and debug port zero,
+so it may have handed tabs to the ordinary session. No task browser process or
+debug listener remained at the final cleanup check. Cleanup did not intentionally
+modify ordinary Chrome, but earlier launch changes to ordinary Chrome could not
+be attributed or ruled out. Popup text was not captured. Setup and cleanup
+evidence remains at
+`/tmp/pr127-gallery-fixture-001`. Browser rendering, real focus/viewport
+behavior, and intermediate-width layout are unverified. This coverage gap is
+not a waived review or merge gate. Further browser launches are stopped while
+the bounded invocation is repaired and checked without launching a browser.
 
 ## Historical failed-candidate runway (2026-09-01)
 

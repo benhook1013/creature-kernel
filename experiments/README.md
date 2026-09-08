@@ -2,7 +2,11 @@
 
 Status: Active workflow; EXP-0002 remains planned with open evidence closure
 and technology outcome `none`; its phase-one attempt-001 evidence is complete
-and passed, while broader experiment obligations remain open.
+and passed, while broader experiment obligations remain open. The owned-root
+assembly successor is closed historical evidence. Current continuation is the
+integrated coarse-to-anatomical whole-character runway in the
+[Active runway](../docs/project/status.md#active-runway); lower/body experiments
+are follow-up stack material and are not present in this Layer 1 checkout.
 
 Experiments provide reproducible evidence for research questions and decisions.
 They do not become product or architecture contracts automatically. Research
@@ -110,6 +114,15 @@ It is not `EXP-0001` and does not calculate formal support or reject. Its
 candidate-local frozen contract, neutral-first visual checkpoint, and
 experiment-local launcher are not product, Stage 1, production, or formal
 surface-comparison authority.
+
+The [owned root assembly successor](owned-root-assembly-successor/README.md)
+is a finished, stopped, and superseded historical experiment targeting open
+`RQ-002`, `RQ-012`, `RQ-020`, and `RQ-021`. It is not `EXP-0001`; its
+candidate-local design contract is frozen and SHA-256-bound, and its shared
+correction budget is closed unused. Its neutral evidence and fail-closed
+exact-five attempt remain historical; they cannot establish a formal technology
+outcome, production surface contract, or Stage 1 result, and they do not
+reactivate the experiment.
 
 ## Artifact policy
 

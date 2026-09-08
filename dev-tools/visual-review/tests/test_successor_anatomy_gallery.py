@@ -462,6 +462,38 @@ class SuccessorAnatomyGalleryTests(unittest.TestCase):
             profile_generator.DEFAULT_GENERATION_MODE,
         )
 
+    def test_active_generated_manifest_with_decimal_metre_signatures_validates(self) -> None:
+        manifest, _manifest_bytes, records = adapter._validate_source_manifest(self.source_manifest)
+        signatures = [profile["tail_signature"] for profile in manifest["profiles"]]
+        self.assertTrue(any(type(number) is float for signature in signatures for number in signature))
+        self.assertEqual(len(records), 5)
+
+    def test_malformed_tail_signatures_are_rejected_fail_closed(self) -> None:
+        manifest = json.loads(self.source_manifest.read_text(encoding="utf-8"))
+        original_signature = manifest["profiles"][0]["tail_signature"]
+        malformed_signatures = (
+            ("bool", [True, *original_signature[1:]], "tail_signature is invalid", False),
+            ("zero", [0, *original_signature[1:]], "tail_signature is invalid", False),
+            ("negative", [-0.1, *original_signature[1:]], "tail_signature is invalid", False),
+            ("wrong-length", original_signature[:-1], "tail_signature is invalid", False),
+            ("mismatch", [original_signature[0] + 1, *original_signature[1:]], "does not match", False),
+            ("nan", [float("nan"), *original_signature[1:]], "not finite UTF-8 JSON", True),
+            ("infinity", [float("inf"), *original_signature[1:]], "not finite UTF-8 JSON", True),
+        )
+        for name, signature, expected_error, noncanonical in malformed_signatures:
+            with self.subTest(name=name):
+                malformed = copy.deepcopy(manifest)
+                malformed["profiles"][0]["tail_signature"] = signature
+                if noncanonical:
+                    self.source_manifest.write_text(
+                        json.dumps(malformed, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=True) + "\n",
+                        encoding="utf-8",
+                    )
+                else:
+                    self.source_manifest.write_bytes(profile_generator.canonical_bytes(malformed))
+                with self.assertRaisesRegex(adapter.SuccessorAnatomyGalleryError, expected_error):
+                    adapter._validate_source_manifest(self.source_manifest)
+
     def test_profile_source_constant_reader_does_not_execute_source(self) -> None:
         marker = self.root / "executed"
         source_path = self.root / "generator.py"
