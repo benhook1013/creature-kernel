@@ -82,7 +82,8 @@ These are roles rather than model identities. Persistent Astra use applies
 only to Ben's explicitly recorded task/role assignment and its authorized
 scope and duration; it grants no permission for other or new tasks or
 extensions. Ben's retained boundaries above remain unchanged; this split adds
-no serial permission gate or merge/descendant authority.
+no serial permission gate or merge/descendant authority. The separately scoped
+instruction-maintenance exception remains governed by the conditional workflow.
 
 Routine, reversible technical implementation may proceed autonomously within a
 recorded runway. This includes implementation details, defect resolution,
@@ -110,7 +111,8 @@ checkpoint explicitly named for Ben's appraisal, or a retained-human boundary,
 and present that candidate with the judgment Ben is being asked to make. That
 candidate must not be merged autonomously; it requires Ben's explicit, recorded
 authorization. An instruction for one PR is not standing authority for later
-PRs.
+PRs, except the separately scoped instruction-maintenance class expressly
+authorized by Ben and recorded in the conditional workflow.
 
 Changes to agent authority, workflow routing, merge authority, retained-human
 boundaries, or the governing runway scope are presented to Ben and require his

@@ -35,7 +35,15 @@ Main Worker and Overseer are roles rather than model identities. Persistent
 Astra use applies only to Ben's explicitly recorded task/role assignment and
 its authorized scope and duration; it grants no permission for other or new
 tasks or extensions. There is no serial permission gate between them, and this
-split adds no merge or descendant authority.
+split adds no merge or descendant authority; the separately scoped
+instruction-maintenance exception remains governed below.
+
+At an already applicable merge or checkpoint gate, the Overseer may cheaply
+inspect actual review outcomes and check status, verify the agreed taper and
+standing user preferences, and catch omitted or forgotten instructions. This
+lightweight coordination check does not repeat technical audits or tests,
+create new ledgers or proof machinery, or open a routine permission round.
+Existing consequential strategic and visual oversight remains unchanged.
 
 The Main Worker and Overseer delegate routine reading, writing, and tests by
 default; they retain technical reasoning, decisive evidence inspection, and
@@ -523,20 +531,19 @@ concurrent entries, and does not create an inbox-zero obligation.
 ### Selective process-improvement stewardship
 
 At meaningful existing oversight or checkpoint boundaries, the explicitly
-assigned Overseer selectively considers worthwhile batches of reported process,
-tooling, evidence, validation, or context-efficiency improvement candidates.
-The Overseer may delegate bounded, authorized fact gathering, grouping, and
-evidence checks, then personally judges a compact shortlist for usefulness,
-priority, and scope before commissioning the Main Worker or an executor. This
-is not a timer, fixed cadence, whole-inbox scan, second backlog, or new suite.
+assigned Overseer considers reported, evidenced candidates for reusable
+process, tooling, evidence, validation, or context-efficiency improvements.
+The Overseer may delegate bounded fact gathering and evidence checks, then
+personally judge usefulness, priority, and scope before commissioning the Main
+Worker or an executor.
 
-Recurrence is a signal, not a prerequisite for an obvious, evidenced,
-low-cost, reusable improvement. A same-task bug remains immediate
-implementation work rather than an observation. Weigh expected benefit against
-implementation and maintenance cost, and prefer existing tools. Existing
-authorized reversible fixes may proceed; retained-human decisions go to Ben.
-This role does not grant protected-inbox access: stewardship uses reported
-candidates or separately access-authorized material.
+Recurrence is not required for an obvious, evidenced, low-cost improvement;
+same-task bugs remain immediate implementation work. Prefer existing tools and
+weigh benefit against implementation and maintenance cost. Existing authorized
+reversible fixes may proceed; retained-human decisions go to Ben. This
+stewardship uses reported or separately access-authorized material, preserves
+protected-inbox access restrictions and human boundaries, and creates no fixed
+cadence, whole-inbox scan, second backlog, or new suite.
 
 A repeated issue closes through a concrete bounded fix to a repository wrapper,
 preflight, active instruction, or other available tool path; restating the
