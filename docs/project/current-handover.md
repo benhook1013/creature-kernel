@@ -128,11 +128,12 @@ was not edited by this integration layer.
 ## Layer 2 lower integration destination
 
 This checkout carries the lower Layer 2 source/evidence package under the
-three-layer stack. The four stage-specific documentation overlays record
-historical closeout and lower-layer navigation only; no experiment execution or
-geometry validation occurs here, and no parked experiment is reactivated. The
-current continuation is the integrated coarse-to-anatomical whole-character
-Active runway. Later body/foundation paths remain deferred to the upper layer.
+three-layer stack. The documentation changes provide lower-layer navigation
+while preserving the copied experiment records and their lifecycle and evidence
+states. Packaging reactivates no parked experiment and establishes no geometry
+result. The current continuation is the integrated coarse-to-anatomical
+whole-character Active runway. Later body/foundation paths remain deferred to
+the upper layer.
 
 PR #127 and the supplied head remain pending CI, independent review, hosted and
 CLI checks, and human control-plane gates. This handover grants no merge
