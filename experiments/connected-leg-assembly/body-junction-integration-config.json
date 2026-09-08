@@ -1,0 +1,34 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-body-junction-integration-config.v1",
+  "status": "prepared; static-only; capture required before geometry execution",
+  "evidence_label": "Explicit JUNCTION-001 wholebody integration candidate; no visual or human acceptance claim.",
+  "acceptance": "numeric or mechanical passes do not imply anatomy acceptance",
+  "execution_gate": "Raman capture and Main direct review are required before geometry execution",
+  "activation": {
+    "selection": "explicit body-config selection only",
+    "default_configs_unchanged": true,
+    "file_presence_is_not_activation": true,
+    "fallback": false
+  },
+  "torso_refinement": {
+    "inputs": "torso-silhouette-inputs.json"
+  },
+  "arms": {
+    "inputs": "arm-refinement-inputs.json"
+  },
+  "head": {
+    "inputs": "head-refinement-inputs.json"
+  },
+  "feet": {
+    "builder": "foot_junction_construction.py",
+    "inputs": "foot-form-inputs.json",
+    "policy": "foot-junction-policy.json",
+    "replaces": "FOOT003",
+    "candidate": "JUNCTION-001",
+    "status": "statically validated; downstream geometry capture pending"
+  },
+  "tail": {
+    "builder": "tail_construction.py",
+    "inputs": "tail-inputs.json"
+  }
+}

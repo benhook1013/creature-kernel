@@ -6,7 +6,11 @@ and passed, while broader experiment obligations remain open. The owned-root
 assembly successor is closed historical evidence. Current continuation is the
 integrated coarse-to-anatomical whole-character runway in the
 [Active runway](../docs/project/status.md#active-runway); lower/body experiments
-are follow-up stack material and are not present in this Layer 1 checkout.
+are Layer 2 follow-up material in this checkout. The Layer 2 package is based on
+merged PR #127/main and its current package and validation state are described
+in the Active runway. It does not execute experiments or validate geometry, and
+later body/foundation paths remain deferred to the upper layer. No experiment is
+reactivated or accepted by this package.
 
 Experiments provide reproducible evidence for research questions and decisions.
 They do not become product or architecture contracts automatically. Research
@@ -55,6 +59,18 @@ experiments/EXP-NNNN-short-title/
 
 Copy [the experiment template](experiment-template.md). Keep the registry
 below current as experiments are created.
+
+## Layer 2 copied prerequisites
+
+These four directories are copied exploratory or historical prerequisites for
+the lower integration package. Their own READMEs remain authoritative for
+experiment lifecycle, evidence closure, and technology outcome. This checkout
+does not execute them or claim acceptance:
+
+- [Connected-leg assembly staging](connected-leg-assembly/README.md)
+- [Local pelvis/hip articulation](pelvis-hip-articulation/README.md)
+- [Pelvis source calibration](pelvis-source-calibration/README.md)
+- [Bounded pelvis-to-thigh transition](pelvis-thigh-transition/README.md)
 
 ## Registered experiments
 

@@ -1,0 +1,36 @@
+{
+  "schema": "creature-kernel.connected-leg-assembly-body-chest-envelope-config.v1",
+  "status": "prepared; static-only; capture required before geometry execution",
+  "evidence_label": "CHEST-ENVELOPE001 causal experiment; informal WIP only; no human checkpoint or aesthetic acceptance claim.",
+  "acceptance": "numeric or mechanical passes do not imply anatomy acceptance",
+  "rationale": "Start from body-junction-integration-config.json and replace only the torso source input with the explicit source-linked chest envelope; the JUNCTION-001 component selection remains unchanged.",
+  "budget": "one shared CHEST-ENVELOPE001 candidate for both calibrated bodies; zero aesthetic corrections",
+  "execution_gate": "Raman capture and Main direct review are required before geometry execution",
+  "activation": {
+    "selection": "explicit body-config selection only",
+    "default_configs_unchanged": true,
+    "file_presence_is_not_activation": true,
+    "fallback": false
+  },
+  "torso_refinement": {
+    "inputs": "torso-chest-envelope-inputs.json"
+  },
+  "arms": {
+    "inputs": "arm-refinement-inputs.json"
+  },
+  "head": {
+    "inputs": "head-refinement-inputs.json"
+  },
+  "feet": {
+    "builder": "foot_junction_construction.py",
+    "inputs": "foot-form-inputs.json",
+    "policy": "foot-junction-policy.json",
+    "replaces": "FOOT003",
+    "candidate": "JUNCTION-001",
+    "status": "statically validated; downstream geometry capture pending"
+  },
+  "tail": {
+    "builder": "tail_construction.py",
+    "inputs": "tail-inputs.json"
+  }
+}

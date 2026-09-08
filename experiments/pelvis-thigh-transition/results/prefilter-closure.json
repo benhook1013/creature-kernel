@@ -1,0 +1,40 @@
+{
+  "schema": "pelvis-thigh-transition-prefilter-closure.v1",
+  "trial_status": "failed-prefilter-evidence-preserved",
+  "evidence_closure": "incomplete",
+  "technology_outcome": "none",
+  "raw_retained_location": "/home/ben/.cache/creature-kernel/pelvis-thigh-transition/failed-prefilter-20260905/original-trial",
+  "preservation_manifest": "/home/ben/.cache/creature-kernel/pelvis-thigh-transition/failed-prefilter-20260905/preservation-manifest.json",
+  "raw_files": [
+    {"path": "final-diagnostics2.json", "bytes": 36561, "sha256": "685337985297ce62ce306b22c6bbde8773c80bb98a106747c5b4ea082c1cd808"},
+    {"path": "gates.json", "bytes": 9230, "sha256": "b70537922e56b059da3ed0fa113760c117fbeeb251a4452f6ad110ce1e55e3d2"},
+    {"path": "gates2.json", "bytes": 9158, "sha256": "a4f500a91a67351fdfd584c958a19ad6051dcb1605db96403fc0a0687bf2f10a"},
+    {"path": "gates3.json", "bytes": 9206, "sha256": "994e92eefd2d0c23f54391b4fb765bff2c22efcc9e07a9271d7a39b7bf44e431"},
+    {"path": "gates4.json", "bytes": 12778, "sha256": "13314332786a51fa765d8d5fbdc5588473d1e93f63a80515b044d1d1963f3f79"},
+    {"path": "stencil.json", "bytes": 21792, "sha256": "c8b7064401e3adc435bd392f43d2d07ebb0cc59a5b5ee6f761e060ce1fc43460"},
+    {"path": "stencil3.json", "bytes": 21792, "sha256": "c8b7064401e3adc435bd392f43d2d07ebb0cc59a5b5ee6f761e060ce1fc43460"},
+    {"path": "stencil_probe.py", "bytes": 2978, "sha256": "7562c3fb97655719b456db32ab624ce71344682f8c3a6ef6ac002f0d3c620be0"},
+    {"path": "summarize.py", "bytes": 1317, "sha256": "4137276cdf0d21d8ad1cf396983c56fbed9a2e234d9549f68ce9c6682cb79ddf"},
+    {"path": "summary.txt", "bytes": 9683, "sha256": "113590f8df1e3065828b08bf63d89951735497d26422fd44afb4083636a687d5"},
+    {"path": "trial_gate_probe.py", "bytes": 16759, "sha256": "35f73212e8783b3b10227b1ba3d4ce5f22ef6f59bf6427c0682bf5243927bf9f"}
+  ],
+  "final_diagnostics2": {
+    "path": "final-diagnostics2.json",
+    "bytes": 36561,
+    "sha256": "685337985297ce62ce306b22c6bbde8773c80bb98a106747c5b4ea082c1cd808"
+  },
+  "known_limits": {
+    "original_concurrent_edits": "The trial probe imported mutable worktree files by absolute path; no immutable executing-source snapshot was captured. Current source copies are RECOVERY snapshots only.",
+    "missing_import_snapshots": "The original run did not retain a module/import snapshot. Current package/runtime data and best-effort loaded extension hashes do not reconstruct the original import state.",
+    "trial_surface_renders": "No surface-render files were present in the original trial directory; numeric diagnostics and probes only were retained.",
+    "pending_fixes": "Pending fixes remain untouched; the preservation tool did not edit, revert, or infer them.",
+    "scope": "This preserves failed local pelvis-to-thigh evidence and isolation inputs only; it accepts no whole-body architecture or product direction."
+  },
+  "recovery_snapshot": {
+    "label": "RECOVERY",
+    "not_original_executing_snapshot": true,
+    "location": "/home/ben/.cache/creature-kernel/pelvis-thigh-transition/failed-prefilter-20260905/recovery/source",
+    "environment": "/home/ben/.cache/creature-kernel/pelvis-thigh-transition/failed-prefilter-20260905/recovery/environment.json",
+    "files": 41
+  }
+}
