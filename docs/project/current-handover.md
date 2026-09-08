@@ -7,48 +7,35 @@ with live verification and navigation.
 ## Resumed runway — 2026-09-08
 
 Ben explicitly resumed the exact paused runway through the Overseer on
-2026-09-08. The fail-closed PowerShell/stdin invocation repair has now passed
-parser, mocks, and both non-launching stdin sentinels (empty-profile and
-nonnumeric-port), with both rejected-input child processes exiting nonzero and no trailing sentinel; quoted-argument
-preview and fake handoff match, and no execution-policy mutation occurred.
-Main's follow-up changed only cleanup-receipt guidance to require current-PID,
-executable, and profile verification; no algorithm changed. Revalidate the
-pause snapshot and these status pointers before continuing the lowest
-integration lane: PR #127 plus up to two dependent follow-ups, with each layer
-below 100 changed files. PR #127 currently has 57 prospective paths; the two
-planned follow-ups are approximately 92 and 79 paths. Packaging and review remain primary, and upper-work must not
-delay the lower lane. A genuine final-review-ready clean immutable head may then
-receive the hosted and committed-diff CLI review cycle together. Current
-real-browser coverage is deferred; no browser repair or setup lane remains
-active. No local native Chromium or Playwright was available; the setup attempt
-installed only npm Playwright 1.63.0 packages at
-`/home/ben/.cache/pr127-native-browser-IFXwYI`, with no browser download or
-launch and no new infrastructure or launcher project. Windows-side execution is
-not permanently prohibited, but any future coverage must be provably hidden and
-profile-isolated and create no visible Windows desktop windows, tabs, consoles,
-focus changes, or popups. Real Windows launch and nonintrusion remain
-unverified. No additional broad waiver is granted. Previous source/CLI gallery
-hash-based validation remains retained evidence. Current merge responsibility is
-assigned exclusively to the Overseer: Main prepares and pushes PRs, implements,
-reviews, fixes, validates, and reports concise readiness, but never merges or
-enables auto-merge, including after readiness acknowledgment. The Overseer
-alone assesses agreed gates and decides and executes merge; Ben retains product,
-direction, and consequential boundaries. Ben explicitly authorizes closure after
-the current fixes and checks, subject to Overseer assessment. The pause record
-below is historical.
+2026-09-08. PR #127 merged into `main` on 2026-09-09 NZST
+(`2026-09-08T12:14:09Z`) by the Overseer after required CI passed. The current
+lower integration follows the package and validation state in the Active
+runway.
+
+The current package and validation state are recorded in the Active runway. No
+experiment execution, new geometry, candidate construction, or acceptance
+occurs here. Upper body and foundation work remain separate. The named human
+checkpoint remains a coherent, recognizable simplified whole character at rest
+and in restrained combined poses, with movement driven by real source, frame,
+and binding data.
+
+The Overseer retains exclusive merge assessment and execution; Main has no
+merge authority and Ben retains the consequential boundaries. The prior PR #127
+closure authorization is historical and scoped, not standing automatic approval
+for this next PR. The pause record below is historical.
 
 ## Current Layer 2 lower integration
 
 This handover now points at the lower integration checkout
 `/home/ben/src/creature-kernel-worktrees/lower-connected-leg-integration` on
-`codex/lower-connected-leg-integration`, based at `e8c6516`. It contains exactly
-88 copied source/evidence paths from the agreed manifest. This checkout performs
-no experiment execution or geometry validation; later body/foundation paths
-remain deferred to the upper layer. The four copied experiment directories are
-exploratory or historical prerequisites whose own READMEs retain lifecycle and
-evidence authority. The current whole-character human checkpoint is unchanged:
-a coherent, recognizable simplified whole character at rest and in restrained
-combined poses, with movement driven by real source, frame, and binding data.
+`codex/lower-connected-leg-integration`. It carries the lower package described
+in the Active runway and performs no experiment execution or geometry
+validation; later body/foundation paths remain deferred to the upper layer.
+The four copied experiment directories are exploratory or historical
+prerequisites whose own READMEs retain lifecycle and evidence authority. The
+current whole-character human checkpoint is unchanged: a coherent,
+recognizable simplified whole character at rest and in restrained combined
+poses, with movement driven by real source, frame, and binding data.
 
 ## Historical pause snapshot — 2026-09-07
 
@@ -135,10 +122,9 @@ result. The current continuation is the integrated coarse-to-anatomical
 whole-character Active runway. Later body/foundation paths remain deferred to
 the upper layer.
 
-PR #127 and the supplied head remain pending CI, independent review, hosted and
-CLI checks, and human control-plane gates. This handover grants no merge
-authorization. The current integration checks and consolidated review remain
-pending.
+The lower package continues under the Active runway. The Overseer retains
+exclusive merge assessment and execution, and the prior PR #127 closure
+authorization is historical and scoped to that merged PR.
 
 Historical Layer 1 integration results and their capture paths are recorded in
 [Layer 1 integration evidence](status.md#layer-1-integration-evidence-2026-09-07).

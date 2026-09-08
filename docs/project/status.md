@@ -15,32 +15,33 @@ governs what resumes next.
 ## Active runway
 
 **RESUMED on 2026-09-08 at Ben's explicit request relayed by the Overseer.**
-Resume the exact paused runway. The fail-closed PowerShell/stdin invocation
-repair has now passed parser, mocks, and both non-launching stdin sentinels
-(empty-profile and nonnumeric-port), with both rejected-input child processes exiting nonzero and no trailing sentinel;
-quoted-argument preview and fake handoff match, and no execution-policy
-mutation occurred. Main's follow-up changed only cleanup-receipt guidance to
-require current-PID, executable, and profile verification; no algorithm changed.
-Revalidate this pause snapshot and the current handover before continuing the
-lowest integration lane:
-PR #127 currently has 57 prospective paths; its two planned follow-ups are
-approximately 92 and 79 paths, each below 100 changed files. Packaging and review remain primary, and
-upper-work must not delay that lower lane. A genuine final-review-ready clean
-immutable head is required before the hosted and committed-diff CLI review cycle
-runs together. Current real-browser coverage is deferred; no browser repair or
-setup lane remains active. No local native Chromium or Playwright was available;
-the setup attempt installed only npm Playwright 1.63.0 packages at
-`/home/ben/.cache/pr127-native-browser-IFXwYI`, with no browser download or
-launch and no new infrastructure or launcher project. Windows-side execution is
-not permanently prohibited, but any future coverage must be provably hidden and
+The paused PR #127 integration is now historical: PR #127 merged into `main` on
+2026-09-09 NZST (`2026-09-08T12:14:09Z`) by the Overseer after required CI
+passed. The current lower integration is rebased onto `origin/main` at
+`f30faafe598ef7f94341691fe492228f165943de`.
+
+The next package is the lower connected-leg prerequisites and three pelvis
+records: 88 added source/evidence paths, plus three navigation overlays and one
+small authorized workflow timing edit, for 92 prospective PR paths. First-use
+public help/prepare/captured-verify passed; the
+adversarial absent/existing/tampered verification cases passed with identical
+before/after existing snapshot hashes; and the fresh captured 26 synthetic
+runner tests passed with pre/post verification. The 61 added Python and 16 JSON
+files parsed successfully. This package performs no experiment execution, new
+geometry, candidate construction, or acceptance.
+Upper body and foundation work remain separate. The named human checkpoint
+remains a coherent, recognizable simplified whole character at rest and in
+restrained combined poses, driven by real source, frame, and binding data.
+
+Real-browser coverage remains deferred; no browser repair or setup lane is
+active. Any future Windows invocation must be provably hidden and
 profile-isolated and create no visible Windows desktop windows, tabs, consoles,
-focus changes, or popups. Real Windows launch and nonintrusion remain
-unverified. No additional broad waiver is granted. Previous source/CLI gallery
-hash-based validation remains retained evidence. Ben explicitly authorizes
-closure after the current fixes and checks, subject to Overseer assessment.
-Under Ben's authorization, the Overseer owns merge assessment and execution;
-Main has no merge authority, and retained-human boundaries remain with Ben. The
-paused snapshot is preserved as
+focus changes, or popups. Native launch and nonintrusion remain unverified.
+
+The Overseer retains exclusive merge assessment and execution; Main has no
+merge authority and Ben retains the consequential boundaries. The prior PR #127
+closure authorization is historical and scoped, not standing automatic approval
+for this next PR. The paused snapshot is preserved as
 historical record in the [current
 handover](current-handover.md#historical-pause-snapshot--2026-09-07).
 
@@ -61,28 +62,16 @@ individual limbs, trials, and poses do not substitute for that checkpoint, and
 this remains experimental evidence rather than a product, specification, or
 architecture adoption.
 
-The Layer 1 integration record packages and tests the historical owned-root
-and gallery fixes from PR #127. Main supplied the current draft head
-`4ae0a5c8176c60791248ad6eb5e52dc657a2dd34` against base
-`db5f11efff124d500d875f7839c53fee9a75f395`; CI, independent review, hosted and
-CLI checks, and human control-plane gates remain pending. This status records no
-merge authorization. The stage ledger is
-[stacked-integration-ledger.md](stacked-integration-ledger.md).
-
-The current checkout is the Layer 2 lower integration at base `e8c6516`. It
-contains exactly 88 copied source/evidence paths from the agreed manifest; it
-does not execute experiments or validate geometry. The owned-root assembly and
-exact-five attempt below are stopped, superseded historical evidence. Later
-body/foundation paths remain deferred to the upper layer, while the copied
-lower experiment records remain exploratory or historical prerequisites only.
-Pelvis development continues in
-`/home/ben/src/creature-kernel-worktrees/owned-root-assembly-successor` on
-`codex/owned-root-assembly-successor`. No experiment is reactivated here. The
-current whole-character human checkpoint remains the coherent, recognizable
-simplified whole character at rest and in restrained combined poses, driven by
-real source, frame, and binding data.
+The current checkout is the Layer 2 lower integration described above. It does
+not execute experiments or validate geometry. Later body/foundation paths
+remain deferred to the upper layer, while the copied lower experiment records
+remain exploratory or historical prerequisites only. No experiment is
+reactivated here.
 
 ## Layer 1 integration evidence (2026-09-07)
+
+This section is a historical snapshot of the former Layer 1 integration and
+does not define the current lower-package continuation.
 
 The local gallery correction passed 58 focused tests, including delayed group
 transition and Tab/Escape propagation checks. A fresh independent first-use

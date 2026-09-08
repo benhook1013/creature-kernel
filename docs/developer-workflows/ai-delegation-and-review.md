@@ -50,8 +50,11 @@ Existing consequential strategic and visual oversight remains unchanged.
 
 The Main Worker proactively reports concise high-level progress and recommends
 closure when useful review returns have diminished to minor improvements. It
-does not wait for Ben to ask or chase perfect or zero-finding reviews. The
-handoff summarizes the recent review trend and significance, current fixes,
+does not wait for Ben to ask or chase perfect or zero-finding reviews.
+Immediately before reporting readiness to the Overseer, the Main Worker
+refreshes the PR title and body for the final scope and validation, then reads
+back its title, body, head, base, and state under the [repository-safety rule](../../AGENTS.md#repository-safety).
+The handoff summarizes the recent review trend and significance, current fixes,
 and consequential remaining gaps, using existing evidence. The Overseer
 assesses that recommendation promptly and decides whether to merge, request a
 specific necessary fix, or raise a retained-human decision. This creates no
