@@ -85,6 +85,9 @@ $receipt = Invoke-BrowserTrial -BrowserPath $browser -ProfilePath $planProfile -
 if ($state.launch_calls -ne 1 -or $receipt.pid -ne 4242) {
     throw 'the mocked launch did not return its owned process receipt'
 }
+if ($state.executable -ne $browser -or $receipt.browser -ne $browser) {
+    throw 'the mocked launch did not receive the validated browser executable'
+}
 if ($state.argument_line -ne $receipt.argument_line -or
     $state.argument_line -notmatch '"--user-data-dir=C:\\Temp\\pr127 gallery plan-001"') {
     throw 'the mocked launch did not receive the exact quoted plan argument line'
