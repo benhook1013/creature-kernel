@@ -469,25 +469,44 @@ not a review cycle.
 
 While hosted review runs, the main thread may continue useful whole-PR CLI
 cycles on evolving local commits without waiting for hosted review. Each cycle
-has a deliberate, finite purpose; no unattended or empty repeat is allowed.
-Fix validated material findings and rerun the affected whole-PR review. Stop
-when the candidate and review findings are ready, or when another existing gate
-applies. Do not push a local candidate until hosted review of the current pushed
-head reaches a terminal state.
+has a deliberate, finite purpose; unattended or purposeless repeats are not
+allowed. A deliberate second hosted confirmation pass on an unchanged remote
+head is allowed to establish consecutive convergence and needs no fake code
+edit. Fix validated useful findings and rerun the affected whole-PR review.
+Stop when the candidate and review findings are ready, or when another existing
+gate applies. Do not push a local candidate until hosted review of the current
+pushed head reaches a terminal state.
 
-Practical taper is reached when the latest relevant hosted review and latest
-whole-PR CLI review produce no new validated material findings, or only repeats,
-non-actionable findings, disproportionate suggestions, or out-of-scope items.
-The Main Worker judges taper; a raw zero-finding result is unnecessary. Ordinary
-validation and CI, finding disposition, independent review, external-review,
-checkpoint, and human merge gates still apply. The committed-diff command is
+Practical taper is reached only when hosted CodeRabbit has stopped finding
+meaningful or useful improvements on the actual final candidate. Usually this
+means two consecutive hosted passes for that candidate, each producing roughly
+0–2 findings, with every finding judged not to be a meaningful or useful
+improvement (normally a false positive or tiny wording issue). This is a normal
+stopping signal, not an arbitrary mandatory count of clean rounds. A substantive
+change makes earlier review stale and requires review of the actual final
+candidate. Meaningful or useful improvements include worthwhile correctness
+fixes, tests, and maintainability improvements even when nonblocking. The Main
+Worker judges usefulness and may reject false, disproportionate, non-actionable,
+or out-of-scope suggestions without expanding scope. A raw zero-finding or
+“zero material blockers” result, or a large count of prior passes, does not
+establish taper by itself.
+
+The whole-PR CLI runs independently on evolving local commits during the hosted
+remote freeze and must also cease yielding accepted useful findings before the
+final candidate is ready. This supports the hosted significance judgment
+without creating a second mandatory clean-round or zero-finding gate; CLI
+convergence cannot replace hosted convergence. Ordinary validation and CI,
+finding disposition, independent review, external-review, checkpoint, and
+human merge gates still apply. The committed-diff command is
 `coderabbit review --agent --committed --base <remote>/<base-ref>` with the
 actual fetched PR base; it supports but does not replace hosted review, internal
 review, tests, hands-on trials, CI, or human gates.
 GitHub checks and actual review outputs suffice as operational evidence. Keep
 only transient base/head context needed to target running reviews; do not create
-ledgers, review evidence documents, routine PR disposition comments, or
-persistent OID/command records merely to prove that review occurred.
+ledgers, review evidence documents, or routine PR disposition comments beyond
+the count-only checkpoint comments specified in PR reports after each distinct
+adjudicated completed hosted or CLI round, or persistent OID/command records
+merely to prove that review occurred.
 
 If hosted CodeRabbit is unavailable or rate-limited, the main thread reports
 that outcome honestly and waits for availability while doing safe,
@@ -508,6 +527,30 @@ authorization before installation, enablement, configuration, invocation, or
 submission of repository content. Review allowances, projects, and external
 systems are not coordinated or coupled across repositories; the main thread
 does not mutate another project.
+
+### PR reports
+
+The PR is the shared reporting record; do not create a separately maintained
+review chain. When reporting, read existing PR hosted summaries or threads and
+the hosted and CLI count-only checkpoint comments, then present the actual
+completion order including late posts,
+ask the owner only for meaningful missing or ambiguous counts, and mark missing
+evidence. Order PRs by merge priority while respecting dependencies, and state
+the purpose, owner, and base, the review chain, and fix status separately from
+gaps and readiness. Show each hosted round as `hosted (R/A)` and each CLI round
+as `CLI R/A`, where R is raw findings and A is accepted useful findings.
+Accepted means judged useful, whether or not blocking; it does not mean fixed.
+Distinct completed rounds on the same SHA each count; exclude failed or
+rate-limited rounds and include zero-finding rounds.
+
+After each distinct adjudicated completed hosted or CLI round, check whether its
+count snapshot is already present and, if absent, promptly post exactly one
+short count-only PR comment. Use `**Hosted: 8 found / 6 accepted**` for hosted
+rounds and `**CLI: 8 found / 6 accepted**` for CLI rounds; optionally include
+the actual review time in Pacific/Auckland and an abbreviated SHA. Do not
+include finding lists, explanations, validation inventories, or fix-tracking
+promises in either comment. A read-only PR report does not trigger reviews,
+resume work, merge, or routine chat reconstruction.
 
 ## Operational observations
 
