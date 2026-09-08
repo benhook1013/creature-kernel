@@ -422,59 +422,70 @@ his explicit, recorded authorization before merge. Routine auto-merge,
 unattended merge loops, administrator bypass, and an unrecorded runway are not
 merge authority.
 
+Ben has explicitly authorized the assigned Overseer to originate, create, push,
+review, and auto-merge only small future instruction-maintenance PRs. An
+eligible PR changes only `AGENTS.md` and/or this workflow, and only to update
+reusable AI working instructions, links, or routing clarifications; it contains
+no runtime code or feature work and does not change product purpose or scope,
+product/specification/architecture contracts, the Active runway, retained-human
+decisions, morphology or runtime promises, platform, licensing, cost, privacy,
+or feature-PR merge authority. A bounded subagent prepares the change under the
+normal delegation contract and must not spawn descendants. The Overseer
+personally inspects the exact small diff and runs applicable documentation
+validation and CI before merging; all ordinary review gates still apply. If an
+active PR already owns either file,
+integrate through its owner or defer; do not create a competing PR. This
+standing authorization is Ben's explicit control-plane approval and merge
+authorization only for that future class; it grants no broader authority and
+waives no check. A mixed-scope or otherwise ineligible PR remains outside this
+class; the Main Worker reports that gate.
+
 ## CodeRabbit and external review
 
 For a substantial PR, the main thread pushes its first coherent, review-useful
 head early enough for external review to run in parallel with later disjoint
 work in the same PR. It does not wait for every planned addition to be complete
-before starting the review clock. For each review-useful head, the main thread
-launches the hosted CodeRabbit pass and the committed-diff CLI pass in parallel
-as one deliberate cycle. Both review the same clean, immutable pushed OID.
-Before launching, the main thread fetches the PR branch, requires the committed
-tree to match the intended review content, verifies local `HEAD` equals the
-remote PR-head OID, and records that OID with both results. Uncommitted disjoint
-follow-on work may remain local and is not represented as reviewed.
+before starting the review clock. For each review-useful pushed head, launch the
+hosted CodeRabbit pass on the current pushed head and a committed-diff CLI pass
+in parallel as one cycle. Keep the remote head immutable while hosted review
+runs. Every CLI pass reviews the entire current PR against the actual fetched
+PR base; for a stacked PR, use its immediate lower branch as the base. Fetch
+that exact base before each pass so the command targets the current whole-PR
+diff. A partial, latest-commit-only, selected-path, or previous-delta review is
+not a review cycle.
 
-The CLI pass supports the hosted pass but cannot satisfy the hosted taper gate.
-Every changed pushed head receives a fresh hosted-plus-CLI cycle; findings
-from an earlier OID do not cover a later head. While the hosted pass runs, the
-main thread does not push or mutate the remote PR head. It may prepare local
-fixes without presenting them as reviewed.
+While hosted review runs, the main thread may continue useful whole-PR CLI
+cycles on evolving local commits without waiting for hosted review. Each cycle
+has a deliberate, finite purpose; no unattended or empty repeat is allowed.
+Fix validated material findings and rerun the affected whole-PR review. Stop
+when the candidate and review findings are ready, or when another existing gate
+applies. Do not push a local candidate until hosted review of the current pushed
+head reaches a terminal state.
 
-After both results complete, the main thread verifies each finding, fixes or
-explicitly dispositions it, ensures the required local and CI checks are run,
-and pushes
-the next head only when the result is ready for a new cycle. Hosted taper is
-reached when a fresh hosted pass produces no new material findings, or only
-repeats, non-actionable findings, disproportionate suggestions, or
-out-of-scope items; remaining items have recorded dispositions. After
-implementation is complete, three consecutive hosted passes with at most two
-new actionable findings each create a presumption that taper has been
-reached. Continuing beyond that presumption requires a main-thread-validated
-material correctness, contract, evidence-integrity, security, or safety issue.
-Formatting/readability, minor test cleanup, speculative hardening,
-already-dispositioned repeats, and disproportionate suggestions do not reset
-the streak or justify another cycle. The main thread does not fix nonmaterial
-suggestions merely to manufacture another review head. After fixing a material
-issue, it performs one final exact-head hosted-plus-CLI cycle and repeats only
-if that cycle finds another validated material issue. Zero findings is never
-the target.
+Practical taper is reached when the latest relevant hosted review and latest
+whole-PR CLI review produce no new validated material findings, or only repeats,
+non-actionable findings, disproportionate suggestions, or out-of-scope items.
+The Main Worker judges taper; a raw zero-finding result is unnecessary. Ordinary
+validation and CI, finding disposition, independent review, external-review,
+checkpoint, and human merge gates still apply. The committed-diff command is
+`coderabbit review --agent --committed --base <remote>/<base-ref>` with the
+actual fetched PR base; it supports but does not replace hosted review, internal
+review, tests, hands-on trials, CI, or human gates.
+GitHub checks and actual review outputs suffice as operational evidence. Keep
+only transient base/head context needed to target running reviews; do not create
+ledgers, review evidence documents, routine PR disposition comments, or
+persistent OID/command records merely to prove that review occurred.
 
-When warranted, the committed-diff command is
-`coderabbit review --agent --committed --base <remote>/<base-ref>` against a
-fetched remote-tracking base. This supporting command does not replace the
-hosted pass, internal review, tests, hands-on trials, CI, or human gates.
-
-If hosted CodeRabbit is unavailable or rate-limited, the main thread records
+If hosted CodeRabbit is unavailable or rate-limited, the main thread reports
 that outcome honestly and waits for availability while doing safe,
 non-conflicting work, or stops for an explicit Ben waiver. It does not merge
-without the waiver. Keep the immutable-head restriction until the hosted pass
-reaches a terminal state. After one bounded wait and one status recheck,
-record a service-declared failure or cancellation as terminal. If a stale run
-exposes neither a terminal state nor a cancellation route, abandon that pass
-as unavailable, record its reviewed OID and outcome, release the restriction,
-and treat later output as stale. No unattended polling, automatic retry loop,
-or timer continues the cycle.
+without the required hosted review or an explicit Ben waiver. Keep the
+immutable-head restriction until the hosted pass reaches a terminal state. After
+one bounded wait and one status recheck,
+recognize a service-declared failure or cancellation as unavailable. If a stale
+run exposes neither a terminal state nor a cancellation route, treat that pass
+as unavailable, release the restriction, and treat later output as stale. No
+unattended polling, automatic retry loop, or timer continues the cycle.
 
 Automatic initial and incremental reviews and automatic review/chat responses
 remain disabled. The main thread may invoke CodeRabbit autonomously under this

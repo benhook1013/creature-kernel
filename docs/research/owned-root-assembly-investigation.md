@@ -191,8 +191,8 @@ profile expansion.
 
 ## Execution order and stop rule
 
-The work proceeds in this order; items 1 through 5 are complete and item 6 is
-active:
+This historical sequence recorded items 1 through 5 as complete at that stage;
+item 6 was the conditional next step and is now stopped and superseded:
 
 1. audit the terminal candidate's utilities for representation-independent
    reuse;
